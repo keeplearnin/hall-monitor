@@ -107,12 +107,12 @@ def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths
         "route_accuracy",
     ):
         lines.append(f"| {key.replace('_', ' ').capitalize()} | {_pct(summary[key])} |")
-    lines.append(
+    lines += [
         f"| Seconds per claim (sum of agent calls) | {summary['seconds_per_claim'] or 0:.1f} |",
         f"| Runs revised after critic review | {_pct(summary['revised_rate'])} |",
         f"| Runs where the critic still disagreed | {_pct(summary['critic_unresolved_rate'])} |",
         f"| Runs stopped (policy not found) | {_pct(summary['stopped_rate'])} |",
-    )
+    ]
 
     lines += [
         "",
@@ -241,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
     meta = {
         "run_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
         "git_commit": _git("rev-parse", "HEAD"),
-        "git_dirty": bool(_git("status", "--porcelain")),
+        "git_dirty": bool(_git("status", "--porcelain", "--untracked-files=no")),
         "claims": len(claims),
         "trials": args.trials,
         "critic": not args.no_critic,

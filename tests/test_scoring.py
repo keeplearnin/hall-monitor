@@ -125,3 +125,31 @@ def test_stopped_run_scores_as_wrong_without_crashing():
     s = score(result)
     assert not s.coverage_correct and not s.risk_level
     assert s.stopped and s.flag_precision is None
+
+
+def test_report_renders(tmp_path):
+    from dataclasses import asdict
+
+    from hall_monitor.evals.baseline import write_report
+    from hall_monitor.evals.scoring import summarize
+
+    result = result_from_truth("claim_001")
+    s = score(result)
+    runs = [{"score": asdict(s), "result": result.model_dump(mode="json")}]
+    meta = {
+        "run_at": "now",
+        "git_commit": "abc1234",
+        "git_dirty": False,
+        "claims": 1,
+        "trials": 1,
+        "critic": True,
+        "agents": [],
+    }
+    write_report(
+        tmp_path / "report.md",
+        meta,
+        summarize([s]),
+        runs,
+        {"claim_001": load_ground_truth("claim_001")},
+    )
+    assert "Runs revised after critic review" in (tmp_path / "report.md").read_text()

@@ -69,7 +69,7 @@ flowchart LR
     end
 ```
 
-What is built today, after milestone 2: intake, coverage check, risk and fraud, and recommendation run as a single pass, with the registry check on every model call and routing to an adjuster as a code rule. The critic, MCP tools, approval gate and audit log are next. For the current runtime path with module names, see the one-page overviews:
+What is built today, after milestone 3: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. The pipeline stops if the claim's policy can't be found. MCP tools, the approval gate and the audit log are next. The one-page overviews below describe the pipeline as of milestone 2, before the critic:
 
 - [`docs/architecture.html`](docs/architecture.html), for engineering managers and architects
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
@@ -101,14 +101,16 @@ Numbers are published as each milestone lands, from runs anyone can reproduce wi
 |---|---|---|---|---|---|
 | Baseline (single pass, 6 claims x 3 trials) | 100.0% | 83.3% | 0.0% | $0.024 | n/a |
 | Baseline (single pass, 26 claims x 3 trials) | 98.3% | 89.7% | 0.0% | $0.022 | n/a |
+| Milestone 3 fixes, no critic (26 claims x 3 trials) | 98.6% | 100.0% | 0.0% | $0.022 | n/a |
+| Milestone 3 with critic (26 claims x 3 trials) | 98.9% | 100.0% | 0.0% | $0.038 | n/a |
 
-Same code for both rows; the second runs on a larger claim set. In the 26-claim run, 77 of 78 runs were routed correctly and no wrong amount was ever paid automatically: every miss that touched money went to an adjuster. Details: findings for [6 claims](evals/results/baseline/findings.md) and [26 claims](evals/results/baseline-26/findings.md).
+The two baseline rows use the same code; the second runs on a larger claim set. Milestone 3 computes the coverage label in code and stops when a policy can't be found, which took coverage reasoning to 100% without the critic. The critic's measured gain is on fraud flags: precision went from 92% to 100%, at about $0.016 more per claim. The amount slips it was built to catch didn't occur in either milestone 3 run, so that gain isn't measured yet. Details: findings for [6 claims](evals/results/baseline/findings.md), [26 claims](evals/results/baseline-26/findings.md) and [milestone 3](evals/results/m3-critic/findings.md).
 
 ## Roadmap
 
 1. ~~Repo, agent registry, synthetic claims and policies with ground truth, tracing~~ (done)
 2. ~~Baseline eval run, results committed~~ (done)
-3. Critic agent and self-correction loop
+3. ~~Critic agent and self-correction loop~~ (done)
 4. MCP servers: `policy_lookup`, `claims_history`
 5. Adjuster approval gate with persistent checkpoints
 6. Hash-chained audit log
