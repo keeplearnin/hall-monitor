@@ -1,8 +1,8 @@
-# hall-monitor
-Agent Governance Kit
-Regulated Agent Kit
+hall-monitor
 
 Governance patterns for agentic AI in regulated financial services. Worked example: insurance claims triage.
+
+Every agent needs a hall pass. hall-monitor checks it, watches where the agent goes, writes everything down, and calls a grown-up when it matters.
 
 Status: early build, in public. This repo is under active development (started November 2026). Each milestone ships with its eval numbers, including the bad ones. See Roadmap and Results.
 
@@ -10,9 +10,9 @@ Why this exists
 
 Most agent demos show what a model can do. Regulated firms need to know what an agent is allowed to do, who approved it, what it touched, and whether anyone can prove that six months later.
 
-Those answers usually live in policy documents. This kit puts them in code:
+Those answers usually live in policy documents. hall-monitor puts them in code:
 
-Every agent is registered before it can run, with an owner, a risk tier and an explicit tool allow-list.
+Every agent is registered (its hall pass) before it can run, with an owner, a risk tier and an explicit tool allow-list.
 Consequential decisions stop for a human, and the evidence the human saw is recorded with their decision.
 Every step is logged in an append-only, hash-chained audit trail that shows if anything was altered.
 Every change is evaluated in CI, so a new prompt or model can't silently ship a regression.
@@ -97,16 +97,16 @@ Quickstart
 Coming with milestone 1.
 
 bash
-git clone https://github.com/<your-username>/regulated-agent-kit.git
-cd regulated-agent-kit
+git clone https://github.com/<your-username>/hall-monitor.git
+cd hall-monitor
 uv sync
 cp .env.example .env   # add ANTHROPIC_API_KEY and Langfuse keys
-uv run python -m kit.run --claim data/synthetic/claims/claim_001.json
+uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
 Repository layout
 text
-regulated-agent-kit/
+hall-monitor/
 ├── registry/            # Agent manifests (YAML) and the registry schema
-├── kit/
+├── hall_monitor/
 │   ├── agents/          # Intake, coverage check, critic, risk and fraud, recommendation
 │   ├── gateway/         # Routing, redaction, cost tracking
 │   ├── governance/      # Approval gates, audit log
