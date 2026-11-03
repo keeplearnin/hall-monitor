@@ -62,6 +62,7 @@ def run_coverage_check(
     client: anthropic.Anthropic | None = None,
     feedback: str | None = None,
     tools: ToolAccess | None = None,
+    economy: bool = False,
 ) -> AgentRun[CoverageAssessment]:
     content = join_content(
         render_json("intake_extraction", extraction),
@@ -78,6 +79,7 @@ def run_coverage_check(
         prompt_version=PROMPT_VERSION,
         claim_id=claim.claim_id,
         tools=tools,
+        economy=economy,
     )
     # The label is defined by the amount, so code sets it rather than the model.
     assessment = CoverageAssessment.from_finding(run.output, extraction.total_claimed)

@@ -88,6 +88,33 @@
       },
       "title": "Data Classes",
       "type": "array"
+    },
+    "economy_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "A cheaper model approved for small claims, used only when model routing is on. Revisions after a critic review always use the main model.",
+      "title": "Economy Model"
+    },
+    "economy_max_claim_usd": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Largest total claimed that may use the economy model.",
+      "title": "Economy Max Claim Usd"
     }
   },
   "required": [

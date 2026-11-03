@@ -69,7 +69,7 @@ flowchart LR
     end
 ```
 
-What is built today, after milestone 6: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. Agents fetch policy records and claims history through governed MCP tools. The pipeline stops if the claim's policy can't be found. Claims routed to a person wait at an adjuster approval gate. Every step is written to a hash-chained audit log. For the runtime path with module names, and a plain-English version, see:
+What is built today, after milestone 7: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. Agents fetch policy records and claims history through governed MCP tools. The pipeline stops if the claim's policy can't be found. Claims routed to a person wait at an adjuster approval gate. Every step is written to a hash-chained audit log. For the runtime path with module names, and a plain-English version, see:
 
 - [`docs/architecture.html`](docs/architecture.html), for engineering managers and architects
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
@@ -88,8 +88,8 @@ Tracing sends IDs, versions, hashes and token counts to Langfuse, never claim te
 | Adjuster approval gates | A LangGraph interrupt pauses every claim the routing rule sends to a person, with state saved in SQLite so it can wait across restarts. Code checks the adjuster's identity and authority limit, payout bounds, who may pay a flagged claim, and that overrides and denials carry a reason. The decision is recorded with the adjuster and the hash of the evidence they saw. | Manage | Built (milestone 5) |
 | Tamper-evident audit log | Append-only SQLite log; each entry's hash covers the previous one, triggers refuse edits and deletes, and `verify` reports any changed, missing or reordered entry. Entries hold IDs, hashes and decisions, never claim text. Someone with write access to the file could rewrite the whole chain consistently, so copy the chain head (`audit head`) somewhere else and verify against it. | Govern, Manage | Built (milestone 6) |
 | PII and health-data redaction | Personal and medical details masked before they reach a model or a log | Manage | Planned |
-| Model routing | Cheaper model by default; stronger model for complex or high-risk claims | Manage | Planned |
-| Cost and value telemetry | Cost per claim, time to triage, human override rate, exception rate | Measure | Planned |
+| Model routing | A manifest may name a cheaper approved model and a claim-size limit; a code rule uses it for small claims, and critic-driven revisions always go back to the main model. Off by default until it is evaluated (`--model-routing`). | Manage | Built, off by default (milestone 7) |
+| Cost and value telemetry | Cost per claim on every result and in the audit log, cache-aware, by agent and model; time to triage; human override rate; stopped-claim rate. The policy wording is prompt-cached. | Measure | Built (milestone 7) |
 | Eval harness | Extraction accuracy, coverage-reasoning accuracy and hallucination rate against ground truth | Measure | Built (milestone 2) |
 | Fairness checks | Recommendation rates compared across synthetic customer groups, so systematic skew is caught before release | Measure | Planned |
 | Adversarial test suite | Prompt injection in claim text and attachments, PII leakage, unauthorized tool escalation | Measure, Manage | Planned |
@@ -119,7 +119,7 @@ The two baseline rows use the same code; the second runs on a larger claim set. 
 4. ~~MCP servers: `policy_lookup`, `claims_history`~~ (done; eval results to follow)
 5. ~~Adjuster approval gate with persistent checkpoints~~ (done)
 6. ~~Hash-chained audit log~~ (done)
-7. Model routing and cost-per-claim telemetry
+7. ~~Model routing and cost-per-claim telemetry~~ (done; routing to be evaluated)
 8. PII redaction, fairness checks and adversarial test suite
 9. NIST AI RMF and FINOS AIGF mapping; CI eval gate
 10. Architecture decision records, one-page board brief, external review

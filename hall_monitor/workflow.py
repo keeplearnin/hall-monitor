@@ -63,13 +63,20 @@ def build_graph(
     audit: AuditLog,
     client: anthropic.Anthropic | None = None,
     critic: bool = True,
+    model_routing: bool = False,
 ) -> StateGraph:
     adjusters = load_adjusters()
 
     def run_triage(state: ClaimState) -> ClaimState:
         claim = ClaimSubmission.model_validate(state["claim"])
         result = triage(
-            claim, registry=registry, gateway=gateway, wording=wording, client=client, critic=critic
+            claim,
+            registry=registry,
+            gateway=gateway,
+            wording=wording,
+            client=client,
+            critic=critic,
+            model_routing=model_routing,
         )
         pack = build_evidence_pack(result, claim)
         record_triage(audit, claim, result)

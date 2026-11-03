@@ -31,6 +31,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--checkpoints", type=Path, default=DEFAULT_CHECKPOINTS)
     parser.add_argument("--no-critic", action="store_true", help="Skip the critic review loop.")
     parser.add_argument(
+        "--model-routing",
+        action="store_true",
+        help="Use approved economy models for small claims (off by default; not yet evaluated).",
+    )
+    parser.add_argument(
         "--fresh", action="store_true", help="Discard this claim's saved workflow and start again."
     )
     parser.add_argument(
@@ -50,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
                 gateway=gateway,
                 wording=load_policy_wording(),
                 critic=not args.no_critic,
+                model_routing=args.model_routing,
             )
             print(result.model_dump_json(indent=2))
             return 0
@@ -59,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
             gateway=gateway,
             wording=load_policy_wording(),
             critic=not args.no_critic,
+            model_routing=args.model_routing,
         ) as workflow:
             if args.fresh:
                 workflow.saver.delete_thread(claim.claim_id)

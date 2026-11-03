@@ -64,24 +64,31 @@ def run_agent[T: BaseModel](
     prompt_version: str,
     claim_id: str,
     tools: ToolAccess | None = None,
+    economy: bool = False,
 ) -> AgentRun[T]:
     """Call the model named on the agent's hall pass and return validated, typed output.
 
     With tools, the model may call the tools on its allow-list (through the gateway) for up to
-    MAX_TOOL_ROUNDS rounds before giving its answer.
+    MAX_TOOL_ROUNDS rounds before giving its answer. With economy=True it uses the manifest's
+    approved economy model, if it names one; the routing rule decides that, not the agent.
+    The system prompt is marked for prompt caching: it is stable across claims, and for agents
+    that carry the policy wording it is most of the input.
     """
     manifest = registry.require(agent_id)
+    use_economy = economy and manifest.economy_model is not None
+    model = manifest.economy_model if use_economy else manifest.model
     started = time.perf_counter()
     definitions = tools.gateway.definitions(agent_id) if tools else []
     messages: list[dict] = [{"role": "user", "content": content}]
     request_ids: list[str] = []
-    input_tokens = output_tokens = api_calls = 0
+    input_tokens = output_tokens = api_calls = cache_writes = cache_reads = 0
+    system_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
 
     for _ in range(MAX_TOOL_ROUNDS + 1):
         response = client.messages.parse(
-            model=manifest.model,
+            model=model,
             max_tokens=16000,
-            system=system,
+            system=system_blocks,
             messages=messages,
             output_format=output_format,
             **({"tools": definitions} if definitions else {}),
@@ -89,6 +96,8 @@ def run_agent[T: BaseModel](
         api_calls += 1
         input_tokens += response.usage.input_tokens
         output_tokens += response.usage.output_tokens
+        cache_writes += getattr(response.usage, "cache_creation_input_tokens", 0) or 0
+        cache_reads += getattr(response.usage, "cache_read_input_tokens", 0) or 0
         if request_id := getattr(response, "_request_id", None):
             request_ids.append(request_id)
         if response.stop_reason != "tool_use" or tools is None:
@@ -113,7 +122,7 @@ def run_agent[T: BaseModel](
     call = AgentCall(
         agent_id=manifest.id,
         agent_version=manifest.version,
-        model=manifest.model,
+        model=model,
         manifest_digest=manifest.digest(),
         prompt_version=prompt_version,
         system_prompt_sha256=_sha256(system),
@@ -121,7 +130,10 @@ def run_agent[T: BaseModel](
         request_ids=request_ids,
         stop_reason=response.stop_reason,
         api_calls=api_calls,
+        model_tier="economy" if use_economy else "standard",
         input_tokens=input_tokens,
+        cache_creation_input_tokens=cache_writes,
+        cache_read_input_tokens=cache_reads,
         output_tokens=output_tokens,
         seconds=round(time.perf_counter() - started, 2),
     )

@@ -31,7 +31,7 @@ from hall_monitor.data import (
     load_ground_truth,
     load_policy_wording,
 )
-from hall_monitor.evals.cost import call_cost
+from hall_monitor.gateway.cost import call_cost
 from hall_monitor.models import (
     ClaimSubmission,
     CoverageAssessment,

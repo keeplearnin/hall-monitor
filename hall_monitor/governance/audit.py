@@ -221,5 +221,7 @@ def record_triage(log: AuditLog, claim, result) -> None:
             "recommended_next_step": result.recommendation.next_step.value,
             "covered_amount": result.coverage.covered_amount if result.coverage else None,
             "stopped_reason": result.stopped_reason,
+            "cost_usd": result.cost_usd,
+            "models": sorted({f"{c.agent_id}:{c.model}" for c in result.agent_calls}),
         },
     )

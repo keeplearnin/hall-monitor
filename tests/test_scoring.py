@@ -3,7 +3,6 @@
 import pytest
 
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
-from hall_monitor.evals.cost import call_cost
 from hall_monitor.evals.scoring import (
     clause_exists,
     failed_run,
@@ -12,6 +11,7 @@ from hall_monitor.evals.scoring import (
     score_run,
     summarize,
 )
+from hall_monitor.gateway.cost import call_cost
 from hall_monitor.governance.routing import route_claim
 from hall_monitor.models import (
     AgentCall,

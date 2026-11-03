@@ -224,7 +224,10 @@ class AgentCall(BaseModel):
     request_ids: list[str]
     stop_reason: str | None
     api_calls: int = 1  # more than one when the agent used tools
-    input_tokens: int
+    model_tier: str = "standard"  # "economy" when the routing rule chose the cheaper model
+    input_tokens: int  # uncached input only
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
     output_tokens: int
     seconds: float
 
@@ -279,6 +282,7 @@ class TriageResult(BaseModel):
     # Deterministic fixes made by code from the claim text, e.g. a policy number intake missed.
     code_corrections: list[str] = Field(default_factory=list)
     tool_calls: list[ToolCall] = Field(default_factory=list)
+    cost_usd: float = 0.0  # every model call for this claim, at list price, cache-aware
     revisions: int = 0
     critic_unresolved: bool = False
     stopped_reason: str | None = None

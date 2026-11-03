@@ -28,9 +28,9 @@ from hall_monitor.data import (
     load_policy_wording,
 )
 from hall_monitor.evals import scoring
-from hall_monitor.evals.cost import call_cost
+from hall_monitor.gateway.cost import call_cost
 from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
-from hall_monitor.models import ClaimSubmission, TriageResult
+from hall_monitor.models import AgentCall, ClaimSubmission, TriageResult
 from hall_monitor.pipeline import MAX_REVISIONS, triage
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
@@ -55,6 +55,7 @@ def run_one(
             wording=context["wording"],
             client=context["client"],
             critic=context["critic"],
+            model_routing=context["model_routing"],
         )
     except Exception as exc:  # a failed run is scored, not hidden
         return scoring.failed_run(claim.claim_id, trial, f"{type(exc).__name__}: {exc}"), None
@@ -69,7 +70,7 @@ def run_one(
             claim,
             context["wording"],
             trial=trial,
-            cost_usd=sum(call_cost(c) for c in result.agent_calls),
+            cost_usd=result.cost_usd,
         )
     except Exception as exc:  # a scoring bug must not lose the run: keep the result, flag it
         score = scoring.failed_run(claim.claim_id, trial, f"scoring {type(exc).__name__}: {exc}")
@@ -158,6 +159,26 @@ def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths
             f"| {', '.join(truth.risk.flags) or 'none'} | {raised_text} |"
         )
 
+    calls = [
+        AgentCall.model_validate(c) for r in runs if r["result"] for c in r["result"]["agent_calls"]
+    ]
+    if calls:
+        n_runs = max(1, sum(1 for r in runs if r["result"]))
+        lines += [
+            "",
+            "## Cost by agent",
+            "",
+            "| Agent | Model | Cost per claim | Input served from cache |",
+            "|---|---|---|---|",
+        ]
+        for agent_id in dict.fromkeys(c.agent_id for c in calls):
+            mine = [c for c in calls if c.agent_id == agent_id]
+            cost = sum(call_cost(c) for c in mine) / n_runs
+            cached = sum(c.cache_read_input_tokens for c in mine)
+            total_in = cached + sum(c.input_tokens + c.cache_creation_input_tokens for c in mine)
+            models = ", ".join(sorted({c.model for c in mine}))
+            share = f"{cached / total_in:.0%}" if total_in else "n/a"
+            lines.append(f"| {agent_id} | {models} | ${cost:.4f} | {share} |")
     lines += ["", "## Extraction by field", "", "| Field | Accuracy |", "|---|---|"]
     for name in scoring.EXTRACTION_FIELDS:
         values = [r["score"]["extraction_fields"][name] for r in runs]
@@ -226,6 +247,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=Path("evals/results/baseline"))
     parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--no-critic", action="store_true", help="Skip the critic review loop.")
+    parser.add_argument(
+        "--model-routing", action="store_true", help="Use approved economy models for small claims."
+    )
     args = parser.parse_args(argv)
 
     load_dotenv()
@@ -238,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
         "client": anthropic.Anthropic(),
         "truths": {c.claim_id: load_ground_truth(c.claim_id) for c in claims},
         "critic": not args.no_critic,
+        "model_routing": args.model_routing,
         "lock": threading.Lock(),
         "raw_path": args.out / "raw_results.jsonl",
     }
@@ -266,6 +291,7 @@ def main(argv: list[str] | None = None) -> int:
         "claims": len(claims),
         "trials": args.trials,
         "critic": not args.no_critic,
+        "model_routing": args.model_routing,
         "adjuster_payout_threshold_usd": ADJUSTER_PAYOUT_THRESHOLD_USD,
         # One row per agent: revised runs call some agents more than once.
         "agents": list(
