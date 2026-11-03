@@ -1,0 +1,28 @@
+{
+  "claim_id": "claim_029",
+  "submitted_at": "2026-09-26T19:00:00Z",
+  "channel": "mobile_app",
+  "narrative": "Owen Gallagher, WTP-ESS-101637. I landed in Oslo on 14 September at 08:15 and my bag didn't turn up until 16 September at 00:30. I bought toiletries ($58.40), clothes ($186.00) and a jacket ($74.00). Total $318.40.",
+  "attachments": [
+    {
+      "filename": "delay_report.txt",
+      "kind": "carrier_letter",
+      "text": "Fjord Air - Property Irregularity Report\nFile ref: OSLFA2219  Passenger: GALLAGHER/OWEN\nFlight FA 81 EWR-OSL arrived 2026-09-14 08:15. Bag delayed.\nDelivered 2026-09-16 00:30"
+    },
+    {
+      "filename": "receipt_toiletries.txt",
+      "kind": "receipt",
+      "text": "Vitusapotek, Oslo  2026-09-14 11:00\nToiletries  Total: USD 58.40"
+    },
+    {
+      "filename": "receipt_clothes.txt",
+      "kind": "receipt",
+      "text": "Steen & Strøm, Oslo  2026-09-14 13:30\nTrousers, shirts, underwear  Total: USD 186.00"
+    },
+    {
+      "filename": "receipt_jacket.txt",
+      "kind": "receipt",
+      "text": "Steen & Strøm, Oslo  2026-09-15 10:10\nJacket  Total: USD 74.00"
+    }
+  ]
+}

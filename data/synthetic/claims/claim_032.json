@@ -1,0 +1,33 @@
+{
+  "claim_id": "claim_032",
+  "submitted_at": "2026-09-14T09:50:00Z",
+  "channel": "email",
+  "narrative": "Samuel Adeyemi, policy WTP-ESS-101688. My suitcase was lost on my flight to Nairobi on 20 August and the airline has confirmed it won't be found. It contained a suit ($480.00), dress shoes ($220.00), shirts ($260.00) and toiletries ($190.00). Total $1,150.00.",
+  "attachments": [
+    {
+      "filename": "property_irregularity_report.txt",
+      "kind": "carrier_letter",
+      "text": "Savanna Air - Property Irregularity Report\nFile ref: NBOSA6107  Passenger: ADEYEMI/SAMUEL\nFlight SA 33 JFK-NBO arrived 2026-08-20. Bag not received.\nStatus 2026-09-05: declared permanently lost."
+    },
+    {
+      "filename": "receipt_suit.txt",
+      "kind": "receipt",
+      "text": "Harrow & Grant  2026-02-14\nSuit  USD 480.00"
+    },
+    {
+      "filename": "receipt_shoes.txt",
+      "kind": "receipt",
+      "text": "Harrow & Grant  2026-04-03\nDress shoes  USD 220.00"
+    },
+    {
+      "filename": "receipt_shirts.txt",
+      "kind": "receipt",
+      "text": "Linenworks  2026-06-12\nShirts  USD 260.00"
+    },
+    {
+      "filename": "receipt_toiletries.txt",
+      "kind": "receipt",
+      "text": "Bellmark Pharmacy  2026-08-15\nToiletries  USD 190.00"
+    }
+  ]
+}

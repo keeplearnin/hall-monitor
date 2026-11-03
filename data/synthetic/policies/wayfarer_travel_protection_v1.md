@@ -62,8 +62,10 @@ the policy purchase date, unless the policy was bought within 14 days of the ini
 
 3.1 **Baggage delay.** If a common carrier delays the insured person's checked baggage by more than
 12 hours on the outbound journey, we reimburse reasonable purchases of essential toiletries and
-clothing, up to the daily amount for each full or part 24-hour period of delay, up to the maximum
-days in the schedule. Itemised receipts are required.
+clothing. The most we pay is the daily amount multiplied by the number of full or part 24-hour
+periods of delay, up to the maximum days in the schedule. This total applies to the whole delay:
+purchases made on any day of the delay count towards it, whichever period they were made in.
+Itemised receipts are required.
 
 3.2 **Baggage loss.** We pay the actual cash value of checked baggage and personal effects that are
 permanently lost, stolen or damaged during the insured trip, up to the baggage loss amount, the

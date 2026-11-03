@@ -86,7 +86,10 @@ class IntakeExtraction(BaseModel):
         description="Date the insured event happened (illness, injury, bag delay or loss), "
         "not the date the claim was filed."
     )
-    incident_location: str | None
+    incident_location: str | None = Field(
+        description="Where the event happened; for baggage, where the delay or loss was "
+        "discovered on arrival. Null if the claim names no place."
+    )
     claimed_items: list[ClaimedItem]
     total_claimed: float
     currency: str = Field(description="ISO 4217 code, e.g. USD.")

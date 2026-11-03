@@ -16,7 +16,7 @@ from hall_monitor.models import ClaimSubmission, IntakeExtraction
 from hall_monitor.registry import Registry
 
 AGENT_ID = "intake"
-PROMPT_VERSION = "intake-v1"
+PROMPT_VERSION = "intake-v2"
 
 SYSTEM_PROMPT = f"""\
 You are the intake step in a travel insurance claims process. You read one claim submission \
@@ -30,7 +30,10 @@ Rules:
 amount they claim, even if two look the same. total_claimed is the total the customer claims.
 - incident_date is the date the insured event happened (the illness, injury, delay or loss), \
 not the date the claim was filed or the trip was cancelled.
-- incident_location is where that event happened, if stated.
+- incident_location is the place the claim gives for that event: where the illness or injury \
+happened, where a strike or disaster happened, or for baggage, the airport or city where the \
+delay or loss was discovered on arrival. Use the place as the claim names it. Return null only \
+if the claim names no such place.
 - supporting_documents lists the attachment filenames exactly as given."""
 
 

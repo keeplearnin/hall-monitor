@@ -1,0 +1,48 @@
+{
+  "claim_id": "claim_028",
+  "scenario": "Cap test: cancellation 440 over the Plus limit.",
+  "extraction": {
+    "claimant_name": "Leila Rahimi",
+    "policy_number": "WTP-PLS-200688",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2026-09-03",
+    "incident_location": null,
+    "claimed_items": [
+      {
+        "description": "Non-refundable flights",
+        "amount": 3480.0
+      },
+      {
+        "description": "Safari lodge",
+        "amount": 3960.0
+      },
+      {
+        "description": "Park permits",
+        "amount": 500.0
+      }
+    ],
+    "total_claimed": 7940.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "hospital_letter.txt",
+      "flight_cancellation.txt",
+      "lodge_invoice.txt",
+      "permits_receipt.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "2.1",
+      "2.2"
+    ],
+    "covered_amount": 7500.0,
+    "reasoning": "Sudden illness certified as making travel inadvisable (2.1(a)), cancelled the next day. The claim is 7,940 but the Plus trip cancellation limit is 7,500 (2.2). Above the payout threshold, so an adjuster approves."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "adjuster"
+}

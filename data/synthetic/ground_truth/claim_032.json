@@ -1,0 +1,52 @@
+{
+  "claim_id": "claim_032",
+  "scenario": "Cap test: lost bag 150 over the Essentials baggage loss limit.",
+  "extraction": {
+    "claimant_name": "Samuel Adeyemi",
+    "policy_number": "WTP-ESS-101688",
+    "claim_type": "baggage_loss",
+    "incident_date": "2026-08-20",
+    "incident_location": "Nairobi, Kenya",
+    "claimed_items": [
+      {
+        "description": "Suit",
+        "amount": 480.0
+      },
+      {
+        "description": "Dress shoes",
+        "amount": 220.0
+      },
+      {
+        "description": "Shirts",
+        "amount": 260.0
+      },
+      {
+        "description": "Toiletries",
+        "amount": 190.0
+      }
+    ],
+    "total_claimed": 1150.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "property_irregularity_report.txt",
+      "receipt_suit.txt",
+      "receipt_shoes.txt",
+      "receipt_shirts.txt",
+      "receipt_toiletries.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "3.2"
+    ],
+    "covered_amount": 1000.0,
+    "reasoning": "All items are under a year old (1.7) and under the 500 per-item limit, and none are valuables. Together they come to 1,150, but the Essentials baggage loss limit is 1,000 (3.2). Carrier report obtained."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

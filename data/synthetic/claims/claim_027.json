@@ -1,0 +1,28 @@
+{
+  "claim_id": "claim_027",
+  "submitted_at": "2026-09-08T12:20:00Z",
+  "channel": "web_form",
+  "narrative": "Noah Fitzgerald, policy WTP-ESS-101611. My wife Clara was admitted to hospital with pneumonia on 28 August and her doctor says she can't travel, so we cancelled our Dubrovnik trip the next day. Non-refundable costs: flights $1,640.00, villa $1,190.00 and a sailing day $350.00. Total $3,180.00.",
+  "attachments": [
+    {
+      "filename": "hospital_letter.txt",
+      "kind": "medical_report",
+      "text": "Bayside General Hospital\nRe: Clara Fitzgerald (wife of Noah Fitzgerald)\nAdmitted 2026-08-28 with community-acquired pneumonia. Not fit to travel for 4 weeks.\nDr. A. Byrne"
+    },
+    {
+      "filename": "flight_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "Adriatic Air\nPassenger: FITZGERALD/NOAH  Booking: DU55KR\nCancelled 2026-08-29. Fare USD 1,640.00 non-refundable."
+    },
+    {
+      "filename": "villa_invoice.txt",
+      "kind": "invoice",
+      "text": "Villa Lokrum Stays\nGuest: Noah Fitzgerald  Prepaid USD 1,190.00\nCancelled 2026-08-29. Non-refundable."
+    },
+    {
+      "filename": "sailing_invoice.txt",
+      "kind": "invoice",
+      "text": "Blue Cove Sailing\nCustomer: Noah Fitzgerald  Day charter USD 350.00\nCancelled 2026-08-29. Non-refundable."
+    }
+  ]
+}

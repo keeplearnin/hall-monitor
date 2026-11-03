@@ -1,0 +1,47 @@
+{
+  "claim_id": "claim_029",
+  "scenario": "Cap test: two-day delay cap well below the spend.",
+  "extraction": {
+    "claimant_name": "Owen Gallagher",
+    "policy_number": "WTP-ESS-101637",
+    "claim_type": "baggage_delay",
+    "incident_date": "2026-09-14",
+    "incident_location": "Oslo, Norway",
+    "claimed_items": [
+      {
+        "description": "Toiletries",
+        "amount": 58.4
+      },
+      {
+        "description": "Clothes",
+        "amount": 186.0
+      },
+      {
+        "description": "Jacket",
+        "amount": 74.0
+      }
+    ],
+    "total_claimed": 318.4,
+    "currency": "USD",
+    "supporting_documents": [
+      "delay_report.txt",
+      "receipt_toiletries.txt",
+      "receipt_clothes.txt",
+      "receipt_jacket.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "3.1"
+    ],
+    "covered_amount": 200.0,
+    "reasoning": "Outbound delay of 40h15m: two full or part 24-hour periods. Essentials pays 100 a day, so the most payable is 200, below the 318.40 spent (3.1)."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}
