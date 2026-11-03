@@ -101,7 +101,7 @@
 <body>
 <main class="sheet">
   <header>
-    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · after milestone 8 · November 2026</span></div>
+    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · after milestone 9 · November 2026</span></div>
     <h1>Governance sits in the call path, the tool gateway, the router and the record, not inside the model</h1>
     <p class="lede">Five agents triage a claim. Every model call goes through one function that checks the agent's approved hall pass, calls the model the pass names, runs any tool calls through a gateway that enforces the pass's allow-list, validates typed output and records what ran. A critic checks the work and sends errors back. Routing to a human is a plain code rule that checks facts, not the agents' labels; claims routed to a person wait at an approval gate, and every step goes into a hash-chained audit log. Python 3.12, Claude Haiku 5.5 and Sonnet 5.5, Pydantic, fastmcp, LangGraph, SQLite, Langfuse.</p>
   </header>
@@ -288,11 +288,11 @@
               <tr><td>Cost per claim, prompt caching; economy routing (off)</td><td class="where">gateway/cost.py</td><td><span class="chip built">built</span></td><td>Measure, Manage</td></tr>
               <tr><td>Eval harness and seeded critic test</td><td class="where">evals/</td><td><span class="chip built">built</span></td><td>Measure</td></tr>
               <tr><td>Adversarial suite, fairness check</td><td class="where">evals/</td><td><span class="chip part">needs live run</span></td><td>Measure</td></tr>
-              <tr><td>CI eval gate, NIST and FINOS mapping</td><td class="where">.github/, controls/</td><td><span class="chip planned">M9</span></td><td>Map, Govern</td></tr>
+              <tr><td>CI eval gate; controls mapped to NIST AI RMF and FINOS AIGF</td><td class="where">evals/gate.py, controls/</td><td><span class="chip built">built</span></td><td>Map, Govern</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="note">CI already runs lint, tests and the approvals check on every PR; the eval gate is milestone 9. The adversarial and fairness runners are built and tested offline; their results need a live run.</p>
+        <p class="note">CI runs lint, tests, the approvals check and the eval gate on every PR; the gate warns on stale results until a fresh baseline. Full mapping: docs/controls.md. The adversarial and fairness runners are built and tested offline; their results need a live run.</p>
       </div>
 
       <div>

@@ -31,3 +31,7 @@ jobs:
       # Offline: every test fakes the Claude client, so no API key or network calls are needed.
       - name: Tests
         run: uv run pytest -q
+
+      # Published eval results must meet evals/gate.yaml. No model calls.
+      - name: Eval gate
+        run: uv run python -m hall_monitor.evals.gate
