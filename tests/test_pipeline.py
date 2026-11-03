@@ -148,9 +148,25 @@ def _triage(claim, outputs, **kwargs):
     return result, client.messages
 
 
-def test_missing_policy_number_gets_one_retry():
+def test_missing_policy_number_is_filled_from_the_claim_text():
     claim = CLAIMS[0]
     outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
+    good = outputs[IntakeExtraction]
+    outputs[IntakeExtraction] = good.model_copy(update={"policy_number": None})
+
+    result, messages = _triage(claim, outputs)
+
+    assert messages.formats().count("IntakeExtraction") == 1  # no model retry needed
+    assert result.extraction.policy_number == good.policy_number
+    assert result.code_corrections and good.policy_number in result.code_corrections[0]
+    assert result.routing.route is Route.AUTO  # a code fix from the claim text needs no review
+
+
+def test_intake_retries_when_the_text_has_no_single_valid_number():
+    claim = CLAIMS[0].model_copy(
+        update={"narrative": CLAIMS[0].narrative.replace("WTP-ESS-100231", "my policy")}
+    )
+    outputs = outputs_from_truth(load_ground_truth("claim_001"))
     good = outputs[IntakeExtraction]
     outputs[IntakeExtraction] = [good.model_copy(update={"policy_number": None}), good]
 
@@ -158,12 +174,13 @@ def test_missing_policy_number_gets_one_retry():
 
     assert messages.formats()[:2] == ["IntakeExtraction", "IntakeExtraction"]
     assert "No policy record matches" in messages.calls[1]["messages"][0]["content"]
-    assert result.stopped_reason is None
-    assert result.extraction.policy_number == good.policy_number
+    assert result.stopped_reason is None and not result.code_corrections
 
 
 def test_pipeline_stops_when_the_policy_cant_be_found():
-    claim = CLAIMS[0]
+    claim = CLAIMS[0].model_copy(
+        update={"narrative": CLAIMS[0].narrative.replace("WTP-ESS-100231", "my policy")}
+    )
     outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
     outputs[IntakeExtraction] = outputs[IntakeExtraction].model_copy(
         update={"policy_number": "WTP-NOPE"}

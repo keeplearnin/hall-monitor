@@ -6,7 +6,7 @@
     "policy_number": "WTP-ESS-101713",
     "claim_type": "trip_cancellation",
     "incident_date": "2026-09-01",
-    "incident_location": null,
+    "incident_location": "home",
     "claimed_items": [
       {
         "description": "Non-refundable flight",

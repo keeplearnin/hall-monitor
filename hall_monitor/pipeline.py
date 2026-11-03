@@ -11,6 +11,7 @@ No MCP tools yet (milestone 4): the policy record and wording are passed in dire
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -43,6 +44,9 @@ from hall_monitor.registry import Registry, RegistryError
 
 MAX_REVISIONS = 2
 
+# Wayfarer policy numbers: plan code and six digits, e.g. WTP-ESS-100231.
+POLICY_NUMBER_PATTERN = re.compile(r"\bWTP-(?:ESS|PLS)-\d{6}\b")
+
 # Fields whose change by a revision can change the outcome, so a person must see it.
 DECISION_FIELDS: dict[ReviewedStage, tuple[str, ...]] = {
     ReviewedStage.INTAKE: ("policy_number", "claim_type", "incident_date", "total_claimed"),
@@ -63,6 +67,7 @@ class _Run:
     extraction: IntakeExtraction | None = None
     reviews: list[CriticReview] = field(default_factory=list)
     history: list[RevisionRecord] = field(default_factory=list)
+    code_corrections: list[str] = field(default_factory=list)
     revisions: int = 0
 
     def output[T](self, run: AgentRun[T]) -> T:
@@ -85,6 +90,12 @@ class _Run:
 
 def _lookup(extraction: IntakeExtraction, policies: dict[str, PolicyRecord]) -> PolicyRecord | None:
     return policies.get((extraction.policy_number or "").strip().upper())
+
+
+def _policy_numbers_in(claim: ClaimSubmission, policies: dict[str, PolicyRecord]) -> list[str]:
+    """Policy numbers in the claim text that match a real policy record."""
+    text = "\n".join([claim.narrative, *(a.text for a in claim.attachments)]).upper()
+    return sorted({n for n in POLICY_NUMBER_PATTERN.findall(text) if n in policies})
 
 
 def _problems(review: CriticReview) -> dict[ReviewedStage, list[str]]:
@@ -135,6 +146,7 @@ def triage(
         agent_calls=run.calls,
         critic_reviews=run.reviews,
         revision_history=run.history,
+        code_corrections=run.code_corrections,
         revisions=run.revisions,
         stopped_reason=reason,
     )
@@ -152,6 +164,16 @@ def _triage(
     # Intake, then a code check that the policy exists. One retry with the problem spelled out.
     run.extraction = run.output(run_intake(claim, registry, client))
     policy = _lookup(run.extraction, policies)
+    if policy is None:
+        # Code first: if the claim text contains exactly one real policy number, use it.
+        found = _policy_numbers_in(claim, policies)
+        if len(found) == 1:
+            run.code_corrections.append(
+                f"policy_number {run.extraction.policy_number!r} replaced by {found[0]!r}, "
+                "the only valid policy number in the claim text"
+            )
+            run.extraction = run.extraction.model_copy(update={"policy_number": found[0]})
+            policy = policies[found[0]]
     if policy is None:
         problem = (
             f"No policy record matches policy_number {run.extraction.policy_number!r}. Find the "
@@ -255,6 +277,7 @@ def _triage(
         agent_calls=run.calls,
         critic_reviews=run.reviews,
         revision_history=run.history,
+        code_corrections=run.code_corrections,
         revisions=run.revisions,
         critic_unresolved=unresolved,
     )

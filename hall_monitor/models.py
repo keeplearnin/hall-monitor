@@ -87,8 +87,8 @@ class IntakeExtraction(BaseModel):
         "not the date the claim was filed."
     )
     incident_location: str | None = Field(
-        description="Where the event happened; for baggage, where the delay or loss was "
-        "discovered on arrival. Null if the claim names no place."
+        description="Where the event happened, as the narrative names it; for baggage, where the "
+        "delay or loss was discovered on arrival. Null if the narrative names no place."
     )
     claimed_items: list[ClaimedItem]
     total_claimed: float
@@ -260,6 +260,8 @@ class TriageResult(BaseModel):
     agent_calls: list[AgentCall]
     critic_reviews: list[CriticReview] = Field(default_factory=list)
     revision_history: list[RevisionRecord] = Field(default_factory=list)
+    # Deterministic fixes made by code from the claim text, e.g. a policy number intake missed.
+    code_corrections: list[str] = Field(default_factory=list)
     revisions: int = 0
     critic_unresolved: bool = False
     stopped_reason: str | None = None

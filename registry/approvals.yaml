@@ -12,10 +12,10 @@ agents:
     prompt_version: critic-v1
     version: 0.1.0
   intake:
-    manifest_digest: b4f9738d8002432bfdad588657a2b6d9a6e863d6d6a551dabdf118d38a6736a9
-    prompt_sha256: 4863221711bf299f7245a8d30b465f476e43c691c0c990807d1a7d7c8b4397ca
-    prompt_version: intake-v2
-    version: 0.2.0
+    manifest_digest: 7b2baeb0a9960efaf52726a93adefc294d26263217d025f843a5806fdaa05d7c
+    prompt_sha256: a1f3e7edeeebb404eb8bd0ddaf61052278701c1622cfd286e1c5bd59bc2332a0
+    prompt_version: intake-v3
+    version: 0.3.0
   recommendation:
     manifest_digest: 9ef72531b9a9ca61269723aee10f625f75315ab6785f1a8df27504db6ef71b61
     prompt_sha256: e05b4044ffac30827bbac3715f0f7a00380fcad09791b32e9e6a55c01bc1c8b8
