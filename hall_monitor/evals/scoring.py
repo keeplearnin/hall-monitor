@@ -97,9 +97,11 @@ def unsupported_values(
     result: TriageResult, claim: ClaimSubmission, wording: str
 ) -> tuple[int, list[str]]:
     """Return how many values were checked and which ones aren't traceable to a source."""
+    extraction = result.extraction
+    if extraction is None:  # stopped before intake finished: nothing extracted to check
+        return 0, []
     source = source_text(claim)
     source_tokens = _tokens(source)
-    extraction = result.extraction
     checks: list[tuple[str, bool]] = [
         (
             f"claimant_name={extraction.claimant_name}",
@@ -185,7 +187,11 @@ def score_run(
     return RunScore(
         claim_id=claim.claim_id,
         trial=trial,
-        extraction_fields=score_extraction(result.extraction, truth.extraction),
+        extraction_fields=(
+            score_extraction(result.extraction, truth.extraction)
+            if result.extraction is not None
+            else {f: False for f in EXTRACTION_FIELDS}
+        ),
         coverage_decision=decision_ok,
         covered_amount=amount_ok,
         clause_recall=clause_recall,

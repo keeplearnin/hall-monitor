@@ -226,3 +226,12 @@ def test_seeded_scoring():
     }
     assert run_case(_missing_date(truth), CLAIMS["claim_001"], context).caught is True
     assert run_case(_control(truth), CLAIMS["claim_001"], context).false_alarm is True
+
+
+def test_run_stopped_before_intake_scores_as_wrong_without_crashing():
+    result = result_from_truth("claim_002").model_copy(
+        update={"extraction": None, "coverage": None, "risk": None, "stopped_reason": "refused"}
+    )
+    s = score(result)
+    assert not any(s.extraction_fields.values())
+    assert s.values_checked == 0 and s.stopped

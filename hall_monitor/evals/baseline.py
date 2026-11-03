@@ -11,6 +11,7 @@ import argparse
 import json
 import subprocess
 import sys
+import threading
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -57,14 +58,21 @@ def run_one(
         )
     except Exception as exc:  # a failed run is scored, not hidden
         return scoring.failed_run(claim.claim_id, trial, f"{type(exc).__name__}: {exc}"), None
-    score = scoring.score_run(
-        result,
-        context["truths"][claim.claim_id],
-        claim,
-        context["wording"],
-        trial=trial,
-        cost_usd=sum(call_cost(c) for c in result.agent_calls),
-    )
+    try:
+        score = scoring.score_run(
+            result,
+            context["truths"][claim.claim_id],
+            claim,
+            context["wording"],
+            trial=trial,
+            cost_usd=sum(call_cost(c) for c in result.agent_calls),
+        )
+    except Exception as exc:  # a scoring bug must not lose the run: keep the result, flag it
+        score = scoring.failed_run(claim.claim_id, trial, f"scoring {type(exc).__name__}: {exc}")
+    # Save each raw result as it finishes, so a crash later can't lose paid-for runs.
+    with context["lock"]:
+        with context["raw_path"].open("a") as raw:
+            raw.write(result.model_dump_json() + "\n")
     return score, result
 
 
@@ -226,7 +234,11 @@ def main(argv: list[str] | None = None) -> int:
         "client": anthropic.Anthropic(),
         "truths": {c.claim_id: load_ground_truth(c.claim_id) for c in claims},
         "critic": not args.no_critic,
+        "lock": threading.Lock(),
+        "raw_path": args.out / "raw_results.jsonl",
     }
+    args.out.mkdir(parents=True, exist_ok=True)
+    context["raw_path"].unlink(missing_ok=True)
     jobs = [(claim, trial) for trial in range(1, args.trials + 1) for claim in claims]
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         outcomes = list(pool.map(lambda job: run_one(*job, context), jobs))
