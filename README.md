@@ -69,10 +69,11 @@ flowchart LR
     end
 ```
 
-What is built today, after milestone 4: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. Agents fetch policy records and claims history through governed MCP tools. The pipeline stops if the claim's policy can't be found. The approval gate and the audit log are next. The one-page overviews below describe the pipeline as of milestone 2, before the critic:
+What is built today, after milestone 4: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. Agents fetch policy records and claims history through governed MCP tools. The pipeline stops if the claim's policy can't be found. The approval gate and the audit log are next. For the runtime path with module names, and a plain-English version, see:
 
 - [`docs/architecture.html`](docs/architecture.html), for engineering managers and architects
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
+- [`docs/business-summary.md`](docs/business-summary.md), a one-page business summary in plain English
 
 GitHub shows HTML files as source, so download them and open them in a browser.
 

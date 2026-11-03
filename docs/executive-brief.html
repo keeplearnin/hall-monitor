@@ -41,7 +41,7 @@
   h2 { font: 600 13px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
   figure { margin: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 20px; display: grid; gap: 12px; }
   .scroll { overflow-x: auto; }
-  svg.journey { display: block; width: 100%; min-width: 760px; height: auto; color: var(--ink); }
+  svg.journey { display: block; width: 100%; min-width: 820px; height: auto; color: var(--ink); }
   figcaption { color: var(--muted); font-size: 14px; max-width: 80ch; }
   /* SVG parts */
   .box { fill: var(--panel); stroke: var(--ink); stroke-width: 1.25; }
@@ -62,6 +62,8 @@
   .rulebox { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
   .ledger { fill: var(--paper); stroke: var(--ink); stroke-width: 1.25; }
   .arrowhead { fill: var(--ink); }
+  .datab { fill: var(--panel); stroke: var(--pass); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .datat { fill: var(--ink); font: 600 11px var(--mono); letter-spacing: .06em; }
   /* Lower grid */
   .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
   @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
@@ -90,131 +92,143 @@
 <body>
 <main class="sheet">
   <header>
-    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · briefing for business leaders · November 2026</span></div>
+    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · briefing for business leaders · November 2026 · after milestone 4</span></div>
     <h1>AI that prepares insurance claims, with people making the calls that matter</h1>
-    <p class="lede">hall-monitor shows how a regulated firm can use AI agents to speed up claims work <strong>and still answer the regulator's questions</strong>: what each AI was allowed to do, who approved it, what it touched, and who made the final decision. The rules live in software, not in a policy binder.</p>
+    <p class="lede">hall-monitor shows how a regulated firm can use AI agents to speed up claims work <strong>and still answer the regulator's questions</strong>: what each AI was allowed to do, who approved it, what records it looked at, and who made the final decision. The rules live in software, not in a policy binder.</p>
   </header>
 
   <figure>
     <h2>How a claim moves through it</h2>
     <div class="scroll">
-      <svg class="journey" viewBox="0 0 1000 440" role="img" aria-label="A customer claim is prepared by four AI steps, each checked against its hall pass. A rule written in code then sends routine claims to be handled automatically and denials, payouts over 2,500 dollars and any fraud flag to an adjuster. Every step is recorded.">
+      <svg class="journey" viewBox="0 0 1080 470" role="img" aria-label="A customer claim is prepared by five AI steps, each checked against its approved permit, with policy and claims-history records available only through approved data access. A rule written in code sends small, clean claims to be handled automatically and denials, payouts over 2,500 dollars, fraud flags, AI corrections and failures to an adjuster. Every step is recorded.">
         <defs>
           <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="arrowhead"/></marker>
         </defs>
 
-        <!-- Customer claim -->
-        <rect class="box" x="10" y="130" width="150" height="90" rx="4"/>
-        <text class="t" x="85" y="166" text-anchor="middle">Customer claim</text>
-        <text class="s" x="85" y="186" text-anchor="middle">their story, receipts,</text>
-        <text class="s" x="85" y="202" text-anchor="middle">doctors' letters</text>
-        <line class="line" x1="160" y1="175" x2="198" y2="175" marker-end="url(#arr)"/>
+        <rect class="box" x="10" y="120" width="140" height="90" rx="4"/>
+        <text class="t" x="80" y="156" text-anchor="middle">Customer claim</text>
+        <text class="s" x="80" y="176" text-anchor="middle">their story, receipts,</text>
+        <text class="s" x="80" y="192" text-anchor="middle">doctors' letters</text>
+        <line class="line" x1="150" y1="165" x2="178" y2="165" marker-end="url(#arr)"/>
 
-        <!-- AI prepares the case -->
-        <rect class="groupfill" x="200" y="60" width="470" height="230" rx="6"/>
-        <rect class="group" x="200" y="60" width="470" height="230" rx="6"/>
-        <text class="lab" x="216" y="84">AI PREPARES THE CASE</text>
+        <rect class="groupfill" x="180" y="40" width="600" height="260" rx="6"/>
+        <rect class="group" x="180" y="40" width="600" height="260" rx="6"/>
+        <text class="lab" x="196" y="64">AI PREPARES THE CASE</text>
 
         <g>
-          <rect class="pass" x="219" y="100" width="92" height="18" rx="2"/><text class="passt" x="265" y="113" text-anchor="middle">PASS CHECKED</text>
-          <rect class="box" x="215" y="130" width="100" height="90" rx="4"/>
-          <text class="n" x="225" y="148">1</text>
-          <text class="t" x="265" y="175" text-anchor="middle">Read</text>
-          <text class="s" x="265" y="194" text-anchor="middle">the claim</text>
+          <rect class="pass" x="199" y="82" width="92" height="18" rx="2"/><text class="passt" x="245" y="95" text-anchor="middle">PASS CHECKED</text>
+          <rect class="box" x="195" y="112" width="100" height="90" rx="4"/>
+          <text class="n" x="205" y="130">1</text>
+          <text class="t" x="245" y="157" text-anchor="middle">Read</text>
+          <text class="s" x="245" y="176" text-anchor="middle">the claim</text>
         </g>
-        <line class="line" x1="315" y1="175" x2="328" y2="175" marker-end="url(#arr)"/>
+        <line class="line" x1="295" y1="157" x2="308" y2="157" marker-end="url(#arr)"/>
         <g>
-          <rect class="pass" x="334" y="100" width="92" height="18" rx="2"/><text class="passt" x="380" y="113" text-anchor="middle">PASS CHECKED</text>
-          <rect class="box" x="330" y="130" width="100" height="90" rx="4"/>
-          <text class="n" x="340" y="148">2</text>
-          <text class="t" x="380" y="175" text-anchor="middle">Check</text>
-          <text class="s" x="380" y="194" text-anchor="middle">the policy</text>
+          <rect class="pass" x="314" y="82" width="92" height="18" rx="2"/><text class="passt" x="360" y="95" text-anchor="middle">PASS CHECKED</text>
+          <rect class="box" x="310" y="112" width="100" height="90" rx="4"/>
+          <text class="n" x="320" y="130">2</text>
+          <text class="t" x="360" y="157" text-anchor="middle">Check</text>
+          <text class="s" x="360" y="176" text-anchor="middle">the policy</text>
         </g>
-        <line class="line" x1="430" y1="175" x2="443" y2="175" marker-end="url(#arr)"/>
+        <line class="line" x1="410" y1="157" x2="423" y2="157" marker-end="url(#arr)"/>
         <g>
-          <rect class="pass" x="449" y="100" width="92" height="18" rx="2"/><text class="passt" x="495" y="113" text-anchor="middle">PASS CHECKED</text>
-          <rect class="box" x="445" y="130" width="100" height="90" rx="4"/>
-          <text class="n" x="455" y="148">3</text>
-          <text class="t" x="495" y="175" text-anchor="middle">Spot fraud</text>
-          <text class="s" x="495" y="194" text-anchor="middle">signs</text>
+          <rect class="pass" x="429" y="82" width="92" height="18" rx="2"/><text class="passt" x="475" y="95" text-anchor="middle">PASS CHECKED</text>
+          <rect class="box" x="425" y="112" width="100" height="90" rx="4"/>
+          <text class="n" x="435" y="130">3</text>
+          <text class="t" x="475" y="157" text-anchor="middle">Spot fraud</text>
+          <text class="s" x="475" y="176" text-anchor="middle">and past claims</text>
         </g>
-        <line class="line" x1="545" y1="175" x2="558" y2="175" marker-end="url(#arr)"/>
+        <line class="line" x1="525" y1="157" x2="538" y2="157" marker-end="url(#arr)"/>
         <g>
-          <rect class="pass" x="564" y="100" width="92" height="18" rx="2"/><text class="passt" x="610" y="113" text-anchor="middle">PASS CHECKED</text>
-          <rect class="box" x="560" y="130" width="100" height="90" rx="4"/>
-          <text class="n" x="570" y="148">4</text>
-          <text class="t" x="610" y="175" text-anchor="middle">Recommend</text>
-          <text class="s" x="610" y="194" text-anchor="middle">a next step</text>
+          <rect class="pass" x="544" y="82" width="92" height="18" rx="2"/><text class="passt" x="590" y="95" text-anchor="middle">PASS CHECKED</text>
+          <rect class="box" x="540" y="112" width="100" height="90" rx="4"/>
+          <text class="n" x="550" y="130">4</text>
+          <text class="t" x="590" y="157" text-anchor="middle">Double-check</text>
+          <text class="s" x="590" y="176" text-anchor="middle">the work</text>
+        </g>
+        <line class="line" x1="640" y1="157" x2="653" y2="157" marker-end="url(#arr)"/>
+        <g>
+          <rect class="pass" x="659" y="82" width="92" height="18" rx="2"/><text class="passt" x="705" y="95" text-anchor="middle">PASS CHECKED</text>
+          <rect class="box" x="655" y="112" width="100" height="90" rx="4"/>
+          <text class="n" x="665" y="130">5</text>
+          <text class="t" x="705" y="157" text-anchor="middle">Recommend</text>
+          <text class="s" x="705" y="176" text-anchor="middle">a next step</text>
         </g>
 
-        <line class="line" x1="670" y1="175" x2="698" y2="175" marker-end="url(#arr)"/>
+        <polyline class="dots" points="360,202 360,244"/>
+        <polyline class="dots" points="475,202 475,244"/>
+        <polyline class="dots" points="590,202 590,244"/>
+        <rect class="datab" x="310" y="244" width="330" height="40" rx="4"/>
+        <text class="datat" x="475" y="261" text-anchor="middle">APPROVED DATA ACCESS ONLY</text>
+        <text class="s" x="475" y="276" text-anchor="middle">policy records and claims history, every lookup logged</text>
 
-        <!-- Rule in code -->
-        <polygon class="rulebox" points="760,115 820,175 760,235 700,175"/>
-        <text class="t" x="760" y="171" text-anchor="middle">Person</text>
-        <text class="t" x="760" y="189" text-anchor="middle">needed?</text>
-        <text class="lab" x="760" y="258" text-anchor="middle">RULE IN CODE</text>
+        <line class="line" x1="780" y1="157" x2="818" y2="157" marker-end="url(#arr)"/>
 
-        <polyline class="line" points="760,115 760,80 848,80" marker-end="url(#arr)"/>
-        <text class="lab" x="772" y="72">no</text>
-        <polyline class="line" points="820,175 835,175 835,290 848,290" marker-end="url(#arr)"/>
-        <text class="lab" x="828" y="240" text-anchor="end">yes</text>
+        <polygon class="rulebox" points="880,97 940,157 880,217 820,157"/>
+        <text class="t" x="880" y="153" text-anchor="middle">Person</text>
+        <text class="t" x="880" y="171" text-anchor="middle">needed?</text>
+        <text class="lab" x="880" y="240" text-anchor="middle">RULE IN CODE</text>
 
-        <rect class="auto" x="850" y="40" width="140" height="84" rx="4"/>
-        <text class="autot" x="920" y="72" text-anchor="middle">Handled</text>
-        <text class="autot" x="920" y="90" text-anchor="middle">automatically</text>
-        <text class="s" x="920" y="110" text-anchor="middle">small, clean claims</text>
+        <polyline class="line" points="880,97 880,64 958,64" marker-end="url(#arr)"/>
+        <text class="lab" x="892" y="56">no</text>
+        <polyline class="line" points="940,157 950,157 950,262 958,262" marker-end="url(#arr)"/>
+        <text class="lab" x="944" y="214" text-anchor="end">yes</text>
 
-        <rect class="human" x="850" y="225" width="140" height="122" rx="4"/>
-        <text class="humant" x="920" y="252" text-anchor="middle">Adjuster decides</text>
-        <text class="s" x="920" y="276" text-anchor="middle">every denial</text>
-        <text class="s" x="920" y="296" text-anchor="middle">payouts over $2,500</text>
-        <text class="s" x="920" y="316" text-anchor="middle">any fraud flag</text>
+        <rect class="auto" x="960" y="22" width="110" height="84" rx="4"/>
+        <text class="autot" x="1015" y="54" text-anchor="middle">Handled</text>
+        <text class="autot" x="1015" y="72" text-anchor="middle">automatically</text>
+        <text class="s" x="1015" y="92" text-anchor="middle">small, clean</text>
 
-        <!-- Record of every step -->
-        <polyline class="dots" points="265,220 265,380"/>
-        <polyline class="dots" points="380,220 380,380"/>
-        <polyline class="dots" points="495,220 495,380"/>
-        <polyline class="dots" points="610,220 610,380"/>
-        <polyline class="dots" points="920,347 920,380"/>
-        <rect class="ledger" x="10" y="380" width="980" height="48" rx="4"/>
-        <text class="t" x="28" y="409">Record of every step</text>
-        <text class="s" x="200" y="409">which AI, which rules it ran under, which model, what it decided, what it cost</text>
+        <rect class="human" x="960" y="196" width="110" height="182" rx="4"/>
+        <text class="humant" x="1015" y="222" text-anchor="middle">Adjuster</text>
+        <text class="humant" x="1015" y="240" text-anchor="middle">decides</text>
+        <text class="s" x="1015" y="264" text-anchor="middle">every denial</text>
+        <text class="s" x="1015" y="282" text-anchor="middle">over $2,500</text>
+        <text class="s" x="1015" y="300" text-anchor="middle">any fraud flag</text>
+        <text class="s" x="1015" y="318" text-anchor="middle">any AI correction</text>
+        <text class="s" x="1015" y="336" text-anchor="middle">anything the AI</text>
+        <text class="s" x="1015" y="352" text-anchor="middle">couldn't finish</text>
+
+        <polyline class="dots" points="480,300 480,404"/>
+        <polyline class="dots" points="1015,378 1015,404"/>
+        <rect class="ledger" x="10" y="404" width="1060" height="48" rx="4"/>
+        <text class="t" x="28" y="433">Record of every step</text>
+        <text class="s" x="190" y="433">which AI, its approved instructions, every record it looked up, any correction, what it cost</text>
       </svg>
     </div>
-    <figcaption>The AI gathers evidence and proposes; it never denies or pays a claim on its own. Each AI step has a <b>hall pass</b>: a registered permit naming its owner, risk level, the AI model it may use and the data it may see. No pass, no work. The rule that decides when a person must step in is ordinary software, so the AI can't argue its way past it.</figcaption>
+    <figcaption>Each AI step has a <b>hall pass</b>: a registered, approved permit naming its owner, risk level, the AI model it may use and the records it may look up. A changed permit or changed instructions can't run until a reviewed approval says so. The AI gathers evidence and proposes; it never denies or pays a claim on its own. Step 4 is a second AI that checks the others' work against the documents and sends mistakes back. The rule that decides when a person must step in is ordinary software, so the AI can't argue its way past it.</figcaption>
   </figure>
 
   <section class="grid">
     <div class="col">
-      <h2>What it shows today</h2>
+      <h2>What it shows so far</h2>
       <dl class="stats">
-        <div class="stat"><dt>18/18</dt><dd><b>Claims sent to the right place</b>, automatic or adjuster, in every test run</dd></div>
-        <div class="stat"><dt>100%</dt><dd><b>Claim details read correctly</b>: names, dates, amounts, documents</dd></div>
+        <div class="stat"><dt>0</dt><dd><b>Claims that needed a person went through automatically</b>, in 204 test runs</dd></div>
+        <div class="stat"><dt>84/84</dt><dd><b>Planted mistakes caught by the double-check</b>, with 1 false alarm in 34 clean claims</dd></div>
+        <div class="stat"><dt>98%</dt><dd><b>Coverage decisions fully right</b>: amount, outcome and policy rule</dd></div>
         <div class="stat"><dt>0</dt><dd><b>Invented facts.</b> Every name, amount and policy rule traced back to a source</dd></div>
-        <div class="stat"><dt>83%</dt><dd><b>Coverage decisions fully right.</b> Every miss still went to an adjuster</dd></div>
-        <div class="stat"><dt>2.4¢</dt><dd><b>AI cost per claim</b>, about 18 seconds of processing</dd></div>
+        <div class="stat"><dt>3.9¢</dt><dd><b>AI cost per claim</b>, about 21 seconds of processing</dd></div>
       </dl>
     </div>
 
     <div class="col">
       <h2>What a regulator will ask</h2>
       <ul class="qa">
-        <li><span class="q">What is this AI allowed to do? <span class="chip built">Built</span></span><span class="a">Its hall pass lists the model, data and tools. Anything without a pass is refused.</span></li>
-        <li><span class="q">Who is accountable? <span class="chip built">Built</span></span><span class="a">Every pass names an owner and a risk level.</span></li>
-        <li><span class="q">Who makes the big calls? <span class="chip part">Partly</span></span><span class="a">Denials, large payouts and fraud go to a person. The adjuster's approval screen is next.</span></li>
-        <li><span class="q">Is it accurate? <span class="chip built">Built</span></span><span class="a">Scored against answer keys and published, misses included.</span></li>
-        <li><span class="q">Can you prove it months later? <span class="chip part">Partly</span></span><span class="a">Each step records its pass fingerprint. A tamper-evident log is planned.</span></li>
+        <li><span class="q">What is this AI allowed to do? <span class="chip built">Built</span></span><span class="a">Its permit lists the model, the records and the lookups it may use. Anything else is refused and logged.</span></li>
+        <li><span class="q">Who approved it? <span class="chip built">Built</span></span><span class="a">Every permit names an owner, and each version and its instructions need a reviewed approval to run.</span></li>
+        <li><span class="q">Who makes the big calls? <span class="chip part">Partly</span></span><span class="a">Denials, large payouts, fraud and AI corrections go to a person. The adjuster's approval screen is next.</span></li>
+        <li><span class="q">Is it accurate? <span class="chip built">Built</span></span><span class="a">Scored against answer keys on 36 test claims, misses published.</span></li>
+        <li><span class="q">Can you prove it months later? <span class="chip part">Partly</span></span><span class="a">Each claim records every AI step, its instructions, every lookup and every correction. A tamper-evident log is planned.</span></li>
       </ul>
     </div>
 
     <div class="col">
       <h2>Roadmap</h2>
       <ol class="road">
-        <li class="done"><span class="m">1-2</span><span>Hall passes, four AI steps, first published scores</span></li>
-        <li class="now"><span class="m">3</span><span>A checker that double-checks the AI's work before it moves on</span></li>
-        <li><span class="m">4</span><span>Controlled access to policy and claims history</span></li>
-        <li><span class="m">5</span><span>Adjuster approval screen that saves the evidence they saw</span></li>
+        <li class="done"><span class="m">1-2</span><span>Permits, four AI steps, first published scores</span></li>
+        <li class="done"><span class="m">3</span><span>A second AI that double-checks the work</span></li>
+        <li class="done"><span class="m">4</span><span>Approved, logged access to policy and claims history</span></li>
+        <li class="now"><span class="m">5</span><span>Adjuster approval screen that saves the evidence they saw</span></li>
         <li><span class="m">6</span><span>Tamper-evident record of every step</span></li>
         <li><span class="m">7</span><span>Cheaper models for simple claims, cost tracking</span></li>
         <li><span class="m">8</span><span>Privacy masking, fairness checks, attack tests</span></li>
@@ -225,7 +239,7 @@
 
   <footer>
     <span>A reference implementation, not a production claims system. All claims, policies and people are fictional.</span>
-    <span>Scores: 6 test claims × 3 runs, November 2026. A small sample: it shows the kinds of mistakes, not reliable rates.</span>
+    <span>Scores: 34 test claims × 3 runs plus a planted-mistake test, November 2026. Milestone 4's own scores are still to come. A small sample: it shows the kinds of mistakes, not reliable rates.</span>
     <a href="https://github.com/keeplearnin/hall-monitor">github.com/keeplearnin/hall-monitor</a>
   </footer>
 </main>
