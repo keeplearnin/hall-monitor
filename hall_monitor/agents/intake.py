@@ -49,7 +49,9 @@ def render_claim(claim: ClaimSubmission) -> str:
     return "\n".join(parts)
 
 
-@tracing.observe(name="intake", as_type="generation")
+# An agent span, not a generation: the Anthropic SDK emits its own generation span with model
+# and token usage nested under this one, so recording usage here would count it twice.
+@tracing.observe(name="intake", as_type="agent")
 def run_intake(
     claim: ClaimSubmission,
     registry: Registry,
@@ -66,18 +68,14 @@ def run_intake(
         output_format=IntakeExtraction,
     )
 
-    tracing.update_generation(
-        model=manifest.model,
+    tracing.update_span(
         metadata={
             "claim_id": claim.claim_id,
             "agent_id": manifest.id,
             "agent_version": manifest.version,
+            "model": manifest.model,
             "manifest_digest": manifest.digest(),
             "prompt_version": PROMPT_VERSION,
-        },
-        usage_details={
-            "input": response.usage.input_tokens,
-            "output": response.usage.output_tokens,
         },
     )
 
