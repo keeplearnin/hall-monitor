@@ -17,7 +17,7 @@ Those answers usually live in policy documents. hall-monitor puts them in code:
 
 - **Every agent is registered** (its hall pass) before it can run, with an owner, a risk tier and an explicit tool allow-list.
 - **Consequential decisions stop for a human**, and the evidence the human saw is recorded with their decision.
-- **Every step is logged** in an append-only, hash-chained audit trail that shows if anything was altered. *(Planned, milestone 6. Today each result records every agent call with its hall pass, prompt and input hashes, and Anthropic request ID, plus every critic revision.)*
+- **Every step is logged** in an append-only, hash-chained audit trail that shows if anything was altered.
 - **Every change is evaluated in CI**, so a new prompt or model can't silently ship a regression. *(Tests, lint and the approvals check run on every PR today; the eval gate is milestone 9.)*
 - **Every control maps to a framework** (NIST AI RMF; FINOS AI Governance Framework planned), so risk, compliance and audit teams can evaluate it without reading the code.
 
@@ -69,7 +69,7 @@ flowchart LR
     end
 ```
 
-What is built today, after milestone 5: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. Agents fetch policy records and claims history through governed MCP tools. The pipeline stops if the claim's policy can't be found. Claims routed to a person wait at an adjuster approval gate. The audit log is next. For the runtime path with module names, and a plain-English version, see:
+What is built today, after milestone 6: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. Agents fetch policy records and claims history through governed MCP tools. The pipeline stops if the claim's policy can't be found. Claims routed to a person wait at an adjuster approval gate. Every step is written to a hash-chained audit log. For the runtime path with module names, and a plain-English version, see:
 
 - [`docs/architecture.html`](docs/architecture.html), for engineering managers and architects
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
@@ -86,7 +86,7 @@ Tracing sends IDs, versions, hashes and token counts to Langfuse, never claim te
 | Agent registry | Typed manifest per agent: ID, owner, risk tier, model, allowed tools, version. Unregistered, inactive or unapproved agents are refused: each manifest digest and prompt hash must match `registry/approvals.yaml`. | Govern | Built (milestones 1 and 3) |
 | Tool allow-list | Agents can call only the MCP tools their manifest names; the gateway refuses anything else and records every call, allowed or refused | Govern, Manage | Built (milestone 4) |
 | Adjuster approval gates | A LangGraph interrupt pauses every claim the routing rule sends to a person, with state saved in SQLite so it can wait across restarts. Code checks the adjuster's identity and authority limit, payout bounds, who may pay a flagged claim, and that overrides and denials carry a reason. The decision is recorded with the adjuster and the hash of the evidence they saw. | Manage | Built (milestone 5) |
-| Tamper-evident audit log | Append-only log, each entry hashed with the previous one | Govern, Manage | Planned |
+| Tamper-evident audit log | Append-only SQLite log; each entry's hash covers the previous one, triggers refuse edits and deletes, and `verify` reports any changed, missing or reordered entry. Entries hold IDs, hashes and decisions, never claim text. Someone with write access to the file could rewrite the whole chain consistently, so copy the chain head (`audit head`) somewhere else and verify against it. | Govern, Manage | Built (milestone 6) |
 | PII and health-data redaction | Personal and medical details masked before they reach a model or a log | Manage | Planned |
 | Model routing | Cheaper model by default; stronger model for complex or high-risk claims | Manage | Planned |
 | Cost and value telemetry | Cost per claim, time to triage, human override rate, exception rate | Measure | Planned |
@@ -118,7 +118,7 @@ The two baseline rows use the same code; the second runs on a larger claim set. 
 3. ~~Critic agent and self-correction loop~~ (done)
 4. ~~MCP servers: `policy_lookup`, `claims_history`~~ (done; eval results to follow)
 5. ~~Adjuster approval gate with persistent checkpoints~~ (done)
-6. Hash-chained audit log
+6. ~~Hash-chained audit log~~ (done)
 7. Model routing and cost-per-claim telemetry
 8. PII redaction, fairness checks and adversarial test suite
 9. NIST AI RMF and FINOS AIGF mapping; CI eval gate
@@ -144,6 +144,7 @@ cp .env.example .env   # add ANTHROPIC_API_KEY and Langfuse keys
 uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
 uv run python -m hall_monitor.review list                  # claims waiting for an adjuster
 uv run python -m hall_monitor.review show claim_004        # evidence pack and its hash
+uv run python -m hall_monitor.audit verify                 # check the audit chain
 uv run pytest          # registry, dataset, pipeline and scoring checks; no API calls
 uv run python -m hall_monitor.evals.baseline --trials 3   # live baseline, about $0.45
 ```

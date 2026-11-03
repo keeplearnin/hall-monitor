@@ -19,7 +19,14 @@ WORDING = load_policy_wording()
 
 def _open(path, claim_id=None):
     client = fake_client(outputs_from_truth(load_ground_truth(claim_id))) if claim_id else None
-    return open_workflow(path, registry=REGISTRY, gateway=GATEWAY, wording=WORDING, client=client)
+    return open_workflow(
+        path,
+        audit_db=path.with_name("audit.sqlite"),
+        registry=REGISTRY,
+        gateway=GATEWAY,
+        wording=WORDING,
+        client=client,
+    )
 
 
 def _submit(path, claim_id):

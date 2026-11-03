@@ -1,6 +1,7 @@
 """Claim workflow: triage, then either the automatic route or the adjuster approval gate.
 
-A LangGraph graph with a SQLite checkpointer. When the routing rule sends a claim to a person,
+A LangGraph graph with a SQLite checkpointer. Every step is also written to the
+hash-chained audit log (governance/audit.py). When the routing rule sends a claim to a person,
 the graph stops at the review node (an interrupt) with the evidence pack, and its state is
 saved, so the claim can wait for an adjuster across process restarts. The adjuster's decision
 resumes it; a decision the rules reject stops it at review again with the reason. One thread
@@ -29,6 +30,13 @@ from hall_monitor.governance.approval import (
     load_adjusters,
     validate_decision,
 )
+from hall_monitor.governance.audit import (
+    DEFAULT_AUDIT_DB,
+    AuditLog,
+    canonical,
+    record_triage,
+    sha256,
+)
 from hall_monitor.models import ClaimSubmission, Route, TriageResult
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
@@ -52,6 +60,7 @@ def build_graph(
     registry: Registry,
     gateway: ToolGateway,
     wording: str,
+    audit: AuditLog,
     client: anthropic.Anthropic | None = None,
     critic: bool = True,
 ) -> StateGraph:
@@ -63,6 +72,10 @@ def build_graph(
             claim, registry=registry, gateway=gateway, wording=wording, client=client, critic=critic
         )
         pack = build_evidence_pack(result, claim)
+        record_triage(audit, claim, result)
+        audit.append(
+            claim.claim_id, "evidence_pack", "pipeline", {"evidence_sha256": evidence_sha256(pack)}
+        )
         return {
             "result": result.model_dump(mode="json"),
             "evidence": pack,
@@ -75,7 +88,9 @@ def build_graph(
 
     def auto(state: ClaimState) -> ClaimState:
         result = TriageResult.model_validate(state["result"])
-        return {"final": final_auto(result, state["evidence_sha256"]).model_dump(mode="json")}
+        final = final_auto(result, state["evidence_sha256"]).model_dump(mode="json")
+        audit.append(result.claim_id, "final_decision", "auto", final)
+        return {"final": final}
 
     def review(state: ClaimState) -> ClaimState:
         submitted = interrupt(
@@ -91,8 +106,17 @@ def build_graph(
             decision = AdjusterDecision.model_validate(submitted)
             adjuster = validate_decision(decision, result, state["evidence_sha256"], adjusters)
         except (DecisionRejected, ValueError) as exc:
+            audit.append(
+                result.claim_id,
+                "decision_rejected",
+                f"adjuster:{submitted.get('adjuster_id') if isinstance(submitted, dict) else '?'}",
+                {"rejected_because": str(exc), "submitted_sha256": sha256(canonical(submitted))},
+            )
             return {"rejected": str(exc)}
         final = final_from_adjuster(decision, adjuster, result, state["evidence_sha256"])
+        audit.append(
+            result.claim_id, "final_decision", final.decided_by, final.model_dump(mode="json")
+        )
         return {"final": final.model_dump(mode="json"), "rejected": None}
 
     def after_review(state: ClaimState) -> str:
@@ -111,18 +135,23 @@ def build_graph(
 
 @contextmanager
 def open_workflow(
-    checkpoints: Path = DEFAULT_CHECKPOINTS, **graph_kwargs
+    checkpoints: Path = DEFAULT_CHECKPOINTS, audit_db: Path = DEFAULT_AUDIT_DB, **graph_kwargs
 ) -> Iterator[ClaimWorkflow]:
     checkpoints.parent.mkdir(parents=True, exist_ok=True)
-    with SqliteSaver.from_conn_string(str(checkpoints)) as saver:
-        app = build_graph(**graph_kwargs).compile(checkpointer=saver)
-        yield ClaimWorkflow(app, saver)
+    audit = AuditLog(audit_db)
+    try:
+        with SqliteSaver.from_conn_string(str(checkpoints)) as saver:
+            app = build_graph(audit=audit, **graph_kwargs).compile(checkpointer=saver)
+            yield ClaimWorkflow(app, saver, audit)
+    finally:
+        audit.close()
 
 
 class ClaimWorkflow:
-    def __init__(self, app, saver: SqliteSaver):
+    def __init__(self, app, saver: SqliteSaver, audit: AuditLog):
         self.app = app
         self.saver = saver
+        self.audit = audit
 
     @staticmethod
     def _config(claim_id: str) -> dict:
