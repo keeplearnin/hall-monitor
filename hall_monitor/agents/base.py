@@ -41,6 +41,8 @@ class ToolAccess:
 
     gateway: ToolGateway
     log: list[ToolCall] = field(default_factory=list)
+    # The claim's own policy number: lookups for any other policy are refused.
+    scope_policy: str | None = None
 
 
 @dataclass(frozen=True)
@@ -107,7 +109,9 @@ def run_agent[T: BaseModel](
                 "type": "tool_result",
                 "tool_use_id": block.id,
                 "content": json.dumps(
-                    tools.gateway.call(agent_id, block.name, dict(block.input), tools.log)
+                    tools.gateway.call(
+                        agent_id, block.name, dict(block.input), tools.log, tools.scope_policy
+                    )
                 ),
             }
             for block in response.content

@@ -176,6 +176,8 @@ def record_triage(log: AuditLog, claim, result) -> None:
             "claim_sha256": sha256(claim.model_dump_json()),
             "submitted_at": claim.submitted_at.isoformat(),
             "attachments": len(claim.attachments),
+            "identifiers_redacted": result.redactions,
+            "injection_signals": result.injection_signals,
         },
     )
     for call in result.agent_calls:

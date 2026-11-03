@@ -283,6 +283,8 @@ class TriageResult(BaseModel):
     code_corrections: list[str] = Field(default_factory=list)
     tool_calls: list[ToolCall] = Field(default_factory=list)
     cost_usd: float = 0.0  # every model call for this claim, at list price, cache-aware
+    redactions: dict[str, int] = Field(default_factory=dict)  # identifiers removed, by type
+    injection_signals: list[str] = Field(default_factory=list)  # text aimed at the AI
     revisions: int = 0
     critic_unresolved: bool = False
     stopped_reason: str | None = None

@@ -28,6 +28,8 @@ from hall_monitor.agents.intake import run_intake
 from hall_monitor.agents.recommendation import run_recommendation
 from hall_monitor.agents.risk_fraud import run_risk_fraud
 from hall_monitor.gateway.cost import call_cost
+from hall_monitor.gateway.injection import detect_instructions
+from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.governance.routing import route_claim, route_stopped
 from hall_monitor.models import (
     AgentCall,
@@ -147,9 +149,17 @@ def triage(
     client = client or anthropic.Anthropic()
     gateway = gateway or ToolGateway(registry)
     run = _Run()
+    # Code checks before any model sees the claim: text aimed at the AI is flagged (and routes
+    # the claim to a person), and identifiers no agent needs are removed.
+    signals = detect_instructions(claim)
+    claim, redactions = redact_claim(claim)
     try:
-        result = _triage(claim, run, registry, gateway, wording, client, critic, model_routing)
-        return result.model_copy(update={"cost_usd": _cost(run)})
+        result = _triage(
+            claim, run, registry, gateway, wording, client, critic, model_routing, signals
+        )
+        return result.model_copy(
+            update={"cost_usd": _cost(run), "redactions": redactions, "injection_signals": signals}
+        )
     except AgentRefusedError as exc:
         run.calls.append(exc.call)
         reason = f"agent refused or returned no usable output: {exc}"
@@ -176,6 +186,8 @@ def triage(
         revisions=run.revisions,
         stopped_reason=reason,
         cost_usd=_cost(run),
+        redactions=redactions,
+        injection_signals=signals,
     )
 
 
@@ -188,6 +200,7 @@ def _triage(
     client: anthropic.Anthropic,
     critic: bool,
     model_routing: bool,
+    injection_signals: list[str],
 ) -> TriageResult:
     # Intake, then a code check that the policy exists. One retry with the problem spelled out.
     run.extraction = run.output(run_intake(claim, registry, client))
@@ -212,7 +225,7 @@ def _triage(
         policy = _lookup(run.extraction, gateway, run)
     if policy is None:
         raise PipelineStopped("no policy record found for the policy number on the claim")
-    tools = ToolAccess(gateway, run.tool_calls)
+    tools = ToolAccess(gateway, run.tool_calls, scope_policy=policy.policy_number)
 
     economy = {
         agent: _economy(registry, agent, run.extraction, model_routing)
@@ -266,6 +279,7 @@ def _triage(
             policy = _lookup(run.extraction, gateway, run)
             if policy is None:
                 raise PipelineStopped("no policy record found after the critic's correction")
+            tools.scope_policy = policy.policy_number
         if ReviewedStage.INTAKE in problems or ReviewedStage.COVERAGE_CHECK in problems:
             # Coverage depends on the extraction, so an intake correction reruns it too.
             coverage = run.revised(
@@ -317,6 +331,7 @@ def _triage(
         recommendation,
         critic_unresolved=unresolved,
         critic_changed=run.critic_changed(),
+        injection_signals=injection_signals,
     )
     return TriageResult(
         claim_id=claim.claim_id,
