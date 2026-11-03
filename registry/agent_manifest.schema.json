@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "AgentStatus": {
+      "enum": [
+        "active",
+        "planned",
+        "retired"
+      ],
+      "title": "AgentStatus",
+      "type": "string"
+    },
+    "DataClass": {
+      "description": "Categories of sensitive data an agent is approved to see.",
+      "enum": [
+        "pii",
+        "health",
+        "financial"
+      ],
+      "title": "DataClass",
+      "type": "string"
+    },
+    "RiskTier": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "RiskTier",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The hall pass. Changing any field changes the digest recorded in the audit trail.",
+  "properties": {
+    "id": {
+      "description": "Stable agent identifier.",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "version": {
+      "description": "Semantic version.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Version",
+      "type": "string"
+    },
+    "owner": {
+      "description": "Accountable person or team.",
+      "minLength": 1,
+      "title": "Owner",
+      "type": "string"
+    },
+    "purpose": {
+      "minLength": 1,
+      "title": "Purpose",
+      "type": "string"
+    },
+    "risk_tier": {
+      "$ref": "#/$defs/RiskTier"
+    },
+    "status": {
+      "$ref": "#/$defs/AgentStatus"
+    },
+    "model": {
+      "description": "Model ID the agent is approved to use.",
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "allowed_tools": {
+      "default": [],
+      "description": "MCP tools the agent may call. Empty means none.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Tools",
+      "type": "array"
+    },
+    "data_classes": {
+      "default": [],
+      "description": "Sensitive data categories the agent may receive.",
+      "items": {
+        "$ref": "#/$defs/DataClass"
+      },
+      "title": "Data Classes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "version",
+    "owner",
+    "purpose",
+    "risk_tier",
+    "status",
+    "model"
+  ],
+  "title": "AgentManifest",
+  "type": "object"
+}

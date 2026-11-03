@@ -1,0 +1,43 @@
+{
+  "claim_id": "claim_001",
+  "scenario": "Trip cancelled for appendicitis; clean, covered, below the adjuster threshold.",
+  "extraction": {
+    "claimant_name": "Daniel Okafor",
+    "policy_number": "WTP-ESS-100231",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2026-08-14",
+    "incident_location": null,
+    "claimed_items": [
+      {
+        "description": "Non-refundable flight",
+        "amount": 842.0
+      },
+      {
+        "description": "Non-refundable hotel",
+        "amount": 1150.0
+      }
+    ],
+    "total_claimed": 1992.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "discharge_summary.txt",
+      "airline_cancellation.txt",
+      "hotel_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "covered",
+    "applicable_clauses": [
+      "2.1",
+      "2.2"
+    ],
+    "covered_amount": 1992.0,
+    "reasoning": "Sudden illness certified by a doctor (2.1(a)); cancelled within 72 hours (2.3); no relevant prior history; total 1,992 is within the Essentials limit of 3,000."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "policy_number": "WTP-ESS-100231",
+    "plan": "essentials",
+    "insured_name": "Daniel Okafor",
+    "purchase_date": "2026-06-02",
+    "coverage_start": "2026-06-02",
+    "coverage_end": "2026-08-30",
+    "trip": {"destination": "Lisbon, Portugal", "departure_date": "2026-08-20", "return_date": "2026-08-30", "initial_deposit_date": "2026-05-28"}
+  },
+  {
+    "policy_number": "WTP-PLS-200118",
+    "plan": "plus",
+    "insured_name": "Mei Lin Zhou",
+    "purchase_date": "2026-08-01",
+    "coverage_start": "2026-08-01",
+    "coverage_end": "2026-09-24",
+    "trip": {"destination": "Tokyo, Japan", "departure_date": "2026-09-10", "return_date": "2026-09-24", "initial_deposit_date": "2026-07-25"}
+  },
+  {
+    "policy_number": "WTP-PLS-200342",
+    "plan": "plus",
+    "insured_name": "Carlos Mendes",
+    "purchase_date": "2026-06-20",
+    "coverage_start": "2026-06-20",
+    "coverage_end": "2026-07-26",
+    "trip": {"destination": "Zermatt, Switzerland", "departure_date": "2026-07-12", "return_date": "2026-07-26", "initial_deposit_date": "2026-06-18"}
+  },
+  {
+    "policy_number": "WTP-ESS-100587",
+    "plan": "essentials",
+    "insured_name": "Aisha Bello",
+    "purchase_date": "2026-07-10",
+    "coverage_start": "2026-07-10",
+    "coverage_end": "2026-09-19",
+    "trip": {"destination": "Cape Town, South Africa", "departure_date": "2026-09-05", "return_date": "2026-09-19", "initial_deposit_date": "2026-04-02"}
+  },
+  {
+    "policy_number": "WTP-ESS-100902",
+    "plan": "essentials",
+    "insured_name": "Tomasz Wisniewski",
+    "purchase_date": "2026-10-01",
+    "coverage_start": "2026-10-01",
+    "coverage_end": "2026-10-10",
+    "trip": {"destination": "Barcelona, Spain", "departure_date": "2026-10-03", "return_date": "2026-10-10", "initial_deposit_date": "2026-09-29"}
+  },
+  {
+    "policy_number": "WTP-ESS-101144",
+    "plan": "essentials",
+    "insured_name": "Grace Whitfield",
+    "purchase_date": "2026-09-15",
+    "coverage_start": "2026-09-15",
+    "coverage_end": "2026-10-25",
+    "trip": {"destination": "Dublin, Ireland", "departure_date": "2026-10-18", "return_date": "2026-10-25", "initial_deposit_date": "2026-09-12"}
+  }
+]

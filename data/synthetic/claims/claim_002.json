@@ -1,0 +1,28 @@
+{
+  "claim_id": "claim_002",
+  "submitted_at": "2026-09-28T03:41:00Z",
+  "channel": "mobile_app",
+  "narrative": "Policy WTP-PLS-200118, Mei Lin Zhou. My suitcase didn't arrive with me when I landed at Haneda on 11 September at 14:20. The airline gave me a delay report at the baggage desk and delivered the bag to my hotel the next evening at 20:30. Until then I had to buy toiletries ($38.50), a shirt and trousers ($214.00) and underwear and socks ($29.99). Total $282.49. Receipts and the airline report are attached.",
+  "attachments": [
+    {
+      "filename": "baggage_delay_report.txt",
+      "kind": "carrier_letter",
+      "text": "Pacific Crane Airlines - Property Irregularity Report\nFile ref: HNDPC41887  Passenger: ZHOU/MEILIN\nFlight PC 106 SFO-HND arrived 2026-09-11 14:20\nBag tag PC 448190: not received on arrival (delayed)\nDelivered to Hotel Sakura Gate 2026-09-12 20:30"
+    },
+    {
+      "filename": "receipt_drugstore.txt",
+      "kind": "receipt",
+      "text": "Hoshino Drugstore, Shinjuku  2026-09-11 18:05\nToothbrush, toothpaste, deodorant, shampoo, face wash\nTotal: USD 38.50 (card, converted from JPY)"
+    },
+    {
+      "filename": "receipt_clothing.txt",
+      "kind": "receipt",
+      "text": "Kumo Apparel, Shinjuku  2026-09-11 19:20\n1 shirt, 1 trousers\nTotal: USD 214.00 (card, converted from JPY)"
+    },
+    {
+      "filename": "receipt_underwear.txt",
+      "kind": "receipt",
+      "text": "Kumo Apparel, Shinjuku  2026-09-12 10:15\nUnderwear (3), socks (3)\nTotal: USD 29.99 (card, converted from JPY)"
+    }
+  ]
+}

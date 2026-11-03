@@ -59,7 +59,7 @@ Hash-chainedaudit log
 Langfusetraces, cost, evals
 Governance controls
 Control	What it does	NIST AI RMF function	Status
-Agent registry	Typed manifest per agent: ID, owner, risk tier, model, allowed tools, version. Unregistered agents are refused.	Govern	In progress
+Agent registry	Typed manifest per agent: ID, owner, risk tier, model, allowed tools, version. Unregistered agents are refused.	Govern	Built (milestone 1)
 Tool allow-list	Agents can call only the MCP tools their manifest names	Govern, Manage	Planned
 Adjuster approval gates	Graph interrupts on denials, payouts above threshold and fraud flags; the adjuster's identity, the evidence shown and the decision are recorded	Manage	Planned
 Tamper-evident audit log	Append-only log, each entry hashed with the previous one	Govern, Manage	Planned
@@ -94,14 +94,15 @@ Python 3.12 · LangGraph · Claude (Haiku and Sonnet) · MCP via fastmcp · Post
 
 Quickstart
 
-Coming with milestone 1.
+Milestone 1 runs the intake agent on a claim and prints its extraction with the hall pass it ran under.
 
 bash
-git clone https://github.com/<your-username>/hall-monitor.git
+git clone https://github.com/keeplearnin/hall-monitor.git
 cd hall-monitor
 uv sync
 cp .env.example .env   # add ANTHROPIC_API_KEY and Langfuse keys
 uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
+uv run pytest          # registry, dataset and intake checks; no API calls
 Repository layout
 text
 hall-monitor/

@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_004",
+  "submitted_at": "2026-09-08T08:05:00Z",
+  "channel": "web_form",
+  "narrative": "Aisha Bello, policy number WTP-ESS-100587. I had to cancel my trip to Cape Town (due to leave 5 September) because of a severe flare-up of my Crohn's disease on 29 August. My gastroenterologist advised me not to travel. I cancelled everything on 30 August. Non-refundable costs: flights $1,780.00 and the safari lodge deposit $860.00, total $2,640.00. Letter from my doctor and the cancellation confirmations are attached.",
+  "attachments": [
+    {
+      "filename": "gastroenterologist_letter.txt",
+      "kind": "medical_report",
+      "text": "Lakeside Digestive Health\nRe: Aisha Bello  DOB: 1991-11-02\nMs Bello has Crohn's disease, diagnosed in March 2024 and managed with maintenance therapy. Her medication was changed on 2026-05-28 after a period of increased symptoms. On 2026-08-29 she presented with a severe flare requiring a course of steroids. I have advised her not to travel abroad for at least six weeks.\nDr. S. Patel"
+    },
+    {
+      "filename": "flight_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "Southern Cross Air - Cancellation\nPassenger: BELLO/AISHA  Booking: TR88JX\nATL-CPT 2026-09-05, CPT-ATL 2026-09-19\nCancelled 2026-08-30. Fare USD 1,780.00 non-refundable."
+    },
+    {
+      "filename": "lodge_cancellation.txt",
+      "kind": "invoice",
+      "text": "Kloofwater Safari Lodge\nGuest: Aisha Bello  Deposit paid 2026-04-02: USD 860.00\nCancellation received 2026-08-30. Deposit is non-refundable."
+    }
+  ]
+}

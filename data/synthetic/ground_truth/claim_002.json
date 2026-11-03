@@ -1,0 +1,48 @@
+{
+  "claim_id": "claim_002",
+  "scenario": "Baggage delayed 30 hours on the outbound journey; essentials only; covered.",
+  "extraction": {
+    "claimant_name": "Mei Lin Zhou",
+    "policy_number": "WTP-PLS-200118",
+    "claim_type": "baggage_delay",
+    "incident_date": "2026-09-11",
+    "incident_location": "Tokyo (Haneda), Japan",
+    "claimed_items": [
+      {
+        "description": "Toiletries",
+        "amount": 38.5
+      },
+      {
+        "description": "Shirt and trousers",
+        "amount": 214.0
+      },
+      {
+        "description": "Underwear and socks",
+        "amount": 29.99
+      }
+    ],
+    "total_claimed": 282.49,
+    "currency": "USD",
+    "supporting_documents": [
+      "baggage_delay_report.txt",
+      "receipt_drugstore.txt",
+      "receipt_clothing.txt",
+      "receipt_underwear.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "covered",
+    "applicable_clauses": [
+      "3.1",
+      "3.3"
+    ],
+    "covered_amount": 282.49,
+    "reasoning": "Delay of 30h10m on the outbound flight is two part-days; Plus pays 150 per day, so the cap is 300. All purchases are toiletries or clothing with receipts, and a carrier report was obtained."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

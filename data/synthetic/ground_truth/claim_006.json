@@ -1,0 +1,50 @@
+{
+  "claim_id": "claim_006",
+  "scenario": "Short baggage delay; the same receipt is submitted twice.",
+  "extraction": {
+    "claimant_name": "Grace Whitfield",
+    "policy_number": "WTP-ESS-101144",
+    "claim_type": "baggage_delay",
+    "incident_date": "2026-10-19",
+    "incident_location": "Dublin, Ireland",
+    "claimed_items": [
+      {
+        "description": "Toiletries (Boots)",
+        "amount": 64.2
+      },
+      {
+        "description": "Toiletries (Boots, second receipt)",
+        "amount": 64.2
+      },
+      {
+        "description": "Change of clothes (Penneys)",
+        "amount": 45.0
+      }
+    ],
+    "total_claimed": 173.4,
+    "currency": "USD",
+    "supporting_documents": [
+      "delay_report.txt",
+      "receipt_toiletries_1.txt",
+      "receipt_toiletries_2.txt",
+      "receipt_clothes.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "3.1",
+      "6.2"
+    ],
+    "covered_amount": 100.0,
+    "reasoning": "The two toiletries receipts share receipt number 4471-2290 and timestamp, so one is a duplicate (6.2). Unique purchases are 109.20, but a 16-hour delay is one part-day and Essentials pays up to 100 per day (3.1)."
+  },
+  "risk": {
+    "level": "medium",
+    "flags": [
+      "duplicate_receipt"
+    ]
+  },
+  "next_step": "pay",
+  "route": "adjuster"
+}

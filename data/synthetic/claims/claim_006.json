@@ -1,0 +1,28 @@
+{
+  "claim_id": "claim_006",
+  "submitted_at": "2026-10-28T12:30:00Z",
+  "channel": "mobile_app",
+  "narrative": "Hello, Grace Whitfield here, policy WTP-ESS-101144. I flew into Dublin on 19 October at 07:05 and my suitcase was delayed. The airline gave me a report and dropped the bag at my hotel at 23:10 that night. I bought toiletries at Boots ($64.20, I've attached that receipt and a second toiletries receipt for $64.20) and a change of clothes at Penneys ($45.00). Total $173.40.",
+  "attachments": [
+    {
+      "filename": "delay_report.txt",
+      "kind": "carrier_letter",
+      "text": "Emerald Wing - Property Irregularity Report\nFile ref: DUBEW20577  Passenger: WHITFIELD/GRACE\nFlight EW 132 JFK-DUB arrived 2026-10-19 07:05\nBag delayed. Delivered to The Liffey House hotel 2026-10-19 23:10"
+    },
+    {
+      "filename": "receipt_toiletries_1.txt",
+      "kind": "receipt",
+      "text": "Boots, Grafton Street  2026-10-19 10:12\nReceipt no. 4471-2290\nToothbrush, toothpaste, shampoo, conditioner, deodorant, moisturiser\nTotal: USD 64.20 (card, converted from EUR)"
+    },
+    {
+      "filename": "receipt_toiletries_2.txt",
+      "kind": "receipt",
+      "text": "Boots, Grafton Street  2026-10-19 10:12\nReceipt no. 4471-2290\nToothbrush, toothpaste, shampoo, conditioner, deodorant, moisturiser\nTotal: USD 64.20 (card, converted from EUR)"
+    },
+    {
+      "filename": "receipt_clothes.txt",
+      "kind": "receipt",
+      "text": "Penneys, Mary Street  2026-10-19 11:40\nT-shirt, jeans, underwear\nTotal: USD 45.00 (card, converted from EUR)"
+    }
+  ]
+}

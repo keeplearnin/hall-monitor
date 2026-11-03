@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_003",
+  "submitted_at": "2026-08-03T16:22:00Z",
+  "channel": "email",
+  "narrative": "Dear claims team, I'm Carlos Mendes (policy WTP-PLS-200342). On 17 July, while hiking the marked Edelweiss trail above Zermatt, I slipped on wet rock and broke my left wrist. I was taken to the clinic in Zermatt and then to Visp hospital, where they reset the bone and put on a cast. I had a follow-up visit before flying home. The bills came to $6,480.00 altogether: emergency room $1,150.00, X-rays $420.00, reduction and cast $3,960.00, follow-up consultation $950.00. Itemised invoices attached. Thank you.",
+  "attachments": [
+    {
+      "filename": "visp_hospital_invoice.txt",
+      "kind": "invoice",
+      "text": "Spital Visp - Itemised invoice\nPatient: Carlos Mendes  Date of injury: 2026-07-17\nEmergency department assessment: USD 1,150.00\nRadiology (wrist, 3 views): USD 420.00\nClosed reduction of distal radius fracture, cast application: USD 3,960.00\nTotal: USD 5,530.00 (converted from CHF)"
+    },
+    {
+      "filename": "followup_invoice.txt",
+      "kind": "invoice",
+      "text": "Praxis Matterhorn, Zermatt\nPatient: Carlos Mendes  Visit: 2026-07-24\nOrthopaedic follow-up consultation and cast check: USD 950.00 (converted from CHF)"
+    },
+    {
+      "filename": "medical_report.txt",
+      "kind": "medical_report",
+      "text": "Spital Visp - Clinical note\nPatient fell while hiking on a marked trail on 2026-07-17. Displaced distal radius fracture, left. No prior wrist injury. Fit to fly from 2026-07-25 with cast."
+    }
+  ]
+}

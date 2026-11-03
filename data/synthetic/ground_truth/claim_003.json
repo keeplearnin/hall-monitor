@@ -1,0 +1,50 @@
+{
+  "claim_id": "claim_003",
+  "scenario": "Wrist fracture hiking on a marked trail; covered but above the payout threshold.",
+  "extraction": {
+    "claimant_name": "Carlos Mendes",
+    "policy_number": "WTP-PLS-200342",
+    "claim_type": "emergency_medical",
+    "incident_date": "2026-07-17",
+    "incident_location": "Zermatt, Switzerland",
+    "claimed_items": [
+      {
+        "description": "Emergency room",
+        "amount": 1150.0
+      },
+      {
+        "description": "X-rays",
+        "amount": 420.0
+      },
+      {
+        "description": "Fracture reduction and cast",
+        "amount": 3960.0
+      },
+      {
+        "description": "Follow-up consultation",
+        "amount": 950.0
+      }
+    ],
+    "total_claimed": 6480.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "visp_hospital_invoice.txt",
+      "followup_invoice.txt",
+      "medical_report.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "covered",
+    "applicable_clauses": [
+      "4.1"
+    ],
+    "covered_amount": 6480.0,
+    "reasoning": "Sudden injury during the trip (4.1). Hiking on a marked trail is expressly not hazardous (5.5). Plus has no deductible; under 10,000 so no notification was required (4.2). Payout exceeds the 2,500 threshold, so an adjuster approves."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "adjuster"
+}

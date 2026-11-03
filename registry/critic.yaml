@@ -1,0 +1,10 @@
+id: critic
+name: Critic
+version: 0.1.0
+owner: claims-ai-platform
+purpose: Check extraction and coverage reasoning against the source documents and send them back when they disagree.
+risk_tier: medium
+status: planned
+model: claude-sonnet-5-5
+allowed_tools: [policy_lookup]
+data_classes: [pii, health, financial]

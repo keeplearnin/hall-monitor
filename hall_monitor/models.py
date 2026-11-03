@@ -1,0 +1,148 @@
+"""Typed shapes for claims, agent outputs and ground truth."""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from enum import StrEnum
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ClaimType(StrEnum):
+    TRIP_CANCELLATION = "trip_cancellation"
+    BAGGAGE_DELAY = "baggage_delay"
+    BAGGAGE_LOSS = "baggage_loss"
+    EMERGENCY_MEDICAL = "emergency_medical"
+
+
+class Plan(StrEnum):
+    ESSENTIALS = "essentials"
+    PLUS = "plus"
+
+
+# --- Inputs ---------------------------------------------------------------
+
+
+class Attachment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    filename: str
+    kind: str = Field(description="e.g. receipt, medical_report, carrier_letter, invoice")
+    text: str = Field(description="Text content of the document (OCR output in production).")
+
+
+class ClaimSubmission(BaseModel):
+    """What the customer sent. Everything here is untrusted input."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: str
+    submitted_at: datetime
+    channel: str
+    narrative: str
+    attachments: list[Attachment]
+
+
+class Trip(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    destination: str
+    departure_date: date
+    return_date: date
+    initial_deposit_date: date
+
+
+class PolicyRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    policy_number: str
+    plan: Plan
+    insured_name: str
+    purchase_date: date
+    coverage_start: date
+    coverage_end: date
+    trip: Trip
+
+
+# --- Agent outputs --------------------------------------------------------
+
+
+class ClaimedItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    description: str
+    amount: float = Field(description="Amount claimed for this item, in the claim currency.")
+
+
+class IntakeExtraction(BaseModel):
+    """Output of the intake agent. Fields not stated in the submission must be null."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claimant_name: str
+    policy_number: str | None
+    claim_type: ClaimType
+    incident_date: date | None = Field(
+        description="Date the insured event happened (illness, injury, bag delay or loss), "
+        "not the date the claim was filed."
+    )
+    incident_location: str | None
+    claimed_items: list[ClaimedItem]
+    total_claimed: float
+    currency: str = Field(description="ISO 4217 code, e.g. USD.")
+    supporting_documents: list[str] = Field(description="Filenames of attachments provided.")
+
+
+# --- Ground truth ---------------------------------------------------------
+
+
+class CoverageDecision(StrEnum):
+    COVERED = "covered"
+    PARTIALLY_COVERED = "partially_covered"
+    NOT_COVERED = "not_covered"
+
+
+class RiskLevel(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class NextStep(StrEnum):
+    PAY = "pay"
+    REQUEST_INFORMATION = "request_information"
+    INVESTIGATE = "investigate"
+    DENY = "deny"
+
+
+class Route(StrEnum):
+    AUTO = "auto"
+    ADJUSTER = "adjuster"
+
+
+class ExpectedCoverage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: CoverageDecision
+    applicable_clauses: list[str]
+    covered_amount: float
+    reasoning: str
+
+
+class ExpectedRisk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    level: RiskLevel
+    flags: list[str]
+
+
+class GroundTruth(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: str
+    scenario: str
+    extraction: IntakeExtraction
+    coverage: ExpectedCoverage
+    risk: ExpectedRisk
+    next_step: NextStep
+    route: Route
