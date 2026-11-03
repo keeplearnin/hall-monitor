@@ -1,0 +1,2111 @@
+{
+  "meta": {
+    "run_at": "2026-11-03 22:27 UTC",
+    "git_commit": "ecd20c38d1a89348a38ac5ce7f069c3ea7e90a3a",
+    "git_dirty": false
+  },
+  "summary": {
+    "cases": 118,
+    "errors": 0,
+    "control_false_alarm_rate": 0.029411764705882353,
+    "control_cases": 34,
+    "unsupported_flag_caught_rate": 1.0,
+    "unsupported_flag_cases": 34,
+    "missing_incident_date_caught_rate": 1.0,
+    "missing_incident_date_cases": 34,
+    "amount_ignores_cap_caught_rate": 1.0,
+    "amount_ignores_cap_cases": 16,
+    "cost_per_review_usd": 0.015308677966101695
+  },
+  "cases": [
+    {
+      "claim_id": "claim_001",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.01489,
+      "error": null
+    },
+    {
+      "claim_id": "claim_001",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "coverage_check",
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The flag amounts_inconsistent is not supported. The claimed amounts match the documents exactly, and the risk reasoning contradicts itself by first saying no inconsistencies were found. The flag should be removed and the level reconsidered.",
+          "evidence": "Airline cancellation: fare paid USD 842.00, refund USD 0.00. Hotel invoice: USD 1,150.00, refunded USD 0.00. Claimed 842.00 + 1,150.00 = 1,992.00, which matches the narrative and the intake total."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "applicable_clauses lists only 2.1, but the reasoning also relies on 2.3 (cancelled within 72 hours) and on the trip cancellation limit in 2.2 (Essentials limit of 3,000). Those clauses are missing from the list. The covered amount of 1,992 is correct.",
+          "evidence": "Reasoning: 'cancelled within 72 hours (2.3)' and 'within the Essentials limit of 3,000'. applicable_clauses: ['2.1']. Wording 2.2 sets the limit and 2.3 sets prompt cancellation."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.018674,
+      "error": null
+    },
+    {
+      "claim_id": "claim_001",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "coverage_check",
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null although the claim states the date of the incident (the illness that caused the cancellation), which should be 2026-08-14.",
+          "evidence": "Narrative: \"On 14 August I was taken to St. Bartholomew's Hospital with appendicitis\"; discharge summary: \"Admitted: 2026-08-14\" and appendectomy performed 2026-08-14."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "applicable_clauses lists only 2.1, but the reasoning also relies on clause 2.3 (cancelled within 72 hours) and on the limit in clause 2.2 (Essentials limit of 3,000). These clauses are not cited.",
+          "evidence": "Reasoning: \"cancelled within 72 hours (2.3)... within the Essentials limit of 3,000\"; applicable_clauses: [\"2.1\"]."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.017604,
+      "error": null
+    },
+    {
+      "claim_id": "claim_002",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.016074,
+      "error": null
+    },
+    {
+      "claim_id": "claim_002",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag has no support. The claimed amounts match the receipts exactly, and the risk reasoning contradicts itself by saying no inconsistencies were found and then that the amounts don't match the documents. The flag should be removed, and the risk level reconsidered, since no other flag supports 'medium'.",
+          "evidence": "Receipts: drugstore USD 38.50, clothing USD 214.00, underwear USD 29.99. These sum to 282.49, which equals total_claimed and the narrative total of $282.49. The carrier report (arrival 2026-09-11 14:20, delivery 2026-09-12 20:30) and the receipt dates are consistent with the narrative."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.018488,
+      "error": null
+    },
+    {
+      "claim_id": "claim_002",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the incident date: the bag did not arrive when the claimant landed at Haneda on 11 September. It should be 2026-09-11.",
+          "evidence": "Narrative: \"when I landed at Haneda on 11 September at 14:20\". The carrier report says: \"Flight PC 106 SFO-HND arrived 2026-09-11 14:20 ... not received on arrival (delayed)\"."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.017028,
+      "error": null
+    },
+    {
+      "claim_id": "claim_003",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.01756,
+      "error": null
+    },
+    {
+      "claim_id": "claim_003",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is unsupported. The claimed total of 6,480.00 equals the two invoices combined (Visp 5,530.00 + follow-up 950.00), and each claimed line matches an invoice line. The risk reasoning also contradicts itself, saying no inconsistencies were found and then saying the amounts don't match. The flag and the medium risk level that rests on it should be removed.",
+          "evidence": "visp_hospital_invoice.txt total USD 5,530.00 (1,150.00 + 420.00 + 3,960.00); followup_invoice.txt USD 950.00; 5,530.00 + 950.00 = 6,480.00, which matches the narrative and intake total_claimed 6480.0."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.017714,
+      "error": null
+    },
+    {
+      "claim_id": "claim_003",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "coverage_check",
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the date of the incident as 17 July, which is 2026-07-17 given the trip dates.",
+          "evidence": "The narrative says 'On 17 July, while hiking the marked Edelweiss trail...'. The Visp invoice says 'Date of injury: 2026-07-17' and the medical report says 'fell while hiking on a marked trail on 2026-07-17'."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "applicable_clauses lists only 4.1, but the reasoning also relies on 5.5 (hiking on a marked trail is not hazardous) and 4.2 (no notification needed under 10,000). Neither clause is listed.",
+          "evidence": "The reasoning text cites '(5.5)' and '(4.2)', while applicable_clauses is [\"4.1\"]."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.018194,
+      "error": null
+    },
+    {
+      "claim_id": "claim_004",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.014652,
+      "error": null
+    },
+    {
+      "claim_id": "claim_004",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is unsupported. The claimed amounts match the documents exactly, and the risk reasoning contradicts itself by saying no inconsistencies were found and then saying the amounts don't match.",
+          "evidence": "The flight cancellation letter shows a fare of USD 1,780.00 non-refundable and the lodge invoice shows a deposit of USD 860.00 non-refundable. These sum to the claimed USD 2,640.00, which matches the narrative and the intake total_claimed."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.019946,
+      "error": null
+    },
+    {
+      "claim_id": "claim_004",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the incident date. The Crohn's flare-up that caused the cancellation happened on 29 August, so the field should be 2026-08-29.",
+          "evidence": "Narrative: \"severe flare-up of my Crohn's disease on 29 August\". The gastroenterologist letter confirms: \"On 2026-08-29 she presented with a severe flare requiring a course of steroids.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.016396,
+      "error": null
+    },
+    {
+      "claim_id": "claim_005",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.015636,
+      "error": null
+    },
+    {
+      "claim_id": "claim_005",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered_amount of 1890.00 contradicts the reasoning, which says only the camera is payable at 490. The laptop (1400) is excluded because its receipt postdates the loss, and it would also exceed the 500 per-item limit. The camera was bought 2025-12-14, less than a full year before the 2026-10-03 loss, so there is no depreciation and the covered amount should be 490.00.",
+          "evidence": "Coverage reasoning: \"Only the camera is payable: 490, within the 500 per-item and 750 valuables limits (3.2)\", but covered_amount is 1890.0. laptop_receipt.txt is dated 2026-10-06. camera_receipt.txt is dated 2025-12-14. Clause 1.7 applies depreciation only per full year. Schedule: Essentials per-item limit is 500."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.017042,
+      "error": null
+    },
+    {
+      "claim_id": "claim_005",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag has no support in the documents. The claimed amounts match the receipts exactly, and the total equals the sum of the items. The laptop receipt dated after the loss is already flagged as receipt_dated_after_incident, so this flag would also double-count that evidence.",
+          "evidence": "Narrative claims laptop $1,400.00 + camera $490.00 = $1,890.00. laptop_receipt.txt shows USD 1,400.00 and camera_receipt.txt shows USD 490.00. Intake total_claimed is 1890.0. The risk reasoning's statement that the amounts don't match the documents is incorrect."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.016754,
+      "error": null
+    },
+    {
+      "claim_id": "claim_005",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the date of the loss: the bag never arrived when the claimant landed in Barcelona on 3 October. It should be 2026-10-03.",
+          "evidence": "Narrative: \"My checked bag never arrived when I landed in Barcelona on 3 October\". The booking confirmation shows ORD-BCN on 2026-10-03, and the policy record gives departure_date 2026-10-03."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.01494,
+      "error": null
+    },
+    {
+      "claim_id": "claim_006",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.01299,
+      "error": null
+    },
+    {
+      "claim_id": "claim_006",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered amount of 173.40 does not follow from the reasoning. The reasoning removes the duplicate Boots receipt, leaving 109.20 of unique purchases, and then applies the 100 per-day Essentials cap for a single part-day of delay. Neither the duplicate nor the cap is applied to the amount. The correct covered amount is 100.00.",
+          "evidence": "The bag arrived 2026-10-19 07:05 and was delivered at 23:10, about 16 hours, which is one part-day. Wording 3.1 and the schedule give Essentials 100 per day. The two Boots receipts both show no. 4471-2290 at 10:12 for USD 64.20, so unique purchases are 64.20 + 45.00 = 109.20, and 6.2 allows each receipt to be claimed only once. The coverage assessment states covered_amount 173.4."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015954,
+      "error": null
+    },
+    {
+      "claim_id": "claim_006",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is not supported. The claimed items (64.20, 64.20, 45.00) match the receipts and sum to the stated total of 173.40. The only issue is that one Boots receipt was submitted twice, which the duplicate_receipt flag already covers. The second flag raises the same underlying problem again.",
+          "evidence": "receipt_toiletries_1.txt and receipt_toiletries_2.txt both show Boots receipt no. 4471-2290, 2026-10-19 10:12, USD 64.20. receipt_clothes.txt shows USD 45.00. 64.20 + 64.20 + 45.00 = 173.40, which matches the narrative and total_claimed."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.016198,
+      "error": null
+    },
+    {
+      "claim_id": "claim_006",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the incident date: the customer flew into Dublin on 19 October and the bag was delayed that day. It should be 2026-10-19.",
+          "evidence": "Narrative: \"I flew into Dublin on 19 October at 07:05\". delay_report.txt: \"Flight EW 132 JFK-DUB arrived 2026-10-19 07:05\"."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.014204,
+      "error": null
+    },
+    {
+      "claim_id": "claim_007",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.016772,
+      "error": null
+    },
+    {
+      "claim_id": "claim_007",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "coverage_check",
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "applicable_clauses lists only 2.1, but the reasoning also relies on 1.3 (parent is a family member) and 2.3 (prompt cancellation within 72 hours). Both should be cited. The amount of 4,180 itself is correct.",
+          "evidence": "Reasoning: \"A parent is a family member (1.3)... She cancelled the next day (2.3).\" applicable_clauses: [\"2.1\"]."
+        },
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is not supported. The claimed amounts match the documents: the airline fare is 2,860.00, the ryokan prepayment is 1,320.00, and the total is 4,180.00. The reasoning also contradicts itself, saying no inconsistencies were found and then saying the amounts don't match. The medium risk level rests on this flag, so it should be reconsidered.",
+          "evidence": "airline_cancellation.txt: \"Fare USD 2,860.00, non-refundable.\" ryokan_invoice.txt: \"Prepaid non-refundable: USD 1,320.00\". Narrative: \"$2,860.00... $1,320.00, $4,180.00 in total.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.018426,
+      "error": null
+    },
+    {
+      "claim_id": "claim_007",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "coverage_check",
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null although the claim states when the incident happened. The father's heart attack was on 21 September, so the date should be 2026-09-21.",
+          "evidence": "Narrative: \"My father had a heart attack on 21 September\". The cardiology letter says \"Admitted 2026-09-21 with an acute myocardial infarction\"."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "applicable_clauses lists only 2.1, but the reasoning also relies on 1.3 (a parent is a family member), 2.3 (prompt cancellation) and 2.2 (the Plus limit of 7,500). Those clauses are missing from the list.",
+          "evidence": "Reasoning: \"A parent is a family member (1.3)... She cancelled the next day (2.3). 4,180 is within the Plus limit of 7,500.\" applicable_clauses is [\"2.1\"]."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.019526,
+      "error": null
+    },
+    {
+      "claim_id": "claim_008",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning relies on clause 2.3 (prompt cancellation within 72 hours) when it says the trip was cancelled the next day. But applicable_clauses lists only 2.1 and 2.2, so 2.3 is missing from the cited clauses.",
+          "evidence": "Reasoning: \"cancelled the next day (2.3)\". applicable_clauses: [\"2.1\", \"2.2\"]. Clause 2.3 requires cancellation within 72 hours of learning the reason; the injury was on 2026-07-30 and the cancellations were on 2026-07-31."
+        }
+      ],
+      "caught": null,
+      "false_alarm": true,
+      "cost_usd": 0.016946,
+      "error": null
+    },
+    {
+      "claim_id": "claim_008",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered_amount is 3,640.00, but the reasoning says the Essentials trip cancellation limit of 3,000 applies. The amount does not apply that cap and should be 3,000.00.",
+          "evidence": "Schedule of benefits: Essentials trip cancellation is 3,000, and clause 2.2 limits payment to that amount. The claimed total is 1,480.00 + 2,160.00 = 3,640.00. The policy record shows plan 'essentials'."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning relies on clause 2.3 (prompt cancellation within 72 hours), but applicable_clauses lists only 2.1 and 2.2.",
+          "evidence": "The reasoning says 'cancelled the next day (2.3)'. The flight_cancellation.txt and tour_invoice.txt attachments both show cancellation on 2026-07-31, the day after the 2026-07-30 injury."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.01644,
+      "error": null
+    },
+    {
+      "claim_id": "claim_008",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "coverage_check",
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning relies on the prompt-cancellation rule (cancelled the next day, 2.3), but applicable_clauses lists only 2.1 and 2.2. Clause 2.3 is missing.",
+          "evidence": "Reasoning: \"cancelled the next day (2.3)\". applicable_clauses: [\"2.1\", \"2.2\"]. Clause 2.3 requires cancelling within 72 hours of learning the reason."
+        },
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is unsupported. The claimed amounts match the documents exactly, and the reasoning contradicts itself by first saying no inconsistencies were found. The medium risk level rests on this flag.",
+          "evidence": "flight_cancellation.txt shows fare USD 1,480.00 and tour_invoice.txt shows paid USD 2,160.00. The narrative gives $1,480.00 + $2,160.00 = $3,640.00, which equals total_claimed. The dates also agree: injury 2026-07-30, cancellations 2026-07-31."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.01834,
+      "error": null
+    },
+    {
+      "claim_id": "claim_008",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "coverage_check",
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the date of the injury as 30 July. It should be 2026-07-30.",
+          "evidence": "The narrative says \"I fell and broke my leg on 30 July\". The clinic letter says \"2026-07-30: fractured right tibia\"."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning relies on the prompt cancellation clause 2.3 (\"cancelled the next day (2.3)\"), but applicable_clauses lists only 2.1 and 2.2.",
+          "evidence": "The reasoning text cites 2.3. applicable_clauses is [\"2.1\", \"2.2\"]. The flight and tour cancellations are dated 2026-07-31, the day after the 2026-07-30 injury."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.01693,
+      "error": null
+    },
+    {
+      "claim_id": "claim_009",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.012556,
+      "error": null
+    },
+    {
+      "claim_id": "claim_009",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The flag amounts_inconsistent is not supported. The claimed amounts match the supporting documents exactly, and the claimed items sum to the stated total. The risk reasoning also asserts a mismatch without naming any discrepancy.",
+          "evidence": "The flight cancellation letter shows a fare of USD 980.00 and the hotel invoice shows USD 1,120.00 prepaid. The claim states flights $980.00 and hotel $1,120.00, $2,100.00 in total, and 980 + 1,120 = 2,100."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015004,
+      "error": null
+    },
+    {
+      "claim_id": "claim_009",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null although the claim states the incident date. The narrative says the back pain began on 27 August, which is 2026-08-27 in the year of the trip, and the GP letter confirms it.",
+          "evidence": "Narrative: \"On 27 August I suddenly developed severe back pain\"; gp_letter.txt: \"First presented on 2026-08-27 with acute lower back pain\"."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.01394,
+      "error": null
+    },
+    {
+      "claim_id": "claim_010",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.015028,
+      "error": null
+    },
+    {
+      "claim_id": "claim_010",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered_amount of 1520.00 does not match the reasoning. The reasoning applies the clause 2.3 reduction and concludes the payable amount is 1,070 (flight 620 + riad 450), but the amount field pays the full claimed total and ignores the reduction. The correct covered amount is 1,070.00, which is below the 3,000 Essentials cancellation limit.",
+          "evidence": "Reasoning: 'Payable: flight 620 + 450 = 1,070.' covered_amount: 1520.0. Clause 2.3: if not cancelled within 72 hours, only the charges that would have applied at the end of those 72 hours are paid. Riad terms: 8 or more days before arrival is 50% (USD 450.00), and 2026-09-05 is 10 days before the 2026-09-15 arrival."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.017062,
+      "error": null
+    },
+    {
+      "claim_id": "claim_010",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is not supported. The claimed amounts match the documents, and the reasoning contradicts itself by saying no inconsistencies were found. The medium risk level rests on this flag, so it is unsupported too. The difference between the amount charged and the amount payable comes from the prompt-cancellation rule in 2.3. It is not an inconsistency in the claim.",
+          "evidence": "The flight carrier letter shows a fare of USD 620.00 and the riad invoice shows a charge of USD 900.00. The claim states 620.00 + 900.00 = 1,520.00, which equals the intake total_claimed of 1520.0. The narrative, hospital letter, carrier letter and invoice agree on the dates (stroke 2026-09-02, cancellation 2026-09-10, departure 2026-09-15)."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.017052,
+      "error": null
+    },
+    {
+      "claim_id": "claim_010",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the incident date: the mother's stroke on 2 September 2026. It should be 2026-09-02.",
+          "evidence": "Narrative: \"My mother had a stroke on 2 September.\" The hospital letter also says \"Admitted 2026-09-02 following a stroke.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015312,
+      "error": null
+    },
+    {
+      "claim_id": "claim_011",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.013252,
+      "error": null
+    },
+    {
+      "claim_id": "claim_011",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is not supported. The claimed amount matches the documents, and the reasoning contradicts itself: it first says no inconsistencies were found, then says the amounts don't match. With no valid flag the risk level of medium is also unsupported.",
+          "evidence": "The narrative claims $1,240.00. hotel_invoice.txt shows 'Prepaid non-refundable: USD 1,240.00. Cancelled 2026-10-01. Refund: USD 0.00'. The intake total_claimed is 1240.0, and the flight was refunded and not claimed."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.016286,
+      "error": null
+    },
+    {
+      "claim_id": "claim_011",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states when the incident occurred. The strike began on 1 October 2026 and the hotel was cancelled that day, so the incident date should be 2026-10-01.",
+          "evidence": "Carrier notice: \"All SkyMeridian flights to France are cancelled from 2026-10-01 to 2026-10-04\". Hotel invoice: \"Cancelled 2026-10-01\". Narrative: \"grounded all SkyMeridian flights to Paris from 1 to 4 October\"."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.016856,
+      "error": null
+    },
+    {
+      "claim_id": "claim_012",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.01121,
+      "error": null
+    },
+    {
+      "claim_id": "claim_012",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The flag amounts_inconsistent is not supported. The claimed amounts match the documents and add up to the total. The risk reasoning also contradicts itself, saying no inconsistencies were found and then saying the amounts don't match. With no valid flag, the medium risk level has no support either.",
+          "evidence": "flight_cancellation.txt: fare USD 760.00. apartment_booking.txt: paid USD 690.00. Narrative: total $1,450.00. 760.00 + 690.00 = 1,450.00, which equals intake total_claimed."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.013894,
+      "error": null
+    },
+    {
+      "claim_id": "claim_012",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the date of the triggering event as 3 September (2026). Intake should have extracted 2026-09-03.",
+          "evidence": "Narrative: \"On 3 September my manager told me I had to lead a client launch...\". manager_email.txt is dated 2026-09-03."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.012994,
+      "error": null
+    },
+    {
+      "claim_id": "claim_013",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.01624,
+      "error": null
+    },
+    {
+      "claim_id": "claim_013",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag has no support in the documents. The claimed amounts match the supporting documents exactly. The risk reasoning also contradicts itself, first saying no inconsistencies were found and then saying the amounts don't match.",
+          "evidence": "flight_cancellation.txt shows fare USD 1,890.00 and trek_invoice.txt shows paid USD 1,090.00. The narrative claims $1,890.00 + $1,090.00 = $2,980.00, which equals the intake total_claimed of 2980.0."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.019024,
+      "error": null
+    },
+    {
+      "claim_id": "claim_013",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "coverage_check",
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the incident date: the severe asthma attack and hospital admission on 10 September, which is 2026-09-10 given the 2026 policy dates and submission date.",
+          "evidence": "Narrative: \"On 10 September I had a severe attack and spent two nights in hospital.\" The respiratory_letter.txt says \"Admitted 2026-09-10 with a severe exacerbation.\""
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning relies on clause 1.2 (pre-existing condition definition) to classify asthma as pre-existing, but applicable_clauses lists only 2.1 and 5.1 and omits 1.2.",
+          "evidence": "Reasoning: \"asthma is a pre-existing condition (1.2)\"; applicable_clauses: [\"2.1\", \"5.1\"]."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.018254,
+      "error": null
+    },
+    {
+      "claim_id": "claim_014",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.01138,
+      "error": null
+    },
+    {
+      "claim_id": "claim_014",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered amount does not apply the deductible that the reasoning names. The reasoning computes 640 - 100 = 540, but covered_amount is 640.0. It should be 540.0.",
+          "evidence": "Policy wording clause 4.1 and the schedule of benefits give an Essentials emergency medical deductible of 100. The policy record shows plan 'essentials'. The invoice total is USD 640.00, so the covered amount is 640 - 100 = 540."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.012584,
+      "error": null
+    },
+    {
+      "claim_id": "claim_014",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is unsupported. The claimed amounts match the clinic invoice exactly, so there is no inconsistency to flag. The reasoning also contradicts itself, first saying no inconsistencies were found and then saying the amounts don't match. With no valid flag, the medium risk level has no basis either.",
+          "evidence": "The narrative lists consultation $180.00, IV fluids $310.00, medication $150.00, total $640.00. The invoice lists Consultation USD 180.00, IV rehydration USD 310.00, Medication USD 150.00, Total USD 640.00. 180+310+150 = 640, and intake's total_claimed is 640.0."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.013514,
+      "error": null
+    },
+    {
+      "claim_id": "claim_014",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null although the claim states the incident date as 9 September (2026-09-09). The field should be 2026-09-09.",
+          "evidence": "Narrative: \"I got food poisoning in Bangkok on 9 September\"; clinic_invoice.txt: \"Date: 2026-09-09\"."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.010174,
+      "error": null
+    },
+    {
+      "claim_id": "claim_015",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.00892,
+      "error": null
+    },
+    {
+      "claim_id": "claim_015",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The flag amounts_inconsistent is not supported. The claimed amounts match the invoice and add up correctly. The risk reasoning also contradicts itself, first saying no inconsistencies were found and then saying the amounts don't match the documents.",
+          "evidence": "The narrative claims ER $1,200.00 and surgery $2,700.00, totalling $3,900.00. The hospital_invoice.txt shows Emergency department USD 1,200.00, Ankle ORIF surgery USD 2,700.00 and Total USD 3,900.00. 1,200 + 2,700 = 3,900, which matches intake's total_claimed of 3900.0."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.012774,
+      "error": null
+    },
+    {
+      "claim_id": "claim_015",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null although the claim states the incident date as 6 August (2026), so it should be 2026-08-06.",
+          "evidence": "Narrative: \"On 6 August I went on a tandem paragliding flight\"; hospital_invoice.txt: \"Date of injury: 2026-08-06\"."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.010024,
+      "error": null
+    },
+    {
+      "claim_id": "claim_016",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.011904,
+      "error": null
+    },
+    {
+      "claim_id": "claim_016",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The flag amounts_inconsistent is not supported. The claimed items, the narrative and the invoice all agree, and the items add up to the total. The risk reasoning also contradicts itself, saying no inconsistencies were found and then saying the amounts don't match. The medium risk level rests only on this unsupported flag.",
+          "evidence": "Narrative: $2,400.00 + $5,800.00 = $8,200.00. Hospital invoice: emergency care and imaging USD 2,400.00, pelvic fixation surgery USD 5,800.00, total USD 8,200.00. Intake total_claimed is 8200.0."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.013888,
+      "error": null
+    },
+    {
+      "claim_id": "claim_016",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null although the claim states the date of the incident. It should be 2026-08-17.",
+          "evidence": "The narrative says \"On 17 August I fell from my hotel balcony in Ibiza\", and hospital_report.txt says \"Admitted 2026-08-17 02:40 after a fall from a first-floor balcony\"."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.012778,
+      "error": null
+    },
+    {
+      "claim_id": "claim_017",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.01079,
+      "error": null
+    },
+    {
+      "claim_id": "claim_017",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The flag amounts_inconsistent is not supported. The claimed amount is the same in the narrative, the invoice and the intake extraction. The risk reasoning also contradicts itself, saying no inconsistencies were found and then saying the amounts don't match.",
+          "evidence": "Narrative: 'The clinic charged $1,350.00'. Invoice: 'Two porcelain crowns (pre-booked treatment plan) USD 1,350.00'. Intake total_claimed: 1350.0."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.012854,
+      "error": null
+    },
+    {
+      "claim_id": "claim_017",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the date of the treatment. It should be 2026-08-25.",
+          "evidence": "The narrative says the crowns were fitted \"on 25 August\", and the dental_invoice.txt attachment is dated 2026-08-25. That falls within the insured trip (2026-08-20 to 2026-09-03)."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.011604,
+      "error": null
+    },
+    {
+      "claim_id": "claim_018",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.012432,
+      "error": null
+    },
+    {
+      "claim_id": "claim_018",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered_amount of 520.75 does not apply the cap that the reasoning itself names. The reasoning says the cap is 450, below the 520.75 spent, so the covered amount should be 450.00 (3 periods x 150). The reasoning also states the delay as 50h15m, but the actual delay is 48h15m. The count of three full or part 24-hour periods is unchanged.",
+          "evidence": "Clause 3.1 and the Plus schedule give 150 per day. Arrival was 2026-09-27 09:40 and delivery was 2026-09-29 11:55, which is 48h15m, or 3 periods. 3 x 150 = 450, but covered_amount is 520.75."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015946,
+      "error": null
+    },
+    {
+      "claim_id": "claim_018",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "coverage_check",
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning gives the delay as 50h15m, which is wrong. The bag was delayed 48h15m, from arrival on 27 Sep at 09:40 to delivery on 29 Sep at 11:55. It is still three full or part 24-hour periods, so the 450 covered amount is correct, but the stated duration should be corrected.",
+          "evidence": "delay_report.txt: arrived 2026-09-27 09:40, delivered 2026-09-29 11:55, which is 48h15m. Clause 3.1: 150 per full or part 24-hour period x 3 = 450, within the 5-day Plus maximum."
+        },
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is unsupported. The claimed items match the receipts exactly and sum to the claimed total. The risk reasoning also contradicts itself, saying both that no inconsistencies were found and that the amounts don't match the documents. The medium risk level rests on this flag.",
+          "evidence": "receipt_toiletries.txt USD 64.75 + receipt_clothes_1.txt USD 312.00 + receipt_clothes_2.txt USD 144.00 = 520.75, which equals the claimed total in the narrative and in intake."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.017966,
+      "error": null
+    },
+    {
+      "claim_id": "claim_018",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the date of the incident. The bag failed to arrive when the claimant landed on 27 September, so incident_date should be 2026-09-27.",
+          "evidence": "Narrative: \"My suitcase didn't arrive when I landed in Montreal on 27 September at 09:40\". The delay_report.txt shows \"Flight MR 302 BOS-YUL arrived 2026-09-27 09:40. Bag delayed.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.013996,
+      "error": null
+    },
+    {
+      "claim_id": "claim_019",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.009308,
+      "error": null
+    },
+    {
+      "claim_id": "claim_019",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is not supported. The claimed amounts match the receipts and the narrative, and the itemised amounts add up to the total. The reasoning also contradicts itself: it says no inconsistencies were found, then says the amounts don't match the documents. The medium risk level rests on this unsupported flag.",
+          "evidence": "Narrative: toiletries $48.00 + clothes $162.00 = $210.00. receipt_toiletries.txt: USD 48.00. receipt_clothes.txt: USD 162.00. Intake total_claimed is 210.0. The 26-hour delay also matches the carrier report (arrived 2026-09-10 16:20, delivered 2026-09-11 18:30)."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015262,
+      "error": null
+    },
+    {
+      "claim_id": "claim_019",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the date of the incident: the delay happened on the flight home on 10 September. The date should be 2026-09-10.",
+          "evidence": "The narrative says 'Flying home from Rome to Boston on 10 September, my bag was delayed by 26 hours.' The carrier report says 'Flight AA 731 FCO-BOS arrived 2026-09-10 16:20. Bag delayed.'"
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.013602,
+      "error": null
+    },
+    {
+      "claim_id": "claim_020",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.011234,
+      "error": null
+    },
+    {
+      "claim_id": "claim_020",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is not supported. The claimed amounts match the receipts and the total. The reasoning also contradicts itself, first saying no inconsistencies were found and then saying the amounts don't match. With no valid flag, the medium risk level is also unsupported.",
+          "evidence": "receipt_toiletries.txt shows USD 41.40 and receipt_tshirt.txt shows USD 44.00. These sum to 85.40, which equals the narrative's stated total of $85.40 and intake's total_claimed of 85.4."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.013388,
+      "error": null
+    },
+    {
+      "claim_id": "claim_020",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the incident date: the bag was delayed on arrival in Vancouver on 22 August, which is 2026-08-22.",
+          "evidence": "The narrative says \"My bag was late arriving in Vancouver on 22 August\". The delay_report.txt says \"arrived 2026-08-22 13:10\" and \"Delivered 2026-08-22 22:25\"."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.012498,
+      "error": null
+    },
+    {
+      "claim_id": "claim_021",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.016204,
+      "error": null
+    },
+    {
+      "claim_id": "claim_021",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered_amount of 1040.00 is the full claimed total. It ignores the 500 per-item cap and the actual cash value depreciation that the reasoning itself applies. Recalculating from the wording gives coat 500 (640 less 10% = 576, capped at 500), dress 220, boots 126 (180 less 30%), a total of 846.00.",
+          "evidence": "The reasoning states 'Total 846', but covered_amount is 1040.0. Clause 1.7 and the per-item limit of 500 in the schedule of benefits apply. The receipts are dated 2024-11-20 (coat), 2026-05-09 (dress) and 2023-09-01 (boots), against a loss date of 2026-10-14."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.01536,
+      "error": null
+    },
+    {
+      "claim_id": "claim_021",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is not supported. The claimed items match the receipts and the stated total, and the reasoning contradicts itself by saying no inconsistencies were found. The flag and the medium risk level should be removed.",
+          "evidence": "Receipts: coat USD 640.00, dress USD 220.00, boots USD 180.00. These sum to 1,040.00, which equals the narrative's total of $1,040.00 and intake's total_claimed. The carrier report (flight HA 12 JFK-EDI, 14 Oct, bag not received, declared permanently lost) matches the narrative."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.018618,
+      "error": null
+    },
+    {
+      "claim_id": "claim_021",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "coverage_check",
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the loss date as the flight to Edinburgh on 14 October. It should be 2026-10-14.",
+          "evidence": "Narrative: \"My suitcase was lost on my flight to Edinburgh on 14 October\". Carrier report: \"Flight HA 12 JFK-EDI arrived 2026-10-14. Bag not received.\" Policy record departure_date is 2026-10-14."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning relies on the carrier report requirement (\"Carrier report obtained (3.3)\"), but clause 3.3 is missing from applicable_clauses, which lists only 1.7 and 3.2.",
+          "evidence": "applicable_clauses: [\"1.7\",\"3.2\"]; reasoning ends with \"Carrier report obtained (3.3).\" Policy wording section 3.3 covers the carrier report."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.019128,
+      "error": null
+    },
+    {
+      "claim_id": "claim_022",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.015162,
+      "error": null
+    },
+    {
+      "claim_id": "claim_022",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered amount of 1,030 does not apply the cap the reasoning names. Essentials pays at most 750 for all valuables combined, so the covered amount should be 750. The phone (450), tablet (400) and headphones (180) are all valuables under 1.5 and all under a year old, so there is no depreciation. The 450 and 400 items are each under the 500 per-item limit.",
+          "evidence": "The coverage reasoning says 'Essentials pays at most 750 for all valuables (3.2)', but covered_amount is 1030.0. The schedule of benefits gives 750 for Essentials valuables combined. The receipts are dated 2026-03-02, 2026-01-15 and 2025-12-05, with the loss on 2026-08-10."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.017838,
+      "error": null
+    },
+    {
+      "claim_id": "claim_022",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag has no support. The claimed amounts match the receipts exactly, and the reasoning contradicts itself by first saying no inconsistencies were found. The flag, and the medium risk level that rests on it, should be removed.",
+          "evidence": "Receipts show Smartphone USD 450.00, Tablet USD 400.00 and Headphones USD 180.00, which match the narrative and intake items and sum to the claimed 1,030.00. The carrier report matches the flight, date and passenger, and purchase and coverage dates are consistent with the policy record."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.016306,
+      "error": null
+    },
+    {
+      "claim_id": "claim_022",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states when the incident happened: the bag was lost on the flight to Prague on 10 August. It should be 2026-08-10.",
+          "evidence": "Narrative: \"My checked bag was lost on my flight to Prague on 10 August.\" The carrier report says: \"Flight VA 401 EWR-PRG arrived 2026-08-10. Bag not received.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.016606,
+      "error": null
+    },
+    {
+      "claim_id": "claim_023",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.01265,
+      "error": null
+    },
+    {
+      "claim_id": "claim_023",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered_amount is 9,600.00, but the reasoning deducts the 100 Essentials emergency medical deductible to reach 9,500. The amount does not apply that deduction, so it should be 9,500.00.",
+          "evidence": "Clause 4.1 pays up to the emergency medical amount, less the deductible. The schedule sets the Essentials deductible at 100. The policy record shows the essentials plan. The invoice total is USD 9,600.00, and the reasoning itself says 9,600 less 100 is 9,500."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.014584,
+      "error": null
+    },
+    {
+      "claim_id": "claim_023",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "coverage_check",
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is not supported. The claimed amount matches the hospital invoice exactly, and the reasoning contradicts itself by saying no inconsistencies were found and then saying the amounts don't match.",
+          "evidence": "The narrative says the bill was $9,600.00. The invoice shows 'Emergency appendectomy and 3-night stay USD 9,600.00'. Intake total_claimed is 9600.0. The admission dates (2026-09-07 to 2026-09-10) and the 3 nights also match the narrative."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning relies on clause 4.2 (no notification needed because the cost is under 10,000), but applicable_clauses lists only 4.1.",
+          "evidence": "The reasoning says 'Under 10,000, so no notification was needed (4.2)', while applicable_clauses is [\"4.1\"]."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015644,
+      "error": null
+    },
+    {
+      "claim_id": "claim_023",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date was left null, but the claim states the incident date: the appendicitis admission on 7 September, which is 2026-09-07.",
+          "evidence": "The narrative says 'rushed to hospital in Rome with appendicitis on 7 September'. The invoice says 'Admitted 2026-09-07' and the discharge summary says 'onset 2026-09-07'."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.014224,
+      "error": null
+    },
+    {
+      "claim_id": "claim_024",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.014632,
+      "error": null
+    },
+    {
+      "claim_id": "claim_024",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "coverage_check",
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning relies on clause 1.2 (definition of pre-existing condition) to conclude diabetes is pre-existing, but applicable_clauses lists only 5.1. Clause 1.2 is missing from the cited clauses.",
+          "evidence": "Reasoning: \"diabetes is pre-existing (1.2)\"; applicable_clauses: [\"5.1\"]. Policy wording 1.2 defines the 90-day look-back, and the GP letter shows the insulin change on 2026-04-28."
+        },
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is unsupported. The claimed amount matches the invoice and the narrative. The reasoning also contradicts itself, saying no inconsistencies were found and then saying the amounts don't match. The medium risk level rests on this flag alone.",
+          "evidence": "hospital_invoice.txt: \"Emergency treatment and overnight observation USD 4,200.00\"; narrative: \"The bill was $4,200.00\"; intake total_claimed 4200.0."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.016636,
+      "error": null
+    },
+    {
+      "claim_id": "claim_024",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "coverage_check",
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the incident date as 18 August (2026-08-18).",
+          "evidence": "The narrative says 'On 18 August in Canc\u00fan I had a severe hypoglycaemic episode', and hospital_invoice.txt says 'Admitted 2026-08-18'."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning relies on clause 1.2 (the definition of a pre-existing condition) to find that diabetes is pre-existing, but applicable_clauses lists only 5.1.",
+          "evidence": "The reasoning says 'within 90 days before the 2026-06-01 purchase, so diabetes is pre-existing (1.2)'. applicable_clauses is [\"5.1\"]."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.014776,
+      "error": null
+    },
+    {
+      "claim_id": "claim_025",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.015262,
+      "error": null
+    },
+    {
+      "claim_id": "claim_025",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The flag amounts_inconsistent is not supported. The amount claimed matches across the narrative, the invoice and the intake total, so there is no amount discrepancy. The only inconsistency is the date, and dates_inconsistent already covers it. The risk reasoning's claim that the amounts don't match the documents is also wrong.",
+          "evidence": "The narrative says the treatment cost $860.00. The clinic_invoice.txt line reads 'Wrist X-ray and splint fitting USD 860.00'. Intake total_claimed is 860.0."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.01761,
+      "error": null
+    },
+    {
+      "claim_id": "claim_025",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date was left null, but the claim states the date of the incident: 14 September, which is 2026-09-14 given the trip dates and submission date.",
+          "evidence": "Narrative: \"I sprained my wrist badly on 14 September in Lisbon when I tripped on the cobblestones.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.013856,
+      "error": null
+    },
+    {
+      "claim_id": "claim_026",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.015178,
+      "error": null
+    },
+    {
+      "claim_id": "claim_026",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag has no support. The claimed amounts match the documents exactly, and the risk reasoning contradicts itself by first saying no inconsistencies were found. The flag should be removed and the risk level reconsidered.",
+          "evidence": "Flight cancellation letter: fare USD 1,340.00. Hotel invoice: prepaid USD 760.00. These sum to 2,100.00, which equals the narrative total and intake total_claimed. The death certificate (date of death 2026-09-28, granddaughter informant) and the 2026-09-29 cancellations match the narrative."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.019202,
+      "error": null
+    },
+    {
+      "claim_id": "claim_026",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "coverage_check",
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the incident date. The grandmother died on 28 September, which is 2026-09-28.",
+          "evidence": "Narrative: \"My grandmother passed away on 28 September\". death_certificate.txt: \"Date of death: 2026-09-28\"."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "applicable_clauses lists only 2.1, but the reasoning also relies on clause 1.3 (grandparent is a family member) and on the Essentials limit in clause 2.2. It also refers to a \"payout threshold\" that appears nowhere in the policy wording. The covered amount of 2,100 is correct.",
+          "evidence": "Reasoning: \"a family member under 1.3 (2.1(b))... within the Essentials limit and below the payout threshold\". Wording 2.2 sets the limit at the schedule amount (3,000 for Essentials). No payout threshold exists in the wording."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.018202,
+      "error": null
+    },
+    {
+      "claim_id": "claim_027",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.014624,
+      "error": null
+    },
+    {
+      "claim_id": "claim_027",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered amount is 3,180.00, but the reasoning says the Essentials trip cancellation limit of 3,000 applies. The amount does not apply that cap and should be 3,000.00.",
+          "evidence": "Policy record plan is essentials. Schedule of benefits gives trip cancellation of 3,000 for Essentials, and clause 2.2 limits payment to that amount. The claim total is 1,640 + 1,190 + 350 = 3,180, and the assessment sets covered_amount to 3180.0."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.014828,
+      "error": null
+    },
+    {
+      "claim_id": "claim_027",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The flag amounts_inconsistent is unsupported. The claimed amounts match the documents exactly, and the risk reasoning contradicts itself by first saying no inconsistencies were found. The medium risk level rests on this flag and has no other basis.",
+          "evidence": "flight_cancellation.txt shows USD 1,640.00, villa_invoice.txt shows USD 1,190.00 and sailing_invoice.txt shows USD 350.00. These sum to 3,180.00, which equals the narrative total and intake's total_claimed. The hospital letter, the cancellation dates of 2026-08-29 and the policy record (purchase 2026-06-05, trip 2026-09-10 to 2026-09-20) are all consistent with the narrative."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.016588,
+      "error": null
+    },
+    {
+      "claim_id": "claim_027",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the incident date. Clara was admitted to hospital on 28 August 2026, and that admission is the reason for cancellation, so incident_date should be 2026-08-28.",
+          "evidence": "Narrative: \"My wife Clara was admitted to hospital with pneumonia on 28 August\". hospital_letter.txt: \"Admitted 2026-08-28 with community-acquired pneumonia.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015148,
+      "error": null
+    },
+    {
+      "claim_id": "claim_028",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.012692,
+      "error": null
+    },
+    {
+      "claim_id": "claim_028",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered amount of 7,940.00 does not apply the Plus trip cancellation limit of 7,500 that the reasoning itself names. The covered amount should be capped at 7,500.00.",
+          "evidence": "Coverage reasoning: \"The claim is 7,940 but the Plus trip cancellation limit is 7,500 (2.2)\", yet covered_amount is 7940.0. Schedule of benefits: Plus trip cancellation is 7,500, and clause 2.2 limits payment to that amount."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.013846,
+      "error": null
+    },
+    {
+      "claim_id": "claim_028",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is unsupported. Each claimed amount matches its document and the total is correct. The risk reasoning also contradicts itself, saying no inconsistencies were found and then that the amounts don't match. The flag and the medium risk level should be removed.",
+          "evidence": "The flight cancellation letter shows USD 3,480.00, the lodge invoice USD 3,960.00 and the permits receipt USD 500.00. These match the narrative and sum to 7,940.00, the total claimed."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015096,
+      "error": null
+    },
+    {
+      "claim_id": "claim_028",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null although the claim states the incident date: the customer was admitted to hospital on 3 September, and the hospital letter gives the admission date as 2026-09-03. It should be 2026-09-03.",
+          "evidence": "Narrative: \"I was admitted to hospital with a kidney infection on 3 September\"; hospital_letter.txt: \"Admitted 2026-09-03 with acute pyelonephritis.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.014606,
+      "error": null
+    },
+    {
+      "claim_id": "claim_029",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.012194,
+      "error": null
+    },
+    {
+      "claim_id": "claim_029",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered amount of 318.40 does not apply the cap the reasoning itself names. The delay is 40h15m, which is 2 part or full 24-hour periods. At 100 a day on Essentials, the most payable under 3.1 is 200, and the total is capped across all purchases. The amount should be 200, not the full 318.40 spent.",
+          "evidence": "Coverage reasoning: 'the most payable is 200, below the 318.40 spent (3.1)', yet covered_amount is 318.4. Wording 3.1 and the schedule give Essentials 100 per day, max 3 days. Delay: arrived 2026-09-14 08:15, delivered 2026-09-16 00:30."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.014808,
+      "error": null
+    },
+    {
+      "claim_id": "claim_029",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The flag amounts_inconsistent is not supported. The claimed amounts match the receipts and add up to the stated total. The risk reasoning also contradicts itself, first saying no inconsistencies were found and then saying the amounts don't match. With no valid flag, the medium risk level has no basis.",
+          "evidence": "Receipts: toiletries USD 58.40, clothes USD 186.00, jacket USD 74.00. These sum to 318.40, which matches the narrative total of $318.40 and intake total_claimed of 318.4."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.014328,
+      "error": null
+    },
+    {
+      "claim_id": "claim_029",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date was left null, but the claim states when the incident happened. The bag was delayed from the arrival in Oslo on 14 September 2026, so incident_date should be 2026-09-14.",
+          "evidence": "Narrative: \"I landed in Oslo on 14 September at 08:15 and my bag didn't turn up until 16 September at 00:30.\" The delay_report.txt says: \"Flight FA 81 EWR-OSL arrived 2026-09-14 08:15. Bag delayed.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.013908,
+      "error": null
+    },
+    {
+      "claim_id": "claim_030",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.014232,
+      "error": null
+    },
+    {
+      "claim_id": "claim_030",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered amount ignores the delay cap that the reasoning itself calculates. The reasoning works out a maximum of 5 x 150 = 750 but then pays the full 812.30 spent. Clause 3.1 says the most we pay is the daily amount times the number of delay periods. It also says the total covers the whole delay, so the claimed purchases cannot be paid above 750. The covered amount should be 750.00.",
+          "evidence": "Delay from arrival 2026-10-02 10:00 to delivery 2026-10-06 14:00 is 100 hours, which is 5 full or part 24-hour periods. The Plus plan pays 150 per day with a 5-day maximum, so the cap is 750 (clause 3.1). Total claimed is 812.30 and coverage_assessment.covered_amount is 812.3."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015496,
+      "error": null
+    },
+    {
+      "claim_id": "claim_030",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is unsupported. The claimed amounts match the receipts exactly and sum to the stated total. The reasoning contradicts itself, saying no inconsistencies were found and then saying the amounts don't match the documents. The medium risk level rests only on this flag.",
+          "evidence": "Receipts: Clicks USD 72.30, Woolworths USD 410.00, Cotton On USD 180.00, Woolworths USD 150.00. These sum to 812.30, which equals the narrative and intake total_claimed. The delay report matches the narrative: arrival 2026-10-02 10:00, delivery 2026-10-06 14:00."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015656,
+      "error": null
+    },
+    {
+      "claim_id": "claim_030",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the date the incident began: the customer arrived in Cape Town on 2 October and the bag was not delivered until 6 October. The date should be extracted (2026-10-02, the arrival and delay start date).",
+          "evidence": "Narrative: \"I arrived in Cape Town on 2 October at 10:00 and my suitcase wasn't delivered until 6 October at 14:00.\" The delay_report.txt shows \"arrived 2026-10-02 10:00. Bag delayed.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015496,
+      "error": null
+    },
+    {
+      "claim_id": "claim_031",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.01271,
+      "error": null
+    },
+    {
+      "claim_id": "claim_031",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is unsupported. The claimed amounts match the receipts exactly, and the reasoning contradicts itself by first saying no inconsistencies were found. The flag should be removed and the risk level reconsidered.",
+          "evidence": "Receipts: toiletries USD 46.00, clothes USD 168.00, sweater USD 76.00, which total 290.00. The narrative and intake total_claimed are also 290.00. The delay report, receipt dates and policy record (trip starts 2026-08-08, coverage 2026-06-10 to 2026-08-22) are consistent with each other."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.014234,
+      "error": null
+    },
+    {
+      "claim_id": "claim_031",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null although the claim states the incident date. The bag was delayed on arrival in Lima on 8 August 2026, so incident_date should be 2026-08-08.",
+          "evidence": "Narrative: \"My bag was delayed when I landed in Lima on 8 August at 06:00\". The carrier report also says: \"Flight AP 520 MIA-LIM arrived 2026-08-08 06:00. Bag delayed.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.014084,
+      "error": null
+    },
+    {
+      "claim_id": "claim_032",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.01503,
+      "error": null
+    },
+    {
+      "claim_id": "claim_032",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered amount of 1,150 does not apply the Essentials baggage loss limit of 1,000 that the reasoning itself names. The covered amount should be 1,000.",
+          "evidence": "Reasoning: \"the Essentials baggage loss limit is 1,000 (3.2)\", but covered_amount is 1150.0. The schedule of benefits gives Essentials baggage loss as 1,000. Receipts: 480 + 220 + 260 + 190 = 1,150. None of the items are over a year old, so there is no depreciation under 1.7."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "The applicable_clauses list only includes 3.2, but the reasoning also relies on 1.7 (actual cash value and depreciation) and 3.3 (carrier report obtained).",
+          "evidence": "Reasoning: \"All items are under a year old (1.7)\" and \"Carrier report obtained.\" The applicable_clauses field is [\"3.2\"]."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.018214,
+      "error": null
+    },
+    {
+      "claim_id": "claim_032",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is not supported. The claimed amounts match the receipts exactly and add up to the stated total. The risk reasoning also contradicts itself, first saying no inconsistencies were found and then saying the amounts don't match.",
+          "evidence": "Receipts: suit USD 480.00, dress shoes USD 220.00, shirts USD 260.00, toiletries USD 190.00. These sum to 1,150.00, which equals the narrative total and intake total_claimed of 1150.0."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.016154,
+      "error": null
+    },
+    {
+      "claim_id": "claim_032",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date was left null, but the claim states the incident date: the bag was lost on the flight to Nairobi on 20 August, which is 2026-08-20.",
+          "evidence": "Narrative: \"My suitcase was lost on my flight to Nairobi on 20 August\". Carrier report: \"Flight SA 33 JFK-NBO arrived 2026-08-20. Bag not received.\""
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.017024,
+      "error": null
+    },
+    {
+      "claim_id": "claim_033",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.018306,
+      "error": null
+    },
+    {
+      "claim_id": "claim_033",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered_amount of 2,770 does not follow from the reasoning. The reasoning applies the per-item caps (camera 500, laptop 500) and the 1,000 valuables cap, and totals 1,240. The amount is the full claimed total, so none of those caps or depreciation were applied. The correct amount is 1,240: valuables capped at 1,000 (500 + 500 + 380 = 1,380) plus clothes 240.",
+          "evidence": "Reasoning: 'Total 1,240, within the Plus baggage loss limit (3.2)'. covered_amount: 2770.0. Schedule of benefits (Plus): any one item 500, all valuables combined 1,000. Clause 3.2 and clause 1.7."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning relies on clause 1.5 (valuables definition) to group the camera, laptop and watch under the valuables limit, but applicable_clauses lists only 1.7 and 3.2.",
+          "evidence": "Reasoning: 'These are all valuables (1.5): 1,380 together, capped at the Plus valuables limit of 1,000.' applicable_clauses: ['1.7', '3.2']."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.01977,
+      "error": null
+    },
+    {
+      "claim_id": "claim_033",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "coverage_check",
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is unsupported. The claimed amounts match the receipts exactly, and the reasoning contradicts itself by saying no inconsistencies were found and then saying the amounts don't match. With the flag removed, the medium risk level has nothing behind it either.",
+          "evidence": "Receipts: camera USD 1,250.00, laptop USD 900.00, watch USD 380.00, clothes USD 240.00. These sum to 2,770.00, which equals the narrative total of $2,770.00."
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning depends on clause 1.5 (valuables) to treat the camera, laptop and watch as valuables subject to the combined limit. Clause 1.5 is missing from applicable_clauses, which lists only 1.7 and 3.2. The covered amount of 1,240 is correct.",
+          "evidence": "Reasoning: \"These are all valuables (1.5): 1,380 together, capped at the Plus valuables limit of 1,000.\" applicable_clauses: [\"1.7\",\"3.2\"]."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.02051,
+      "error": null
+    },
+    {
+      "claim_id": "claim_033",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "coverage_check",
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the date of the loss: the bag was lost on the flight to Vienna on 5 September. It should be 2026-09-05.",
+          "evidence": "Narrative: \"My checked bag was lost on my flight to Vienna on 5 September.\" The carrier report says: \"Flight DA 90 BOS-VIE arrived 2026-09-05. Bag not received.\""
+        },
+        {
+          "stage": "coverage_check",
+          "problem": "The reasoning relies on clause 1.5 (valuables definition) to group the camera, laptop and watch under the combined valuables limit. Clause 1.5 is missing from applicable_clauses, which lists only 1.7 and 3.2. The covered amount of 1,240 is correct.",
+          "evidence": "Reasoning: \"These are all valuables (1.5): 1,380 together, capped at the Plus valuables limit of 1,000.\" applicable_clauses: [\"1.7\", \"3.2\"]."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.02056,
+      "error": null
+    },
+    {
+      "claim_id": "claim_034",
+      "seed": "control",
+      "expected_stage": null,
+      "issue_stages": [],
+      "issues": [],
+      "caught": null,
+      "false_alarm": false,
+      "cost_usd": 0.01347,
+      "error": null
+    },
+    {
+      "claim_id": "claim_034",
+      "seed": "amount_ignores_cap",
+      "expected_stage": "coverage_check",
+      "issue_stages": [
+        "coverage_check"
+      ],
+      "issues": [
+        {
+          "stage": "coverage_check",
+          "problem": "The covered_amount of 3,850.00 contradicts the reasoning. The reasoning applies the clause 2.3 reduction and arrives at a payable total of 2,050 (1,450 flight + 600 cruise charge at 25%), but the amount field pays the full claimed 3,850. The 1,800 reduction for late cancellation was not applied. The correct covered amount is 2,050.",
+          "evidence": "Policy 2.3: if the insured does not cancel within 72 hours, only the cancellation charges that would have applied at the end of those 72 hours are paid. Cruise invoice: more than 14 days before sailing, 25% (USD 600.00). Learned 2026-09-01, so 72 hours ends 2026-09-04, 16 days before the 2026-09-20 sailing. Flight letter: fare USD 1,450.00 is non-refundable at any time. coverage_assessment: covered_amount 3850.0 versus reasoning 'Payable: 1,450 + 600 = 2,050'."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.016944,
+      "error": null
+    },
+    {
+      "claim_id": "claim_034",
+      "seed": "unsupported_flag",
+      "expected_stage": "risk_fraud",
+      "issue_stages": [
+        "risk_fraud"
+      ],
+      "issues": [
+        {
+          "stage": "risk_fraud",
+          "problem": "The amounts_inconsistent flag is not supported. The claimed amounts match the documents, and the reasoning contradicts itself by first saying no inconsistencies were found. The medium risk level rests only on this flag.",
+          "evidence": "The claim states a flight of $1,450.00, a cruise charge of $2,400.00 and a total of $3,850.00. The flight_cancellation.txt fare is USD 1,450.00, and the cruise invoice shows Charged: USD 2,400.00. 1,450 + 2,400 = 3,850, which matches total_claimed."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015374,
+      "error": null
+    },
+    {
+      "claim_id": "claim_034",
+      "seed": "missing_incident_date",
+      "expected_stage": "intake",
+      "issue_stages": [
+        "intake"
+      ],
+      "issues": [
+        {
+          "stage": "intake",
+          "problem": "incident_date is null, but the claim states the injury date as 1 September 2026. It should be 2026-09-01.",
+          "evidence": "Narrative: \"I fell from a ladder at home on 1 September and broke my ankle.\" The surgeon letter is dated 2026-09-01 (\"2026-09-01: fractured right ankle, surgically fixed\"). The coverage assessment itself uses 2026-09-01."
+        }
+      ],
+      "caught": true,
+      "false_alarm": null,
+      "cost_usd": 0.015714,
+      "error": null
+    }
+  ]
+}
