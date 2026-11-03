@@ -1,0 +1,42 @@
+{
+  "claim_id": "claim_012",
+  "scenario": "Cancelled for work; not a covered reason.",
+  "extraction": {
+    "claimant_name": "Marcus Fischer",
+    "policy_number": "WTP-ESS-101342",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2026-09-03",
+    "incident_location": null,
+    "claimed_items": [
+      {
+        "description": "Non-refundable flights",
+        "amount": 760.0
+      },
+      {
+        "description": "Non-refundable apartment",
+        "amount": 690.0
+      }
+    ],
+    "total_claimed": 1450.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "manager_email.txt",
+      "flight_cancellation.txt",
+      "apartment_booking.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "not_covered",
+    "applicable_clauses": [
+      "2.1"
+    ],
+    "covered_amount": 0.0,
+    "reasoning": "Work commitments are not one of the covered reasons in 2.1 (illness, injury, death, or a strike or natural disaster stopping the carrier)."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "deny",
+  "route": "adjuster"
+}

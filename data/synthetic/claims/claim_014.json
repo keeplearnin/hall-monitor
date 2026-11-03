@@ -1,0 +1,13 @@
+{
+  "claim_id": "claim_014",
+  "submitted_at": "2026-09-25T06:50:00Z",
+  "channel": "mobile_app",
+  "narrative": "Liam O'Connor, WTP-ESS-101377. I got food poisoning in Bangkok on 9 September and needed a clinic visit and IV fluids. Consultation $180.00, IV fluids $310.00, medication $150.00. Total $640.00.",
+  "attachments": [
+    {
+      "filename": "clinic_invoice.txt",
+      "kind": "invoice",
+      "text": "Sukhumvit Medical Clinic, Bangkok\nPatient: Liam O'Connor  Date: 2026-09-09\nDiagnosis: acute gastroenteritis\nConsultation USD 180.00\nIV rehydration USD 310.00\nMedication USD 150.00\nTotal USD 640.00"
+    }
+  ]
+}

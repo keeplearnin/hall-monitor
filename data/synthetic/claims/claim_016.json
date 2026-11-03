@@ -1,0 +1,18 @@
+{
+  "claim_id": "claim_016",
+  "submitted_at": "2026-09-01T12:00:00Z",
+  "channel": "web_form",
+  "narrative": "Chloe Martin, policy WTP-ESS-101402. On 17 August I fell from my hotel balcony in Ibiza and fractured my pelvis. Emergency care and imaging came to $2,400.00 and surgery $5,800.00. Total $8,200.00.",
+  "attachments": [
+    {
+      "filename": "hospital_report.txt",
+      "kind": "medical_report",
+      "text": "Hospital Can Misses, Ibiza\nPatient: Chloe Martin  Admitted 2026-08-17 02:40 after a fall from a first-floor balcony.\nOn admission: blood alcohol 0.21%, patient intoxicated.\nPelvic fracture, surgically fixed 2026-08-18."
+    },
+    {
+      "filename": "hospital_invoice.txt",
+      "kind": "invoice",
+      "text": "Hospital Can Misses, Ibiza\nPatient: Chloe Martin\nEmergency care and imaging USD 2,400.00\nPelvic fixation surgery USD 5,800.00\nTotal USD 8,200.00"
+    }
+  ]
+}

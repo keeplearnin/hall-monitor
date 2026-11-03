@@ -1,0 +1,44 @@
+{
+  "claim_id": "claim_014",
+  "scenario": "Food poisoning abroad; the Essentials deductible applies.",
+  "extraction": {
+    "claimant_name": "Liam O'Connor",
+    "policy_number": "WTP-ESS-101377",
+    "claim_type": "emergency_medical",
+    "incident_date": "2026-09-09",
+    "incident_location": "Bangkok, Thailand",
+    "claimed_items": [
+      {
+        "description": "Consultation",
+        "amount": 180.0
+      },
+      {
+        "description": "IV fluids",
+        "amount": 310.0
+      },
+      {
+        "description": "Medication",
+        "amount": 150.0
+      }
+    ],
+    "total_claimed": 640.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "clinic_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "4.1"
+    ],
+    "covered_amount": 540.0,
+    "reasoning": "Sudden illness during the trip (4.1). Essentials has a 100 deductible, so 640 - 100 = 540."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

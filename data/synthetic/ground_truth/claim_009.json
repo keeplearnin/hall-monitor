@@ -1,0 +1,44 @@
+{
+  "claim_id": "claim_009",
+  "scenario": "Illness inside the 14-day waiting period after a late purchase; denial.",
+  "extraction": {
+    "claimant_name": "Hannah Kowalczyk",
+    "policy_number": "WTP-ESS-101287",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2026-08-27",
+    "incident_location": null,
+    "claimed_items": [
+      {
+        "description": "Non-refundable flights",
+        "amount": 980.0
+      },
+      {
+        "description": "Non-refundable hotel",
+        "amount": 1120.0
+      }
+    ],
+    "total_claimed": 2100.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "gp_letter.txt",
+      "flight_cancellation.txt",
+      "hotel_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "not_covered",
+    "applicable_clauses": [
+      "2.4"
+    ],
+    "covered_amount": 0.0,
+    "reasoning": "The reason for cancelling first arose on 2026-08-27, seven days after the 2026-08-20 purchase date, inside the 14-day waiting period. The policy was bought 80 days after the 2026-06-01 deposit, so the exception doesn't apply (2.4)."
+  },
+  "risk": {
+    "level": "medium",
+    "flags": [
+      "policy_purchased_shortly_before_incident"
+    ]
+  },
+  "next_step": "deny",
+  "route": "adjuster"
+}

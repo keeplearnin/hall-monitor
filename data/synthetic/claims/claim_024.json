@@ -1,0 +1,18 @@
+{
+  "claim_id": "claim_024",
+  "submitted_at": "2026-09-02T10:10:00Z",
+  "channel": "mobile_app",
+  "narrative": "Benjamin Clarke, policy WTP-PLS-200659. I'm diabetic. On 18 August in Cancún I had a severe hypoglycaemic episode and was admitted to hospital overnight. The bill was $4,200.00.",
+  "attachments": [
+    {
+      "filename": "hospital_invoice.txt",
+      "kind": "invoice",
+      "text": "Hospital Costa Caribe, Cancún\nPatient: Benjamin Clarke  Admitted 2026-08-18\nEmergency treatment and overnight observation  USD 4,200.00"
+    },
+    {
+      "filename": "gp_letter.txt",
+      "kind": "medical_report",
+      "text": "Harbour Family Practice\nRe: Benjamin Clarke\nType 1 diabetes. Insulin regimen changed on 2026-04-28 following raised HbA1c.\nDr. R. Shah"
+    }
+  ]
+}

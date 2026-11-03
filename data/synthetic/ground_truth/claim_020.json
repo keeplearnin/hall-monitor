@@ -1,0 +1,42 @@
+{
+  "claim_id": "claim_020",
+  "scenario": "Bag delayed nine hours; below the 12-hour threshold.",
+  "extraction": {
+    "claimant_name": "Yuki Tanaka",
+    "policy_number": "WTP-ESS-101480",
+    "claim_type": "baggage_delay",
+    "incident_date": "2026-08-22",
+    "incident_location": "Vancouver, Canada",
+    "claimed_items": [
+      {
+        "description": "Toiletries",
+        "amount": 41.4
+      },
+      {
+        "description": "T-shirt",
+        "amount": 44.0
+      }
+    ],
+    "total_claimed": 85.4,
+    "currency": "USD",
+    "supporting_documents": [
+      "delay_report.txt",
+      "receipt_toiletries.txt",
+      "receipt_tshirt.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "not_covered",
+    "applicable_clauses": [
+      "3.1"
+    ],
+    "covered_amount": 0.0,
+    "reasoning": "The bag was delayed 9h15m. Cover starts only after a delay of more than 12 hours (3.1)."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "deny",
+  "route": "adjuster"
+}

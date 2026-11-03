@@ -1,0 +1,48 @@
+{
+  "claim_id": "claim_021",
+  "scenario": "Lost suitcase; depreciation by age and the per-item limit.",
+  "extraction": {
+    "claimant_name": "Isabelle Laurent",
+    "policy_number": "WTP-PLS-200634",
+    "claim_type": "baggage_loss",
+    "incident_date": "2026-10-14",
+    "incident_location": "Edinburgh, UK",
+    "claimed_items": [
+      {
+        "description": "Wool coat",
+        "amount": 640.0
+      },
+      {
+        "description": "Dress",
+        "amount": 220.0
+      },
+      {
+        "description": "Leather boots",
+        "amount": 180.0
+      }
+    ],
+    "total_claimed": 1040.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "property_irregularity_report.txt",
+      "receipt_coat.txt",
+      "receipt_dress.txt",
+      "receipt_boots.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "1.7",
+      "3.2"
+    ],
+    "covered_amount": 846.0,
+    "reasoning": "Actual cash value (1.7): coat 640 less 10% for one full year = 576, capped at the 500 per-item limit; dress 220 (under a year old); boots 180 less 30% for three full years = 126. Total 846, within the Plus baggage loss limit (3.2). Carrier report obtained (3.3)."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

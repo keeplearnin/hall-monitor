@@ -1,0 +1,36 @@
+{
+  "claim_id": "claim_017",
+  "scenario": "Planned dental work abroad; elective-treatment exclusion.",
+  "extraction": {
+    "claimant_name": "Arjun Mehta",
+    "policy_number": "WTP-PLS-200587",
+    "claim_type": "emergency_medical",
+    "incident_date": "2026-08-25",
+    "incident_location": "Istanbul, Turkey",
+    "claimed_items": [
+      {
+        "description": "Two dental crowns",
+        "amount": 1350.0
+      }
+    ],
+    "total_claimed": 1350.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "dental_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "not_covered",
+    "applicable_clauses": [
+      "5.2"
+    ],
+    "covered_amount": 0.0,
+    "reasoning": "Planned, non-emergency dental treatment obtained abroad. Excluded by 5.2."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "deny",
+  "route": "adjuster"
+}

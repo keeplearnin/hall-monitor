@@ -1,0 +1,41 @@
+{
+  "claim_id": "claim_016",
+  "scenario": "Fall while intoxicated, shown only in the hospital report; alcohol exclusion.",
+  "extraction": {
+    "claimant_name": "Chloe Martin",
+    "policy_number": "WTP-ESS-101402",
+    "claim_type": "emergency_medical",
+    "incident_date": "2026-08-17",
+    "incident_location": "Ibiza, Spain",
+    "claimed_items": [
+      {
+        "description": "Emergency care and imaging",
+        "amount": 2400.0
+      },
+      {
+        "description": "Surgery",
+        "amount": 5800.0
+      }
+    ],
+    "total_claimed": 8200.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "hospital_report.txt",
+      "hospital_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "not_covered",
+    "applicable_clauses": [
+      "5.4"
+    ],
+    "covered_amount": 0.0,
+    "reasoning": "The hospital report records a blood alcohol of 0.21% and intoxication at the time of the fall, so exclusion 5.4 applies."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "deny",
+  "route": "adjuster"
+}

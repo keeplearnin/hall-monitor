@@ -1,0 +1,18 @@
+{
+  "claim_id": "claim_025",
+  "submitted_at": "2026-09-24T22:15:00Z",
+  "channel": "web_form",
+  "narrative": "Victor Petrov, WTP-ESS-101563. I sprained my wrist badly on 14 September in Lisbon when I tripped on the cobblestones. I had an X-ray and a splint at a clinic, which cost $860.00.",
+  "attachments": [
+    {
+      "filename": "clinic_invoice.txt",
+      "kind": "invoice",
+      "text": "Clínica Rossio, Lisbon\nPatient: Victor Petrov  Invoice date: 2026-09-02\nWrist X-ray and splint fitting  USD 860.00"
+    },
+    {
+      "filename": "booking_confirmation.txt",
+      "kind": "booking_confirmation",
+      "text": "Iberian Skyline - E-ticket\nPassenger: PETROV/VICTOR  Booking: VP31LX\nORD-LIS 2026-09-10, LIS-ORD 2026-09-20"
+    }
+  ]
+}

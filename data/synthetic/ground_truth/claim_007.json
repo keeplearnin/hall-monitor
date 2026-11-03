@@ -1,0 +1,42 @@
+{
+  "claim_id": "claim_007",
+  "scenario": "Cancelled for a parent's heart attack; covered, above the payout threshold.",
+  "extraction": {
+    "claimant_name": "Rosa Delgado",
+    "policy_number": "WTP-PLS-200455",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2026-09-21",
+    "incident_location": null,
+    "claimed_items": [
+      {
+        "description": "Non-refundable flights",
+        "amount": 2860.0
+      },
+      {
+        "description": "Non-refundable ryokan",
+        "amount": 1320.0
+      }
+    ],
+    "total_claimed": 4180.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "cardiology_letter.txt",
+      "airline_cancellation.txt",
+      "ryokan_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "covered",
+    "applicable_clauses": [
+      "2.1"
+    ],
+    "covered_amount": 4180.0,
+    "reasoning": "A parent is a family member (1.3); a doctor certifies that his heart attack makes her travel inadvisable (2.1(a)). She cancelled the next day (2.3). 4,180 is within the Plus limit of 7,500. Above the 2,500 threshold, so an adjuster approves."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "adjuster"
+}

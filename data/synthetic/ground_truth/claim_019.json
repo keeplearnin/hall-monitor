@@ -1,0 +1,42 @@
+{
+  "claim_id": "claim_019",
+  "scenario": "Bag delayed on the way home; delay cover is outbound only.",
+  "extraction": {
+    "claimant_name": "George Papadopoulos",
+    "policy_number": "WTP-ESS-101455",
+    "claim_type": "baggage_delay",
+    "incident_date": "2026-09-10",
+    "incident_location": "Boston, USA",
+    "claimed_items": [
+      {
+        "description": "Toiletries",
+        "amount": 48.0
+      },
+      {
+        "description": "Clothes",
+        "amount": 162.0
+      }
+    ],
+    "total_claimed": 210.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "delay_report.txt",
+      "receipt_toiletries.txt",
+      "receipt_clothes.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "not_covered",
+    "applicable_clauses": [
+      "3.1"
+    ],
+    "covered_amount": 0.0,
+    "reasoning": "The delay was on the journey home. Baggage delay cover applies only to the outbound journey (3.1)."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "deny",
+  "route": "adjuster"
+}

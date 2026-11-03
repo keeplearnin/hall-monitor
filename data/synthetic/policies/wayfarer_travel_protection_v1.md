@@ -37,6 +37,9 @@ electronics.
 1.6 **Reasonable and customary charges.** Charges in line with what other providers in the same area
 charge for similar treatment.
 
+1.7 **Actual cash value.** The purchase price shown on the receipt, less 10% for each full year
+between the purchase date and the date of loss.
+
 ## 2. Trip cancellation
 
 2.1 **Cover.** We reimburse prepaid, non-refundable trip costs if the insured person cancels the

@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_009",
+  "submitted_at": "2026-09-03T17:45:00Z",
+  "channel": "web_form",
+  "narrative": "Hi, I'm Hannah Kowalczyk (WTP-ESS-101287). On 27 August I suddenly developed severe back pain and was diagnosed with a slipped disc. My doctor says I can't travel, so I cancelled my trip to Athens on 28 August. I'm claiming flights $980.00 and hotel $1,120.00, $2,100.00 in total.",
+  "attachments": [
+    {
+      "filename": "gp_letter.txt",
+      "kind": "medical_report",
+      "text": "Elm Street Medical Practice\nRe: Hannah Kowalczyk\nFirst presented on 2026-08-27 with acute lower back pain; MRI confirms L5-S1 disc prolapse. No previous history of back problems. Unfit to travel for at least 8 weeks.\nDr. M. Nowak"
+    },
+    {
+      "filename": "flight_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "Aegean Blue Airways\nPassenger: KOWALCZYK/HANNAH  Booking: AT55MW\nCancelled 2026-08-28. Fare USD 980.00 non-refundable."
+    },
+    {
+      "filename": "hotel_invoice.txt",
+      "kind": "invoice",
+      "text": "Hotel Plaka View, Athens\nGuest: Hannah Kowalczyk  Booked 2026-06-01, prepaid USD 1,120.00\nCancelled 2026-08-28. Non-refundable."
+    }
+  ]
+}

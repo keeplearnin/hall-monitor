@@ -1,0 +1,37 @@
+{
+  "claim_id": "claim_024",
+  "scenario": "Pre-existing diabetes on Plus, but bought too late for the waiver; denial.",
+  "extraction": {
+    "claimant_name": "Benjamin Clarke",
+    "policy_number": "WTP-PLS-200659",
+    "claim_type": "emergency_medical",
+    "incident_date": "2026-08-18",
+    "incident_location": "Cancún, Mexico",
+    "claimed_items": [
+      {
+        "description": "Emergency treatment and overnight stay",
+        "amount": 4200.0
+      }
+    ],
+    "total_claimed": 4200.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "hospital_invoice.txt",
+      "gp_letter.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "not_covered",
+    "applicable_clauses": [
+      "5.1"
+    ],
+    "covered_amount": 0.0,
+    "reasoning": "The insulin change on 2026-04-28 is within 90 days before the 2026-06-01 purchase, so diabetes is pre-existing (1.2). The Plus waiver doesn't apply: the policy was bought 42 days after the 2026-04-20 deposit, not within 14 (5.1)."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "deny",
+  "route": "adjuster"
+}

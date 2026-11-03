@@ -1,0 +1,47 @@
+{
+  "claim_id": "claim_022",
+  "scenario": "Lost bag of electronics; the combined valuables limit applies.",
+  "extraction": {
+    "claimant_name": "Mateo Rossi",
+    "policy_number": "WTP-ESS-101511",
+    "claim_type": "baggage_loss",
+    "incident_date": "2026-08-10",
+    "incident_location": "Prague, Czech Republic",
+    "claimed_items": [
+      {
+        "description": "Phone",
+        "amount": 450.0
+      },
+      {
+        "description": "Tablet",
+        "amount": 400.0
+      },
+      {
+        "description": "Headphones",
+        "amount": 180.0
+      }
+    ],
+    "total_claimed": 1030.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "property_irregularity_report.txt",
+      "receipt_phone.txt",
+      "receipt_tablet.txt",
+      "receipt_headphones.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "3.2"
+    ],
+    "covered_amount": 750.0,
+    "reasoning": "All three items are valuables (1.5), each under a year old and under the 500 per-item limit. Together they come to 1,030, but Essentials pays at most 750 for all valuables (3.2). Carrier report obtained."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

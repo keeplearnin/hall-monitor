@@ -1,0 +1,28 @@
+{
+  "claim_id": "claim_018",
+  "submitted_at": "2026-10-12T20:30:00Z",
+  "channel": "mobile_app",
+  "narrative": "Nadia Haddad, WTP-PLS-200612. My suitcase didn't arrive when I landed in Montreal on 27 September at 09:40, and it wasn't delivered until 29 September at 11:55. I bought toiletries ($64.75), clothes ($312.00) and more clothes the next day ($144.00). Total $520.75.",
+  "attachments": [
+    {
+      "filename": "delay_report.txt",
+      "kind": "carrier_letter",
+      "text": "Maple Route Airlines - Property Irregularity Report\nFile ref: YULMR7781  Passenger: HADDAD/NADIA\nFlight MR 302 BOS-YUL arrived 2026-09-27 09:40. Bag delayed.\nDelivered 2026-09-29 11:55"
+    },
+    {
+      "filename": "receipt_toiletries.txt",
+      "kind": "receipt",
+      "text": "Pharmaprix, Montreal  2026-09-27 13:05\nToiletries  Total: USD 64.75"
+    },
+    {
+      "filename": "receipt_clothes_1.txt",
+      "kind": "receipt",
+      "text": "Simons, Montreal  2026-09-27 15:40\nTrousers, 2 tops, underwear  Total: USD 312.00"
+    },
+    {
+      "filename": "receipt_clothes_2.txt",
+      "kind": "receipt",
+      "text": "Simons, Montreal  2026-09-28 11:10\nSweater, socks  Total: USD 144.00"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_008",
+  "submitted_at": "2026-08-04T09:30:00Z",
+  "channel": "mobile_app",
+  "narrative": "Kwame Mensah, policy WTP-ESS-101233. I fell and broke my leg on 30 July and my surgeon has said I can't fly for six weeks, so I had to cancel my Iceland trip. I've lost the flights ($1,480.00) and the northern lights tour package ($2,160.00). Total $3,640.00.",
+  "attachments": [
+    {
+      "filename": "fracture_clinic_letter.txt",
+      "kind": "medical_report",
+      "text": "Lakeview Orthopaedics\nPatient: Kwame Mensah\n2026-07-30: fractured right tibia, surgically fixed 2026-07-31. Not fit to fly for 6 weeks.\nDr. P. Asante"
+    },
+    {
+      "filename": "flight_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "North Atlantic Air - Cancellation\nPassenger: MENSAH/KWAME  Booking: RV81TQ\nBOS-KEF 2026-08-08, KEF-BOS 2026-08-15\nCancelled 2026-07-31. Fare USD 1,480.00 non-refundable."
+    },
+    {
+      "filename": "tour_invoice.txt",
+      "kind": "invoice",
+      "text": "Aurora Trails Iceland\nCustomer: Kwame Mensah  Package: 7-night northern lights tour\nPaid: USD 2,160.00. Cancelled 2026-07-31. Non-refundable."
+    }
+  ]
+}
