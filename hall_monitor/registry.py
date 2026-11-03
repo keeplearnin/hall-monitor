@@ -20,6 +20,9 @@ from pydantic import BaseModel, ConfigDict, Field
 DEFAULT_REGISTRY_DIR = Path(__file__).resolve().parents[1] / "registry"
 SCHEMA_FILENAME = "agent_manifest.schema.json"
 APPROVALS_FILENAME = "approvals.yaml"
+ADJUSTERS_FILENAME = "adjusters.yaml"
+# Files in registry/ that are not agent manifests.
+NON_MANIFEST_FILES = frozenset({APPROVALS_FILENAME, ADJUSTERS_FILENAME})
 
 
 class RiskTier(StrEnum):
@@ -111,7 +114,7 @@ class Registry:
     def from_dir(cls, path: Path = DEFAULT_REGISTRY_DIR) -> Registry:
         manifests = []
         for file in sorted(path.glob("*.yaml")):
-            if file.name == APPROVALS_FILENAME:
+            if file.name in NON_MANIFEST_FILES:
                 continue
             manifest = AgentManifest.model_validate(yaml.safe_load(file.read_text()))
             if manifest.id != file.stem:

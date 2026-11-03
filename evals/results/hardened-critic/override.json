@@ -1,0 +1,12 @@
+{
+  "run": "hardened-critic",
+  "git_commit": "d083a790eb837203934e0a19ced3287cf1fb7069",
+  "routed_to_adjuster": 59,
+  "overrides": 1,
+  "human_override_rate": 0.01694915254237288,
+  "routed_automatically": 43,
+  "unreviewed_ai_errors": 0,
+  "override_examples": [
+    "claim_029 trial 1: AI request_information, adjuster pay"
+  ]
+}

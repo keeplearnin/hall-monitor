@@ -69,7 +69,7 @@ flowchart LR
     end
 ```
 
-What is built today, after milestone 4: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. Agents fetch policy records and claims history through governed MCP tools. The pipeline stops if the claim's policy can't be found. The approval gate and the audit log are next. For the runtime path with module names, and a plain-English version, see:
+What is built today, after milestone 5: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. Agents fetch policy records and claims history through governed MCP tools. The pipeline stops if the claim's policy can't be found. Claims routed to a person wait at an adjuster approval gate. The audit log is next. For the runtime path with module names, and a plain-English version, see:
 
 - [`docs/architecture.html`](docs/architecture.html), for engineering managers and architects
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
@@ -85,7 +85,7 @@ Tracing sends IDs, versions, hashes and token counts to Langfuse, never claim te
 |---|---|---|---|
 | Agent registry | Typed manifest per agent: ID, owner, risk tier, model, allowed tools, version. Unregistered, inactive or unapproved agents are refused: each manifest digest and prompt hash must match `registry/approvals.yaml`. | Govern | Built (milestones 1 and 3) |
 | Tool allow-list | Agents can call only the MCP tools their manifest names; the gateway refuses anything else and records every call, allowed or refused | Govern, Manage | Built (milestone 4) |
-| Adjuster approval gates | Graph interrupts on denials, payouts above threshold and fraud flags; the adjuster's identity, the evidence shown and the decision are recorded | Manage | Planned |
+| Adjuster approval gates | A LangGraph interrupt pauses every claim the routing rule sends to a person, with state saved in SQLite so it can wait across restarts. Code checks the adjuster's identity and authority limit, payout bounds, who may pay a flagged claim, and that overrides and denials carry a reason. The decision is recorded with the adjuster and the hash of the evidence they saw. | Manage | Built (milestone 5) |
 | Tamper-evident audit log | Append-only log, each entry hashed with the previous one | Govern, Manage | Planned |
 | PII and health-data redaction | Personal and medical details masked before they reach a model or a log | Manage | Planned |
 | Model routing | Cheaper model by default; stronger model for complex or high-risk claims | Manage | Planned |
@@ -106,10 +106,10 @@ Numbers are published as each milestone lands, from runs anyone can reproduce wi
 | Baseline (single pass, 26 claims x 3 trials) | 98.3% | 89.7% | 0.0% | $0.022 | n/a |
 | Milestone 3 fixes, no critic (26 claims x 3 trials) | 98.6% | 100.0% | 0.0% | $0.022 | n/a |
 | Milestone 3 with critic (26 claims x 3 trials) | 98.9% | 100.0% | 0.0% | $0.038 | n/a |
-| Hardened, no critic (34 claims x 3 trials) | 98.5% | 98.0% | 0.0% | $0.024 | n/a |
-| Hardened, with critic (34 claims x 3 trials) | 98.7% | 98.0% | 0.0% | $0.039 | n/a |
+| Hardened, no critic (34 claims x 3 trials) | 98.5% | 98.0% | 0.0% | $0.024 | 3.3% (simulated) |
+| Hardened, with critic (34 claims x 3 trials) | 98.7% | 98.0% | 0.0% | $0.039 | 1.7% (simulated) |
 
-The two baseline rows use the same code; the second runs on a larger claim set. Milestone 3 computes the coverage label in code and stops when a policy can't be found, which took coverage reasoning to 100% without the critic. The critic's measured gain is on fraud flags: precision went from 92% to 100%, at about $0.016 more per claim. The amount slips it was built to catch didn't occur in either milestone 3 run, so that gain isn't measured yet. The hardened rows add 8 claims where a cap decides the amount, and fix the high-severity findings from two code reviews. No claim was routed automatically when it needed a person in any run. In the hardened run the critic raised no issues, so the gap between those two rows is run-to-run variation. A separate eval measures the critic directly by planting one error at a time in otherwise correct work. It caught all 84 planted errors, including all 16 amounts that ignored a cap, and raised 1 false alarm in 34 clean cases ([findings](evals/results/critic-seeded/findings.md)). Details: findings for [6 claims](evals/results/baseline/findings.md), [26 claims](evals/results/baseline-26/findings.md), [milestone 3](evals/results/m3-critic/findings.md) and [the hardened pipeline](evals/results/hardened-critic/findings.md).
+The two baseline rows use the same code; the second runs on a larger claim set. Milestone 3 computes the coverage label in code and stops when a policy can't be found, which took coverage reasoning to 100% without the critic. The critic's measured gain is on fraud flags: precision went from 92% to 100%, at about $0.016 more per claim. The amount slips it was built to catch didn't occur in either milestone 3 run, so that gain isn't measured yet. The hardened rows add 8 claims where a cap decides the amount, and fix the high-severity findings from two code reviews. No claim was routed automatically when it needed a person in any run. In the hardened run the critic raised no issues, so the gap between those two rows is run-to-run variation. A separate eval measures the critic directly by planting one error at a time in otherwise correct work. It caught all 84 planted errors, including all 16 amounts that ignored a cap, and raised 1 false alarm in 34 clean cases ([findings](evals/results/critic-seeded/findings.md)). Human override rate is simulated: an adjuster who always decides as the answer key does would have overridden the AI on 1 of 59 routed runs with the critic and 2 of 60 without, and no AI error went through automatically (`python -m hall_monitor.evals.override`). About 58% of runs go to a person, because the test claims are deliberately weighted towards edge cases. Details: findings for [6 claims](evals/results/baseline/findings.md), [26 claims](evals/results/baseline-26/findings.md), [milestone 3](evals/results/m3-critic/findings.md) and [the hardened pipeline](evals/results/hardened-critic/findings.md).
 
 ## Roadmap
 
@@ -117,7 +117,7 @@ The two baseline rows use the same code; the second runs on a larger claim set. 
 2. ~~Baseline eval run, results committed~~ (done)
 3. ~~Critic agent and self-correction loop~~ (done)
 4. ~~MCP servers: `policy_lookup`, `claims_history`~~ (done; eval results to follow)
-5. Adjuster approval gate with persistent checkpoints
+5. ~~Adjuster approval gate with persistent checkpoints~~ (done)
 6. Hash-chained audit log
 7. Model routing and cost-per-claim telemetry
 8. PII redaction, fairness checks and adversarial test suite
@@ -130,7 +130,7 @@ Daily progress notes are in [`docs/devlog/`](docs/devlog/).
 
 Python 3.12 · LangGraph · Claude (Haiku and Sonnet) · MCP via fastmcp · Postgres + pgvector · Langfuse · DeepEval · FastAPI
 
-In use today: Python 3.12, uv, Claude Haiku 5.5 and Sonnet 5.5 through the Anthropic SDK, Pydantic, fastmcp and Langfuse. The rest arrive with the milestones that need them.
+In use today: Python 3.12, uv, Claude Haiku 5.5 and Sonnet 5.5 through the Anthropic SDK, Pydantic, fastmcp, LangGraph with a SQLite checkpointer (Postgres later), and Langfuse. The rest arrive with the milestones that need them.
 
 ## Quickstart
 
@@ -142,6 +142,8 @@ cd hall-monitor
 uv sync
 cp .env.example .env   # add ANTHROPIC_API_KEY and Langfuse keys
 uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
+uv run python -m hall_monitor.review list                  # claims waiting for an adjuster
+uv run python -m hall_monitor.review show claim_004        # evidence pack and its hash
 uv run pytest          # registry, dataset, pipeline and scoring checks; no API calls
 uv run python -m hall_monitor.evals.baseline --trials 3   # live baseline, about $0.45
 ```
