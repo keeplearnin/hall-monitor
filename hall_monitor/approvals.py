@@ -15,7 +15,12 @@ from types import ModuleType
 import yaml
 
 from hall_monitor.agents import coverage_check, critic, intake, recommendation, risk_fraud
-from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR, AgentManifest
+from hall_monitor.registry import (
+    APPROVALS_FILENAME,
+    DEFAULT_REGISTRY_DIR,
+    NON_MANIFEST_FILES,
+    AgentManifest,
+)
 
 AGENT_MODULES: dict[str, ModuleType] = {
     m.AGENT_ID: m for m in (intake, coverage_check, risk_fraud, critic, recommendation)
@@ -41,7 +46,7 @@ def current_approvals() -> dict[str, dict]:
 
 def _manifests():
     for file in sorted(DEFAULT_REGISTRY_DIR.glob("*.yaml")):
-        if file.name != APPROVALS_FILENAME:
+        if file.name not in NON_MANIFEST_FILES:
             yield AgentManifest.model_validate(yaml.safe_load(file.read_text()))
 
 

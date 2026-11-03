@@ -235,3 +235,13 @@ def test_run_stopped_before_intake_scores_as_wrong_without_crashing():
     s = score(result)
     assert not any(s.extraction_fields.values())
     assert s.values_checked == 0 and s.stopped
+
+
+def test_simulated_override_rate_on_a_published_run():
+    from pathlib import Path
+
+    from hall_monitor.evals.override import simulate
+
+    summary = simulate(Path("evals/results/hardened-critic"))
+    assert summary["routed_to_adjuster"] + summary["routed_automatically"] == 102
+    assert summary["overrides"] == 1 and summary["unreviewed_ai_errors"] == 0

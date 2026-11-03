@@ -1,0 +1,14 @@
+# Human adjusters who may decide claims the routing rule sends to a person (fictional).
+# authority_limit_usd: the largest payout they may approve.
+# may_pay_flagged: whether they may approve a payment on a claim with a fraud flag.
+adjusters:
+  - id: adj-101
+    name: Jordan Avery
+    role: Claims adjuster
+    authority_limit_usd: 5000
+    may_pay_flagged: false
+  - id: adj-201
+    name: Morgan Patel
+    role: Senior claims adjuster
+    authority_limit_usd: 25000
+    may_pay_flagged: true
