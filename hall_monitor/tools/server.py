@@ -16,14 +16,21 @@ from pathlib import Path
 from fastmcp import FastMCP
 
 from hall_monitor.data import DATA_DIR, load_policy_records
+from hall_monitor.models import PolicyRecord
 
 POLICY_LOOKUP = "policy_lookup"
 CLAIMS_HISTORY = "claims_history"
 
 
-def build_server(data_dir: Path = DATA_DIR) -> FastMCP:
-    policies = load_policy_records(data_dir)
-    history = json.loads((data_dir / "claims_history.json").read_text())
+def build_server(
+    data_dir: Path = DATA_DIR,
+    policies: dict[str, PolicyRecord] | None = None,
+    history: list[dict] | None = None,
+) -> FastMCP:
+    """policies and history override the files (the fairness eval swaps names in them)."""
+    policies = policies if policies is not None else load_policy_records(data_dir)
+    if history is None:
+        history = json.loads((data_dir / "claims_history.json").read_text())
     mcp = FastMCP("hall-monitor-records")
 
     @mcp.tool(name=POLICY_LOOKUP)

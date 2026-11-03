@@ -1,10 +1,10 @@
 id: risk_fraud
 name: Risk and fraud flags
-version: 0.2.0
+version: 0.3.0
 owner: claims-ai-platform
 purpose: Flag inconsistencies such as misaligned dates, duplicate receipts or claims soon after policy start, and assign a risk level.
 risk_tier: high
 status: active
 model: claude-haiku-5-5
 allowed_tools: [claims_history, policy_lookup]
-data_classes: [pii, financial]
+data_classes: [pii, health, financial]

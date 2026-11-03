@@ -30,6 +30,7 @@ def route_claim(
     *,
     critic_unresolved: bool = False,
     critic_changed: list[str] | None = None,
+    injection_signals: list[str] | None = None,
 ) -> RoutingDecision:
     reasons = []
     if recommendation.next_step is not NextStep.PAY:
@@ -52,6 +53,8 @@ def route_claim(
         reasons.append("critic still disagrees after revisions")
     if critic_changed:
         reasons.append("critic changed " + ", ".join(critic_changed))
+    if injection_signals:
+        reasons.append("claim text addresses the AI: " + ", ".join(injection_signals))
     return RoutingDecision(route=Route.ADJUSTER if reasons else Route.AUTO, reasons=reasons)
 
 

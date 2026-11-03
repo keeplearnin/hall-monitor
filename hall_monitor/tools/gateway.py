@@ -47,7 +47,15 @@ class ToolGateway:
         allowed = self.registry.require(agent_id).allowed_tools
         return [self._definitions[name] for name in allowed if name in self._definitions]
 
-    def call(self, actor: str, tool: str, arguments: dict, log: list[ToolCall]) -> dict:
+    def call(
+        self,
+        actor: str,
+        tool: str,
+        arguments: dict,
+        log: list[ToolCall],
+        scope_policy: str | None = None,
+    ) -> dict:
+        """scope_policy: the claim's own policy number. A lookup for any other is refused."""
         started = time.perf_counter()
         try:
             if actor == PIPELINE_ACTOR:
@@ -55,6 +63,11 @@ class ToolGateway:
                     raise RegistryError(f"pipeline may not call tool {tool!r}")
             else:
                 self.registry.check_tool(actor, tool)
+            asked = str(arguments.get("policy_number", "")).strip().upper()
+            if scope_policy is not None and asked != scope_policy.strip().upper():
+                raise RegistryError(
+                    f"{actor} may only look up this claim's policy, not {asked or 'none'!r}"
+                )
         except RegistryError as exc:
             log.append(
                 ToolCall(

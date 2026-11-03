@@ -101,6 +101,7 @@ def build_evidence_pack(result: TriageResult, claim: ClaimSubmission) -> dict:
             {"actor": t.actor, "tool": t.tool, "allowed": t.allowed} for t in result.tool_calls
         ],
         "stopped_reason": result.stopped_reason,
+        "injection_signals": result.injection_signals,
     }
 
 
