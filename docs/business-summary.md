@@ -1,6 +1,6 @@
 # hall-monitor: business summary
 
-*November 2026, after milestone 8. Plain English, one page.*
+*November 2026, after milestone 9. Plain English, one page.*
 
 ## The problem
 
@@ -51,6 +51,10 @@ Every step goes into a **tamper-evident record**: which AI ran, under which appr
 instructions, which records it looked up, every correction, the decision, who made it, and what it
 cost. Changing or deleting anything in that record shows up when it is checked.
 
+Every control is mapped to the NIST AI Risk Management Framework and the FINOS AI Governance
+Framework, with what isn't covered and why ([controls](controls.md)), and every change to the system
+must pass an automatic quality gate on its published test results.
+
 ## What we've measured
 
 All claims, policies and people are fictional, and one person wrote both the claims and the answer
@@ -77,7 +81,6 @@ always did.
 | Next | What it adds |
 |---|---|
 | Live results | A scored run of everything built since milestone 4, the attack tests, and a fairness test that checks whether changing only the customer's name changes the outcome |
-| Milestone 9 | Every control mapped to the NIST AI Risk Management Framework and the FINOS AI Governance Framework; an automatic quality gate on every change |
 | Milestone 10 | Decision records, a one-page board brief and an external review |
 
 ## The ask

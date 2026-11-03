@@ -1,0 +1,47 @@
+name: Live eval
+
+# Runs an eval against the Claude API. Manual only: every run costs money, and results are
+# uploaded for review rather than committed, so a person decides what gets published.
+# Needs the repository secret ANTHROPIC_API_KEY.
+on:
+  workflow_dispatch:
+    inputs:
+      eval:
+        description: Which eval to run
+        required: true
+        type: choice
+        options:
+          - baseline        # 36 claims x 3 trials, about $4
+          - critic_seeded   # planted errors, about $2
+          - adversarial     # attack suite, about $1
+          - fairness        # name swap, about $10
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    name: Run ${{ inputs.eval }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Run eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run python -m hall_monitor.evals.${{ inputs.eval }} --out evals/results/live-${{ inputs.eval }}
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-${{ inputs.eval }}-${{ github.sha }}
+          path: evals/results/live-${{ inputs.eval }}/

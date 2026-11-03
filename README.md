@@ -18,8 +18,8 @@ Those answers usually live in policy documents. hall-monitor puts them in code:
 - **Every agent is registered** (its hall pass) before it can run, with an owner, a risk tier and an explicit tool allow-list.
 - **Consequential decisions stop for a human**, and the evidence the human saw is recorded with their decision.
 - **Every step is logged** in an append-only, hash-chained audit trail that shows if anything was altered.
-- **Every change is evaluated in CI**, so a new prompt or model can't silently ship a regression. *(Tests, lint and the approvals check run on every PR today; the eval gate is milestone 9.)*
-- **Every control maps to a framework** (NIST AI RMF and the FINOS AI Governance Framework), so risk, compliance and audit teams can evaluate it without reading the code. *(Milestone 9, in progress.)*
+- **Every change is evaluated in CI**, so a new prompt or model can't silently ship a regression. *(Tests, lint, the approvals check and the eval gate run on every PR. Until a fresh baseline is published on the current agents, the gate warns about stale results rather than failing.)*
+- **Every control maps to a framework** (NIST AI RMF and the FINOS AI Governance Framework), so risk, compliance and audit teams can evaluate it without reading the code. See [`docs/controls.md`](docs/controls.md).
 
 The governance layer is the product. Claims triage is the proof that it works on a real-shaped regulated workflow.
 
@@ -47,7 +47,7 @@ All data in this repository is synthetic. No real customer, policy or claims dat
 
 ## Architecture
 
-How a claim moves through the system today (after milestone 8):
+How a claim moves through the system today (after milestone 9):
 
 ```mermaid
 flowchart LR
@@ -102,8 +102,8 @@ Tracing sends IDs, versions, hashes and token counts to Langfuse, never claim te
 | Prompt-injection defences | Claim text is fenced and escaped; a code detector sends claims with text aimed at the AI to a person; tool lookups are limited to the claim's own policy | Manage | Built (milestones 3, 4 and 8) |
 | Fairness checks | Counterfactual runner: each claim re-run under names associated with six groups, swapped everywhere the name appears, counting outcome flips and per-group payment rates (`evals.fairness`). | Measure | Built; results need a live run (milestone 8) |
 | Adversarial test suite | Ten attacks planted in real claims (instruction override, forged reviewer tags, claimed prior approval, data exfiltration, forged documents, PII) and scored on whether any worked (`evals.adversarial`). Defences: escaped claim text, a code detector that sends flagged claims to a person, and tool lookups limited to the claim's own policy. | Measure, Manage | Built; results need a live run (milestone 8) |
-| CI eval gate | A pull request fails if eval scores drop below threshold | Manage | Planned (tests and lint already run on every PR) |
-| Framework mapping | Every control mapped to NIST AI RMF subcategories and FINOS AIGF risks and mitigations, each pointing to its code, tests and evidence | Map, Govern | In progress (milestone 9) |
+| CI eval gate | Every PR runs `evals.gate`: published results must meet the thresholds in `evals/gate.yaml` (accuracy, hallucination, unsafe routes, critic catch rate; attacks and fairness once run), and results scored on agent versions that are no longer approved are flagged. Live evals run on demand from a manual workflow. | Manage | Built (milestone 9); stale results warn until a fresh baseline |
+| Framework mapping | 18 controls in `controls/controls.yaml`, each with its code, tests and evidence, mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't verified. Readable version: [`docs/controls.md`](docs/controls.md). | Map, Govern | Built (milestone 9) |
 
 ## Results
 
@@ -130,7 +130,7 @@ The two baseline rows use the same code; the second runs on a larger claim set. 
 6. ~~Hash-chained audit log~~ (done)
 7. ~~Model routing and cost-per-claim telemetry~~ (done; routing to be evaluated)
 8. ~~PII redaction, fairness checks and adversarial test suite~~ (done; attack and fairness results to follow)
-9. NIST AI RMF and FINOS AIGF mapping; CI eval gate
+9. ~~NIST AI RMF and FINOS AIGF mapping; CI eval gate~~ (done)
 10. Architecture decision records, one-page board brief, external review
 
 Daily progress notes are in [`docs/devlog/`](docs/devlog/).
@@ -160,6 +160,7 @@ uv run python -m hall_monitor.evals.adversarial            # attack suite, about
 uv run python -m hall_monitor.evals.fairness               # name-swap fairness, about $10
 uv run python -m hall_monitor.evals.override evals/results/hardened-critic  # no API calls
 uv run pytest                                              # offline tests; no API calls
+uv run python -m hall_monitor.evals.gate                   # check published results; no API calls
 ```
 
 ## Repository layout
@@ -183,11 +184,12 @@ hall-monitor/
 │   ├── ground_truth/        # Expected extraction, coverage, risk, next step and route
 │   ├── claims_history.json  # Earlier claims, served by claims_history
 │   └── adversarial/         # Attack cases
-├── evals/results/           # Published eval runs, each with findings
-├── docs/                    # One-pagers, business summary, daily devlog
+├── controls/                # Controls register and the verified framework identifiers
+├── evals/                   # gate.yaml thresholds; results/ holds published runs with findings
+├── docs/                    # controls.md (generated), one-pagers, business summary, devlog
 ├── tests/                   # Offline tests; the Claude client is faked
 ├── var/                     # Runtime state: workflow checkpoints and audit log (git-ignored)
-└── .github/workflows/       # CI: lint, tests and the approvals check on every PR
+└── .github/workflows/       # CI on every PR; a manual live-eval workflow
 ```
 
 ## Design principles

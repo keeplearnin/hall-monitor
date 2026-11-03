@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 
 from hall_monitor import tracing
 from hall_monitor.agents.base import ToolAccess
+from hall_monitor.agents.critic import PROMPT_VERSION as critic_prompt_version
 from hall_monitor.agents.critic import run_critic
 from hall_monitor.data import (
     iter_claims,
@@ -247,10 +248,21 @@ def main(argv: list[str] | None = None) -> int:
     def git(*a: str) -> str:
         return subprocess.run(["git", *a], capture_output=True, text=True).stdout.strip()
 
+    critic = registry.get("critic")
     meta = {
         "run_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
         "git_commit": git("rev-parse", "HEAD"),
         "git_dirty": bool(git("status", "--porcelain", "--untracked-files=no")),
+        # So the eval gate can tell whether this result is for the approved critic.
+        "agents": [
+            {
+                "agent_id": critic.id,
+                "agent_version": critic.version,
+                "model": critic.model,
+                "manifest_digest": critic.digest(),
+                "prompt_version": critic_prompt_version,
+            }
+        ],
     }
     summary = summarize(results)
     args.out.mkdir(parents=True, exist_ok=True)

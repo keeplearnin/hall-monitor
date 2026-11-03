@@ -1,0 +1,423 @@
+# hall-monitor controls register.
+#
+# Every control names its code, the tests that prove it, and its published evidence, and maps to
+# NIST AI RMF 1.0 subcategories and FINOS AI Governance Framework risks and mitigations. Only
+# identifiers listed in controls/frameworks.yaml (verified against the sources) are allowed.
+# docs/controls.md is generated from this file: uv run python -m hall_monitor.governance.controls
+#
+# References: code and tests are "path" or "path::symbol"; the symbol must be defined in that file.
+# Evidence is a path to a published result, or "pending: <command>" when it needs a live run.
+
+controls:
+  - id: HM-01
+    name: Agent registry and approvals
+    what: >-
+      Every agent has a typed manifest naming its owner, risk tier, status, model, tools and data
+      classes. Unregistered, inactive or unapproved agents are refused at run time; each manifest
+      digest and prompt hash must match registry/approvals.yaml, and CI fails on an unapproved
+      change.
+    status: built
+    code:
+      - hall_monitor/registry.py::Registry
+      - hall_monitor/approvals.py::current_approvals
+      - registry/approvals.yaml
+    tests:
+      - tests/test_registry.py::test_unregistered_agent_is_refused
+      - tests/test_registry.py::test_unapproved_manifest_is_refused
+      - tests/test_registry.py::test_approvals_match_the_current_manifests_and_prompts
+    evidence: []
+    nist: [GOVERN 1.6, GOVERN 2.1, MAP 1.1, MANAGE 2.4]
+    finos:
+      risks: [RI-05, RI-18]
+      mitigations: [MI-10]
+
+  - id: HM-02
+    name: Pinned models, no silent fallback
+    what: >-
+      Each call uses the model its approved manifest names. A refusal or outage never switches to
+      another model; the claim stops and goes to a person.
+    status: built
+    code:
+      - hall_monitor/agents/base.py::run_agent
+    tests:
+      - tests/test_pipeline.py::test_correct_agent_outputs_give_the_expected_route
+      - tests/test_cost_routing.py::test_routing_is_off_by_default
+    evidence: []
+    nist: [GOVERN 6.1, MAP 4.1, MANAGE 3.1]
+    finos:
+      risks: [RI-05, RI-07]
+      mitigations: [MI-10]
+    gaps: No fallback model, so a provider outage stops claims; availability is an accepted risk.
+
+  - id: HM-03
+    name: Tool gateway with allow-list and claim scope
+    what: >-
+      Agents read policy records and claims history only through MCP tools behind a gateway. Each
+      agent is offered only the tools its manifest allows, every call is checked again, lookups are
+      limited to the claim's own policy, and every call, allowed or refused, is recorded.
+    status: built
+    code:
+      - hall_monitor/tools/gateway.py::ToolGateway
+      - hall_monitor/tools/server.py::build_server
+    tests:
+      - tests/test_tools.py::test_agents_are_offered_only_their_allowed_tools
+      - tests/test_tools.py::test_call_outside_the_allow_list_is_refused_and_recorded
+      - tests/test_privacy_security.py::test_a_lookup_outside_the_claims_policy_is_refused
+    evidence: []
+    nist: [GOVERN 1.4, MEASURE 2.7, MANAGE 1.3]
+    finos:
+      risks: [RI-24, RI-25, RI-26]
+      mitigations: [MI-12, MI-16, MI-18, MI-19, MI-20]
+
+  - id: HM-04
+    name: Routing to a person, decided in code
+    what: >-
+      A code rule, not a model, decides whether a person must decide. It checks the facts behind
+      the agents' labels: denials, payouts above $2,500 or above the amount claimed, any fraud
+      flag or non-low risk, critic changes, unresolved critic disagreement and injection signals.
+    status: built
+    code:
+      - hall_monitor/governance/routing.py::route_claim
+    tests:
+      - tests/test_pipeline.py::test_anything_but_a_clean_small_payment_goes_to_an_adjuster
+      - tests/test_data.py::test_route_follows_routing_rule
+    evidence:
+      - evals/results/hardened-critic/findings.md
+    nist: [GOVERN 3.2, MAP 3.5, MANAGE 1.3]
+    finos:
+      risks: [RI-22, RI-24]
+      mitigations: [MI-24]
+
+  - id: HM-05
+    name: Adjuster approval gate
+    what: >-
+      Claims routed to a person pause in a LangGraph workflow with state saved in SQLite. A
+      decision must come from a registered adjuster within their authority, quote the hash of the
+      evidence pack they saw, pay no more than was claimed, and give a reason for any override or
+      denial; only senior adjusters may pay a flagged claim.
+    status: built
+    code:
+      - hall_monitor/workflow.py::build_graph
+      - hall_monitor/governance/approval.py::validate_decision
+      - registry/adjusters.yaml
+    tests:
+      - tests/test_workflow.py::test_claim_waits_for_an_adjuster_across_a_restart
+      - tests/test_workflow.py::test_payout_above_authority_needs_a_senior_adjuster
+      - tests/test_workflow.py::test_decisions_that_break_the_rules_are_rejected
+    evidence:
+      - evals/results/hardened-critic/override.json
+    nist: [GOVERN 3.2, MAP 3.5, MANAGE 4.1]
+    finos:
+      risks: [RI-22]
+      mitigations: [MI-11, MI-24]
+    gaps: The override rate is simulated with an answer-key adjuster; no real adjusters yet.
+
+  - id: HM-06
+    name: Tamper-evident audit log
+    what: >-
+      Every step of every claim is written to an append-only SQLite log in which each entry's hash
+      covers the previous one. Triggers refuse edits and deletes, and verify reports any changed,
+      missing or reordered entry. Entries hold IDs, hashes and decisions, never claim text.
+    status: built
+    code:
+      - hall_monitor/governance/audit.py::AuditLog
+      - hall_monitor/audit.py::main
+    tests:
+      - tests/test_audit.py::test_a_changed_entry_is_detected
+      - tests/test_audit.py::test_a_consistent_rewrite_is_caught_only_by_an_anchor
+      - tests/test_audit.py::test_the_log_holds_no_claim_text
+    evidence: []
+    nist: [MEASURE 2.8, MANAGE 4.1, MANAGE 4.3]
+    finos:
+      risks: [RI-17, RI-22]
+      mitigations: [MI-04, MI-21]
+    gaps: >-
+      Someone with write access to the file can rewrite the whole chain consistently; only a
+      chain head copied elsewhere catches that.
+
+  - id: HM-07
+    name: Critic review with revision history
+    what: >-
+      A second agent checks intake, coverage and risk against the documents and sends errors back,
+      up to twice. Every revision is kept, and one that changes a decision field sends the claim
+      to a person.
+    status: built
+    code:
+      - hall_monitor/agents/critic.py::run_critic
+      - hall_monitor/pipeline.py::_triage
+    tests:
+      - tests/test_pipeline.py::test_critic_sends_coverage_back_and_approves_the_revision
+      - tests/test_pipeline.py::test_critic_change_to_the_amount_is_recorded_and_goes_to_a_person
+      - tests/test_pipeline.py::test_unresolved_disagreement_goes_to_an_adjuster
+    evidence:
+      - evals/results/critic-seeded/findings.md
+    nist: [MEASURE 2.3, MEASURE 2.5, MANAGE 1.3]
+    finos:
+      risks: [RI-04, RI-06, RI-14]
+      mitigations: [MI-15, MI-21]
+
+  - id: HM-08
+    name: Failures stop the claim and go to a person
+    what: >-
+      A refusal, API error, invalid output, refused hall pass or missing policy stops the claim,
+      records why, keeps the cost of calls already made, and routes it to an adjuster.
+    status: built
+    code:
+      - hall_monitor/pipeline.py::triage
+    tests:
+      - tests/test_pipeline.py::test_refusal_stops_the_claim_and_keeps_its_cost
+      - tests/test_pipeline.py::test_api_error_stops_the_claim
+      - tests/test_pipeline.py::test_pipeline_stops_when_the_policy_cant_be_found
+    evidence: []
+    nist: [MANAGE 2.4, MANAGE 4.3]
+    finos:
+      risks: [RI-07]
+      mitigations: [MI-24]
+
+  - id: HM-09
+    name: Prompt-injection defences
+    what: >-
+      Claim text and model output are escaped and fenced as untrusted. A code detector flags text
+      aimed at the AI (override instructions, fake markup, claimed approval, requests to skip
+      review, internal tool names) and sends the claim to a person.
+    status: built, results pending
+    code:
+      - hall_monitor/agents/base.py::escape
+      - hall_monitor/gateway/injection.py::detect_instructions
+    tests:
+      - tests/test_pipeline.py::test_claim_text_cannot_close_its_fence_or_forge_feedback
+      - tests/test_privacy_security.py::test_no_real_claim_is_flagged
+      - tests/test_privacy_security.py::test_flagged_claim_goes_to_a_person_even_if_otherwise_automatic
+    evidence:
+      - "pending: uv run python -m hall_monitor.evals.adversarial"
+    nist: [MEASURE 2.7, MANAGE 1.3]
+    finos:
+      risks: [RI-10, RI-14, RI-25, RI-28]
+      mitigations: [MI-03, MI-17, MI-19]
+    gaps: Pattern detection misses wording it wasn't written for; the adversarial suite measures that.
+
+  - id: HM-10
+    name: Identifier redaction and data minimisation
+    what: >-
+      Dates of birth, emails, phone, card, passport and SSN numbers are removed before any model
+      sees a claim. Manifests declare the data classes each agent reads; the recommender, declared
+      financial only, gets a structured summary with no names, claim text or reasoning.
+    status: built
+    code:
+      - hall_monitor/gateway/redaction.py::redact_claim
+      - hall_monitor/agents/recommendation.py::recommendation_input
+    tests:
+      - tests/test_privacy_security.py::test_no_identifier_reaches_any_model
+      - tests/test_privacy_security.py::test_redaction_never_removes_evidence_from_a_real_claim
+      - tests/test_privacy_security.py::test_recommender_sees_structured_fields_only
+    evidence: []
+    nist: [MEASURE 2.10]
+    finos:
+      risks: [RI-01]
+      mitigations: [MI-01, MI-06, MI-12]
+    gaps: Names and medical details still reach the agents that need them to decide.
+
+  - id: HM-11
+    name: Telemetry without claim content
+    what: >-
+      Langfuse traces carry IDs, versions, hashes and token counts only: trace decorators don't
+      capture function inputs or outputs, and the Anthropic SDK's spans stay metadata-only.
+    status: built
+    code:
+      - hall_monitor/tracing.py::observe
+    tests:
+      - tests/test_controls.py::test_traces_never_capture_inputs_or_outputs
+    evidence: []
+    nist: [GOVERN 1.5, MEASURE 2.10]
+    finos:
+      risks: [RI-01]
+      mitigations: [MI-01, MI-04]
+
+  - id: HM-12
+    name: Eval harness and published results
+    what: >-
+      Deterministic scoring against answer keys: extraction, coverage reasoning with clause
+      precision, risk flags, next step, routing, hallucinated values, cost and simulated override
+      rate. Every run is published with its findings, including the misses and answer-key changes.
+    status: built
+    code:
+      - hall_monitor/evals/scoring.py::score_run
+      - hall_monitor/evals/baseline.py::main
+    tests:
+      - tests/test_scoring.py::test_ground_truth_scores_perfectly
+      - tests/test_scoring.py::test_failed_runs_count_against_every_metric
+    evidence:
+      - evals/results/baseline-26/findings.md
+      - evals/results/hardened-critic/findings.md
+    nist: [MEASURE 1.1, MEASURE 2.1, MEASURE 2.3, MEASURE 2.5]
+    finos:
+      risks: [RI-04, RI-06, RI-19]
+      mitigations: [MI-05]
+
+  - id: HM-13
+    name: Grounding checks and evidence for every decision
+    what: >-
+      Every extracted name, policy number, place and amount, and every cited clause, must trace to
+      the claim or the policy wording. Each decision carries an evidence pack: the AI's findings,
+      reasons, clauses, lookups and corrections.
+    status: built
+    code:
+      - hall_monitor/evals/scoring.py::unsupported_values
+      - hall_monitor/governance/approval.py::build_evidence_pack
+    tests:
+      - tests/test_scoring.py::test_invented_amount_and_clause_count_as_hallucinations
+      - tests/test_workflow.py::test_evidence_hash_is_stable_and_tracks_content
+    evidence:
+      - evals/results/hardened-critic/report.md
+    nist: [MEASURE 2.9]
+    finos:
+      risks: [RI-04, RI-17]
+      mitigations: [MI-13, MI-21]
+    gaps: Reasoning text itself isn't checked for unsupported claims.
+
+  - id: HM-14
+    name: Counterfactual fairness test
+    what: >-
+      Each claim is re-run under names associated with six groups, swapped everywhere the name
+      appears, counting changes in next step, route or payout, and per-group payment rates.
+    status: built, results pending
+    code:
+      - hall_monitor/evals/fairness.py::name_variant
+    tests:
+      - tests/test_privacy_security.py::test_name_swap_leaves_no_trace_of_the_original
+      - tests/test_privacy_security.py::test_fairness_runner_finds_no_flips_when_the_outcome_cannot_change
+    evidence:
+      - "pending: uv run python -m hall_monitor.evals.fairness"
+    nist: [MEASURE 2.11]
+    finos:
+      risks: [RI-16]
+      mitigations: [MI-05]
+    gaps: Names only; pronouns, ages and addresses aren't varied.
+
+  - id: HM-15
+    name: Adversarial suite
+    what: >-
+      Ten attacks planted in real claims, scored on whether any raised a payout, turned a denial
+      into a payment, avoided a person, read another policy's records or leaked a redacted value.
+    status: built, results pending
+    code:
+      - hall_monitor/evals/adversarial.py::score
+      - data/synthetic/adversarial/cases.json
+    tests:
+      - tests/test_privacy_security.py::test_adversarial_runner_scores_a_correct_pipeline_as_holding
+      - tests/test_privacy_security.py::test_adversarial_runner_catches_an_inflated_payout
+    evidence:
+      - "pending: uv run python -m hall_monitor.evals.adversarial"
+    nist: [MEASURE 2.7]
+    finos:
+      risks: [RI-10, RI-24, RI-25]
+      mitigations: [MI-05]
+
+  - id: HM-16
+    name: Cost per claim and economy model routing
+    what: >-
+      Cost per claim, cache-aware and by agent, on every result and in the audit log; the policy
+      wording is prompt-cached. A manifest may approve a cheaper model for small claims, off by
+      default until it is evaluated; critic-driven revisions always use the main model.
+    status: built
+    code:
+      - hall_monitor/gateway/cost.py::call_cost
+      - hall_monitor/pipeline.py::_economy
+    tests:
+      - tests/test_cost_routing.py::test_cost_prices_cached_input_separately
+      - tests/test_cost_routing.py::test_critic_revision_of_economy_work_uses_the_main_model
+    evidence: []
+    nist: [MEASURE 3.1, MANAGE 3.1]
+    finos:
+      risks: [RI-07]
+      mitigations: [MI-09]
+    gaps: No spend alerting; economy routing is unmeasured and off.
+
+  - id: HM-17
+    name: CI checks and the eval gate
+    what: >-
+      Every pull request runs lint, the offline tests, the approvals check, this register's
+      checks, and the eval gate, which fails when a published score is below its threshold and
+      flags results scored on an older agent version than the one approved.
+    status: built
+    code:
+      - .github/workflows/ci.yml
+      - hall_monitor/evals/gate.py::run_gate
+      - evals/gate.yaml
+    tests:
+      - tests/test_gate.py::test_a_score_below_threshold_fails
+      - tests/test_gate.py::test_stale_results_are_flagged
+    evidence: []
+    nist: [GOVERN 1.5, MEASURE 3.1, MANAGE 4.1]
+    finos:
+      risks: [RI-05, RI-06]
+      mitigations: [MI-05, MI-10]
+    gaps: >-
+      The gate checks published results; it doesn't run live evals itself (that costs money and
+      needs an API key), so a stale result is only a warning until a fresh baseline exists.
+
+  - id: HM-18
+    name: Synthetic data and documented limits
+    what: >-
+      All data is synthetic, with answer keys whose changes are dated and justified. Each
+      published run states what it can't show: sample size, one author, run-to-run variation.
+    status: built
+    code:
+      - data/synthetic/README.md
+    tests:
+      - tests/test_data.py::test_ground_truth_matches_claim
+      - tests/test_data.py::test_cited_clauses_exist_in_wording
+    evidence:
+      - evals/results/hardened-critic/findings.md
+    nist: [MAP 1.1, MAP 2.1, MEASURE 1.1, MEASURE 2.5]
+    finos:
+      risks: [RI-19, RI-20]
+      mitigations: [MI-06]
+
+# What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
+not_covered:
+  - ref: GOVERN 1.1
+    why: Legal and regulatory requirements for claims handling aren't analysed; this is a reference implementation, not legal advice.
+  - ref: GOVERN 4.1
+    why: Organisational culture and practices are outside a codebase.
+  - ref: RI-02
+    why: There is no vector store or retrieval index.
+  - ref: RI-08
+    why: Tampering with the foundation model is the provider's control; the repo only pins the model.
+  - ref: RI-09
+    why: There is no training or fine-tuning, so no training data to poison.
+  - ref: RI-23
+    why: Intellectual property in model output isn't assessed.
+  - ref: RI-27
+    why: Workflow checkpoints are trusted local state; they aren't integrity-checked like the audit log.
+  - ref: RI-29
+    why: Agents hold no credentials; the API key stays in the host process.
+  - ref: RI-30
+    why: The system loads no skills or plugins.
+  - ref: MI-02
+    why: There is no external knowledge base or retrieval; the policy wording is fixed reference text.
+  - ref: MI-07
+    why: Legal and contractual terms with the model provider are out of scope.
+  - ref: MI-23
+    why: Agents hold no credentials (see RI-29), so there is nothing for them to protect.
+  - ref: MI-08
+    why: There is no rate limiting or denial-of-service protection; nothing is exposed as a service.
+  - ref: MI-14
+    why: The audit log and checkpoints are unencrypted SQLite files.
+  - ref: MI-22
+    why: Agents run in one process; they're separated by allow-lists and claim scope, not isolation.
+  - ref: MI-25
+    why: The system loads no skills or plugins (see RI-30).
+
+# Every audit-log event type, and the controls it evidences. A test checks this matches the code.
+audit_events:
+  claim_submitted: [HM-09, HM-10]
+  agent_call: [HM-01, HM-02, HM-16]
+  tool_call: [HM-03]
+  critic_review: [HM-07]
+  revision: [HM-07]
+  code_correction: [HM-08]
+  triage_result: [HM-04, HM-16]
+  evidence_pack: [HM-05, HM-13]
+  decision_rejected: [HM-05]
+  final_decision: [HM-04, HM-05]
