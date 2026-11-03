@@ -14,7 +14,11 @@ from hall_monitor.models import (
 
 
 def route_claim(
-    coverage: CoverageAssessment, risk: RiskAssessment, recommendation: Recommendation
+    coverage: CoverageAssessment,
+    risk: RiskAssessment,
+    recommendation: Recommendation,
+    *,
+    critic_unresolved: bool = False,
 ) -> RoutingDecision:
     reasons = []
     if recommendation.next_step is NextStep.DENY:
@@ -26,4 +30,11 @@ def route_claim(
         reasons.append(f"payout {amount:,.2f} above {threshold:,} threshold")
     if risk.flags:
         reasons.append("fraud flags: " + ", ".join(risk.flags))
+    if critic_unresolved:
+        reasons.append("critic still disagrees after revisions")
     return RoutingDecision(route=Route.ADJUSTER if reasons else Route.AUTO, reasons=reasons)
+
+
+def route_stopped(reason: str) -> RoutingDecision:
+    """A claim the pipeline couldn't finish always goes to a person."""
+    return RoutingDecision(route=Route.ADJUSTER, reasons=[f"pipeline stopped: {reason}"])

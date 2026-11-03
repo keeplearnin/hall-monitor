@@ -31,7 +31,7 @@ from hall_monitor.evals import scoring
 from hall_monitor.evals.cost import call_cost
 from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
 from hall_monitor.models import ClaimSubmission, TriageResult
-from hall_monitor.pipeline import triage
+from hall_monitor.pipeline import MAX_REVISIONS, triage
 from hall_monitor.registry import Registry
 
 
@@ -53,6 +53,7 @@ def run_one(
             policies=context["policies"],
             wording=context["wording"],
             client=context["client"],
+            critic=context["critic"],
         )
     except Exception as exc:  # a failed run is scored, not hidden
         return scoring.failed_run(claim.claim_id, trial, f"{type(exc).__name__}: {exc}"), None
@@ -69,15 +70,16 @@ def run_one(
 
 def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths: dict) -> None:
     lines = [
-        "# Baseline eval: single-pass pipeline",
+        f"# Eval: {'pipeline with critic' if meta['critic'] else 'single-pass pipeline'}",
         "",
         f"Run {meta['run_at']} on commit `{meta['git_commit'][:7]}`"
         f"{' (uncommitted changes)' if meta['git_dirty'] else ''}. "
         f"{meta['claims']} synthetic claims x {meta['trials']} trials = {summary['runs']} runs, "
         f"{summary['errors']} errored.",
         "",
-        "Pipeline: intake, coverage check, risk and fraud, recommendation, then the routing rule. "
-        "No critic loop (milestone 3) and no MCP tools (milestone 4).",
+        "Pipeline: intake, policy lookup, coverage check, risk and fraud, "
+        + (f"critic (up to {MAX_REVISIONS} revisions), " if meta["critic"] else "no critic, ")
+        + "recommendation, then the routing rule. No MCP tools (milestone 4).",
         "",
         "## Headline",
         "",
@@ -105,9 +107,12 @@ def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths
         "route_accuracy",
     ):
         lines.append(f"| {key.replace('_', ' ').capitalize()} | {_pct(summary[key])} |")
-    lines.append(
-        f"| Seconds per claim (sum of agent calls) | {summary['seconds_per_claim'] or 0:.1f} |"
-    )
+    lines += [
+        f"| Seconds per claim (sum of agent calls) | {summary['seconds_per_claim'] or 0:.1f} |",
+        f"| Runs revised after critic review | {_pct(summary['revised_rate'])} |",
+        f"| Runs where the critic still disagreed | {_pct(summary['critic_unresolved_rate'])} |",
+        f"| Runs stopped (policy not found) | {_pct(summary['stopped_rate'])} |",
+    ]
 
     lines += [
         "",
@@ -121,7 +126,12 @@ def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths
     for claim_id in sorted(truths):
         claim_runs = [r for r in runs if r["score"]["claim_id"] == claim_id]
         n = len(claim_runs)
-        raised = Counter(f for r in claim_runs if r["result"] for f in r["result"]["risk"]["flags"])
+        raised = Counter(
+            f
+            for r in claim_runs
+            if r["result"]
+            for f in (r["result"]["risk"] or {"flags": []})["flags"]
+        )
         raised_text = ", ".join(f"{f} ({c})" for f, c in sorted(raised.items())) or "none"
         truth = truths[claim_id]
         lines.append(
@@ -186,7 +196,8 @@ def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths
         "",
         "```bash",
         "uv run python -m hall_monitor.evals.baseline "
-        f"--trials {meta['trials']} --out {path.parent}",
+        f"--trials {meta['trials']} --out {path.parent}"
+        + ("" if meta["critic"] else " --no-critic"),
         "```",
         "",
     ]
@@ -198,6 +209,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--trials", type=int, default=3)
     parser.add_argument("--out", type=Path, default=Path("evals/results/baseline"))
     parser.add_argument("--workers", type=int, default=6)
+    parser.add_argument("--no-critic", action="store_true", help="Skip the critic review loop.")
     args = parser.parse_args(argv)
 
     load_dotenv()
@@ -208,6 +220,7 @@ def main(argv: list[str] | None = None) -> int:
         "wording": load_policy_wording(),
         "client": anthropic.Anthropic(),
         "truths": {c.claim_id: load_ground_truth(c.claim_id) for c in claims},
+        "critic": not args.no_critic,
     }
     jobs = [(claim, trial) for trial in range(1, args.trials + 1) for claim in claims]
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
@@ -219,18 +232,27 @@ def main(argv: list[str] | None = None) -> int:
         for score, result in outcomes
     ]
     summary = scoring.summarize([score for score, _ in outcomes])
-    first = next((result for _, result in outcomes if result), None)
+    # The run that used the most agents lists every hall pass, critic included.
+    first = max(
+        (result for _, result in outcomes if result),
+        key=lambda r: len({c.agent_id for c in r.agent_calls}),
+        default=None,
+    )
     meta = {
         "run_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
         "git_commit": _git("rev-parse", "HEAD"),
-        "git_dirty": bool(_git("status", "--porcelain")),
+        "git_dirty": bool(_git("status", "--porcelain", "--untracked-files=no")),
         "claims": len(claims),
         "trials": args.trials,
+        "critic": not args.no_critic,
         "adjuster_payout_threshold_usd": ADJUSTER_PAYOUT_THRESHOLD_USD,
-        "agents": [
-            c.model_dump(exclude={"input_tokens", "output_tokens", "seconds"})
-            for c in first.agent_calls
-        ]
+        # One row per agent: revised runs call some agents more than once.
+        "agents": list(
+            {
+                c.agent_id: c.model_dump(exclude={"input_tokens", "output_tokens", "seconds"})
+                for c in first.agent_calls
+            }.values()
+        )
         if first
         else [],
     }

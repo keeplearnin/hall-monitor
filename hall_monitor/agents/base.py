@@ -95,3 +95,21 @@ def render_policy_record(record: PolicyRecord | None) -> str:
     if record is None:
         return "<policy_record>No policy found with the number given on the claim.</policy_record>"
     return render_json("policy_record", record)
+
+
+def render_feedback(previous: BaseModel, problems: list[str]) -> str:
+    """Ask an agent to revise its previous answer. The reviewer can be wrong, so it may decline."""
+    listed = "\n".join(f"- {p}" for p in problems)
+    return (
+        "<reviewer_feedback>\n"
+        "A reviewer checked your previous answer and raised the problems below. Correct your "
+        "answer where the claim documents and policy support the reviewer. Where the reviewer is "
+        "wrong, keep your answer.\n"
+        f"<previous_answer>\n{previous.model_dump_json(indent=2)}\n</previous_answer>\n"
+        f"<problems>\n{listed}\n</problems>\n"
+        "</reviewer_feedback>"
+    )
+
+
+def join_content(*parts: str | None) -> str:
+    return "\n\n".join(p for p in parts if p)
