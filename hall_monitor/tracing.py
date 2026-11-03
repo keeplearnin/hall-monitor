@@ -37,11 +37,11 @@ def observe(name: str, as_type: str = "span") -> Callable[[Callable[P, R]], Call
     return decorator
 
 
-def update_generation(**fields: Any) -> None:
+def update_span(**fields: Any) -> None:
     if enabled():
         from langfuse import get_client
 
-        get_client().update_current_generation(**fields)
+        get_client().update_current_span(**fields)
 
 
 def flush() -> None:
