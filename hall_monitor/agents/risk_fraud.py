@@ -8,6 +8,7 @@ from hall_monitor import tracing
 from hall_monitor.agents.base import (
     UNTRUSTED_CLAIM_NOTICE,
     AgentRun,
+    join_content,
     render_claim,
     render_json,
     render_policy_record,
@@ -56,13 +57,13 @@ def run_risk_fraud(
     policy: PolicyRecord | None,
     registry: Registry,
     client: anthropic.Anthropic | None = None,
+    feedback: str | None = None,
 ) -> AgentRun[RiskAssessment]:
-    content = "\n\n".join(
-        [
-            render_policy_record(policy),
-            render_json("intake_extraction", extraction),
-            render_claim(claim),
-        ]
+    content = join_content(
+        render_policy_record(policy),
+        render_json("intake_extraction", extraction),
+        render_claim(claim),
+        feedback,
     )
     return run_agent(
         AGENT_ID,

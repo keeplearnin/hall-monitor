@@ -114,7 +114,7 @@ def unsupported_values(
     attached = {a.filename for a in claim.attachments}
     for doc in extraction.supporting_documents:
         checks.append((f"document={doc}", doc in attached))
-    for clause in result.coverage.applicable_clauses:
+    for clause in result.coverage.applicable_clauses if result.coverage else []:
         checks.append((f"clause={clause}", clause_exists(normalize_clause(clause), wording)))
     return len(checks), [label for label, ok in checks if not ok]
 
@@ -138,6 +138,10 @@ class RunScore:
     unsupported: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
     seconds: float = 0.0
+    revisions: int = 0
+    critic_reviews: int = 0
+    critic_unresolved: bool = False
+    stopped: bool = False
 
 
 def score_run(
@@ -149,16 +153,20 @@ def score_run(
     trial: int,
     cost_usd: float,
 ) -> RunScore:
+    coverage, risk = result.coverage, result.risk
     expected_clauses = {normalize_clause(c) for c in truth.coverage.applicable_clauses}
-    cited = {normalize_clause(c) for c in result.coverage.applicable_clauses}
+    cited = {normalize_clause(c) for c in coverage.applicable_clauses} if coverage else set()
     clause_recall = (
         len(expected_clauses & cited) / len(expected_clauses) if expected_clauses else 1.0
     )
 
-    decision_ok = result.coverage.decision == truth.coverage.decision
-    amount_ok = abs(result.coverage.covered_amount - truth.coverage.covered_amount) <= 1.0
+    decision_ok = coverage is not None and coverage.decision == truth.coverage.decision
+    amount_ok = (
+        coverage is not None and abs(coverage.covered_amount - truth.coverage.covered_amount) <= 1.0
+    )
 
-    expected_flags, flagged = set(truth.risk.flags), set(result.risk.flags)
+    expected_flags = set(truth.risk.flags)
+    flagged = set(risk.flags) if risk else set()
     flag_precision = len(expected_flags & flagged) / len(flagged) if flagged else None
     flag_recall = len(expected_flags & flagged) / len(expected_flags) if expected_flags else None
 
@@ -171,7 +179,7 @@ def score_run(
         covered_amount=amount_ok,
         clause_recall=clause_recall,
         coverage_correct=decision_ok and amount_ok and clause_recall == 1.0,
-        risk_level=result.risk.level == truth.risk.level,
+        risk_level=risk is not None and risk.level == truth.risk.level,
         flag_precision=flag_precision,
         flag_recall=flag_recall,
         next_step=result.recommendation.next_step == truth.next_step,
@@ -180,6 +188,10 @@ def score_run(
         unsupported=unsupported,
         cost_usd=cost_usd,
         seconds=sum(c.seconds for c in result.agent_calls),
+        revisions=result.revisions,
+        critic_reviews=len(result.critic_reviews),
+        critic_unresolved=result.critic_unresolved,
+        stopped=result.stopped_reason is not None,
     )
 
 
@@ -219,4 +231,7 @@ def summarize(scores: list[RunScore]) -> dict[str, float | int | None]:
         ),
         "cost_per_claim_usd": _mean([s.cost_usd for s in ok_runs]),
         "seconds_per_claim": _mean([s.seconds for s in ok_runs]),
+        "revised_rate": _mean([float(s.revisions > 0) for s in ok_runs]),
+        "critic_unresolved_rate": _mean([float(s.critic_unresolved) for s in ok_runs]),
+        "stopped_rate": _mean([float(s.stopped) for s in ok_runs]),
     }

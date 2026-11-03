@@ -6,6 +6,7 @@ from hall_monitor.registry import (
     SCHEMA_FILENAME,
     AgentManifest,
     AgentNotActiveError,
+    AgentStatus,
     Registry,
     ToolNotAllowedError,
     UnregisteredAgentError,
@@ -34,8 +35,9 @@ def test_unregistered_agent_is_refused(registry):
 
 
 def test_planned_agent_cannot_run(registry):
+    planned = registry.get("critic").model_copy(update={"status": AgentStatus.PLANNED})
     with pytest.raises(AgentNotActiveError):
-        registry.require("critic")
+        Registry([planned]).require("critic")
 
 
 def test_tool_outside_allow_list_is_refused(registry):

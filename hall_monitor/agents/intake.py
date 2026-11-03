@@ -5,7 +5,13 @@ from __future__ import annotations
 import anthropic
 
 from hall_monitor import tracing
-from hall_monitor.agents.base import UNTRUSTED_CLAIM_NOTICE, AgentRun, render_claim, run_agent
+from hall_monitor.agents.base import (
+    UNTRUSTED_CLAIM_NOTICE,
+    AgentRun,
+    join_content,
+    render_claim,
+    run_agent,
+)
 from hall_monitor.models import ClaimSubmission, IntakeExtraction
 from hall_monitor.registry import Registry
 
@@ -35,13 +41,14 @@ def run_intake(
     claim: ClaimSubmission,
     registry: Registry,
     client: anthropic.Anthropic | None = None,
+    feedback: str | None = None,
 ) -> AgentRun[IntakeExtraction]:
     return run_agent(
         AGENT_ID,
         registry=registry,
         client=client or anthropic.Anthropic(),
         system=SYSTEM_PROMPT,
-        content=render_claim(claim),
+        content=join_content(render_claim(claim), feedback),
         output_format=IntakeExtraction,
         prompt_version=PROMPT_VERSION,
         claim_id=claim.claim_id,

@@ -116,3 +116,12 @@ def test_call_cost_uses_list_prices():
         seconds=1.0,
     )
     assert call_cost(call) == pytest.approx(3.00)
+
+
+def test_stopped_run_scores_as_wrong_without_crashing():
+    result = result_from_truth("claim_002").model_copy(
+        update={"coverage": None, "risk": None, "stopped_reason": "no policy record found"}
+    )
+    s = score(result)
+    assert not s.coverage_correct and not s.risk_level
+    assert s.stopped and s.flag_precision is None

@@ -1,4 +1,4 @@
-"""Triage a claim: intake, coverage check, risk and fraud, recommendation, routing.
+"""Triage a claim: intake, coverage check, risk and fraud, critic, recommendation, routing.
 
 uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
 """
@@ -21,6 +21,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hall_monitor.run", description=__doc__.split("\n")[0])
     parser.add_argument("--claim", type=Path, required=True, help="Path to a claim JSON file.")
     parser.add_argument("--registry", type=Path, default=DEFAULT_REGISTRY_DIR)
+    parser.add_argument("--no-critic", action="store_true", help="Skip the critic review loop.")
     args = parser.parse_args(argv)
 
     load_dotenv()
@@ -30,6 +31,7 @@ def main(argv: list[str] | None = None) -> int:
             registry=Registry.from_dir(args.registry),
             policies=load_policy_records(),
             wording=load_policy_wording(),
+            critic=not args.no_critic,
         )
     except RegistryError as exc:
         print(f"refused: {exc}", file=sys.stderr)

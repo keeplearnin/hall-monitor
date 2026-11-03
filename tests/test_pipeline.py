@@ -12,8 +12,13 @@ from hall_monitor.governance.routing import route_claim
 from hall_monitor.models import (
     CoverageAssessment,
     CoverageDecision,
+    CoverageFinding,
+    CriticIssue,
+    CriticReview,
+    IntakeExtraction,
     NextStep,
     Recommendation,
+    ReviewedStage,
     RiskAssessment,
     RiskFlag,
     RiskLevel,
@@ -45,8 +50,10 @@ def test_correct_agent_outputs_give_the_expected_route(claim):
         "intake",
         "coverage_check",
         "risk_fraud",
+        "critic",
         "recommendation",
     ]
+    assert result.coverage.decision == truth.coverage.decision
     for call, sent in zip(result.agent_calls, client.messages.calls, strict=True):
         assert sent["model"] == REGISTRY.get(call.agent_id).model == call.model
 
@@ -109,3 +116,126 @@ def test_consequential_claims_go_to_an_adjuster(kwargs):
     decision = _route(**kwargs)
     assert decision.route is Route.ADJUSTER
     assert decision.reasons
+
+
+# --- Policy lookup gate -------------------------------------------------------
+
+POLICIES = load_policy_records()
+WORDING = load_policy_wording()
+
+
+def _triage(claim, outputs, **kwargs):
+    client = fake_client(outputs)
+    result = triage(
+        claim, registry=REGISTRY, policies=POLICIES, wording=WORDING, client=client, **kwargs
+    )
+    return result, client.messages
+
+
+def test_missing_policy_number_gets_one_retry():
+    claim = CLAIMS[0]
+    outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
+    good = outputs[IntakeExtraction]
+    outputs[IntakeExtraction] = [good.model_copy(update={"policy_number": None}), good]
+
+    result, messages = _triage(claim, outputs)
+
+    assert messages.formats()[:2] == ["IntakeExtraction", "IntakeExtraction"]
+    assert "No policy record matches" in messages.calls[1]["messages"][0]["content"]
+    assert result.stopped_reason is None
+    assert result.extraction.policy_number == good.policy_number
+
+
+def test_pipeline_stops_when_the_policy_cant_be_found():
+    claim = CLAIMS[0]
+    outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
+    outputs[IntakeExtraction] = outputs[IntakeExtraction].model_copy(
+        update={"policy_number": "WTP-NOPE"}
+    )
+
+    result, messages = _triage(claim, outputs)
+
+    assert messages.formats() == ["IntakeExtraction", "IntakeExtraction"]
+    assert result.stopped_reason
+    assert result.coverage is None and result.risk is None
+    assert result.recommendation.next_step is NextStep.REQUEST_INFORMATION
+    assert result.routing.route is Route.ADJUSTER
+
+
+# --- Coverage label ------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("amount", "decision"),
+    [
+        (640.0, CoverageDecision.COVERED),
+        (540.0, CoverageDecision.PARTIALLY_COVERED),
+        (0.0, CoverageDecision.NOT_COVERED),
+    ],
+)
+def test_coverage_label_follows_the_amount(amount, decision):
+    finding = CoverageFinding(applicable_clauses=["4.1"], covered_amount=amount, reasoning="")
+    assert CoverageAssessment.from_finding(finding, total_claimed=640.0).decision is decision
+
+
+# --- Critic loop -----------------------------------------------------------------
+
+
+def _issue(stage, problem="Amount ignores the 3,000 limit."):
+    return CriticReview(issues=[CriticIssue(stage=stage, problem=problem, evidence="2.2")])
+
+
+def test_critic_sends_coverage_back_and_approves_the_revision():
+    claim = next(c for c in CLAIMS if c.claim_id == "claim_008")
+    truth = load_ground_truth(claim.claim_id)
+    outputs = outputs_from_truth(truth)
+    wrong = outputs[CoverageFinding].model_copy(update={"covered_amount": 3640.0})
+    outputs[CoverageFinding] = [wrong, outputs[CoverageFinding]]
+    outputs[CriticReview] = [_issue(ReviewedStage.COVERAGE_CHECK), CriticReview(issues=[])]
+
+    result, messages = _triage(claim, outputs)
+
+    assert messages.formats() == [
+        "IntakeExtraction",
+        "CoverageFinding",
+        "RiskAssessment",
+        "CriticReview",
+        "CoverageFinding",
+        "CriticReview",
+        "Recommendation",
+    ]
+    revised_request = messages.calls[4]["messages"][0]["content"]
+    assert "<reviewer_feedback>" in revised_request and "3,000 limit" in revised_request
+    assert result.coverage.covered_amount == 3000.0
+    assert result.revisions == 1 and not result.critic_unresolved
+
+
+def test_intake_correction_reruns_coverage_and_risk():
+    claim = CLAIMS[0]
+    outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
+    outputs[CriticReview] = [_issue(ReviewedStage.INTAKE, "Wrong date."), CriticReview(issues=[])]
+
+    _, messages = _triage(claim, outputs)
+
+    assert messages.formats()[4:7] == ["IntakeExtraction", "CoverageFinding", "RiskAssessment"]
+
+
+def test_unresolved_disagreement_goes_to_an_adjuster():
+    claim = next(c for c in CLAIMS if c.claim_id == "claim_001")  # otherwise automatic
+    outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
+    outputs[CriticReview] = [_issue(ReviewedStage.RISK_FRAUD, "Missing flag.")]
+
+    result, messages = _triage(claim, outputs)
+
+    assert messages.formats().count("CriticReview") == 3  # review, revise, review, revise, review
+    assert result.revisions == 2 and result.critic_unresolved
+    assert result.routing.route is Route.ADJUSTER
+    assert any("critic" in r for r in result.routing.reasons)
+
+
+def test_critic_can_be_switched_off():
+    claim = CLAIMS[0]
+    _, messages = _triage(
+        claim, outputs_from_truth(load_ground_truth(claim.claim_id)), critic=False
+    )
+    assert "CriticReview" not in messages.formats()

@@ -8,16 +8,23 @@ from hall_monitor import tracing
 from hall_monitor.agents.base import (
     UNTRUSTED_CLAIM_NOTICE,
     AgentRun,
+    join_content,
     render_claim,
     render_json,
     render_policy_record,
     run_agent,
 )
-from hall_monitor.models import ClaimSubmission, CoverageAssessment, IntakeExtraction, PolicyRecord
+from hall_monitor.models import (
+    ClaimSubmission,
+    CoverageAssessment,
+    CoverageFinding,
+    IntakeExtraction,
+    PolicyRecord,
+)
 from hall_monitor.registry import Registry
 
 AGENT_ID = "coverage_check"
-PROMPT_VERSION = "coverage-check-v1"
+PROMPT_VERSION = "coverage-check-v2"
 
 SYSTEM_PROMPT = """\
 You are the coverage check step in a travel insurance claims process. You compare one claim \
@@ -36,8 +43,6 @@ per-item limit, daily limit and exclusion.
 - Where a clause depends on dates (waiting periods, pre-existing conditions, delays), work them \
 out from the policy record and the documents.
 - covered_amount is what the policy pays in USD. It is 0 if nothing is covered.
-- decision is "covered" if covered_amount equals the total claimed, "partially_covered" if it \
-is more than 0 but less, and "not_covered" if it is 0.
 - applicable_clauses lists only the clauses that decide the outcome or the amount, by number \
 exactly as written in the wording (e.g. "3.1", "5.1").
 - reasoning is short and names the clauses and facts you relied on.
@@ -55,21 +60,24 @@ def run_coverage_check(
     wording: str,
     registry: Registry,
     client: anthropic.Anthropic | None = None,
+    feedback: str | None = None,
 ) -> AgentRun[CoverageAssessment]:
-    content = "\n\n".join(
-        [
-            render_policy_record(policy),
-            render_json("intake_extraction", extraction),
-            render_claim(claim),
-        ]
+    content = join_content(
+        render_policy_record(policy),
+        render_json("intake_extraction", extraction),
+        render_claim(claim),
+        feedback,
     )
-    return run_agent(
+    run = run_agent(
         AGENT_ID,
         registry=registry,
         client=client or anthropic.Anthropic(),
         system=SYSTEM_PROMPT.format(untrusted=UNTRUSTED_CLAIM_NOTICE, wording=wording),
         content=content,
-        output_format=CoverageAssessment,
+        output_format=CoverageFinding,
         prompt_version=PROMPT_VERSION,
         claim_id=claim.claim_id,
     )
+    # The label is defined by the amount, so code sets it rather than the model.
+    assessment = CoverageAssessment.from_finding(run.output, extraction.total_claimed)
+    return AgentRun(output=assessment, call=run.call)

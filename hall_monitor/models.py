@@ -127,17 +127,37 @@ class Route(StrEnum):
     ADJUSTER = "adjuster"
 
 
-class CoverageAssessment(BaseModel):
-    """Output of the coverage check agent."""
+class CoverageFinding(BaseModel):
+    """What the coverage check agent returns. The decision label is added in code."""
 
     model_config = ConfigDict(extra="forbid")
 
-    decision: CoverageDecision
     applicable_clauses: list[str] = Field(
         description='Clause numbers that decide the outcome or amount, e.g. "3.1", "5.1".'
     )
     covered_amount: float = Field(description="What the policy pays in USD. 0 if not covered.")
     reasoning: str
+
+
+class CoverageAssessment(BaseModel):
+    """A coverage finding plus the decision label, which follows from the amount."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: CoverageDecision
+    applicable_clauses: list[str]
+    covered_amount: float
+    reasoning: str
+
+    @classmethod
+    def from_finding(cls, finding: CoverageFinding, total_claimed: float) -> CoverageAssessment:
+        if finding.covered_amount <= 0:
+            decision = CoverageDecision.NOT_COVERED
+        elif finding.covered_amount >= total_claimed - 0.005:
+            decision = CoverageDecision.COVERED
+        else:
+            decision = CoverageDecision.PARTIALLY_COVERED
+        return cls(decision=decision, **finding.model_dump())
 
 
 class RiskAssessment(BaseModel):
@@ -148,6 +168,28 @@ class RiskAssessment(BaseModel):
     level: RiskLevel
     flags: list[RiskFlag]
     reasoning: str
+
+
+class ReviewedStage(StrEnum):
+    INTAKE = "intake"
+    COVERAGE_CHECK = "coverage_check"
+    RISK_FRAUD = "risk_fraud"
+
+
+class CriticIssue(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    stage: ReviewedStage
+    problem: str = Field(description="What is wrong, specifically.")
+    evidence: str = Field(description="The document, clause or figure that shows it.")
+
+
+class CriticReview(BaseModel):
+    """Output of the critic agent. No issues means the work is approved."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    issues: list[CriticIssue]
 
 
 class Recommendation(BaseModel):
@@ -189,11 +231,16 @@ class TriageResult(BaseModel):
 
     claim_id: str
     extraction: IntakeExtraction
-    coverage: CoverageAssessment
-    risk: RiskAssessment
+    # None when the pipeline stopped before that step (see stopped_reason).
+    coverage: CoverageAssessment | None
+    risk: RiskAssessment | None
     recommendation: Recommendation
     routing: RoutingDecision
     agent_calls: list[AgentCall]
+    critic_reviews: list[CriticReview] = Field(default_factory=list)
+    revisions: int = 0
+    critic_unresolved: bool = False
+    stopped_reason: str | None = None
 
 
 # --- Ground truth ---------------------------------------------------------
