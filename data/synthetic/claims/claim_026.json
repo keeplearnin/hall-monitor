@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_026",
+  "submitted_at": "2026-10-06T13:15:00Z",
+  "channel": "web_form",
+  "narrative": "My name is Fatima Zahra El Idrissi, policy WTP-ESS-101590. My grandmother passed away on 28 September and I cancelled my Amsterdam trip the next day to be with my family for the funeral. I'm claiming the flights ($1,340.00) and the hotel ($760.00), $2,100.00 in total.",
+  "attachments": [
+    {
+      "filename": "death_certificate.txt",
+      "kind": "certificate",
+      "text": "Certificate of Death\nName: Khadija El Idrissi  Date of death: 2026-09-28\nInformant: Fatima Zahra El Idrissi (granddaughter)"
+    },
+    {
+      "filename": "flight_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "Lowlands Air\nPassenger: EL IDRISSI/FATIMA ZAHRA  Booking: AM62QN\nCancelled 2026-09-29. Fare USD 1,340.00 non-refundable."
+    },
+    {
+      "filename": "hotel_invoice.txt",
+      "kind": "invoice",
+      "text": "Canal House Hotel, Amsterdam\nGuest: Fatima Zahra El Idrissi  Prepaid USD 760.00\nCancelled 2026-09-29. Non-refundable."
+    }
+  ]
+}

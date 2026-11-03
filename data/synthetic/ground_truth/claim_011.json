@@ -1,0 +1,37 @@
+{
+  "claim_id": "claim_011",
+  "scenario": "Cancelled because an air traffic control strike grounded the airline; covered.",
+  "extraction": {
+    "claimant_name": "Priyanka Nair",
+    "policy_number": "WTP-PLS-200501",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2026-10-01",
+    "incident_location": "France",
+    "claimed_items": [
+      {
+        "description": "Non-refundable hotel",
+        "amount": 1240.0
+      }
+    ],
+    "total_claimed": 1240.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "airline_strike_notice.txt",
+      "hotel_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "covered",
+    "applicable_clauses": [
+      "2.1"
+    ],
+    "covered_amount": 1240.0,
+    "reasoning": "A strike stopped the carrier operating for more than 24 hours (2.1(c)). The flight was refunded; the prepaid hotel is a non-refundable trip cost, within the Plus limit."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

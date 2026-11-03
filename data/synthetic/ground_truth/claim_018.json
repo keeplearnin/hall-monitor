@@ -1,0 +1,47 @@
+{
+  "claim_id": "claim_018",
+  "scenario": "Bag delayed just over two days; capped at three part-days.",
+  "extraction": {
+    "claimant_name": "Nadia Haddad",
+    "policy_number": "WTP-PLS-200612",
+    "claim_type": "baggage_delay",
+    "incident_date": "2026-09-27",
+    "incident_location": "Montreal, Canada",
+    "claimed_items": [
+      {
+        "description": "Toiletries",
+        "amount": 64.75
+      },
+      {
+        "description": "Clothes",
+        "amount": 312.0
+      },
+      {
+        "description": "More clothes",
+        "amount": 144.0
+      }
+    ],
+    "total_claimed": 520.75,
+    "currency": "USD",
+    "supporting_documents": [
+      "delay_report.txt",
+      "receipt_toiletries.txt",
+      "receipt_clothes_1.txt",
+      "receipt_clothes_2.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "3.1"
+    ],
+    "covered_amount": 450.0,
+    "reasoning": "Outbound delay of 50h15m: three full or part 24-hour periods. Plus pays 150 per day, so the cap is 450, below the 520.75 spent (3.1)."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

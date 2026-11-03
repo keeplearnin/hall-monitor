@@ -1,0 +1,28 @@
+{
+  "claim_id": "claim_022",
+  "submitted_at": "2026-09-05T18:20:00Z",
+  "channel": "email",
+  "narrative": "Mateo Rossi, policy WTP-ESS-101511. My checked bag was lost on my flight to Prague on 10 August. It had my phone ($450.00), my tablet ($400.00) and noise-cancelling headphones ($180.00). Total $1,030.00. Airline report and receipts attached.",
+  "attachments": [
+    {
+      "filename": "property_irregularity_report.txt",
+      "kind": "carrier_letter",
+      "text": "Vltava Air - Property Irregularity Report\nFile ref: PRGVA5518  Passenger: ROSSI/MATEO\nFlight VA 401 EWR-PRG arrived 2026-08-10. Bag not received.\nStatus 2026-08-31: declared permanently lost."
+    },
+    {
+      "filename": "receipt_phone.txt",
+      "kind": "receipt",
+      "text": "Volt Mobile  2026-03-02\nSmartphone  USD 450.00"
+    },
+    {
+      "filename": "receipt_tablet.txt",
+      "kind": "receipt",
+      "text": "Volt Mobile  2026-01-15\nTablet  USD 400.00"
+    },
+    {
+      "filename": "receipt_headphones.txt",
+      "kind": "receipt",
+      "text": "SoundHaus  2025-12-05\nHeadphones  USD 180.00"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_013",
+  "submitted_at": "2026-09-18T10:40:00Z",
+  "channel": "email",
+  "narrative": "Sofia Andersson, policy WTP-PLS-200533. I have asthma. On 10 September I had a severe attack and spent two nights in hospital. My doctor has told me not to go to high altitude for at least two months, so I cancelled my Cusco trek on 11 September. Claiming flights $1,890.00 and the trek $1,090.00, total $2,980.00.",
+  "attachments": [
+    {
+      "filename": "respiratory_letter.txt",
+      "kind": "medical_report",
+      "text": "Northgate Respiratory Clinic\nRe: Sofia Andersson\nAsthma since childhood. Her inhaler dose was increased on 2026-06-15. When reviewed on 2026-07-08 she was stable and fit to travel.\nAdmitted 2026-09-10 with a severe exacerbation. I advise against travel to high altitude for at least 8 weeks.\nDr. E. Lindqvist"
+    },
+    {
+      "filename": "flight_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "Andes Pacific Air\nPassenger: ANDERSSON/SOFIA  Booking: CZ09RE\nCancelled 2026-09-11. Fare USD 1,890.00 non-refundable."
+    },
+    {
+      "filename": "trek_invoice.txt",
+      "kind": "invoice",
+      "text": "Inca Route Expeditions\nClient: Sofia Andersson  Trek departing 2026-09-22\nPaid USD 1,090.00. Cancelled 2026-09-11. Non-refundable."
+    }
+  ]
+}

@@ -6,25 +6,12 @@
     "purchase_date": "2026-06-02",
     "coverage_start": "2026-06-02",
     "coverage_end": "2026-08-30",
-    "trip": {"destination": "Lisbon, Portugal", "departure_date": "2026-08-20", "return_date": "2026-08-30", "initial_deposit_date": "2026-05-28"}
-  },
-  {
-    "policy_number": "WTP-PLS-200118",
-    "plan": "plus",
-    "insured_name": "Mei Lin Zhou",
-    "purchase_date": "2026-08-01",
-    "coverage_start": "2026-08-01",
-    "coverage_end": "2026-09-24",
-    "trip": {"destination": "Tokyo, Japan", "departure_date": "2026-09-10", "return_date": "2026-09-24", "initial_deposit_date": "2026-07-25"}
-  },
-  {
-    "policy_number": "WTP-PLS-200342",
-    "plan": "plus",
-    "insured_name": "Carlos Mendes",
-    "purchase_date": "2026-06-20",
-    "coverage_start": "2026-06-20",
-    "coverage_end": "2026-07-26",
-    "trip": {"destination": "Zermatt, Switzerland", "departure_date": "2026-07-12", "return_date": "2026-07-26", "initial_deposit_date": "2026-06-18"}
+    "trip": {
+      "destination": "Lisbon, Portugal",
+      "departure_date": "2026-08-20",
+      "return_date": "2026-08-30",
+      "initial_deposit_date": "2026-05-28"
+    }
   },
   {
     "policy_number": "WTP-ESS-100587",
@@ -33,7 +20,12 @@
     "purchase_date": "2026-07-10",
     "coverage_start": "2026-07-10",
     "coverage_end": "2026-09-19",
-    "trip": {"destination": "Cape Town, South Africa", "departure_date": "2026-09-05", "return_date": "2026-09-19", "initial_deposit_date": "2026-04-02"}
+    "trip": {
+      "destination": "Cape Town, South Africa",
+      "departure_date": "2026-09-05",
+      "return_date": "2026-09-19",
+      "initial_deposit_date": "2026-04-02"
+    }
   },
   {
     "policy_number": "WTP-ESS-100902",
@@ -42,7 +34,12 @@
     "purchase_date": "2026-10-01",
     "coverage_start": "2026-10-01",
     "coverage_end": "2026-10-10",
-    "trip": {"destination": "Barcelona, Spain", "departure_date": "2026-10-03", "return_date": "2026-10-10", "initial_deposit_date": "2026-09-29"}
+    "trip": {
+      "destination": "Barcelona, Spain",
+      "departure_date": "2026-10-03",
+      "return_date": "2026-10-10",
+      "initial_deposit_date": "2026-09-29"
+    }
   },
   {
     "policy_number": "WTP-ESS-101144",
@@ -51,6 +48,319 @@
     "purchase_date": "2026-09-15",
     "coverage_start": "2026-09-15",
     "coverage_end": "2026-10-25",
-    "trip": {"destination": "Dublin, Ireland", "departure_date": "2026-10-18", "return_date": "2026-10-25", "initial_deposit_date": "2026-09-12"}
+    "trip": {
+      "destination": "Dublin, Ireland",
+      "departure_date": "2026-10-18",
+      "return_date": "2026-10-25",
+      "initial_deposit_date": "2026-09-12"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101233",
+    "plan": "essentials",
+    "insured_name": "Kwame Mensah",
+    "purchase_date": "2026-05-15",
+    "coverage_start": "2026-05-15",
+    "coverage_end": "2026-08-15",
+    "trip": {
+      "destination": "Reykjavik, Iceland",
+      "departure_date": "2026-08-08",
+      "return_date": "2026-08-15",
+      "initial_deposit_date": "2026-05-10"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101287",
+    "plan": "essentials",
+    "insured_name": "Hannah Kowalczyk",
+    "purchase_date": "2026-08-20",
+    "coverage_start": "2026-08-20",
+    "coverage_end": "2026-09-22",
+    "trip": {
+      "destination": "Athens, Greece",
+      "departure_date": "2026-09-12",
+      "return_date": "2026-09-22",
+      "initial_deposit_date": "2026-06-01"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101318",
+    "plan": "essentials",
+    "insured_name": "Oliver Brennan",
+    "purchase_date": "2026-07-01",
+    "coverage_start": "2026-07-01",
+    "coverage_end": "2026-09-22",
+    "trip": {
+      "destination": "Marrakech, Morocco",
+      "departure_date": "2026-09-15",
+      "return_date": "2026-09-22",
+      "initial_deposit_date": "2026-06-25"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101342",
+    "plan": "essentials",
+    "insured_name": "Marcus Fischer",
+    "purchase_date": "2026-07-22",
+    "coverage_start": "2026-07-22",
+    "coverage_end": "2026-09-25",
+    "trip": {
+      "destination": "Lisbon, Portugal",
+      "departure_date": "2026-09-18",
+      "return_date": "2026-09-25",
+      "initial_deposit_date": "2026-07-20"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101377",
+    "plan": "essentials",
+    "insured_name": "Liam O'Connor",
+    "purchase_date": "2026-08-01",
+    "coverage_start": "2026-08-01",
+    "coverage_end": "2026-09-19",
+    "trip": {
+      "destination": "Bangkok, Thailand",
+      "departure_date": "2026-09-05",
+      "return_date": "2026-09-19",
+      "initial_deposit_date": "2026-07-28"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101402",
+    "plan": "essentials",
+    "insured_name": "Chloe Martin",
+    "purchase_date": "2026-06-15",
+    "coverage_start": "2026-06-15",
+    "coverage_end": "2026-08-21",
+    "trip": {
+      "destination": "Ibiza, Spain",
+      "departure_date": "2026-08-14",
+      "return_date": "2026-08-21",
+      "initial_deposit_date": "2026-06-10"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101455",
+    "plan": "essentials",
+    "insured_name": "George Papadopoulos",
+    "purchase_date": "2026-06-20",
+    "coverage_start": "2026-06-20",
+    "coverage_end": "2026-09-10",
+    "trip": {
+      "destination": "Rome, Italy",
+      "departure_date": "2026-09-01",
+      "return_date": "2026-09-10",
+      "initial_deposit_date": "2026-06-15"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101480",
+    "plan": "essentials",
+    "insured_name": "Yuki Tanaka",
+    "purchase_date": "2026-07-10",
+    "coverage_start": "2026-07-10",
+    "coverage_end": "2026-09-01",
+    "trip": {
+      "destination": "Vancouver, Canada",
+      "departure_date": "2026-08-22",
+      "return_date": "2026-09-01",
+      "initial_deposit_date": "2026-07-08"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101511",
+    "plan": "essentials",
+    "insured_name": "Mateo Rossi",
+    "purchase_date": "2026-06-25",
+    "coverage_start": "2026-06-25",
+    "coverage_end": "2026-08-17",
+    "trip": {
+      "destination": "Prague, Czech Republic",
+      "departure_date": "2026-08-10",
+      "return_date": "2026-08-17",
+      "initial_deposit_date": "2026-06-20"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101536",
+    "plan": "essentials",
+    "insured_name": "Amara Okonkwo",
+    "purchase_date": "2026-07-15",
+    "coverage_start": "2026-07-15",
+    "coverage_end": "2026-09-13",
+    "trip": {
+      "destination": "Rome, Italy",
+      "departure_date": "2026-09-03",
+      "return_date": "2026-09-13",
+      "initial_deposit_date": "2026-07-12"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101563",
+    "plan": "essentials",
+    "insured_name": "Victor Petrov",
+    "purchase_date": "2026-09-08",
+    "coverage_start": "2026-09-08",
+    "coverage_end": "2026-09-20",
+    "trip": {
+      "destination": "Lisbon, Portugal",
+      "departure_date": "2026-09-10",
+      "return_date": "2026-09-20",
+      "initial_deposit_date": "2026-09-01"
+    }
+  },
+  {
+    "policy_number": "WTP-ESS-101590",
+    "plan": "essentials",
+    "insured_name": "Fatima Zahra El Idrissi",
+    "purchase_date": "2026-07-05",
+    "coverage_start": "2026-07-05",
+    "coverage_end": "2026-10-17",
+    "trip": {
+      "destination": "Amsterdam, Netherlands",
+      "departure_date": "2026-10-10",
+      "return_date": "2026-10-17",
+      "initial_deposit_date": "2026-07-01"
+    }
+  },
+  {
+    "policy_number": "WTP-PLS-200118",
+    "plan": "plus",
+    "insured_name": "Mei Lin Zhou",
+    "purchase_date": "2026-08-01",
+    "coverage_start": "2026-08-01",
+    "coverage_end": "2026-09-24",
+    "trip": {
+      "destination": "Tokyo, Japan",
+      "departure_date": "2026-09-10",
+      "return_date": "2026-09-24",
+      "initial_deposit_date": "2026-07-25"
+    }
+  },
+  {
+    "policy_number": "WTP-PLS-200342",
+    "plan": "plus",
+    "insured_name": "Carlos Mendes",
+    "purchase_date": "2026-06-20",
+    "coverage_start": "2026-06-20",
+    "coverage_end": "2026-07-26",
+    "trip": {
+      "destination": "Zermatt, Switzerland",
+      "departure_date": "2026-07-12",
+      "return_date": "2026-07-26",
+      "initial_deposit_date": "2026-06-18"
+    }
+  },
+  {
+    "policy_number": "WTP-PLS-200455",
+    "plan": "plus",
+    "insured_name": "Rosa Delgado",
+    "purchase_date": "2026-06-10",
+    "coverage_start": "2026-06-10",
+    "coverage_end": "2026-10-19",
+    "trip": {
+      "destination": "Kyoto, Japan",
+      "departure_date": "2026-10-05",
+      "return_date": "2026-10-19",
+      "initial_deposit_date": "2026-06-02"
+    }
+  },
+  {
+    "policy_number": "WTP-PLS-200501",
+    "plan": "plus",
+    "insured_name": "Priyanka Nair",
+    "purchase_date": "2026-07-18",
+    "coverage_start": "2026-07-18",
+    "coverage_end": "2026-10-07",
+    "trip": {
+      "destination": "Paris, France",
+      "departure_date": "2026-10-02",
+      "return_date": "2026-10-07",
+      "initial_deposit_date": "2026-07-12"
+    }
+  },
+  {
+    "policy_number": "WTP-PLS-200533",
+    "plan": "plus",
+    "insured_name": "Sofia Andersson",
+    "purchase_date": "2026-07-08",
+    "coverage_start": "2026-07-08",
+    "coverage_end": "2026-10-04",
+    "trip": {
+      "destination": "Cusco, Peru",
+      "departure_date": "2026-09-20",
+      "return_date": "2026-10-04",
+      "initial_deposit_date": "2026-07-01"
+    }
+  },
+  {
+    "policy_number": "WTP-PLS-200560",
+    "plan": "plus",
+    "insured_name": "Ethan Brooks",
+    "purchase_date": "2026-06-01",
+    "coverage_start": "2026-06-01",
+    "coverage_end": "2026-08-12",
+    "trip": {
+      "destination": "Interlaken, Switzerland",
+      "departure_date": "2026-08-01",
+      "return_date": "2026-08-12",
+      "initial_deposit_date": "2026-05-25"
+    }
+  },
+  {
+    "policy_number": "WTP-PLS-200587",
+    "plan": "plus",
+    "insured_name": "Arjun Mehta",
+    "purchase_date": "2026-07-05",
+    "coverage_start": "2026-07-05",
+    "coverage_end": "2026-09-03",
+    "trip": {
+      "destination": "Istanbul, Turkey",
+      "departure_date": "2026-08-20",
+      "return_date": "2026-09-03",
+      "initial_deposit_date": "2026-07-01"
+    }
+  },
+  {
+    "policy_number": "WTP-PLS-200612",
+    "plan": "plus",
+    "insured_name": "Nadia Haddad",
+    "purchase_date": "2026-08-05",
+    "coverage_start": "2026-08-05",
+    "coverage_end": "2026-10-08",
+    "trip": {
+      "destination": "Montreal, Canada",
+      "departure_date": "2026-09-27",
+      "return_date": "2026-10-08",
+      "initial_deposit_date": "2026-08-01"
+    }
+  },
+  {
+    "policy_number": "WTP-PLS-200634",
+    "plan": "plus",
+    "insured_name": "Isabelle Laurent",
+    "purchase_date": "2026-08-12",
+    "coverage_start": "2026-08-12",
+    "coverage_end": "2026-10-21",
+    "trip": {
+      "destination": "Edinburgh, UK",
+      "departure_date": "2026-10-14",
+      "return_date": "2026-10-21",
+      "initial_deposit_date": "2026-08-10"
+    }
+  },
+  {
+    "policy_number": "WTP-PLS-200659",
+    "plan": "plus",
+    "insured_name": "Benjamin Clarke",
+    "purchase_date": "2026-06-01",
+    "coverage_start": "2026-06-01",
+    "coverage_end": "2026-08-25",
+    "trip": {
+      "destination": "Cancún, Mexico",
+      "departure_date": "2026-08-15",
+      "return_date": "2026-08-25",
+      "initial_deposit_date": "2026-04-20"
+    }
   }
 ]

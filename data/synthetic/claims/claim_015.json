@@ -1,0 +1,13 @@
+{
+  "claim_id": "claim_015",
+  "submitted_at": "2026-08-20T15:35:00Z",
+  "channel": "email",
+  "narrative": "Ethan Brooks, WTP-PLS-200560. On 6 August I went on a tandem paragliding flight above Interlaken. We had a hard landing and I broke my ankle. Emergency room $1,200.00 and surgery $2,700.00, $3,900.00 in total.",
+  "attachments": [
+    {
+      "filename": "hospital_invoice.txt",
+      "kind": "invoice",
+      "text": "Spital Interlaken\nPatient: Ethan Brooks  Date of injury: 2026-08-06\nCause: paragliding landing accident\nEmergency department USD 1,200.00\nAnkle ORIF surgery USD 2,700.00\nTotal USD 3,900.00"
+    }
+  ]
+}

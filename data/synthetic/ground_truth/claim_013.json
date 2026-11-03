@@ -1,0 +1,43 @@
+{
+  "claim_id": "claim_013",
+  "scenario": "Pre-existing condition, but the Plus waiver applies; covered.",
+  "extraction": {
+    "claimant_name": "Sofia Andersson",
+    "policy_number": "WTP-PLS-200533",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2026-09-10",
+    "incident_location": null,
+    "claimed_items": [
+      {
+        "description": "Non-refundable flights",
+        "amount": 1890.0
+      },
+      {
+        "description": "Cusco trek",
+        "amount": 1090.0
+      }
+    ],
+    "total_claimed": 2980.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "respiratory_letter.txt",
+      "flight_cancellation.txt",
+      "trek_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "covered",
+    "applicable_clauses": [
+      "2.1",
+      "5.1"
+    ],
+    "covered_amount": 2980.0,
+    "reasoning": "The inhaler change on 2026-06-15 falls within 90 days before the 2026-07-08 purchase, so asthma is a pre-existing condition (1.2). The Plus waiver applies: the policy was bought 7 days after the 2026-07-01 deposit and she was fit to travel on the purchase date (5.1). Covered under 2.1(a); above the 2,500 threshold, so an adjuster approves."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "adjuster"
+}

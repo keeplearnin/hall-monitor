@@ -1,0 +1,40 @@
+{
+  "claim_id": "claim_015",
+  "scenario": "Injured paragliding; hazardous-activity exclusion.",
+  "extraction": {
+    "claimant_name": "Ethan Brooks",
+    "policy_number": "WTP-PLS-200560",
+    "claim_type": "emergency_medical",
+    "incident_date": "2026-08-06",
+    "incident_location": "Interlaken, Switzerland",
+    "claimed_items": [
+      {
+        "description": "Emergency room",
+        "amount": 1200.0
+      },
+      {
+        "description": "Surgery",
+        "amount": 2700.0
+      }
+    ],
+    "total_claimed": 3900.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "hospital_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "not_covered",
+    "applicable_clauses": [
+      "5.5"
+    ],
+    "covered_amount": 0.0,
+    "reasoning": "Paragliding is a hazardous activity excluded by 5.5."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "deny",
+  "route": "adjuster"
+}

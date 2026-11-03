@@ -1,0 +1,43 @@
+{
+  "claim_id": "claim_008",
+  "scenario": "Cancelled for a broken leg; claim exceeds the Essentials cancellation limit.",
+  "extraction": {
+    "claimant_name": "Kwame Mensah",
+    "policy_number": "WTP-ESS-101233",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2026-07-30",
+    "incident_location": null,
+    "claimed_items": [
+      {
+        "description": "Non-refundable flights",
+        "amount": 1480.0
+      },
+      {
+        "description": "Northern lights tour package",
+        "amount": 2160.0
+      }
+    ],
+    "total_claimed": 3640.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "fracture_clinic_letter.txt",
+      "flight_cancellation.txt",
+      "tour_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "2.1",
+      "2.2"
+    ],
+    "covered_amount": 3000.0,
+    "reasoning": "Injury certified as making travel inadvisable (2.1(a)), cancelled the next day (2.3). The claim is 3,640 but the Essentials trip cancellation limit is 3,000 (2.2). 3,000 is above the 2,500 threshold, so an adjuster approves."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "adjuster"
+}

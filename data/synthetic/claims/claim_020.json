@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_020",
+  "submitted_at": "2026-08-30T04:40:00Z",
+  "channel": "mobile_app",
+  "narrative": "Yuki Tanaka, WTP-ESS-101480. My bag was late arriving in Vancouver on 22 August. I landed at 13:10 and it came to the hotel at 22:25. I bought toiletries ($41.40) and a T-shirt ($44.00), $85.40 in total.",
+  "attachments": [
+    {
+      "filename": "delay_report.txt",
+      "kind": "carrier_letter",
+      "text": "Cascade Pacific - Property Irregularity Report\nFile ref: YVRCP1093  Passenger: TANAKA/YUKI\nFlight CP 88 SFO-YVR arrived 2026-08-22 13:10. Bag delayed.\nDelivered 2026-08-22 22:25"
+    },
+    {
+      "filename": "receipt_toiletries.txt",
+      "kind": "receipt",
+      "text": "London Drugs, Vancouver  2026-08-22 15:20\nToiletries  Total: USD 41.40"
+    },
+    {
+      "filename": "receipt_tshirt.txt",
+      "kind": "receipt",
+      "text": "Granville Threads, Vancouver  2026-08-22 16:05\nT-shirt  Total: USD 44.00"
+    }
+  ]
+}

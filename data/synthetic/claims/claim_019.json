@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_019",
+  "submitted_at": "2026-09-18T07:55:00Z",
+  "channel": "web_form",
+  "narrative": "George Papadopoulos, policy WTP-ESS-101455. Flying home from Rome to Boston on 10 September, my bag was delayed by 26 hours. I bought toiletries ($48.00) and some clothes ($162.00). Claiming $210.00.",
+  "attachments": [
+    {
+      "filename": "delay_report.txt",
+      "kind": "carrier_letter",
+      "text": "Atlantic Arc Airways - Property Irregularity Report\nFile ref: BOSAA6620  Passenger: PAPADOPOULOS/GEORGE\nFlight AA 731 FCO-BOS arrived 2026-09-10 16:20. Bag delayed.\nDelivered 2026-09-11 18:30"
+    },
+    {
+      "filename": "receipt_toiletries.txt",
+      "kind": "receipt",
+      "text": "CVS, Boston  2026-09-10 19:00\nToiletries  Total: USD 48.00"
+    },
+    {
+      "filename": "receipt_clothes.txt",
+      "kind": "receipt",
+      "text": "Copley Outfitters, Boston  2026-09-11 10:30\nShirt, trousers  Total: USD 162.00"
+    }
+  ]
+}

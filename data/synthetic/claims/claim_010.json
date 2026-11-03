@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_010",
+  "submitted_at": "2026-09-24T11:05:00Z",
+  "channel": "email",
+  "narrative": "Oliver Brennan, WTP-ESS-101318. My mother had a stroke on 2 September. I was at the hospital with her every day and only got round to cancelling my Marrakech trip on 10 September. The flight ($620.00) was non-refundable and the riad and tour package charged me the full $900.00. Claiming $1,520.00.",
+  "attachments": [
+    {
+      "filename": "hospital_letter.txt",
+      "kind": "medical_report",
+      "text": "St. Columba's Hospital\nRe: Margaret Brennan (mother of Oliver Brennan)\nAdmitted 2026-09-02 following a stroke. Her son has been advised to remain available locally.\nDr. F. Quinn"
+    },
+    {
+      "filename": "flight_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "Atlas Wing Airlines\nPassenger: BRENNAN/OLIVER  Booking: MR40YD\nDeparting 2026-09-15. Cancelled 2026-09-10. Fare USD 620.00, non-refundable at any time."
+    },
+    {
+      "filename": "riad_terms_and_invoice.txt",
+      "kind": "invoice",
+      "text": "Riad Zitoun & Atlas Tours\nGuest: Oliver Brennan  Arrival 2026-09-15  Package USD 900.00\nCancellation terms: 8 or more days before arrival, 50% charge (USD 450.00); 7 days or fewer, 100% charge (USD 900.00).\nCancelled 2026-09-10 (5 days before arrival). Charged: USD 900.00"
+    }
+  ]
+}

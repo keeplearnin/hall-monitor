@@ -1,0 +1,13 @@
+{
+  "claim_id": "claim_017",
+  "submitted_at": "2026-09-10T09:25:00Z",
+  "channel": "email",
+  "narrative": "Arjun Mehta, WTP-PLS-200587. While I was in Istanbul I had two dental crowns fitted on 25 August. My dentist at home recommended them last year and it was much cheaper in Turkey. The clinic charged $1,350.00.",
+  "attachments": [
+    {
+      "filename": "dental_invoice.txt",
+      "kind": "invoice",
+      "text": "Bosphorus Dental Clinic, Istanbul\nPatient: Arjun Mehta  Date: 2026-08-25\nTwo porcelain crowns (pre-booked treatment plan)  USD 1,350.00"
+    }
+  ]
+}

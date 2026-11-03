@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_012",
+  "submitted_at": "2026-09-12T19:10:00Z",
+  "channel": "web_form",
+  "narrative": "Marcus Fischer, WTP-ESS-101342. On 3 September my manager told me I had to lead a client launch the week of my holiday, so I cancelled my Lisbon trip. I've lost flights $760.00 and the apartment $690.00, total $1,450.00. Email from my manager attached.",
+  "attachments": [
+    {
+      "filename": "manager_email.txt",
+      "kind": "letter",
+      "text": "From: J. Albright\nTo: Marcus Fischer\nDate: 2026-09-03\nMarcus, the Halvorsen launch has moved to 21 September and I need you to lead it. Please rearrange your leave."
+    },
+    {
+      "filename": "flight_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "Iberian Skyline\nPassenger: FISCHER/MARCUS  Booking: LS71PB\nCancelled 2026-09-04. Fare USD 760.00 non-refundable."
+    },
+    {
+      "filename": "apartment_booking.txt",
+      "kind": "invoice",
+      "text": "Alfama Stays\nGuest: Marcus Fischer  2026-09-18 to 2026-09-25  Paid USD 690.00\nCancelled 2026-09-04. Non-refundable."
+    }
+  ]
+}

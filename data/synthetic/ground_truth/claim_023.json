@@ -1,0 +1,37 @@
+{
+  "claim_id": "claim_023",
+  "scenario": "Appendicitis abroad; large covered bill less the deductible.",
+  "extraction": {
+    "claimant_name": "Amara Okonkwo",
+    "policy_number": "WTP-ESS-101536",
+    "claim_type": "emergency_medical",
+    "incident_date": "2026-09-07",
+    "incident_location": "Rome, Italy",
+    "claimed_items": [
+      {
+        "description": "Emergency surgery and hospital stay",
+        "amount": 9600.0
+      }
+    ],
+    "total_claimed": 9600.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "hospital_invoice.txt",
+      "discharge_summary.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "4.1"
+    ],
+    "covered_amount": 9500.0,
+    "reasoning": "Sudden illness during the trip (4.1); 9,600 less the 100 Essentials deductible is 9,500. Under 10,000, so no notification was needed (4.2). Above the payout threshold, so an adjuster approves."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "adjuster"
+}

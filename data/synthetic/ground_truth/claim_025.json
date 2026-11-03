@@ -1,0 +1,40 @@
+{
+  "claim_id": "claim_025",
+  "scenario": "Invoice dated before the trip contradicts the story; policy bought days earlier.",
+  "extraction": {
+    "claimant_name": "Victor Petrov",
+    "policy_number": "WTP-ESS-101563",
+    "claim_type": "emergency_medical",
+    "incident_date": "2026-09-14",
+    "incident_location": "Lisbon, Portugal",
+    "claimed_items": [
+      {
+        "description": "Wrist X-ray and splint",
+        "amount": 860.0
+      }
+    ],
+    "total_claimed": 860.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "clinic_invoice.txt",
+      "booking_confirmation.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "not_covered",
+    "applicable_clauses": [
+      "4.1"
+    ],
+    "covered_amount": 0.0,
+    "reasoning": "The clinic invoice is dated 2026-09-02, eight days before he left on 2026-09-10, so the treated injury did not first occur during the insured trip (4.1). The narrative's date conflicts with the invoice, which is for the fraud check."
+  },
+  "risk": {
+    "level": "high",
+    "flags": [
+      "dates_inconsistent",
+      "policy_purchased_shortly_before_incident"
+    ]
+  },
+  "next_step": "deny",
+  "route": "adjuster"
+}

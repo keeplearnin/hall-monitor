@@ -1,0 +1,18 @@
+{
+  "claim_id": "claim_011",
+  "submitted_at": "2026-10-09T08:20:00Z",
+  "channel": "mobile_app",
+  "narrative": "Priyanka Nair, policy WTP-PLS-200501. A strike by French air traffic controllers grounded all SkyMeridian flights to Paris from 1 to 4 October, so my trip couldn't go ahead. The airline refunded my flight, but my hotel was prepaid and non-refundable: $1,240.00. That's what I'm claiming.",
+  "attachments": [
+    {
+      "filename": "airline_strike_notice.txt",
+      "kind": "carrier_letter",
+      "text": "SkyMeridian - Flight cancellation notice\nPassenger: NAIR/PRIYANKA  Flight SM 214 JFK-CDG 2026-10-02\nAll SkyMeridian flights to France are cancelled from 2026-10-01 to 2026-10-04 due to industrial action by French air traffic control. Your fare has been refunded in full."
+    },
+    {
+      "filename": "hotel_invoice.txt",
+      "kind": "invoice",
+      "text": "Hôtel des Lilas, Paris\nGuest: Priyanka Nair  Stay: 2026-10-02 to 2026-10-07\nPrepaid non-refundable: USD 1,240.00. Cancelled 2026-10-01. Refund: USD 0.00"
+    }
+  ]
+}

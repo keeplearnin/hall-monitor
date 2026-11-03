@@ -1,0 +1,18 @@
+{
+  "claim_id": "claim_023",
+  "submitted_at": "2026-09-21T16:45:00Z",
+  "channel": "web_form",
+  "narrative": "Amara Okonkwo, WTP-ESS-101536. I was rushed to hospital in Rome with appendicitis on 7 September and had emergency surgery and three nights in hospital. The bill was $9,600.00.",
+  "attachments": [
+    {
+      "filename": "hospital_invoice.txt",
+      "kind": "invoice",
+      "text": "Ospedale San Lorenzo, Rome\nPatient: Amara Okonkwo  Admitted 2026-09-07, discharged 2026-09-10\nEmergency appendectomy and 3-night stay  USD 9,600.00"
+    },
+    {
+      "filename": "discharge_summary.txt",
+      "kind": "medical_report",
+      "text": "Ospedale San Lorenzo\nAcute appendicitis, onset 2026-09-07. No previous abdominal history. Fit to fly from 2026-09-12."
+    }
+  ]
+}

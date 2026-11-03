@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_007",
+  "submitted_at": "2026-09-30T14:02:00Z",
+  "channel": "web_form",
+  "narrative": "My name is Rosa Delgado and my policy is WTP-PLS-200455. My father had a heart attack on 21 September and is in intensive care. I'm his only family nearby and his cardiologist has asked me not to travel while he recovers, so I cancelled our trip to Kyoto the next day. Neither the airline nor the ryokan will refund me. I'm claiming the flights ($2,860.00) and the ryokan ($1,320.00), $4,180.00 in total.",
+  "attachments": [
+    {
+      "filename": "cardiology_letter.txt",
+      "kind": "medical_report",
+      "text": "Riverside Heart Institute\nRe: Miguel Delgado (father of Rosa Delgado)\nAdmitted 2026-09-21 with an acute myocardial infarction. Currently in intensive care.\nHis daughter Rosa is his primary carer. I advise against her travelling abroad during his recovery, expected to take at least six weeks.\nDr. L. Moreno, Consultant Cardiologist"
+    },
+    {
+      "filename": "airline_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "Pacific Crane Airlines - Booking cancelled\nPassenger: DELGADO/ROSA  Booking: KX29PL\nLAX-KIX 2026-10-05, KIX-LAX 2026-10-19\nCancelled 2026-09-22. Fare USD 2,860.00, non-refundable."
+    },
+    {
+      "filename": "ryokan_invoice.txt",
+      "kind": "invoice",
+      "text": "Ryokan Hanamizuki, Kyoto\nGuest: Rosa Delgado  Stay: 2026-10-06 to 2026-10-12\nPrepaid non-refundable: USD 1,320.00\nCancellation received 2026-09-22. Refund: USD 0.00"
+    }
+  ]
+}

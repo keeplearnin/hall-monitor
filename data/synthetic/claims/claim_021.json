@@ -1,0 +1,28 @@
+{
+  "claim_id": "claim_021",
+  "submitted_at": "2026-10-28T09:00:00Z",
+  "channel": "web_form",
+  "narrative": "Isabelle Laurent, WTP-PLS-200634. My suitcase was lost on my flight to Edinburgh on 14 October and the airline has now said it can't be found. It had my wool coat ($640.00), a dress ($220.00) and leather boots ($180.00). Receipts attached. Total $1,040.00.",
+  "attachments": [
+    {
+      "filename": "property_irregularity_report.txt",
+      "kind": "carrier_letter",
+      "text": "Highland Air - Property Irregularity Report\nFile ref: EDIHA3302  Passenger: LAURENT/ISABELLE\nFlight HA 12 JFK-EDI arrived 2026-10-14. Bag not received.\nStatus 2026-10-24: declared permanently lost."
+    },
+    {
+      "filename": "receipt_coat.txt",
+      "kind": "receipt",
+      "text": "Mercer & Wool  2024-11-20\nWool overcoat  USD 640.00"
+    },
+    {
+      "filename": "receipt_dress.txt",
+      "kind": "receipt",
+      "text": "Atelier Rue Clair  2026-05-09\nDress  USD 220.00"
+    },
+    {
+      "filename": "receipt_boots.txt",
+      "kind": "receipt",
+      "text": "Fenwick Leather  2023-09-01\nLeather boots  USD 180.00"
+    }
+  ]
+}
