@@ -1,6 +1,6 @@
 id: recommendation
 name: Recommendation
-version: 0.1.0
+version: 0.2.0
 owner: claims-ai-platform
 purpose: Propose a next step (pay, request information, investigate, deny) with reasons and evidence. Never decides denials or large payouts.
 risk_tier: high

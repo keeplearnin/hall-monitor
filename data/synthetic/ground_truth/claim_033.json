@@ -1,0 +1,53 @@
+{
+  "claim_id": "claim_033",
+  "scenario": "Cap test: depreciation, then per-item limits, then the valuables limit.",
+  "extraction": {
+    "claimant_name": "Eleanor Whitmore",
+    "policy_number": "WTP-PLS-200736",
+    "claim_type": "baggage_loss",
+    "incident_date": "2026-09-05",
+    "incident_location": "Vienna, Austria",
+    "claimed_items": [
+      {
+        "description": "Camera",
+        "amount": 1250.0
+      },
+      {
+        "description": "Laptop",
+        "amount": 900.0
+      },
+      {
+        "description": "Watch",
+        "amount": 380.0
+      },
+      {
+        "description": "Clothes",
+        "amount": 240.0
+      }
+    ],
+    "total_claimed": 2770.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "property_irregularity_report.txt",
+      "receipt_camera.txt",
+      "receipt_laptop.txt",
+      "receipt_watch.txt",
+      "receipt_clothes.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "1.7",
+      "3.2"
+    ],
+    "covered_amount": 1240.0,
+    "reasoning": "Actual cash value (1.7): camera 1,250 less 20% for two full years = 1,000, capped at 500 per item; laptop 900 (under a year old), capped at 500; watch 380. These are all valuables (1.5): 1,380 together, capped at the Plus valuables limit of 1,000. Clothes 240. Total 1,240, within the Plus baggage loss limit (3.2)."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

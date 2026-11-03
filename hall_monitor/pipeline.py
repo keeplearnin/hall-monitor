@@ -1,8 +1,10 @@
 """Claim triage: intake, policy lookup, coverage check, risk and fraud, critic, recommendation.
 
 The critic reviews intake, coverage and risk against the claim documents and sends work back
-for correction, up to MAX_REVISIONS times. Disagreement that survives the revisions goes to an
-adjuster. A claim whose policy can't be found stops and goes to an adjuster.
+for correction, up to MAX_REVISIONS times. Every revision is kept, and a critic-driven change to
+a field that drives the decision sends the claim to an adjuster, as does disagreement that
+survives the revisions. A claim whose policy can't be found, or that fails for any reason
+(refusal, API error, invalid output), stops and goes to an adjuster.
 
 No MCP tools yet (milestone 4): the policy record and wording are passed in directly.
 """
@@ -10,12 +12,13 @@ No MCP tools yet (milestone 4): the policy record and wording are passed in dire
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass, field
 
 import anthropic
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from hall_monitor import tracing
-from hall_monitor.agents.base import AgentRun, render_feedback
+from hall_monitor.agents.base import AgentRefusedError, AgentRun, render_feedback
 from hall_monitor.agents.coverage_check import run_coverage_check
 from hall_monitor.agents.critic import run_critic
 from hall_monitor.agents.intake import run_intake
@@ -25,17 +28,59 @@ from hall_monitor.governance.routing import route_claim, route_stopped
 from hall_monitor.models import (
     AgentCall,
     ClaimSubmission,
+    CoverageAssessment,
     CriticReview,
     IntakeExtraction,
     NextStep,
     PolicyRecord,
     Recommendation,
     ReviewedStage,
+    RevisionRecord,
+    RiskAssessment,
     TriageResult,
 )
-from hall_monitor.registry import Registry
+from hall_monitor.registry import Registry, RegistryError
 
 MAX_REVISIONS = 2
+
+# Fields whose change by a revision can change the outcome, so a person must see it.
+DECISION_FIELDS: dict[ReviewedStage, tuple[str, ...]] = {
+    ReviewedStage.INTAKE: ("policy_number", "claim_type", "incident_date", "total_claimed"),
+    ReviewedStage.COVERAGE_CHECK: ("decision", "covered_amount"),
+    ReviewedStage.RISK_FRAUD: ("level", "flags"),
+}
+
+
+class PipelineStopped(Exception):
+    pass
+
+
+@dataclass
+class _Run:
+    """Everything recorded so far, so a claim that stops part-way keeps its audit trail."""
+
+    calls: list[AgentCall] = field(default_factory=list)
+    extraction: IntakeExtraction | None = None
+    reviews: list[CriticReview] = field(default_factory=list)
+    history: list[RevisionRecord] = field(default_factory=list)
+    revisions: int = 0
+
+    def output[T](self, run: AgentRun[T]) -> T:
+        self.calls.append(run.call)
+        return run.output
+
+    def revised[T: BaseModel](self, stage: ReviewedStage, before: T, after: T) -> T:
+        old, new = before.model_dump(mode="json"), after.model_dump(mode="json")
+        changed = [f for f in DECISION_FIELDS[stage] if old.get(f) != new.get(f)]
+        self.history.append(
+            RevisionRecord(
+                stage=stage, round=self.revisions, before=old, after=new, changed_fields=changed
+            )
+        )
+        return after
+
+    def critic_changed(self) -> list[str]:
+        return sorted({f"{r.stage.value}.{f}" for r in self.history for f in r.changed_fields})
 
 
 def _lookup(extraction: IntakeExtraction, policies: dict[str, PolicyRecord]) -> PolicyRecord | None:
@@ -66,137 +111,150 @@ def triage(
     critic: bool = True,
 ) -> TriageResult:
     client = client or anthropic.Anthropic()
-    calls: list[AgentCall] = []
+    run = _Run()
+    try:
+        return _triage(claim, run, registry, policies, wording, client, critic)
+    except AgentRefusedError as exc:
+        run.calls.append(exc.call)
+        reason = f"agent refused or returned no usable output: {exc}"
+    except (anthropic.APIError, ValidationError) as exc:
+        reason = f"{type(exc).__name__} from the model call"
+    except RegistryError as exc:
+        reason = f"hall pass refused: {exc}"
+    except PipelineStopped as exc:
+        reason = str(exc)
+    return TriageResult(
+        claim_id=claim.claim_id,
+        extraction=run.extraction,
+        coverage=None,
+        risk=None,
+        recommendation=Recommendation(
+            next_step=NextStep.REQUEST_INFORMATION, reasons=[reason[:1].upper() + reason[1:] + "."]
+        ),
+        routing=route_stopped(reason),
+        agent_calls=run.calls,
+        critic_reviews=run.reviews,
+        revision_history=run.history,
+        revisions=run.revisions,
+        stopped_reason=reason,
+    )
 
-    def output[T](run: AgentRun[T]) -> T:
-        calls.append(run.call)
-        return run.output
 
-    def stopped(extraction: IntakeExtraction, reason: str, **extra) -> TriageResult:
-        return TriageResult(
-            claim_id=claim.claim_id,
-            extraction=extraction,
-            coverage=None,
-            risk=None,
-            recommendation=Recommendation(
-                next_step=NextStep.REQUEST_INFORMATION, reasons=[reason.capitalize() + "."]
-            ),
-            routing=route_stopped(reason),
-            agent_calls=calls,
-            stopped_reason=reason,
-            **extra,
-        )
-
+def _triage(
+    claim: ClaimSubmission,
+    run: _Run,
+    registry: Registry,
+    policies: dict[str, PolicyRecord],
+    wording: str,
+    client: anthropic.Anthropic,
+    critic: bool,
+) -> TriageResult:
     # Intake, then a code check that the policy exists. One retry with the problem spelled out.
-    extraction = output(run_intake(claim, registry, client))
-    policy = _lookup(extraction, policies)
+    run.extraction = run.output(run_intake(claim, registry, client))
+    policy = _lookup(run.extraction, policies)
     if policy is None:
         problem = (
-            f"No policy record matches policy_number {extraction.policy_number!r}. Find the "
+            f"No policy record matches policy_number {run.extraction.policy_number!r}. Find the "
             "policy number in the claim and copy it exactly."
         )
-        extraction = output(
-            run_intake(claim, registry, client, feedback=render_feedback(extraction, [problem]))
-        )
-        policy = _lookup(extraction, policies)
+        feedback = render_feedback(run.extraction, [problem])
+        run.extraction = run.output(run_intake(claim, registry, client, feedback=feedback))
+        policy = _lookup(run.extraction, policies)
     if policy is None:
-        return stopped(extraction, "no policy record found for the policy number on the claim")
+        raise PipelineStopped("no policy record found for the policy number on the claim")
 
-    coverage = output(run_coverage_check(claim, extraction, policy, wording, registry, client))
-    risk = output(run_risk_fraud(claim, extraction, policy, registry, client))
+    coverage: CoverageAssessment = run.output(
+        run_coverage_check(claim, run.extraction, policy, wording, registry, client)
+    )
+    risk: RiskAssessment = run.output(
+        run_risk_fraud(claim, run.extraction, policy, registry, client)
+    )
 
-    reviews: list[CriticReview] = []
-    revisions = 0
     unresolved = False
     while critic:
-        review = output(
-            run_critic(claim, extraction, policy, coverage, risk, wording, registry, client)
+        review = run.output(
+            run_critic(claim, run.extraction, policy, coverage, risk, wording, registry, client)
         )
-        reviews.append(review)
+        run.reviews.append(review)
         if not review.issues:
             break
-        if revisions == MAX_REVISIONS:
+        if run.revisions == MAX_REVISIONS:
             unresolved = True
             break
-        revisions += 1
+        run.revisions += 1
         problems = _problems(review)
 
         if ReviewedStage.INTAKE in problems:
-            extraction = output(
-                run_intake(
-                    claim,
-                    registry,
-                    client,
-                    feedback=_feedback(problems, ReviewedStage.INTAKE, extraction),
-                )
+            previous = run.extraction
+            run.extraction = run.revised(
+                ReviewedStage.INTAKE,
+                previous,
+                run.output(
+                    run_intake(
+                        claim,
+                        registry,
+                        client,
+                        feedback=_feedback(problems, ReviewedStage.INTAKE, previous),
+                    )
+                ),
             )
-            policy = _lookup(extraction, policies)
+            policy = _lookup(run.extraction, policies)
             if policy is None:
-                return stopped(
-                    extraction,
-                    "no policy record found after the critic's correction",
-                    critic_reviews=reviews,
-                    revisions=revisions,
-                )
-            # Coverage and risk depend on the extraction, so both run again.
-            coverage = output(
-                run_coverage_check(
-                    claim,
-                    extraction,
-                    policy,
-                    wording,
-                    registry,
-                    client,
-                    feedback=_feedback(problems, ReviewedStage.COVERAGE_CHECK, coverage),
-                )
+                raise PipelineStopped("no policy record found after the critic's correction")
+        if ReviewedStage.INTAKE in problems or ReviewedStage.COVERAGE_CHECK in problems:
+            # Coverage depends on the extraction, so an intake correction reruns it too.
+            coverage = run.revised(
+                ReviewedStage.COVERAGE_CHECK,
+                coverage,
+                run.output(
+                    run_coverage_check(
+                        claim,
+                        run.extraction,
+                        policy,
+                        wording,
+                        registry,
+                        client,
+                        feedback=_feedback(problems, ReviewedStage.COVERAGE_CHECK, coverage),
+                    )
+                ),
             )
-            risk = output(
-                run_risk_fraud(
-                    claim,
-                    extraction,
-                    policy,
-                    registry,
-                    client,
-                    feedback=_feedback(problems, ReviewedStage.RISK_FRAUD, risk),
-                )
-            )
-            continue
-        if ReviewedStage.COVERAGE_CHECK in problems:
-            coverage = output(
-                run_coverage_check(
-                    claim,
-                    extraction,
-                    policy,
-                    wording,
-                    registry,
-                    client,
-                    feedback=_feedback(problems, ReviewedStage.COVERAGE_CHECK, coverage),
-                )
-            )
-        if ReviewedStage.RISK_FRAUD in problems:
-            risk = output(
-                run_risk_fraud(
-                    claim,
-                    extraction,
-                    policy,
-                    registry,
-                    client,
-                    feedback=_feedback(problems, ReviewedStage.RISK_FRAUD, risk),
-                )
+        if ReviewedStage.INTAKE in problems or ReviewedStage.RISK_FRAUD in problems:
+            risk = run.revised(
+                ReviewedStage.RISK_FRAUD,
+                risk,
+                run.output(
+                    run_risk_fraud(
+                        claim,
+                        run.extraction,
+                        policy,
+                        registry,
+                        client,
+                        feedback=_feedback(problems, ReviewedStage.RISK_FRAUD, risk),
+                    )
+                ),
             )
 
-    recommendation = output(
-        run_recommendation(claim.claim_id, extraction, coverage, risk, registry, client)
+    recommendation = run.output(
+        run_recommendation(claim.claim_id, run.extraction, coverage, risk, registry, client)
+    )
+    routing = route_claim(
+        run.extraction,
+        coverage,
+        risk,
+        recommendation,
+        critic_unresolved=unresolved,
+        critic_changed=run.critic_changed(),
     )
     return TriageResult(
         claim_id=claim.claim_id,
-        extraction=extraction,
+        extraction=run.extraction,
         coverage=coverage,
         risk=risk,
         recommendation=recommendation,
-        routing=route_claim(coverage, risk, recommendation, critic_unresolved=unresolved),
-        agent_calls=calls,
-        critic_reviews=reviews,
-        revisions=revisions,
+        routing=routing,
+        agent_calls=run.calls,
+        critic_reviews=run.reviews,
+        revision_history=run.history,
+        revisions=run.revisions,
         critic_unresolved=unresolved,
     )

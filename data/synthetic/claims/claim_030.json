@@ -1,0 +1,33 @@
+{
+  "claim_id": "claim_030",
+  "submitted_at": "2026-10-20T07:30:00Z",
+  "channel": "web_form",
+  "narrative": "Hana Novak, policy WTP-PLS-200711. I arrived in Cape Town on 2 October at 10:00 and my suitcase wasn't delivered until 6 October at 14:00. Over those days I bought toiletries ($72.30), clothes ($410.00), jeans and tops ($180.00) and more clothes ($150.00). Total $812.30.",
+  "attachments": [
+    {
+      "filename": "delay_report.txt",
+      "kind": "carrier_letter",
+      "text": "Southern Cross Air - Property Irregularity Report\nFile ref: CPTSC7710  Passenger: NOVAK/HANA\nFlight SC 201 ATL-CPT arrived 2026-10-02 10:00. Bag delayed.\nDelivered 2026-10-06 14:00"
+    },
+    {
+      "filename": "receipt_toiletries.txt",
+      "kind": "receipt",
+      "text": "Clicks, Cape Town  2026-10-02 13:00\nToiletries  Total: USD 72.30"
+    },
+    {
+      "filename": "receipt_clothes_1.txt",
+      "kind": "receipt",
+      "text": "Woolworths, Cape Town  2026-10-02 15:20\nClothes  Total: USD 410.00"
+    },
+    {
+      "filename": "receipt_clothes_2.txt",
+      "kind": "receipt",
+      "text": "Cotton On, Cape Town  2026-10-04 11:45\nJeans and tops  Total: USD 180.00"
+    },
+    {
+      "filename": "receipt_clothes_3.txt",
+      "kind": "receipt",
+      "text": "Woolworths, Cape Town  2026-10-05 16:10\nClothes  Total: USD 150.00"
+    }
+  ]
+}

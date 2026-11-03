@@ -1,0 +1,52 @@
+{
+  "claim_id": "claim_030",
+  "scenario": "Cap test: five-day delay at the Plus maximum, spend just over the cap.",
+  "extraction": {
+    "claimant_name": "Hana Novak",
+    "policy_number": "WTP-PLS-200711",
+    "claim_type": "baggage_delay",
+    "incident_date": "2026-10-02",
+    "incident_location": "Cape Town, South Africa",
+    "claimed_items": [
+      {
+        "description": "Toiletries",
+        "amount": 72.3
+      },
+      {
+        "description": "Clothes",
+        "amount": 410.0
+      },
+      {
+        "description": "Jeans and tops",
+        "amount": 180.0
+      },
+      {
+        "description": "More clothes",
+        "amount": 150.0
+      }
+    ],
+    "total_claimed": 812.3,
+    "currency": "USD",
+    "supporting_documents": [
+      "delay_report.txt",
+      "receipt_toiletries.txt",
+      "receipt_clothes_1.txt",
+      "receipt_clothes_2.txt",
+      "receipt_clothes_3.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "3.1"
+    ],
+    "covered_amount": 750.0,
+    "reasoning": "Outbound delay of exactly 100 hours: five full or part 24-hour periods, which is also the Plus maximum of 5 days. 5 x 150 = 750, below the 812.30 spent (3.1)."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

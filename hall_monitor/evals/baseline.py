@@ -100,6 +100,7 @@ def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths
         "coverage_decision_accuracy",
         "covered_amount_accuracy",
         "clause_recall",
+        "clause_precision",
         "risk_level_accuracy",
         "flag_precision",
         "flag_recall",

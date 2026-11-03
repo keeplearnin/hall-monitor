@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_034",
+  "submitted_at": "2026-09-16T16:05:00Z",
+  "channel": "email",
+  "narrative": "Ruth Bergstrom, policy WTP-ESS-101713. I fell from a ladder at home on 1 September and broke my ankle. My surgeon told me I couldn't travel, but with everything going on I only cancelled my cruise on 9 September. The flight cost $1,450.00 and the cruise line charged me the full $2,400.00. I'm claiming $3,850.00.",
+  "attachments": [
+    {
+      "filename": "surgeon_letter.txt",
+      "kind": "medical_report",
+      "text": "Northfield Orthopaedics\nPatient: Ruth Bergstrom\n2026-09-01: fractured right ankle, surgically fixed. Not fit to travel for 8 weeks.\nDr. H. Lindgren"
+    },
+    {
+      "filename": "flight_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "North Atlantic Air\nPassenger: BERGSTROM/RUTH  Booking: NF72WE\nDeparting 2026-09-20. Cancelled 2026-09-09. Fare USD 1,450.00, non-refundable at any time."
+    },
+    {
+      "filename": "cruise_terms_and_invoice.txt",
+      "kind": "invoice",
+      "text": "Aurora Fjord Cruises\nGuest: Ruth Bergstrom  Sailing 2026-09-20  Fare USD 2,400.00\nCancellation charges: more than 14 days before sailing, 25% (USD 600.00); 14 days or fewer, 100% (USD 2,400.00).\nCancelled 2026-09-09 (11 days before sailing). Charged: USD 2,400.00"
+    }
+  ]
+}

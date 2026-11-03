@@ -1,0 +1,28 @@
+{
+  "claim_id": "claim_031",
+  "submitted_at": "2026-08-25T14:40:00Z",
+  "channel": "mobile_app",
+  "narrative": "Diego Alvarez, WTP-ESS-101662. My bag was delayed when I landed in Lima on 8 August at 06:00 and only arrived on 11 August at 14:00. I bought toiletries ($46.00), clothes ($168.00) and a sweater ($76.00), $290.00 in total.",
+  "attachments": [
+    {
+      "filename": "delay_report.txt",
+      "kind": "carrier_letter",
+      "text": "Andes Pacific Air - Property Irregularity Report\nFile ref: LIMAP4402  Passenger: ALVAREZ/DIEGO\nFlight AP 520 MIA-LIM arrived 2026-08-08 06:00. Bag delayed.\nDelivered 2026-08-11 14:00"
+    },
+    {
+      "filename": "receipt_toiletries.txt",
+      "kind": "receipt",
+      "text": "Inkafarma, Lima  2026-08-08 10:30\nToiletries  Total: USD 46.00"
+    },
+    {
+      "filename": "receipt_clothes.txt",
+      "kind": "receipt",
+      "text": "Saga Falabella, Lima  2026-08-08 14:00\nClothes  Total: USD 168.00"
+    },
+    {
+      "filename": "receipt_sweater.txt",
+      "kind": "receipt",
+      "text": "Saga Falabella, Lima  2026-08-10 12:15\nSweater  Total: USD 76.00"
+    }
+  ]
+}

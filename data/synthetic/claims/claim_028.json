@@ -1,0 +1,28 @@
+{
+  "claim_id": "claim_028",
+  "submitted_at": "2026-09-15T08:45:00Z",
+  "channel": "email",
+  "narrative": "Leila Rahimi, WTP-PLS-200688. I was admitted to hospital with a kidney infection on 3 September and my doctor has said I mustn't travel, so I cancelled my safari on 4 September. I've lost flights $3,480.00, the safari lodge $3,960.00 and park permits $500.00, $7,940.00 in total.",
+  "attachments": [
+    {
+      "filename": "hospital_letter.txt",
+      "kind": "medical_report",
+      "text": "Westbrook Hospital\nRe: Leila Rahimi\nAdmitted 2026-09-03 with acute pyelonephritis. Advised not to travel abroad for 6 weeks.\nDr. K. Osei"
+    },
+    {
+      "filename": "flight_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "Kilimanjaro Air\nPassenger: RAHIMI/LEILA  Booking: TZ80PL\nCancelled 2026-09-04. Fare USD 3,480.00 non-refundable."
+    },
+    {
+      "filename": "lodge_invoice.txt",
+      "kind": "invoice",
+      "text": "Serengeti Crest Lodge\nGuest: Leila Rahimi  Paid USD 3,960.00\nCancelled 2026-09-04. Non-refundable."
+    },
+    {
+      "filename": "permits_receipt.txt",
+      "kind": "receipt",
+      "text": "Tanzania Parks Permit Office\nPermits for Leila Rahimi  USD 500.00\nNon-refundable."
+    }
+  ]
+}

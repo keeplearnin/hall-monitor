@@ -1,0 +1,43 @@
+{
+  "claim_id": "claim_034",
+  "scenario": "Cap test: the 72-hour rule sets the amount, not the 3,000 limit.",
+  "extraction": {
+    "claimant_name": "Ruth Bergstrom",
+    "policy_number": "WTP-ESS-101713",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2026-09-01",
+    "incident_location": null,
+    "claimed_items": [
+      {
+        "description": "Non-refundable flight",
+        "amount": 1450.0
+      },
+      {
+        "description": "Cruise",
+        "amount": 2400.0
+      }
+    ],
+    "total_claimed": 3850.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "surgeon_letter.txt",
+      "flight_cancellation.txt",
+      "cruise_terms_and_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "2.1",
+      "2.3"
+    ],
+    "covered_amount": 2050.0,
+    "reasoning": "Injury certified as making travel inadvisable (2.1(a)). She learned of it on 2026-09-01 but cancelled on 2026-09-09, after the 72 hours in 2.3. 72 hours on (2026-09-04) the cruise was 16 days away, so the charge would have been 600, not 2,400. Payable: 1,450 + 600 = 2,050, which is under the Essentials limit, so the limit doesn't decide the amount."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

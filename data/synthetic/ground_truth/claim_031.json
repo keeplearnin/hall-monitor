@@ -1,0 +1,47 @@
+{
+  "claim_id": "claim_031",
+  "scenario": "Control: the day cap applies but doesn't bind, so the full amount is paid.",
+  "extraction": {
+    "claimant_name": "Diego Alvarez",
+    "policy_number": "WTP-ESS-101662",
+    "claim_type": "baggage_delay",
+    "incident_date": "2026-08-08",
+    "incident_location": "Lima, Peru",
+    "claimed_items": [
+      {
+        "description": "Toiletries",
+        "amount": 46.0
+      },
+      {
+        "description": "Clothes",
+        "amount": 168.0
+      },
+      {
+        "description": "Sweater",
+        "amount": 76.0
+      }
+    ],
+    "total_claimed": 290.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "delay_report.txt",
+      "receipt_toiletries.txt",
+      "receipt_clothes.txt",
+      "receipt_sweater.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "covered",
+    "applicable_clauses": [
+      "3.1"
+    ],
+    "covered_amount": 290.0,
+    "reasoning": "Outbound delay of 80 hours: four periods, limited to the Essentials maximum of 3 days, so the most payable is 300. The 290 spent is under that, so it is paid in full (3.1)."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

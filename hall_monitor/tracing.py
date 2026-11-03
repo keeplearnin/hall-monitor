@@ -1,4 +1,10 @@
-"""Langfuse tracing. Off unless LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are set."""
+"""Langfuse tracing. Off unless LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are set.
+
+Spans carry IDs, versions, hashes and token counts only. Function arguments and return values
+are never captured, because they hold claim text, medical details and policy records. The
+Anthropic SDK's own spans default to metadata only; don't set
+ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE=content.
+"""
 
 from __future__ import annotations
 
@@ -29,7 +35,9 @@ def observe(name: str, as_type: str = "span") -> Callable[[Callable[P, R]], Call
             if traced is None:
                 from langfuse import observe as langfuse_observe
 
-                traced = langfuse_observe(name=name, as_type=as_type)(fn)
+                traced = langfuse_observe(
+                    name=name, as_type=as_type, capture_input=False, capture_output=False
+                )(fn)
             return traced(*args, **kwargs)
 
         return wrapper

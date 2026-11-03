@@ -82,6 +82,13 @@ def clause_exists(clause: str, wording: str) -> bool:
     return re.search(rf"^{re.escape(clause)}\s", wording, re.MULTILINE) is not None
 
 
+def amount_in(amount: float, text: str) -> bool:
+    """The amount appears as a whole number in the text: 100.00 doesn't match inside 1,100.00."""
+    forms = {f"{amount:,.2f}", f"{amount:.2f}"}
+    pattern = "|".join(re.escape(f) for f in forms)
+    return re.search(rf"(?<![\d,.])(?:{pattern})(?![\d])", text) is not None
+
+
 def source_text(claim: ClaimSubmission) -> str:
     return "\n".join([claim.narrative, *(a.text for a in claim.attachments)])
 
@@ -109,8 +116,7 @@ def unsupported_values(
             (f"incident_location={extraction.incident_location}", bool(place & source_tokens))
         )
     for item in extraction.claimed_items:
-        found = f"{item.amount:,.2f}" in source or f"{item.amount:.2f}" in source
-        checks.append((f"amount={item.amount:.2f}", found))
+        checks.append((f"amount={item.amount:.2f}", amount_in(item.amount, source)))
     attached = {a.filename for a in claim.attachments}
     for doc in extraction.supporting_documents:
         checks.append((f"document={doc}", doc in attached))
@@ -128,6 +134,7 @@ class RunScore:
     coverage_decision: bool = False
     covered_amount: bool = False
     clause_recall: float = 0.0
+    clause_precision: float | None = None
     coverage_correct: bool = False
     risk_level: bool = False
     flag_precision: float | None = None
@@ -159,6 +166,7 @@ def score_run(
     clause_recall = (
         len(expected_clauses & cited) / len(expected_clauses) if expected_clauses else 1.0
     )
+    clause_precision = len(expected_clauses & cited) / len(cited) if cited else None
 
     decision_ok = coverage is not None and coverage.decision == truth.coverage.decision
     amount_ok = (
@@ -178,6 +186,7 @@ def score_run(
         coverage_decision=decision_ok,
         covered_amount=amount_ok,
         clause_recall=clause_recall,
+        clause_precision=clause_precision,
         coverage_correct=decision_ok and amount_ok and clause_recall == 1.0,
         risk_level=risk is not None and risk.level == truth.risk.level,
         flag_precision=flag_precision,
@@ -221,6 +230,9 @@ def summarize(scores: list[RunScore]) -> dict[str, float | int | None]:
         "coverage_decision_accuracy": _mean([float(s.coverage_decision) for s in scores]),
         "covered_amount_accuracy": _mean([float(s.covered_amount) for s in scores]),
         "clause_recall": _mean([s.clause_recall for s in scores]),
+        "clause_precision": _mean(
+            [s.clause_precision for s in scores if s.clause_precision is not None]
+        ),
         "risk_level_accuracy": _mean([float(s.risk_level) for s in scores]),
         "flag_precision": _mean([s.flag_precision for s in scores if s.flag_precision is not None]),
         "flag_recall": _mean([s.flag_recall for s in scores if s.flag_recall is not None]),

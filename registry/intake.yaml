@@ -1,6 +1,6 @@
 id: intake
 name: Intake
-version: 0.1.0
+version: 0.2.0
 owner: claims-ai-platform
 purpose: Extract structured fields from a claim submission and its attachments.
 risk_tier: medium

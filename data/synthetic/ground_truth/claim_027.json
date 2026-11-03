@@ -1,0 +1,48 @@
+{
+  "claim_id": "claim_027",
+  "scenario": "Cap test: cancellation 180 over the Essentials limit.",
+  "extraction": {
+    "claimant_name": "Noah Fitzgerald",
+    "policy_number": "WTP-ESS-101611",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2026-08-28",
+    "incident_location": null,
+    "claimed_items": [
+      {
+        "description": "Non-refundable flights",
+        "amount": 1640.0
+      },
+      {
+        "description": "Villa",
+        "amount": 1190.0
+      },
+      {
+        "description": "Sailing day",
+        "amount": 350.0
+      }
+    ],
+    "total_claimed": 3180.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "hospital_letter.txt",
+      "flight_cancellation.txt",
+      "villa_invoice.txt",
+      "sailing_invoice.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "2.1",
+      "2.2"
+    ],
+    "covered_amount": 3000.0,
+    "reasoning": "A spouse's illness certified as making travel inadvisable (2.1(a)), cancelled the next day. The claim is 3,180 but the Essentials trip cancellation limit is 3,000 (2.2). Above the 2,500 threshold, so an adjuster approves."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "adjuster"
+}
