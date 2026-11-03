@@ -11,6 +11,11 @@ generated and gets overwritten on every run; this file doesn't.
 
 6 claims x 3 trials, single-pass pipeline (no critic, no MCP tools), commit `47b743c`.
 
+> **Where to find that commit:** the PR was squash-merged, so `47b743c` exists only in
+> [PR #4's history](https://github.com/keeplearnin/hall-monitor/pull/4/commits). The code, registry,
+> data and tests in it are identical to `main` at `828d698`. The two commits differ only in these
+> results files and the README. To reproduce, check out `828d698`.
+
 **Every claim was routed correctly in all 18 runs.** Each wrong answer below still went to an
 adjuster, because the routing rule is code that looks at fraud flags and payout size, not at the
 model's own confidence.
