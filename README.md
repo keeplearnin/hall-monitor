@@ -41,7 +41,7 @@ The agents:
 
 The agent never denies a claim or approves a large payout on its own. Denials, payouts above a threshold and any fraud flag go to a human adjuster through an approval gate.
 
-Agents get supporting records only through governed MCP tools (`policy_lookup`, `claims_history`). *(Milestone 4. Until then the pipeline passes the policy record and wording in directly.)*
+Agents get supporting records only through governed MCP tools (`policy_lookup`, `claims_history`). Every call goes through a gateway that checks the agent's allow-list and records the call. The policy wording is reference text and is still passed in directly.
 
 All data in this repository is synthetic. No real customer, policy or claims data from any company is used.
 
@@ -69,7 +69,7 @@ flowchart LR
     end
 ```
 
-What is built today, after milestone 3: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. The pipeline stops if the claim's policy can't be found. MCP tools, the approval gate and the audit log are next. The one-page overviews below describe the pipeline as of milestone 2, before the critic:
+What is built today, after milestone 4: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. Agents fetch policy records and claims history through governed MCP tools. The pipeline stops if the claim's policy can't be found. The approval gate and the audit log are next. The one-page overviews below describe the pipeline as of milestone 2, before the critic:
 
 - [`docs/architecture.html`](docs/architecture.html), for engineering managers and architects
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
@@ -83,7 +83,7 @@ Tracing sends IDs, versions, hashes and token counts to Langfuse, never claim te
 | Control | What it does | NIST AI RMF function | Status |
 |---|---|---|---|
 | Agent registry | Typed manifest per agent: ID, owner, risk tier, model, allowed tools, version. Unregistered, inactive or unapproved agents are refused: each manifest digest and prompt hash must match `registry/approvals.yaml`. | Govern | Built (milestones 1 and 3) |
-| Tool allow-list | Agents can call only the MCP tools their manifest names | Govern, Manage | Planned |
+| Tool allow-list | Agents can call only the MCP tools their manifest names; the gateway refuses anything else and records every call, allowed or refused | Govern, Manage | Built (milestone 4) |
 | Adjuster approval gates | Graph interrupts on denials, payouts above threshold and fraud flags; the adjuster's identity, the evidence shown and the decision are recorded | Manage | Planned |
 | Tamper-evident audit log | Append-only log, each entry hashed with the previous one | Govern, Manage | Planned |
 | PII and health-data redaction | Personal and medical details masked before they reach a model or a log | Manage | Planned |
@@ -115,7 +115,7 @@ The two baseline rows use the same code; the second runs on a larger claim set. 
 1. ~~Repo, agent registry, synthetic claims and policies with ground truth, tracing~~ (done)
 2. ~~Baseline eval run, results committed~~ (done)
 3. ~~Critic agent and self-correction loop~~ (done)
-4. MCP servers: `policy_lookup`, `claims_history`
+4. ~~MCP servers: `policy_lookup`, `claims_history`~~ (done; eval results to follow)
 5. Adjuster approval gate with persistent checkpoints
 6. Hash-chained audit log
 7. Model routing and cost-per-claim telemetry
@@ -129,7 +129,7 @@ Daily progress notes are in [`docs/devlog/`](docs/devlog/).
 
 Python 3.12 · LangGraph · Claude (Haiku and Sonnet) · MCP via fastmcp · Postgres + pgvector · Langfuse · DeepEval · FastAPI
 
-In use today: Python 3.12, uv, Claude Haiku 5.5 and Sonnet 5.5 through the Anthropic SDK, Pydantic and Langfuse. The rest arrive with the milestones that need them.
+In use today: Python 3.12, uv, Claude Haiku 5.5 and Sonnet 5.5 through the Anthropic SDK, Pydantic, fastmcp and Langfuse. The rest arrive with the milestones that need them.
 
 ## Quickstart
 
