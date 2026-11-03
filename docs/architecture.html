@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hall Monitor Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: one sheet. Runtime diagram first, then call record, controls status and design decisions. Same identity as the executive brief. */
+  :root {
+    --paper: #F4F6F9; --panel: #FFFFFF; --ink: #17202B; --muted: #566174; --rule: #D3D9E2;
+    --pass: #E2A40C; --pass-ink: #4A3300; --auto: #1D7656; --human: #3443A6; --warn: #A8402C;
+    --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0F141B; --panel: #161D26; --ink: #E5E9EF; --muted: #9AA5B4; --rule: #2B3542;
+      --pass: #E8B53C; --pass-ink: #2B1E00; --auto: #4FC29B; --human: #93A2FF; --warn: #EE8B74;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0F141B; --panel: #161D26; --ink: #E5E9EF; --muted: #9AA5B4; --rule: #2B3542;
+    --pass: #E8B53C; --pass-ink: #2B1E00; --auto: #4FC29B; --human: #93A2FF; --warn: #EE8B74;
+    color-scheme: dark;
+  }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.55 var(--body); }
+  .sheet { max-width: 1140px; margin: 0 auto; padding-block: 40px 56px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 32px; }
+  header { display: grid; gap: 10px; }
+  .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ticket { background: var(--pass); color: var(--pass-ink); padding: 4px 8px; border-radius: 3px; letter-spacing: .1em; }
+  h1 { font: 800 clamp(26px, 3.8vw, 38px)/1.1 var(--display); margin: 0; text-wrap: balance; max-width: 30ch; }
+  .lede { margin: 0; max-width: 78ch; color: var(--muted); font-size: 16px; }
+  code, .mono { font-family: var(--mono); font-size: .9em; }
+  h2 { font: 600 13px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 20px; display: grid; gap: 12px; }
+  .figtop { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: baseline; }
+  .legend { display: flex; gap: 18px; font: 500 12px var(--mono); color: var(--muted); flex-wrap: wrap; }
+  .legend span { display: inline-flex; gap: 8px; align-items: center; }
+  .sw { width: 28px; height: 0; border-top: 1.5px solid var(--ink); }
+  .sw.dash { border-top-style: dashed; }
+  .sw.un { border-top: 1.5px dashed var(--warn); }
+  .scroll { overflow-x: auto; }
+  svg.arch { display: block; width: 100%; min-width: 900px; height: auto; color: var(--ink); }
+  figcaption { color: var(--muted); font-size: 14px; max-width: 92ch; }
+  /* SVG parts */
+  .box { fill: var(--panel); stroke: var(--ink); stroke-width: 1.25; }
+  .plan { fill: var(--paper); stroke: var(--muted); stroke-width: 1.25; stroke-dasharray: 5 4; }
+  .untrusted { fill: var(--panel); stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .group { fill: var(--paper); stroke: var(--rule); stroke-width: 1.5; }
+  .band { fill: var(--pass); }
+  .bandt { fill: var(--pass-ink); font: 500 12px var(--mono); }
+  .line { fill: none; stroke: var(--ink); stroke-width: 1.4; }
+  .pline { fill: none; stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; }
+  .ah { fill: var(--ink); }
+  .pah { fill: var(--muted); }
+  .t { fill: var(--ink); font: 600 14px var(--body); }
+  .m { fill: var(--ink); font: 600 13px var(--mono); }
+  .s { fill: var(--muted); font: 400 12px var(--body); }
+  .sm { fill: var(--muted); font: 400 11px var(--mono); }
+  .lab { fill: var(--muted); font: 500 11px var(--mono); }
+  .pt { fill: var(--muted); font: 600 13px var(--mono); }
+  .warnt { fill: var(--warn); font: 600 11px var(--mono); letter-spacing: .05em; }
+  .autob { fill: var(--panel); stroke: var(--auto); stroke-width: 2; }
+  .autot { fill: var(--auto); font: 600 13px var(--mono); }
+  .humanb { fill: var(--panel); stroke: var(--human); stroke-width: 2; }
+  .humant { fill: var(--human); font: 600 13px var(--mono); }
+  /* Lower sections */
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 28px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .col { display: grid; align-content: start; gap: 24px; min-width: 0; }
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th { text-align: left; font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--ink); padding: 6px 10px 6px 0; }
+  td { border-bottom: 1px solid var(--rule); padding: 8px 10px 8px 0; vertical-align: top; }
+  td.where { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .chip { font: 500 11px/1 var(--mono); padding: 4px 6px; border-radius: 3px; white-space: nowrap; border: 1px solid currentColor; display: inline-block; }
+  .built { color: var(--auto); }
+  .part { color: var(--pass-ink); background: var(--pass); border-color: var(--pass); }
+  .planned { color: var(--muted); border-style: dashed; }
+  .record { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; font-size: 14px; }
+  .record dt { font: 500 13px var(--mono); }
+  .record dd { margin: 0; color: var(--muted); }
+  .decisions { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+  .decisions li { border-top: 1px solid var(--rule); padding-top: 10px; display: grid; gap: 2px; }
+  .decisions b { font-weight: 600; }
+  .decisions span { color: var(--muted); font-size: 14px; }
+  .numbers { display: flex; flex-wrap: wrap; gap: 10px 28px; font-size: 14px; color: var(--muted); }
+  .numbers b { font: 800 20px/1 var(--display); color: var(--ink); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  footer { border-top: 1px solid var(--rule); padding-top: 14px; color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 24px; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <header>
+    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · after milestone 2 · November 2026</span></div>
+    <h1>Governance sits in the call path and the router, not inside the model</h1>
+    <p class="lede">Four agents run as a single-pass pipeline. Every model call goes through one function that checks the agent's hall pass, calls the model the pass names, validates typed output and records what ran. Routing to a human is a plain code rule. Python 3.12, Claude Haiku 5.5 and Sonnet 5.5, Pydantic, Langfuse.</p>
+  </header>
+
+  <figure>
+    <div class="figtop">
+      <h2>Runtime path of one claim</h2>
+      <div class="legend"><span><i class="sw"></i>built</span><span><i class="sw dash"></i>planned</span><span><i class="sw un"></i>untrusted input</span></div>
+    </div>
+    <div class="scroll">
+      <svg class="arch" viewBox="0 0 1110 490" role="img" aria-label="A claim submission, treated as untrusted, enters the triage pipeline. Intake extracts fields, coverage check and risk and fraud both work from that extraction, and recommendation combines them. Every agent call passes through run_agent, which checks the agent registry and calls the Claude API with a typed schema. route_claim, a code rule, sends the result to auto or to an adjuster. Results feed the eval harness and Langfuse traces. A critic loop, MCP tools, an approval gate and a hash-chained audit log are planned.">
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah"/></marker>
+          <marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="pah"/></marker>
+        </defs>
+
+        <!-- Inputs -->
+        <rect class="box" x="10" y="20" width="160" height="64" rx="4"/>
+        <text class="t" x="90" y="46" text-anchor="middle">Policy + records</text>
+        <text class="sm" x="90" y="66" text-anchor="middle">data/synthetic</text>
+        <polyline class="line" points="170,52 260,52 260,118" marker-end="url(#a)"/>
+        <text class="lab" x="178" y="44">passed in directly</text>
+
+        <rect class="untrusted" x="10" y="200" width="150" height="70" rx="4"/>
+        <text class="t" x="85" y="224" text-anchor="middle">Claim submission</text>
+        <text class="s" x="85" y="242" text-anchor="middle">story + attachments</text>
+        <text class="warnt" x="85" y="261" text-anchor="middle">UNTRUSTED · FENCED</text>
+        <polyline class="line" points="160,232 188,232" marker-end="url(#a)"/>
+
+        <!-- Registry -->
+        <rect class="box" x="330" y="16" width="300" height="72" rx="4"/>
+        <text class="t" x="346" y="40">Agent registry</text>
+        <text class="sm" x="614" y="40" text-anchor="end">registry/*.yaml</text>
+        <text class="s" x="346" y="60">owner · risk tier · status · model · tools</text>
+        <text class="sm" x="346" y="78">SHA-256 manifest digest</text>
+        <polyline class="line" points="480,88 480,118" marker-end="url(#a)"/>
+        <text class="lab" x="490" y="108">require(agent_id)</text>
+
+        <!-- Audit log (planned) -->
+        <rect class="plan" x="860" y="16" width="240" height="72" rx="4"/>
+        <text class="pt" x="876" y="40">Audit log</text>
+        <text class="s" x="876" y="60">append-only, hash-chained</text>
+        <text class="sm" x="876" y="78">planned · M6</text>
+        <polyline class="pline" points="885,195 885,90" marker-end="url(#pa)"/>
+        <text class="lab" x="893" y="150">decisions</text>
+
+        <!-- Pipeline group -->
+        <rect class="group" x="180" y="120" width="600" height="250" rx="6"/>
+        <text class="lab" x="196" y="142">triage() · pipeline.py</text>
+
+        <rect class="plan" x="610" y="132" width="150" height="40" rx="4"/>
+        <text class="pt" x="685" y="157" text-anchor="middle">critic · M3</text>
+        <polyline class="pline" points="610,158 562,158" marker-end="url(#pa)"/>
+
+        <rect class="box" x="190" y="200" width="110" height="64" rx="4"/>
+        <text class="m" x="245" y="226" text-anchor="middle">intake</text>
+        <text class="s" x="245" y="246" text-anchor="middle">Haiku 5.5</text>
+
+        <polyline class="line" points="300,232 375,232"/>
+        <polyline class="line" points="375,232 375,182 408,182" marker-end="url(#a)"/>
+        <polyline class="line" points="375,232 375,282 408,282" marker-end="url(#a)"/>
+        <text class="lab" x="337" y="224" text-anchor="middle">extraction</text>
+
+        <rect class="box" x="410" y="150" width="150" height="64" rx="4"/>
+        <text class="m" x="485" y="176" text-anchor="middle">coverage_check</text>
+        <text class="s" x="485" y="196" text-anchor="middle">Sonnet 5.5 · policy</text>
+
+        <rect class="box" x="410" y="250" width="150" height="64" rx="4"/>
+        <text class="m" x="485" y="276" text-anchor="middle">risk_fraud</text>
+        <text class="s" x="485" y="296" text-anchor="middle">Haiku 5.5 · 7 flags</text>
+
+        <polyline class="line" points="560,182 585,182 585,232 608,232" marker-end="url(#a)"/>
+        <polyline class="line" points="560,282 585,282 585,232"/>
+
+        <rect class="box" x="610" y="200" width="150" height="64" rx="4"/>
+        <text class="m" x="685" y="226" text-anchor="middle">recommendation</text>
+        <text class="s" x="685" y="246" text-anchor="middle">Sonnet 5.5</text>
+
+        <rect class="band" x="190" y="330" width="570" height="28" rx="3"/>
+        <text class="bandt" x="204" y="349">run_agent()  every model call: pass check · typed output · AgentCall record</text>
+
+        <!-- Routing -->
+        <polyline class="line" points="760,232 808,232" marker-end="url(#a)"/>
+        <rect class="box" x="810" y="195" width="130" height="74" rx="4"/>
+        <text class="m" x="875" y="222" text-anchor="middle">route_claim()</text>
+        <text class="s" x="875" y="241" text-anchor="middle">rule in code</text>
+        <text class="sm" x="875" y="258" text-anchor="middle">routing.py</text>
+
+        <polyline class="line" points="940,220 960,220 960,175 978,175" marker-end="url(#a)"/>
+        <rect class="autob" x="980" y="150" width="120" height="50" rx="4"/>
+        <text class="autot" x="1040" y="172" text-anchor="middle">auto</text>
+        <text class="s" x="1040" y="190" text-anchor="middle">routine claims</text>
+
+        <polyline class="line" points="940,245 960,245 960,300 978,300" marker-end="url(#a)"/>
+        <rect class="humanb" x="980" y="270" width="120" height="70" rx="4"/>
+        <text class="humant" x="1040" y="293" text-anchor="middle">adjuster</text>
+        <text class="s" x="1040" y="311" text-anchor="middle">deny · investigate</text>
+        <text class="s" x="1040" y="328" text-anchor="middle">&gt;$2,500 · any flag</text>
+
+        <!-- Claude API -->
+        <line class="line" x1="480" y1="360" x2="480" y2="408" marker-start="url(#a)" marker-end="url(#a)"/>
+        <text class="lab" x="490" y="390">typed output</text>
+        <rect class="box" x="300" y="410" width="360" height="64" rx="4"/>
+        <text class="t" x="480" y="435" text-anchor="middle">Claude API</text>
+        <text class="sm" x="480" y="456" text-anchor="middle">messages.parse(model from pass, Pydantic schema)</text>
+
+        <!-- Eval harness -->
+        <polyline class="line" points="200,370 200,408" marker-end="url(#a)"/>
+        <text class="lab" x="208" y="394">TriageResult</text>
+        <rect class="box" x="10" y="410" width="250" height="64" rx="4"/>
+        <text class="t" x="26" y="434">Eval harness</text>
+        <text class="s" x="26" y="452">scores against ground truth,</text>
+        <text class="s" x="26" y="468">writes results.json + report.md</text>
+
+        <!-- Langfuse -->
+        <polyline class="line" points="780,344 800,344 800,442 818,442" marker-end="url(#a)"/>
+        <text class="lab" x="794" y="400" text-anchor="end">spans</text>
+        <rect class="box" x="820" y="410" width="280" height="64" rx="4"/>
+        <text class="t" x="836" y="434">Langfuse traces</text>
+        <text class="s" x="836" y="452">triage chain › agent spans ›</text>
+        <text class="s" x="836" y="468">SDK generation spans with tokens</text>
+      </svg>
+    </div>
+    <figcaption>Coverage check and risk and fraud both work from the intake extraction and the original claim; recommendation sees only their structured outputs. The critic (milestone 3) will send coverage back when its number disagrees with its own reasoning, the failure the baseline found. Policy data is passed in directly today; in milestone 4 it moves behind governed MCP tools (<code>policy_lookup</code>, <code>claims_history</code>), enforced by the registry's tool allow-list.</figcaption>
+  </figure>
+
+  <section class="grid">
+    <div class="col">
+      <div>
+        <h2>Every agent call records</h2>
+        <dl class="record">
+          <dt>agent_id, agent_version</dt><dd>which hall pass ran</dd>
+          <dt>manifest_digest</dt><dd>SHA-256 of the exact manifest</dd>
+          <dt>model</dt><dd>taken from the pass, never chosen at call time</dd>
+          <dt>prompt_version</dt><dd>e.g. <code>coverage-check-v1</code></dd>
+          <dt>input/output_tokens</dt><dd>output includes thinking</dd>
+          <dt>seconds</dt><dd>wall time of the call</dd>
+        </dl>
+      </div>
+
+      <div>
+        <h2>Design decisions</h2>
+        <ul class="decisions">
+          <li><b>Routing is code, not a model.</b><span>An injected instruction or a confident model can't skip review. The rule is unit-tested.</span></li>
+          <li><b>The pass pins the model. No fallback model.</b><span>A refusal fails the run loudly. A silent switch would run a model the pass doesn't name.</span></li>
+          <li><b>Typed contracts end to end.</b><span>Each agent returns a Pydantic model via structured outputs; unknown fields are rejected.</span></li>
+          <li><b>Customer text is evidence, never instructions.</b><span>Fenced in tags and named as untrusted in every prompt. Adversarial tests in M8.</span></li>
+          <li><b>Deterministic scoring, no LLM judge.</b><span>Reproducible and nearly free. Hallucination means a value not traceable to the claim or policy.</span></li>
+          <li><b>Dependencies arrive with the milestone that needs them.</b><span>LangGraph with the critic loop and approval interrupts, fastmcp in M4, Postgres in M5–M6.</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="col">
+      <div>
+        <h2>Controls</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Control</th><th>Where</th><th>Status</th><th>NIST AI RMF</th></tr></thead>
+            <tbody>
+              <tr><td>Agent registry, refuses unregistered or inactive agents</td><td class="where">registry.py</td><td><span class="chip built">built</span></td><td>Govern</td></tr>
+              <tr><td>Route denials, investigations, flags, payouts &gt;$2,500 to a person</td><td class="where">routing.py</td><td><span class="chip built">built</span></td><td>Manage</td></tr>
+              <tr><td>Eval harness against ground truth</td><td class="where">evals/</td><td><span class="chip built">built</span></td><td>Measure</td></tr>
+              <tr><td>Tool allow-list</td><td class="where">check_tool()</td><td><span class="chip part">M4</span></td><td>Govern, Manage</td></tr>
+              <tr><td>Critic and self-correction loop</td><td class="where">critic.yaml</td><td><span class="chip planned">M3</span></td><td>Measure</td></tr>
+              <tr><td>Approval gate with persisted checkpoints</td><td class="where">governance/</td><td><span class="chip planned">M5</span></td><td>Manage</td></tr>
+              <tr><td>Hash-chained audit log</td><td class="where">governance/</td><td><span class="chip planned">M6</span></td><td>Govern, Manage</td></tr>
+              <tr><td>Model routing, live cost per claim</td><td class="where">gateway/</td><td><span class="chip planned">M7</span></td><td>Manage, Measure</td></tr>
+              <tr><td>PII redaction, fairness, adversarial suite</td><td class="where">gateway/, evals/</td><td><span class="chip planned">M8</span></td><td>Measure, Manage</td></tr>
+              <tr><td>CI eval gate, NIST and FINOS mapping</td><td class="where">.github/, docs/</td><td><span class="chip planned">M9</span></td><td>Map, Govern</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <h2>Baseline · 6 claims × 3 trials · commit 828d698</h2>
+        <div class="numbers">
+          <span><b>100%</b>extraction</span>
+          <span><b>83.3%</b>coverage reasoning</span>
+          <span><b>0%</b>hallucination</span>
+          <span><b>18/18</b>routes</span>
+          <span><b>$0.024</b>per claim</span>
+          <span><b>~18s</b>per claim</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Reference implementation; synthetic data only.</span>
+    <span>Run it: <code>uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json</code></span>
+    <a href="https://github.com/keeplearnin/hall-monitor">github.com/keeplearnin/hall-monitor</a>
+  </footer>
+</main>
+</body>
+</html>

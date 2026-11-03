@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hall Monitor Executive Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: one sheet. Thesis, the claim journey diagram, then proof, regulator questions and roadmap in a grid. */
+  :root {
+    --paper: #F4F6F9; --panel: #FFFFFF; --ink: #17202B; --muted: #566174; --rule: #D3D9E2;
+    --pass: #E2A40C; --pass-ink: #4A3300; --auto: #1D7656; --human: #3443A6; --warn: #A8402C;
+    --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0F141B; --panel: #161D26; --ink: #E5E9EF; --muted: #9AA5B4; --rule: #2B3542;
+      --pass: #E8B53C; --pass-ink: #2B1E00; --auto: #4FC29B; --human: #93A2FF; --warn: #EE8B74;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0F141B; --panel: #161D26; --ink: #E5E9EF; --muted: #9AA5B4; --rule: #2B3542;
+    --pass: #E8B53C; --pass-ink: #2B1E00; --auto: #4FC29B; --human: #93A2FF; --warn: #EE8B74;
+    color-scheme: dark;
+  }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.55 var(--body); }
+  .sheet { max-width: 1080px; margin: 0 auto; padding-block: 40px 56px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 32px; }
+  header { display: grid; gap: 10px; }
+  .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ticket { background: var(--pass); color: var(--pass-ink); padding: 4px 8px; border-radius: 3px; letter-spacing: .1em; }
+  h1 { font: 800 clamp(28px, 4.4vw, 44px)/1.08 var(--display); letter-spacing: -.01em; margin: 0; text-wrap: balance; max-width: 22ch; }
+  .lede { margin: 0; max-width: 68ch; color: var(--muted); font-size: 17px; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+  h2 { font: 600 13px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 20px; display: grid; gap: 12px; }
+  .scroll { overflow-x: auto; }
+  svg.journey { display: block; width: 100%; min-width: 760px; height: auto; color: var(--ink); }
+  figcaption { color: var(--muted); font-size: 14px; max-width: 80ch; }
+  /* SVG parts */
+  .box { fill: var(--panel); stroke: var(--ink); stroke-width: 1.25; }
+  .group { fill: none; stroke: var(--rule); stroke-width: 1.5; }
+  .groupfill { fill: var(--paper); }
+  .line { fill: none; stroke: var(--ink); stroke-width: 1.4; }
+  .dots { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 2 4; }
+  .t { fill: var(--ink); font: 600 14px var(--body); }
+  .s { fill: var(--muted); font: 400 12px var(--body); }
+  .n { fill: var(--muted); font: 500 11px var(--mono); }
+  .lab { fill: var(--muted); font: 500 12px var(--mono); }
+  .pass { fill: var(--pass); }
+  .passt { fill: var(--pass-ink); font: 600 10px var(--mono); letter-spacing: .06em; }
+  .auto { fill: var(--panel); stroke: var(--auto); stroke-width: 2; }
+  .autot { fill: var(--auto); font: 600 14px var(--body); }
+  .human { fill: var(--panel); stroke: var(--human); stroke-width: 2; }
+  .humant { fill: var(--human); font: 600 14px var(--body); }
+  .rulebox { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+  .ledger { fill: var(--paper); stroke: var(--ink); stroke-width: 1.25; }
+  .arrowhead { fill: var(--ink); }
+  /* Lower grid */
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .col { display: grid; align-content: start; gap: 4px; min-width: 0; }
+  .stats { display: grid; gap: 14px; margin: 0; }
+  .stat { display: grid; grid-template-columns: 5.2em minmax(0, 1fr); gap: 12px; align-items: baseline; border-top: 1px solid var(--rule); padding-top: 10px; }
+  .stat dt { font: 800 24px/1 var(--display); font-variant-numeric: tabular-nums; }
+  .stat dd { margin: 0; color: var(--muted); font-size: 14px; }
+  .stat dd b { color: var(--ink); font-weight: 600; }
+  .qa { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .qa li { border-top: 1px solid var(--rule); padding-top: 10px; display: grid; gap: 4px; }
+  .q { font-weight: 600; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .a { color: var(--muted); font-size: 14px; }
+  .chip { font: 500 11px/1 var(--mono); padding: 4px 6px; border-radius: 3px; white-space: nowrap; border: 1px solid currentColor; }
+  .built { color: var(--auto); }
+  .part { color: var(--pass-ink); background: var(--pass); border-color: var(--pass); }
+  .road { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+  .road li { display: grid; grid-template-columns: 2.6em minmax(0, 1fr); gap: 10px; border-top: 1px solid var(--rule); padding: 9px 0; font-size: 14px; }
+  .road .m { font: 500 12px/1.6 var(--mono); color: var(--muted); }
+  .road .done .m { color: var(--auto); }
+  .road .now { background: color-mix(in srgb, var(--pass) 16%, transparent); }
+  footer { border-top: 1px solid var(--rule); padding-top: 14px; color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 24px; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <header>
+    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · briefing for business leaders · November 2026</span></div>
+    <h1>AI that prepares insurance claims, with people making the calls that matter</h1>
+    <p class="lede">hall-monitor shows how a regulated firm can use AI agents to speed up claims work <strong>and still answer the regulator's questions</strong>: what each AI was allowed to do, who approved it, what it touched, and who made the final decision. The rules live in software, not in a policy binder.</p>
+  </header>
+
+  <figure>
+    <h2>How a claim moves through it</h2>
+    <div class="scroll">
+      <svg class="journey" viewBox="0 0 1000 440" role="img" aria-label="A customer claim is prepared by four AI steps, each checked against its hall pass. A rule written in code then sends routine claims to be handled automatically and denials, payouts over 2,500 dollars and any fraud flag to an adjuster. Every step is recorded.">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="arrowhead"/></marker>
+        </defs>
+
+        <!-- Customer claim -->
+        <rect class="box" x="10" y="130" width="150" height="90" rx="4"/>
+        <text class="t" x="85" y="166" text-anchor="middle">Customer claim</text>
+        <text class="s" x="85" y="186" text-anchor="middle">their story, receipts,</text>
+        <text class="s" x="85" y="202" text-anchor="middle">doctors' letters</text>
+        <line class="line" x1="160" y1="175" x2="198" y2="175" marker-end="url(#arr)"/>
+
+        <!-- AI prepares the case -->
+        <rect class="groupfill" x="200" y="60" width="470" height="230" rx="6"/>
+        <rect class="group" x="200" y="60" width="470" height="230" rx="6"/>
+        <text class="lab" x="216" y="84">AI PREPARES THE CASE</text>
+
+        <g>
+          <rect class="pass" x="219" y="100" width="92" height="18" rx="2"/><text class="passt" x="265" y="113" text-anchor="middle">PASS CHECKED</text>
+          <rect class="box" x="215" y="130" width="100" height="90" rx="4"/>
+          <text class="n" x="225" y="148">1</text>
+          <text class="t" x="265" y="175" text-anchor="middle">Read</text>
+          <text class="s" x="265" y="194" text-anchor="middle">the claim</text>
+        </g>
+        <line class="line" x1="315" y1="175" x2="328" y2="175" marker-end="url(#arr)"/>
+        <g>
+          <rect class="pass" x="334" y="100" width="92" height="18" rx="2"/><text class="passt" x="380" y="113" text-anchor="middle">PASS CHECKED</text>
+          <rect class="box" x="330" y="130" width="100" height="90" rx="4"/>
+          <text class="n" x="340" y="148">2</text>
+          <text class="t" x="380" y="175" text-anchor="middle">Check</text>
+          <text class="s" x="380" y="194" text-anchor="middle">the policy</text>
+        </g>
+        <line class="line" x1="430" y1="175" x2="443" y2="175" marker-end="url(#arr)"/>
+        <g>
+          <rect class="pass" x="449" y="100" width="92" height="18" rx="2"/><text class="passt" x="495" y="113" text-anchor="middle">PASS CHECKED</text>
+          <rect class="box" x="445" y="130" width="100" height="90" rx="4"/>
+          <text class="n" x="455" y="148">3</text>
+          <text class="t" x="495" y="175" text-anchor="middle">Spot fraud</text>
+          <text class="s" x="495" y="194" text-anchor="middle">signs</text>
+        </g>
+        <line class="line" x1="545" y1="175" x2="558" y2="175" marker-end="url(#arr)"/>
+        <g>
+          <rect class="pass" x="564" y="100" width="92" height="18" rx="2"/><text class="passt" x="610" y="113" text-anchor="middle">PASS CHECKED</text>
+          <rect class="box" x="560" y="130" width="100" height="90" rx="4"/>
+          <text class="n" x="570" y="148">4</text>
+          <text class="t" x="610" y="175" text-anchor="middle">Recommend</text>
+          <text class="s" x="610" y="194" text-anchor="middle">a next step</text>
+        </g>
+
+        <line class="line" x1="670" y1="175" x2="698" y2="175" marker-end="url(#arr)"/>
+
+        <!-- Rule in code -->
+        <polygon class="rulebox" points="760,115 820,175 760,235 700,175"/>
+        <text class="t" x="760" y="171" text-anchor="middle">Person</text>
+        <text class="t" x="760" y="189" text-anchor="middle">needed?</text>
+        <text class="lab" x="760" y="258" text-anchor="middle">RULE IN CODE</text>
+
+        <polyline class="line" points="760,115 760,80 848,80" marker-end="url(#arr)"/>
+        <text class="lab" x="772" y="72">no</text>
+        <polyline class="line" points="820,175 835,175 835,290 848,290" marker-end="url(#arr)"/>
+        <text class="lab" x="828" y="240" text-anchor="end">yes</text>
+
+        <rect class="auto" x="850" y="40" width="140" height="84" rx="4"/>
+        <text class="autot" x="920" y="72" text-anchor="middle">Handled</text>
+        <text class="autot" x="920" y="90" text-anchor="middle">automatically</text>
+        <text class="s" x="920" y="110" text-anchor="middle">small, clean claims</text>
+
+        <rect class="human" x="850" y="225" width="140" height="122" rx="4"/>
+        <text class="humant" x="920" y="252" text-anchor="middle">Adjuster decides</text>
+        <text class="s" x="920" y="276" text-anchor="middle">every denial</text>
+        <text class="s" x="920" y="296" text-anchor="middle">payouts over $2,500</text>
+        <text class="s" x="920" y="316" text-anchor="middle">any fraud flag</text>
+
+        <!-- Record of every step -->
+        <polyline class="dots" points="265,220 265,380"/>
+        <polyline class="dots" points="380,220 380,380"/>
+        <polyline class="dots" points="495,220 495,380"/>
+        <polyline class="dots" points="610,220 610,380"/>
+        <polyline class="dots" points="920,347 920,380"/>
+        <rect class="ledger" x="10" y="380" width="980" height="48" rx="4"/>
+        <text class="t" x="28" y="409">Record of every step</text>
+        <text class="s" x="200" y="409">which AI, which rules it ran under, which model, what it decided, what it cost</text>
+      </svg>
+    </div>
+    <figcaption>The AI gathers evidence and proposes; it never denies or pays a claim on its own. Each AI step has a <b>hall pass</b>: a registered permit naming its owner, risk level, the AI model it may use and the data it may see. No pass, no work. The rule that decides when a person must step in is ordinary software, so the AI can't argue its way past it.</figcaption>
+  </figure>
+
+  <section class="grid">
+    <div class="col">
+      <h2>What it shows today</h2>
+      <dl class="stats">
+        <div class="stat"><dt>18/18</dt><dd><b>Claims sent to the right place</b>, automatic or adjuster, in every test run</dd></div>
+        <div class="stat"><dt>100%</dt><dd><b>Claim details read correctly</b>: names, dates, amounts, documents</dd></div>
+        <div class="stat"><dt>0</dt><dd><b>Invented facts.</b> Every name, amount and policy rule traced back to a source</dd></div>
+        <div class="stat"><dt>83%</dt><dd><b>Coverage decisions fully right.</b> Every miss still went to an adjuster</dd></div>
+        <div class="stat"><dt>2.4¢</dt><dd><b>AI cost per claim</b>, about 18 seconds of processing</dd></div>
+      </dl>
+    </div>
+
+    <div class="col">
+      <h2>What a regulator will ask</h2>
+      <ul class="qa">
+        <li><span class="q">What is this AI allowed to do? <span class="chip built">Built</span></span><span class="a">Its hall pass lists the model, data and tools. Anything without a pass is refused.</span></li>
+        <li><span class="q">Who is accountable? <span class="chip built">Built</span></span><span class="a">Every pass names an owner and a risk level.</span></li>
+        <li><span class="q">Who makes the big calls? <span class="chip part">Partly</span></span><span class="a">Denials, large payouts and fraud go to a person. The adjuster's approval screen is next.</span></li>
+        <li><span class="q">Is it accurate? <span class="chip built">Built</span></span><span class="a">Scored against answer keys and published, misses included.</span></li>
+        <li><span class="q">Can you prove it months later? <span class="chip part">Partly</span></span><span class="a">Each step records its pass fingerprint. A tamper-evident log is planned.</span></li>
+      </ul>
+    </div>
+
+    <div class="col">
+      <h2>Roadmap</h2>
+      <ol class="road">
+        <li class="done"><span class="m">1-2</span><span>Hall passes, four AI steps, first published scores</span></li>
+        <li class="now"><span class="m">3</span><span>A checker that double-checks the AI's work before it moves on</span></li>
+        <li><span class="m">4</span><span>Controlled access to policy and claims history</span></li>
+        <li><span class="m">5</span><span>Adjuster approval screen that saves the evidence they saw</span></li>
+        <li><span class="m">6</span><span>Tamper-evident record of every step</span></li>
+        <li><span class="m">7</span><span>Cheaper models for simple claims, cost tracking</span></li>
+        <li><span class="m">8</span><span>Privacy masking, fairness checks, attack tests</span></li>
+        <li><span class="m">9-10</span><span>Mapped to NIST AI RMF and FINOS; quality gate on every change; external review</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <footer>
+    <span>A reference implementation, not a production claims system. All claims, policies and people are fictional.</span>
+    <span>Scores: 6 test claims × 3 runs, November 2026. A small sample: it shows the kinds of mistakes, not reliable rates.</span>
+    <a href="https://github.com/keeplearnin/hall-monitor">github.com/keeplearnin/hall-monitor</a>
+  </footer>
+</main>
+</body>
+</html>
