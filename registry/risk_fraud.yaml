@@ -4,7 +4,7 @@ version: 0.1.0
 owner: claims-ai-platform
 purpose: Flag inconsistencies such as misaligned dates, duplicate receipts or claims soon after policy start, and assign a risk level.
 risk_tier: high
-status: planned
+status: active
 model: claude-haiku-5-5
 allowed_tools: [claims_history, policy_lookup]
 data_classes: [pii, financial]

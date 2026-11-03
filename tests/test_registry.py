@@ -35,7 +35,7 @@ def test_unregistered_agent_is_refused(registry):
 
 def test_planned_agent_cannot_run(registry):
     with pytest.raises(AgentNotActiveError):
-        registry.require("recommendation")
+        registry.require("critic")
 
 
 def test_tool_outside_allow_list_is_refused(registry):

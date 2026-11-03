@@ -6,7 +6,7 @@
     "policy_number": "WTP-ESS-100231",
     "claim_type": "trip_cancellation",
     "incident_date": "2026-08-14",
-    "incident_location": null,
+    "incident_location": "St. Bartholomew's Hospital",
     "claimed_items": [
       {
         "description": "Non-refundable flight",
@@ -28,8 +28,7 @@
   "coverage": {
     "decision": "covered",
     "applicable_clauses": [
-      "2.1",
-      "2.2"
+      "2.1"
     ],
     "covered_amount": 1992.0,
     "reasoning": "Sudden illness certified by a doctor (2.1(a)); cancelled within 72 hours (2.3); no relevant prior history; total 1,992 is within the Essentials limit of 3,000."

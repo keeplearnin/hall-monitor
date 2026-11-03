@@ -4,7 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from hall_monitor.agents.intake import IntakeRefusedError, render_claim, run_intake
+from hall_monitor.agents.base import AgentRefusedError, render_claim
+from hall_monitor.agents.intake import run_intake
 from hall_monitor.data import iter_claims, load_ground_truth
 from hall_monitor.registry import Registry, UnregisteredAgentError
 
@@ -34,7 +35,9 @@ def test_uses_the_model_on_the_hall_pass():
     expected = load_ground_truth(CLAIM.claim_id).extraction
     client = fake_client(parsed_output=expected)
 
-    assert run_intake(CLAIM, Registry.from_dir(), client=client) == expected
+    run = run_intake(CLAIM, Registry.from_dir(), client=client)
+    assert run.output == expected
+    assert run.call.manifest_digest == Registry.from_dir().get("intake").digest()
     assert client.messages.calls[0]["model"] == "claude-haiku-5-5"
 
 
@@ -46,7 +49,7 @@ def test_refuses_without_a_hall_pass():
 
 
 def test_model_refusal_is_raised():
-    with pytest.raises(IntakeRefusedError):
+    with pytest.raises(AgentRefusedError):
         run_intake(CLAIM, Registry.from_dir(), client=fake_client(stop_reason="refusal"))
 
 

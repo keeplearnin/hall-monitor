@@ -1,0 +1,2475 @@
+{
+  "meta": {
+    "run_at": "2026-11-03 21:07 UTC",
+    "git_commit": "47b743c27b966b28f6b5e1856972c97473b91680",
+    "git_dirty": false,
+    "claims": 6,
+    "trials": 3,
+    "adjuster_payout_threshold_usd": 2500,
+    "agents": [
+      {
+        "agent_id": "intake",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+        "prompt_version": "intake-v1"
+      },
+      {
+        "agent_id": "coverage_check",
+        "agent_version": "0.1.0",
+        "model": "claude-sonnet-5-5",
+        "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+        "prompt_version": "coverage-check-v1"
+      },
+      {
+        "agent_id": "risk_fraud",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+        "prompt_version": "risk-fraud-v1"
+      },
+      {
+        "agent_id": "recommendation",
+        "agent_version": "0.1.0",
+        "model": "claude-sonnet-5-5",
+        "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+        "prompt_version": "recommendation-v1"
+      }
+    ]
+  },
+  "summary": {
+    "runs": 18,
+    "errors": 0,
+    "extraction_accuracy": 1.0,
+    "coverage_reasoning_accuracy": 0.8333333333333334,
+    "coverage_decision_accuracy": 1.0,
+    "covered_amount_accuracy": 0.8888888888888888,
+    "clause_recall": 0.9722222222222222,
+    "risk_level_accuracy": 0.8888888888888888,
+    "flag_precision": 0.8333333333333334,
+    "flag_recall": 1.0,
+    "next_step_accuracy": 0.8888888888888888,
+    "route_accuracy": 1.0,
+    "hallucination_rate": 0.0,
+    "cost_per_claim_usd": 0.02393101111111111,
+    "seconds_per_claim": 17.97611111111111
+  },
+  "runs": [
+    {
+      "score": {
+        "claim_id": "claim_001",
+        "trial": 1,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 12,
+        "unsupported": [],
+        "cost_usd": 0.0245409,
+        "seconds": 16.99
+      },
+      "result": {
+        "claim_id": "claim_001",
+        "extraction": {
+          "claimant_name": "Daniel Okafor",
+          "policy_number": "WTP-ESS-100231",
+          "claim_type": "trip_cancellation",
+          "incident_date": "2026-08-14",
+          "incident_location": "St. Bartholomew's Hospital",
+          "claimed_items": [
+            {
+              "description": "Flight (Atlantic Arc Airways booking QZ7K2M, BOS-LIS 2026-08-20)",
+              "amount": 842.0
+            },
+            {
+              "description": "Hotel (Casa do Miradouro, Lisbon, 10 nights from 2026-08-20)",
+              "amount": 1150.0
+            }
+          ],
+          "total_claimed": 1992.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "discharge_summary.txt",
+            "airline_cancellation.txt",
+            "hotel_invoice.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "covered",
+          "applicable_clauses": [
+            "2.1",
+            "2.2",
+            "2.3",
+            "2.4"
+          ],
+          "covered_amount": 1992.0,
+          "reasoning": "Sudden appendicitis on 2026-08-14 with emergency surgery; the surgeon's certified advice of no air travel for 3 weeks makes travel inadvisable (2.1(a)). The flight ($842) and hotel ($1,150) were prepaid and non-refundable, totalling $1,992, within the $3,000 Essentials cancellation limit (2.2). Cancellation was made on 2026-08-15, within 72 hours of the reason arising on 08-14 (2.3). The waiting period (2.4) does not apply: the illness first arose 74 days after the 2026-06-02 purchase, well outside the 14-day window. Pre-existing exclusion 5.1 does not apply as the discharge summary records no relevant prior history and the condition was sudden. No deductible applies to cancellation. Claim submitted within 90 days (6.1)."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "No flags apply. The policy was bought 2026-06-02, about 73 days before the 2026-08-14 incident, so it is outside the 14-day window. The claimed amounts match the documents: flight USD 842.00 (airline letter, booking QZ7K2M) and hotel USD 1,150.00 (Casa do Miradouro invoice), total USD 1,992.00. Dates agree across the narrative, the discharge summary (admitted 2026-08-14, surgery 2026-08-14), and both cancellations (2026-08-15). The claim was submitted 2026-08-25, 11 days after the incident. The documents are cancellation and invoice records, not receipts for lost or damaged items, and the claim is trip cancellation, not baggage, so the receipt-date and carrier-report checks do not apply."
+        },
+        "recommendation": {
+          "next_step": "pay",
+          "reasons": [
+            "Coverage assessment decision is 'covered', so the deny step does not apply. Clauses 2.1, 2.2, 2.3 and 2.4 apply, and the covered amount is USD 1,992.00, equal to the total claimed.",
+            "Clause 2.1(a): sudden appendicitis with emergency surgery on 2026-08-14, and the discharge summary records the surgeon's certified advice of no air travel for 3 weeks.",
+            "Clause 2.2: the prepaid, non-refundable flight (USD 842.00, airline cancellation, booking QZ7K2M) and hotel (USD 1,150.00, Casa do Miradouro invoice) total USD 1,992.00, within the USD 3,000 Essentials cancellation limit.",
+            "Clause 2.3: cancellation on 2026-08-15 was within 72 hours of the reason arising on 2026-08-14. Clause 6.1: the claim was submitted 2026-08-25, 11 days after the incident, within the 90-day limit.",
+            "Clause 2.4 waiting period does not apply: the policy was bought 2026-06-02 and the illness arose about 73-74 days later (the two assessments differ by a day), well outside the 14-day window. Exclusion 5.1 does not apply: the discharge summary records no relevant prior history. No deductible applies to cancellation.",
+            "Risk level is low with no flags, so the investigate step does not apply. Amounts and dates agree across discharge_summary.txt, airline_cancellation.txt and hotel_invoice.txt.",
+            "No required document is missing: the discharge summary, airline cancellation and hotel invoice cover the medical reason and both claimed items, so request_information does not apply. Payout of USD 1,992.00 is proposed for adjuster sign-off if it counts as a large payout."
+          ]
+        },
+        "routing": {
+          "route": "auto",
+          "reasons": []
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2146,
+            "output_tokens": 545,
+            "seconds": 2.65
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4265,
+            "output_tokens": 341,
+            "seconds": 3.0
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2413,
+            "output_tokens": 965,
+            "seconds": 5.08
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1650,
+            "output_tokens": 809,
+            "seconds": 6.26
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_002",
+        "trial": 1,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 11,
+        "unsupported": [],
+        "cost_usd": 0.0235833,
+        "seconds": 17.31
+      },
+      "result": {
+        "claim_id": "claim_002",
+        "extraction": {
+          "claimant_name": "Mei Lin Zhou",
+          "policy_number": "WTP-PLS-200118",
+          "claim_type": "baggage_delay",
+          "incident_date": "2026-09-11",
+          "incident_location": "Haneda",
+          "claimed_items": [
+            {
+              "description": "Toiletries (toothbrush, toothpaste, deodorant, shampoo, face wash)",
+              "amount": 38.5
+            },
+            {
+              "description": "1 shirt and 1 pair of trousers",
+              "amount": 214.0
+            },
+            {
+              "description": "Underwear (3) and socks (3)",
+              "amount": 29.99
+            }
+          ],
+          "total_claimed": 282.49,
+          "currency": "USD",
+          "supporting_documents": [
+            "baggage_delay_report.txt",
+            "receipt_drugstore.txt",
+            "receipt_clothing.txt",
+            "receipt_underwear.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "covered",
+          "applicable_clauses": [
+            "3.1"
+          ],
+          "covered_amount": 282.49,
+          "reasoning": "The outbound flight PC 106 landed 2026-09-11 14:20 and the bag was delivered 2026-09-12 20:30. That is about 30h10m, more than the 12-hour threshold in 3.1, and covers two part or full 24-hour periods. The Plus plan pays up to 150 per period (5-day maximum), so the cap is 300. The claim is for essential toiletries, clothing and underwear and socks, with itemised receipts dated 11-12 Sep, before the bag arrived. The total of 282.49 is under the 300 cap, so it is paid in full. A written carrier report (HNDPC41887) was obtained, which meets 3.3. The claim was submitted within 90 days (6.1)."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "No flags apply. The policy was purchased 2026-08-01, which is 41 days before the 2026-09-11 incident, outside the 14-day window. The carrier report (HNDPC41887) shows arrival at 14:20 on 2026-09-11 and delivery at 20:30 on 2026-09-12, matching the narrative. The three receipts total 38.50 + 214.00 + 29.99 = 282.49, matching the claimed total. The drugstore and clothing receipts (2026-09-11 18:05 and 19:20) fall after the delayed arrival, and the underwear receipt (2026-09-12 10:15) falls before the bag's delivery, which is consistent with the claim that these were bought while the bag was missing. No receipt is duplicated. The claim was submitted 2026-09-28, 17 days after the incident, so it is not late."
+        },
+        "recommendation": {
+          "next_step": "pay",
+          "reasons": [
+            "Coverage assessment found the claim covered under clause 3.1: bag delayed about 30h10m (landed 2026-09-11 14:20, delivered 2026-09-12 20:30), beyond the 12-hour threshold, spanning two part or full 24-hour periods.",
+            "Covered amount of 282.49 USD is under the Plus plan cap of 300 (150 per period, two periods), so the claim is payable in full.",
+            "Required documents are present: written carrier report HNDPC41887 satisfies clause 3.3, and itemised receipts (receipt_drugstore.txt, receipt_clothing.txt, receipt_underwear.txt) support the 38.50 + 214.00 + 29.99 = 282.49 total.",
+            "Claim was submitted 2026-09-28, 17 days after the incident, within the 90-day limit in clause 6.1.",
+            "Risk level is low with no flags: policy purchased 41 days before the incident (outside the 14-day window), carrier report matches the narrative, receipt timing is consistent with the delay, and no receipts are duplicated.",
+            "No denial, investigation or information request is triggered, so payment is proposed. This is a proposal; the adjuster decides the final outcome."
+          ]
+        },
+        "routing": {
+          "route": "auto",
+          "reasons": []
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2053,
+            "output_tokens": 560,
+            "seconds": 2.91
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4187,
+            "output_tokens": 672,
+            "seconds": 6.56
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2335,
+            "output_tokens": 821,
+            "seconds": 4.41
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1610,
+            "output_tokens": 414,
+            "seconds": 3.43
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_003",
+        "trial": 1,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 12,
+        "unsupported": [],
+        "cost_usd": 0.0214444,
+        "seconds": 15.350000000000001
+      },
+      "result": {
+        "claim_id": "claim_003",
+        "extraction": {
+          "claimant_name": "Carlos Mendes",
+          "policy_number": "WTP-PLS-200342",
+          "claim_type": "emergency_medical",
+          "incident_date": "2026-07-17",
+          "incident_location": "Marked Edelweiss trail above Zermatt",
+          "claimed_items": [
+            {
+              "description": "Emergency room",
+              "amount": 1150.0
+            },
+            {
+              "description": "X-rays",
+              "amount": 420.0
+            },
+            {
+              "description": "Reduction and cast",
+              "amount": 3960.0
+            },
+            {
+              "description": "Follow-up consultation",
+              "amount": 950.0
+            }
+          ],
+          "total_claimed": 6480.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "visp_hospital_invoice.txt",
+            "followup_invoice.txt",
+            "medical_report.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "covered",
+          "applicable_clauses": [
+            "4.1",
+            "5.5"
+          ],
+          "covered_amount": 6480.0,
+          "reasoning": "Plus plan: emergency medical limit is 250,000 and the deductible is 0 (schedule). A displaced wrist fracture from a slip on 2026-07-17 is a sudden injury that first occurred during the insured trip (12-26 July), so clause 4.1 applies. Hiking on a marked trail is not a hazardous activity under 5.5. The medical report notes no prior wrist injury, so there is no pre-existing condition issue. The invoices total 5,530.00 (Visp hospital) plus 950.00 (follow-up on 2026-07-24, within the trip), which equals the 6,480.00 claimed. Nothing suggests the charges are not reasonable and customary. Total cost is under 10,000, so the 4.2 notification requirement does not apply. The claim was submitted within 90 days. The full amount is payable."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "Policy purchased 2026-06-20, 27 days before the 2026-07-17 incident, so the 14-day flag does not apply. The claim is medical, not a lost-item receipt or baggage claim, so the receipt and carrier-report flags do not apply. Line items match the documents: Visp invoice 1,150 + 420 + 3,960 = 5,530 and follow-up 950 give 6,480 total. Dates agree across the narrative, invoices and medical report (injury 2026-07-17, follow-up 2026-07-24, fit to fly 2026-07-25, within the 2026-07-12 to 2026-07-26 trip). Submitted 2026-08-03, 17 days after the incident, so not late."
+        },
+        "recommendation": {
+          "next_step": "pay",
+          "reasons": [
+            "Coverage assessment found the claim covered under clauses 4.1 (sudden injury during the insured trip) and 5.5 (hiking on a marked trail is not a hazardous activity), so the deny step does not apply.",
+            "Risk level is low with no flags: policy purchased 27 days before the incident (14-day flag not triggered), and line items, invoices and medical report dates are consistent, so the investigate step does not apply.",
+            "No required document is missing: visp_hospital_invoice.txt (5,530.00), followup_invoice.txt (950.00) and medical_report.txt are provided, and the medical report notes no prior wrist injury, so the request_information step does not apply.",
+            "Covered amount is 6,480.00 USD, matching the total claimed, with a 0 deductible and a 250,000 emergency medical limit on the Plus plan. Total is under 10,000, so the clause 4.2 notification requirement does not apply, and the claim was submitted within 90 days (17 days after the incident). Full payment of 6,480.00 USD is proposed."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "payout 6,480.00 above 2,500 threshold"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2014,
+            "output_tokens": 474,
+            "seconds": 3.18
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4132,
+            "output_tokens": 533,
+            "seconds": 4.19
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2280,
+            "output_tokens": 776,
+            "seconds": 4.57
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1598,
+            "output_tokens": 360,
+            "seconds": 3.41
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_004",
+        "trial": 1,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 9,
+        "unsupported": [],
+        "cost_usd": 0.0221551,
+        "seconds": 14.530000000000001
+      },
+      "result": {
+        "claim_id": "claim_004",
+        "extraction": {
+          "claimant_name": "Aisha Bello",
+          "policy_number": "WTP-ESS-100587",
+          "claim_type": "trip_cancellation",
+          "incident_date": "2026-08-29",
+          "incident_location": null,
+          "claimed_items": [
+            {
+              "description": "Non-refundable flights (Southern Cross Air, booking TR88JX)",
+              "amount": 1780.0
+            },
+            {
+              "description": "Safari lodge deposit (Kloofwater Safari Lodge), non-refundable",
+              "amount": 860.0
+            }
+          ],
+          "total_claimed": 2640.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "gastroenterologist_letter.txt",
+            "flight_cancellation.txt",
+            "lodge_cancellation.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "not_covered",
+          "applicable_clauses": [
+            "1.2",
+            "5.1"
+          ],
+          "covered_amount": 0.0,
+          "reasoning": "The claim is for cancellation due to a Crohn's disease flare. Under clause 1.2, the 90 days before the 2026-07-10 purchase date run from about 2026-04-11 to 2026-07-10. The gastroenterologist's letter says her medication was changed on 2026-05-28, which falls inside that window. Crohn's disease is therefore a pre-existing condition. Clause 5.1 excludes claims arising from pre-existing conditions. The waiver in 5.1 applies only to the Plus plan, and she holds Essentials, so it is not available. Other requirements are met: the reason arose 2026-08-29, outside the 14-day waiting period in 2.4, and she cancelled on 2026-08-30, within the 72 hours in 2.3. These do not change the outcome, and nothing is payable."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "Policy purchased 2026-07-10, 50 days before the 2026-08-29 incident, so the 14-day flag does not apply. The flight cancellation (USD 1,780.00) and lodge cancellation (USD 860.00) both match the claimed amounts totaling USD 2,640.00. The 2026-08-29 flare in the gastroenterologist letter, the 2026-08-30 cancellations in both carrier and lodge documents, the 2026-09-05 departure and 2026-09-19 return, and the 2026-04-02 lodge deposit all agree with the narrative and policy record. The claim was submitted 2026-09-08, within 90 days. This is a trip cancellation, so the baggage-report and receipt-date checks do not apply, and no duplicates appear."
+        },
+        "recommendation": {
+          "next_step": "deny",
+          "reasons": [
+            "Coverage assessment decision is not_covered with a covered amount of USD 0.00 out of USD 2,640.00 claimed, so under the ordered rules deny applies first.",
+            "Clause 1.2: the 90-day look-back before the 2026-07-10 purchase date runs from about 2026-04-11 to 2026-07-10. The gastroenterologist letter (gastroenterologist_letter.txt) records a medication change on 2026-05-28, inside that window, which makes Crohn's disease a pre-existing condition.",
+            "Clause 5.1 excludes claims arising from pre-existing conditions. The waiver in 5.1 applies only to the Plus plan and the claimant holds Essentials, so it is unavailable.",
+            "Other requirements are met and do not change the outcome: the reason arose 2026-08-29, outside the 14-day waiting period in clause 2.4, and cancellation on 2026-08-30 was within the 72 hours in clause 2.3.",
+            "Risk level is low with no flags: flight cancellation (USD 1,780.00) and lodge cancellation (USD 860.00) match the claimed amounts, so the denial rests on coverage and not on fraud concerns.",
+            "This is a proposal only. An adjuster must decide every denial."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "recommended denial"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2027,
+            "output_tokens": 349,
+            "seconds": 2.12
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4116,
+            "output_tokens": 543,
+            "seconds": 4.43
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2264,
+            "output_tokens": 843,
+            "seconds": 4.44
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1584,
+            "output_tokens": 430,
+            "seconds": 3.54
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_005",
+        "trial": 1,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": 1.0,
+        "flag_recall": 1.0,
+        "next_step": true,
+        "route": true,
+        "values_checked": 10,
+        "unsupported": [],
+        "cost_usd": 0.0257007,
+        "seconds": 19.380000000000003
+      },
+      "result": {
+        "claim_id": "claim_005",
+        "extraction": {
+          "claimant_name": "Tomasz Wisniewski",
+          "policy_number": "WTP-ESS-100902",
+          "claim_type": "baggage_loss",
+          "incident_date": "2026-10-03",
+          "incident_location": "Barcelona",
+          "claimed_items": [
+            {
+              "description": "Laptop (Aerion 14, 16GB/1TB)",
+              "amount": 1400.0
+            },
+            {
+              "description": "Camera (Lumen M5 mirrorless body)",
+              "amount": 490.0
+            }
+          ],
+          "total_claimed": 1890.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "laptop_receipt.txt",
+            "camera_receipt.txt",
+            "booking_confirmation.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "partially_covered",
+          "applicable_clauses": [
+            "3.2",
+            "3.3"
+          ],
+          "covered_amount": 490.0,
+          "reasoning": "The camera is covered under 3.2. The receipt is dated 2025-12-14, before the 2026-10-03 loss, so ownership and value are proven. The $490 is within the Essentials $500 per-item limit and the $750 combined valuables limit. The laptop is not covered. Its receipt is dated 2026-10-06, three days after the bag was lost on 2026-10-03, so it cannot show the laptop was in the lost bag, and 3.2 requires proof of ownership and value for items over 100. Even if proven, the laptop would be capped by the $500 per-item limit and the remaining valuables limit of $260. No carrier report was obtained, which 3.3 requires. The claimant says the baggage desk was closed, and 3.3 excuses this if obtaining a report was not reasonably possible. I accept that explanation here, but the adjuster may want to confirm it with the airline. Payable amount is $490 of the $1,890 claimed."
+        },
+        "risk": {
+          "level": "high",
+          "flags": [
+            "policy_purchased_shortly_before_incident",
+            "receipt_dated_after_incident",
+            "missing_carrier_report"
+          ],
+          "reasoning": "The policy was purchased 2026-10-01 and the incident date is 2026-10-03, two days later, within the 14-day window. The laptop receipt (laptop_receipt.txt) is dated 2026-10-06, three days after the 2026-10-03 loss, and it is offered as proof of owning the bag's contents. This is not a delay purchase, so the exception does not apply. The narrative says the baggage desk was closed and no carrier report was obtained for this baggage loss. The camera receipt (dated 2025-12-14), the amounts (1,400 + 490 = 1,890, matching the receipts and total), the booking dates (2026-10-03 outbound), and the submission timing (9 days after the incident) are consistent and raise no flags. Several flags together warrant adjuster review."
+        },
+        "recommendation": {
+          "next_step": "investigate",
+          "reasons": [
+            "Coverage is partially covered, so deny does not apply: the camera ($490) is covered under clause 3.2 (receipt dated 2025-12-14 predates the 2026-10-03 loss; within the $500 per-item and $750 combined valuables limits).",
+            "Risk level is high, which triggers investigate ahead of request_information or pay.",
+            "Flag policy_purchased_shortly_before_incident: policy purchased 2026-10-01, two days before the 2026-10-03 loss, inside the 14-day window.",
+            "Flag receipt_dated_after_incident: laptop_receipt.txt is dated 2026-10-06, three days after the loss, so it cannot show the laptop was in the lost bag; the laptop ($1,400) is not covered under clause 3.2.",
+            "Flag missing_carrier_report: clause 3.3 requires a carrier report; the claimant says the baggage desk was closed, which 3.3 excuses if a report was not reasonably possible. Coverage accepted this, but the adjuster should confirm with the airline.",
+            "Only $490 of the $1,890 claimed is payable; an adjuster must review this claim because of the fraud-related flags."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "recommended investigation",
+            "fraud flags: policy_purchased_shortly_before_incident, receipt_dated_after_incident, missing_carrier_report"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 1870,
+            "output_tokens": 459,
+            "seconds": 3.19
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 3949,
+            "output_tokens": 937,
+            "seconds": 7.73
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2097,
+            "output_tokens": 965,
+            "seconds": 4.98
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1662,
+            "output_tokens": 400,
+            "seconds": 3.48
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_006",
+        "trial": 1,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": false,
+        "clause_recall": 1.0,
+        "coverage_correct": false,
+        "risk_level": true,
+        "flag_precision": 1.0,
+        "flag_recall": 1.0,
+        "next_step": true,
+        "route": true,
+        "values_checked": 12,
+        "unsupported": [],
+        "cost_usd": 0.0239148,
+        "seconds": 18.2
+      },
+      "result": {
+        "claim_id": "claim_006",
+        "extraction": {
+          "claimant_name": "Grace Whitfield",
+          "policy_number": "WTP-ESS-101144",
+          "claim_type": "baggage_delay",
+          "incident_date": "2026-10-19",
+          "incident_location": "Dublin",
+          "claimed_items": [
+            {
+              "description": "Toiletries purchased at Boots, Grafton Street (receipt no. 4471-2290)",
+              "amount": 64.2
+            },
+            {
+              "description": "Second toiletries receipt from Boots, Grafton Street (receipt no. 4471-2290, as attached)",
+              "amount": 64.2
+            },
+            {
+              "description": "Change of clothes purchased at Penneys, Mary Street (T-shirt, jeans, underwear)",
+              "amount": 45.0
+            }
+          ],
+          "total_claimed": 173.4,
+          "currency": "USD",
+          "supporting_documents": [
+            "delay_report.txt",
+            "receipt_toiletries_1.txt",
+            "receipt_toiletries_2.txt",
+            "receipt_clothes.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "partially_covered",
+          "applicable_clauses": [
+            "3.1",
+            "6.2"
+          ],
+          "covered_amount": 109.2,
+          "reasoning": "The carrier delayed the checked bag on the outbound journey from arrival at 07:05 to delivery at 23:10 on 2026-10-19. That is about 16 hours, more than the 12-hour threshold in 3.1, and a carrier property irregularity report was obtained (3.3). It falls in one part 24-hour period, so the Essentials daily limit of 100 applies (3.1). Genuine purchases are the toiletries at 64.20 and clothing at 45.00, total 109.20, which is under the 100 daily cap? No: 109.20 exceeds 100, so the cap applies. Each receipt may be claimed once (6.2), and the second toiletries receipt has the same number 4471-2290, time and amount, so it is a duplicate and is excluded. Eligible expenses are 109.20, capped at 100 for one day."
+        },
+        "risk": {
+          "level": "medium",
+          "flags": [
+            "duplicate_receipt"
+          ],
+          "reasoning": "Receipt no. 4471-2290 (Boots, Grafton Street, 2026-10-19 10:12, USD 64.20) is attached twice as receipt_toiletries_1.txt and receipt_toiletries_2.txt and claimed as two separate items, so the total of 173.40 double-counts it; the corrected total would be 109.20. This is a single duplicate with a plausible innocent explanation (the same file attached twice). Other checks passed: policy purchased 2026-09-15, 34 days before the 2026-10-19 incident; the carrier report (DUBEW20577) exists and matches the 07:05 arrival and 23:10 delivery in the narrative; the receipts are dated the same day as the delay, before the 23:10 delivery, which is consistent with delay purchases; the claim was submitted 2026-10-28, 9 days after the incident."
+        },
+        "recommendation": {
+          "next_step": "pay",
+          "reasons": [
+            "Not deny: the coverage assessment is partially_covered under clauses 3.1 and 6.2, so some expenses are covered.",
+            "Not investigate: the risk level is medium, not high. The single flag, duplicate_receipt, has a plausible innocent explanation, which is the same file attached twice. The policy was bought 34 days before the incident, carrier report DUBEW20577 matches the 07:05 arrival and 23:10 delivery, and the receipts are dated the day of the delay.",
+            "Not request_information: the delay report (delay_report.txt) and the receipts for toiletries and clothes are all on file, and the carrier property irregularity report required by clause 3.3 was obtained.",
+            "Pay the covered amount only: the delay of about 16 hours exceeds the 12-hour threshold in clause 3.1. The second Boots receipt (no. 4471-2290, USD 64.20) is a duplicate and is excluded under clause 6.2. That leaves eligible expenses of USD 109.20 (toiletries 64.20 plus clothing 45.00), not the 173.40 claimed.",
+            "Amount discrepancy for the adjuster: the coverage assessment's covered_amount field says 109.20, but its reasoning applies the Essentials daily limit of 100 under clause 3.1, which would cap the payout at USD 100.00. The adjuster should confirm the payable amount before release.",
+            "Adjuster review is required because of the duplicate_receipt fraud flag, which the adjuster should confirm as an attachment error and not an attempt to inflate the claim."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "fraud flags: duplicate_receipt"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2062,
+            "output_tokens": 724,
+            "seconds": 3.42
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4238,
+            "output_tokens": 326,
+            "seconds": 3.26
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2386,
+            "output_tokens": 1140,
+            "seconds": 5.71
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1721,
+            "output_tokens": 736,
+            "seconds": 5.81
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_001",
+        "trial": 2,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 10,
+        "unsupported": [],
+        "cost_usd": 0.024159899999999998,
+        "seconds": 15.959999999999999
+      },
+      "result": {
+        "claim_id": "claim_001",
+        "extraction": {
+          "claimant_name": "Daniel Okafor",
+          "policy_number": "WTP-ESS-100231",
+          "claim_type": "trip_cancellation",
+          "incident_date": "2026-08-14",
+          "incident_location": "St. Bartholomew's Hospital",
+          "claimed_items": [
+            {
+              "description": "Flight (Atlantic Arc Airways booking QZ7K2M, BOS-LIS 2026-08-20)",
+              "amount": 842.0
+            },
+            {
+              "description": "Hotel (Casa do Miradouro, Lisbon, 10 nights from 2026-08-20)",
+              "amount": 1150.0
+            }
+          ],
+          "total_claimed": 1992.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "discharge_summary.txt",
+            "airline_cancellation.txt",
+            "hotel_invoice.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "covered",
+          "applicable_clauses": [
+            "2.1",
+            "2.2"
+          ],
+          "covered_amount": 1992.0,
+          "reasoning": "Clause 2.1(a) applies. Acute appendicitis with emergency surgery on 2026-08-14 is a sudden illness, and the surgeon certified no air travel for 3 weeks, which makes travel inadvisable. The flight ($842.00) and hotel ($1,150.00) were prepaid and non-refundable, per the airline and hotel documents. Cancellation was on 2026-08-15, within 72 hours of the illness, so clause 2.3 does not reduce the payment. The illness arose on 2026-08-14, more than 14 days after the 2026-06-02 purchase, so the clause 2.4 waiting period does not apply. The discharge summary shows no relevant prior history, so the pre-existing condition exclusion (clause 5.1) does not apply. The claimed total of $1,992.00 is under the Essentials trip cancellation limit of $3,000 (clause 2.2), so it is paid in full."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "No flags raised. The policy was bought 2026-06-02, 73 days before the 2026-08-14 incident, so the 14-day window does not apply. The claimed amounts match the documents: flight USD 842.00 (airline_cancellation.txt), hotel USD 1,150.00 (hotel_invoice.txt), total USD 1,992.00. Dates are consistent across sources: the discharge summary shows admission and appendectomy on 2026-08-14, the airline and hotel cancellations are dated 2026-08-15 as the narrative states, and the trip dates 2026-08-20 to 2026-08-30 match the policy record. The claim was submitted 2026-08-25, 11 days after the incident. The claim is for trip cancellation rather than baggage loss, so no carrier report is required, and no receipt is offered as proof of owning a lost or damaged item."
+        },
+        "recommendation": {
+          "next_step": "pay",
+          "reasons": [
+            "Coverage assessment decision is 'covered' for the full claimed amount, so the deny step does not apply. Clauses 2.1(a) and 2.2 apply: acute appendicitis with emergency surgery on 2026-08-14 is a sudden illness, and the surgeon certified no air travel for 3 weeks (discharge_summary.txt).",
+            "Risk level is low with no flags, so the investigate step does not apply. Amounts match the documents (flight USD 842.00 per airline_cancellation.txt, hotel USD 1,150.00 per hotel_invoice.txt, total USD 1,992.00) and dates are consistent across sources.",
+            "No required document is missing, so the request_information step does not apply. The discharge summary, airline cancellation and hotel invoice cover the illness and both prepaid, non-refundable costs.",
+            "No reductions or exclusions apply. Cancellation on 2026-08-15 was within 72 hours of the illness (clause 2.3), the illness arose more than 14 days after the 2026-06-02 purchase (clause 2.4), and there is no relevant prior history (clause 5.1).",
+            "The covered amount of USD 1,992.00 is under the Essentials trip cancellation limit of USD 3,000 (clause 2.2), so full payment of USD 1,992.00 is proposed. An adjuster should confirm per the large-payout review rule if the payout meets that threshold."
+          ]
+        },
+        "routing": {
+          "route": "auto",
+          "reasons": []
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2146,
+            "output_tokens": 622,
+            "seconds": 3.07
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4265,
+            "output_tokens": 629,
+            "seconds": 4.81
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2413,
+            "output_tokens": 790,
+            "seconds": 4.01
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1679,
+            "output_tokens": 482,
+            "seconds": 4.07
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_002",
+        "trial": 2,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 12,
+        "unsupported": [],
+        "cost_usd": 0.026906299999999998,
+        "seconds": 19.45
+      },
+      "result": {
+        "claim_id": "claim_002",
+        "extraction": {
+          "claimant_name": "Mei Lin Zhou",
+          "policy_number": "WTP-PLS-200118",
+          "claim_type": "baggage_delay",
+          "incident_date": "2026-09-11",
+          "incident_location": "Haneda",
+          "claimed_items": [
+            {
+              "description": "Toiletries (toothbrush, toothpaste, deodorant, shampoo, face wash)",
+              "amount": 38.5
+            },
+            {
+              "description": "1 shirt and 1 pair of trousers",
+              "amount": 214.0
+            },
+            {
+              "description": "Underwear (3) and socks (3)",
+              "amount": 29.99
+            }
+          ],
+          "total_claimed": 282.49,
+          "currency": "USD",
+          "supporting_documents": [
+            "baggage_delay_report.txt",
+            "receipt_drugstore.txt",
+            "receipt_clothing.txt",
+            "receipt_underwear.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "covered",
+          "applicable_clauses": [
+            "3.1",
+            "3.3"
+          ],
+          "covered_amount": 282.49,
+          "reasoning": "The bag was delayed from arrival on 2026-09-11 14:20 to delivery on 2026-09-12 20:30, about 30 hours. That is more than 12 hours on the outbound journey and spans two full or part 24-hour periods. Under clause 3.1 on the Plus plan (150 per day, maximum 5 days), the cap is 2 x 150 = 300. All three itemised receipts are for essential toiletries and clothing bought before the bag was delivered. The total of 282.49 is under the 300 cap, and the policy sets no per-item cap on delay purchases. The carrier's property irregularity report (HNDPC41887) satisfies clause 3.3. The claim was submitted on 2026-09-28, within 90 days (clause 6.1). The full amount is payable."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "No flags apply. The policy was bought 2026-08-01, about 41 days before the 2026-09-11 incident. The carrier report (HNDPC41887) confirms arrival 2026-09-11 14:20 and delivery 2026-09-12 20:30, matching the narrative. The three receipts (2026-09-11 18:05, 2026-09-11 19:20, 2026-09-12 10:15) fall between arrival and delivery, which fits purchases made during the delay. The receipt amounts (38.50, 214.00, 29.99) sum to the claimed total of 282.49. No duplicate receipts appear. The claim was submitted 2026-09-28, 17 days after the incident."
+        },
+        "recommendation": {
+          "next_step": "pay",
+          "reasons": [
+            "Coverage: the assessment found the claim covered under clauses 3.1 and 3.3, with a covered amount of 282.49 USD, the full claimed total. Deny does not apply.",
+            "Risk: the level is low with no flags (policy bought about 41 days before the incident, no duplicate receipts, amounts match the claim). Investigate does not apply.",
+            "Documents: the carrier's property irregularity report HNDPC41887 satisfies clause 3.3, and receipts were supplied for all three claimed items (receipt_drugstore.txt 38.50, receipt_clothing.txt 214.00, receipt_underwear.txt 29.99). No required document is missing, so request_information does not apply.",
+            "Amount: the roughly 30-hour delay (arrival 2026-09-11 14:20, delivery 2026-09-12 20:30) gives a clause 3.1 cap of 2 x 150 = 300 on the Plus plan. The 282.49 claimed is under that cap.",
+            "Timing: the claim was submitted 2026-09-28, within the 90-day limit in clause 6.1, and the receipts are dated between arrival and delivery.",
+            "Recommend paying 282.49 USD in full. This is a proposal, and an adjuster decides if the payout is considered large."
+          ]
+        },
+        "routing": {
+          "route": "auto",
+          "reasons": []
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2053,
+            "output_tokens": 501,
+            "seconds": 2.4
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4187,
+            "output_tokens": 990,
+            "seconds": 8.34
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2335,
+            "output_tokens": 858,
+            "seconds": 4.71
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1587,
+            "output_tokens": 434,
+            "seconds": 4.0
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_003",
+        "trial": 2,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 12,
+        "unsupported": [],
+        "cost_usd": 0.022227900000000002,
+        "seconds": 15.9
+      },
+      "result": {
+        "claim_id": "claim_003",
+        "extraction": {
+          "claimant_name": "Carlos Mendes",
+          "policy_number": "WTP-PLS-200342",
+          "claim_type": "emergency_medical",
+          "incident_date": "2026-07-17",
+          "incident_location": "Marked Edelweiss trail above Zermatt",
+          "claimed_items": [
+            {
+              "description": "Emergency room",
+              "amount": 1150.0
+            },
+            {
+              "description": "X-rays",
+              "amount": 420.0
+            },
+            {
+              "description": "Reduction and cast",
+              "amount": 3960.0
+            },
+            {
+              "description": "Follow-up consultation",
+              "amount": 950.0
+            }
+          ],
+          "total_claimed": 6480.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "visp_hospital_invoice.txt",
+            "followup_invoice.txt",
+            "medical_report.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "covered",
+          "applicable_clauses": [
+            "4.1",
+            "5.5"
+          ],
+          "covered_amount": 6480.0,
+          "reasoning": "Under clause 4.1, the left distal radius fracture was a sudden injury that first occurred on 2026-07-17, inside the insured trip (12-26 July). The Plus plan has a 250,000 limit and a 0 deductible. Under clause 5.5, hiking on a marked trail is not a hazardous activity, so the exclusion does not apply. The medical report states there was no prior wrist injury, so no pre-existing condition issue arises under 1.2 or 5.1. The items total 6,480 (hospital invoice 5,530 plus follow-up 950), which matches the claim. Nothing suggests the charges are not reasonable and customary. Total treatment cost is under 10,000, so the 4.2 notification requirement does not apply. The claim was submitted 17 days after the incident, within the 90-day limit in 6.1. Itemised invoices are provided. The full 6,480 is payable."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "Policy was purchased 2026-06-20, 27 days before the 2026-07-17 incident, so the 14-day threshold is not met. The incident date of 2026-07-17 matches the narrative, the Visp invoice and the medical report. The claimed items match the invoices: Visp items total $5,530.00 (1,150 + 420 + 3,960) and the Praxis Matterhorn follow-up is $950.00, for $6,480.00 overall. The follow-up visit on 2026-07-24 fits the narrative and the medical report's fit-to-fly date of 2026-07-25. The claim was submitted 2026-08-03, 17 days after the incident. No carrier report is required because this is a medical claim, and no receipts are offered as proof of item ownership."
+        },
+        "recommendation": {
+          "next_step": "pay",
+          "reasons": [
+            "Coverage assessment decision is 'covered' for the full 6,480.00 USD, so the deny step does not apply. Clauses 4.1 (sudden injury on 2026-07-17 within the insured trip of 12-26 July) and 5.5 (hiking on a marked trail is not a hazardous activity) support coverage.",
+            "Risk level is low with no flags, so investigate does not apply. The policy was purchased 27 days before the incident (beyond the 14-day threshold), and the incident date is consistent across the narrative, the Visp invoice and the medical report.",
+            "No required document is missing, so request_information does not apply. Itemised invoices were provided (visp_hospital_invoice.txt at 5,530.00 and followup_invoice.txt at 950.00) along with medical_report.txt, and the totals match the claimed 6,480.00. The 4.2 notification requirement does not apply because treatment cost is under 10,000, and the claim was filed 17 days after the incident, within the 90-day limit in 6.1.",
+            "Recommend paying the full covered amount of 6,480.00 USD under the Plus plan (250,000 limit, 0 deductible). This is a proposal; an adjuster decides large payouts."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "payout 6,480.00 above 2,500 threshold"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2014,
+            "output_tokens": 503,
+            "seconds": 3.05
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4132,
+            "output_tokens": 549,
+            "seconds": 4.48
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2280,
+            "output_tokens": 738,
+            "seconds": 4.57
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1632,
+            "output_tokens": 416,
+            "seconds": 3.8
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_004",
+        "trial": 2,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 9,
+        "unsupported": [],
+        "cost_usd": 0.0217479,
+        "seconds": 14.15
+      },
+      "result": {
+        "claim_id": "claim_004",
+        "extraction": {
+          "claimant_name": "Aisha Bello",
+          "policy_number": "WTP-ESS-100587",
+          "claim_type": "trip_cancellation",
+          "incident_date": "2026-08-29",
+          "incident_location": null,
+          "claimed_items": [
+            {
+              "description": "Flights (Southern Cross Air booking TR88JX, non-refundable fare)",
+              "amount": 1780.0
+            },
+            {
+              "description": "Safari lodge deposit (Kloofwater Safari Lodge, non-refundable)",
+              "amount": 860.0
+            }
+          ],
+          "total_claimed": 2640.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "gastroenterologist_letter.txt",
+            "flight_cancellation.txt",
+            "lodge_cancellation.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "not_covered",
+          "applicable_clauses": [
+            "1.2",
+            "5.1"
+          ],
+          "covered_amount": 0.0,
+          "reasoning": "The cancellation is for a Crohn's disease flare, which would normally fall under 2.1(a). The policy was bought on 2026-07-10, so the 90-day look-back in 1.2 runs from about 2026-04-11. The doctor's letter says the medication was changed on 2026-05-28, which is inside that window, so Crohn's is a pre-existing condition under 1.2. Exclusion 5.1 therefore applies. The waiver in 5.1 is only available on the Plus plan, and this is an Essentials policy, so the waiver cannot apply. The other conditions are met: the flare arose on 2026-08-29, outside the 2.4 waiting period, and cancellation was on 2026-08-30, within 72 hours under 2.3. The exclusion still decides the outcome, so nothing is payable."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "No flags apply. The policy was bought 2026-07-10, 50 days before the 2026-08-29 incident, so the 14-day window does not apply. The claim is a trip cancellation, so the receipt and carrier-report checks do not apply. The claimed amounts match the documents: flights $1,780.00 (Southern Cross Air TR88JX) plus lodge deposit $860.00 (Kloofwater), totalling $2,640.00. Dates agree across sources: the flare on 2026-08-29 in the narrative and the gastroenterologist letter, cancellations on 2026-08-30 in both carrier and lodge documents, the 2026-09-05 departure matching the policy record, and the lodge deposit paid 2026-04-02 matching the policy's initial deposit date. The claim was submitted 2026-09-08, 10 days after the incident, so it is not late."
+        },
+        "recommendation": {
+          "next_step": "deny",
+          "reasons": [
+            "Coverage assessment decision is not_covered with a covered amount of $0.00 of the $2,640.00 claimed, so deny applies first in the order of precedence.",
+            "Clause 1.2 (pre-existing condition, 90-day look-back): the policy was bought 2026-07-10, so the look-back runs from about 2026-04-11. The gastroenterologist letter shows the Crohn's medication was changed on 2026-05-28, inside that window, so the Crohn's disease is pre-existing.",
+            "Exclusion 5.1 applies to the pre-existing condition. Its waiver is only available on the Plus plan and this is an Essentials policy (WTP-ESS-100587), so the waiver cannot apply.",
+            "Other conditions are met and do not change the outcome: the flare on 2026-08-29 is outside the 2.4 waiting period and cancellation on 2026-08-30 is within the 72 hours in 2.3, but the exclusion still decides the claim.",
+            "Risk level is low with no flags, and amounts and dates match the documents (flights $1,780.00 TR88JX, Kloofwater deposit $860.00), so there is no fraud concern. The denial rests solely on coverage.",
+            "This is a proposal only: an adjuster must decide every denial."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "recommended denial"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2027,
+            "output_tokens": 388,
+            "seconds": 1.97
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4119,
+            "output_tokens": 498,
+            "seconds": 4.37
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2267,
+            "output_tokens": 709,
+            "seconds": 3.8
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1616,
+            "output_tokens": 432,
+            "seconds": 4.01
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_005",
+        "trial": 2,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": 1.0,
+        "flag_recall": 1.0,
+        "next_step": true,
+        "route": true,
+        "values_checked": 10,
+        "unsupported": [],
+        "cost_usd": 0.027733499999999998,
+        "seconds": 22.38
+      },
+      "result": {
+        "claim_id": "claim_005",
+        "extraction": {
+          "claimant_name": "Tomasz Wisniewski",
+          "policy_number": "WTP-ESS-100902",
+          "claim_type": "baggage_loss",
+          "incident_date": "2026-10-03",
+          "incident_location": "Barcelona",
+          "claimed_items": [
+            {
+              "description": "Laptop",
+              "amount": 1400.0
+            },
+            {
+              "description": "Camera",
+              "amount": 490.0
+            }
+          ],
+          "total_claimed": 1890.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "laptop_receipt.txt",
+            "camera_receipt.txt",
+            "booking_confirmation.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "partially_covered",
+          "applicable_clauses": [
+            "3.2",
+            "3.3"
+          ],
+          "covered_amount": 490.0,
+          "reasoning": "Plan is Essentials: baggage loss limit 1,000, any one item 500, valuables combined 750. Laptop (1,400): clause 3.2 requires proof of ownership and value for items over 100, but the only receipt is dated 2026-10-06, three days after the bag was lost on 2026-10-03. It cannot show the claimant owned this laptop when the bag went missing, so it is not covered. Even if proven, it would be capped at the 500 per-item limit. Camera (490): the receipt dated 2025-12-14 proves prior ownership and value. It is a valuable (clause 1.5), is under the 500 per-item limit, and is within the 750 combined valuables limit, so it is payable under 3.2. The carrier report required by 3.3 is missing. The claimant says the baggage desk was closed on arrival and the airline confirms the bag is not found, so I accept that obtaining a report was not reasonably possible and make no reduction. The camera is paid at the claimed 490, and the adjuster may apply actual-cash-value depreciation since the camera is about 10 months old. Total paid 490 of 1,890 claimed."
+        },
+        "risk": {
+          "level": "high",
+          "flags": [
+            "policy_purchased_shortly_before_incident",
+            "receipt_dated_after_incident",
+            "missing_carrier_report"
+          ],
+          "reasoning": "The policy was bought 2026-10-01 (policy record), two days before the 2026-10-03 incident date, which the booking confirmation and intake both support. The laptop receipt (laptop_receipt.txt) is dated 2026-10-06, three days after the loss, yet it is offered as proof of owning the lost laptop; a replacement purchase after the loss would explain this, but it does not prove prior ownership. The narrative says the baggage desk was closed and no carrier report was made, and none is attached, so the baggage loss claim lacks a carrier report. Amounts reconcile ($1,400 + $490 = $1,890, matching both receipts), the camera receipt is dated 2025-12-14, both receipts use card ending 5521, and submission on 2026-10-12 is within 90 days, so no amount, duplicate, or late-submission flags apply. Three flags together warrant high risk for adjuster review, though each has a possible innocent explanation."
+        },
+        "recommendation": {
+          "next_step": "investigate",
+          "reasons": [
+            "Deny does not apply: the coverage assessment found the claim partially covered. The camera (490) is payable under clause 3.2, supported by camera_receipt.txt dated 2025-12-14 that proves prior ownership and value.",
+            "Investigate applies: the risk assessment level is high. Flags: policy_purchased_shortly_before_incident (policy bought 2026-10-01, incident 2026-10-03), receipt_dated_after_incident (laptop_receipt.txt dated 2026-10-06, three days after the loss), and missing_carrier_report.",
+            "Laptop (1,400) is not covered under clause 3.2: the only receipt post-dates the 2026-10-03 loss and cannot prove prior ownership. Even if proven, it would be capped at the 500 per-item limit. A replacement purchase after the loss could explain the receipt date, which is what the investigation should clarify.",
+            "Clause 3.3 carrier report is missing, but coverage accepted the claimant's explanation (baggage desk closed on arrival, airline confirms bag not found) and made no reduction. Because risk is high, request_information does not apply, and the missing report is a risk flag for the investigation to verify.",
+            "Covered amount is 490 of 1,890 claimed. Payment is on hold pending the investigation, and an adjuster must decide because of the high risk rating. The adjuster may also apply actual-cash-value depreciation to the camera, which is about 10 months old."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "recommended investigation",
+            "fraud flags: policy_purchased_shortly_before_incident, receipt_dated_after_incident, missing_carrier_report"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 1870,
+            "output_tokens": 471,
+            "seconds": 3.16
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 3917,
+            "output_tokens": 1026,
+            "seconds": 8.52
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2065,
+            "output_tokens": 1157,
+            "seconds": 6.07
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1746,
+            "output_tokens": 494,
+            "seconds": 4.63
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_006",
+        "trial": 2,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": false,
+        "flag_precision": 0.5,
+        "flag_recall": 1.0,
+        "next_step": false,
+        "route": true,
+        "values_checked": 13,
+        "unsupported": [],
+        "cost_usd": 0.021652,
+        "seconds": 18.88
+      },
+      "result": {
+        "claim_id": "claim_006",
+        "extraction": {
+          "claimant_name": "Grace Whitfield",
+          "policy_number": "WTP-ESS-101144",
+          "claim_type": "baggage_delay",
+          "incident_date": "2026-10-19",
+          "incident_location": "Dublin",
+          "claimed_items": [
+            {
+              "description": "Toiletries purchased at Boots (receipt attached as receipt_toiletries_1.txt)",
+              "amount": 64.2
+            },
+            {
+              "description": "Toiletries purchased at Boots (second receipt attached as receipt_toiletries_2.txt)",
+              "amount": 64.2
+            },
+            {
+              "description": "Change of clothes purchased at Penneys",
+              "amount": 45.0
+            }
+          ],
+          "total_claimed": 173.4,
+          "currency": "USD",
+          "supporting_documents": [
+            "delay_report.txt",
+            "receipt_toiletries_1.txt",
+            "receipt_toiletries_2.txt",
+            "receipt_clothes.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "partially_covered",
+          "applicable_clauses": [
+            "3.1",
+            "3.3",
+            "6.2"
+          ],
+          "covered_amount": 100.0,
+          "reasoning": "Bag arrived 07:05 on 19 Oct and was delivered at 23:10, a delay of about 16 hours. That is over the 12-hour threshold in 3.1, and the carrier report (property irregularity report) required by 3.3 is provided. The delay falls within one part 24-hour period, so the Essentials daily cap of 100 applies (3.1). The two toiletries receipts are the same receipt (no. 4471-2290, same store, time and amount), and under 6.2 each receipt may be claimed once, so the duplicate 64.20 is excluded. Eligible purchases are 64.20 + 45.00 = 109.20, and the daily cap limits payment to 100. The total claimed is 173.40, so the claim is partially covered."
+        },
+        "risk": {
+          "level": "high",
+          "flags": [
+            "duplicate_receipt",
+            "amounts_inconsistent"
+          ],
+          "reasoning": "receipt_toiletries_1.txt and receipt_toiletries_2.txt are the same Boots receipt (no. 4471-2290, 2026-10-19 10:12, USD 64.20, same items), yet the intake claims both as separate purchases and the narrative describes the second as a different receipt. Total claimed is 173.40 (64.20 + 64.20 + 45.00), but the documents support only 109.20 (64.20 + 45.00). The duplicated receipt and the resulting overstatement together make this high risk for an adjuster to review. No other flags apply: the policy was bought 2026-09-15, 34 days before the 2026-10-19 incident; the delay_report.txt from Emerald Wing matches the 07:05 arrival and 23:10 bag delivery in the narrative; the Boots and Penneys receipts (10:12 and 11:40 on 2026-10-19) fall after the delay began, as expected for delay purchases; and the claim was submitted 2026-10-28, within 90 days."
+        },
+        "recommendation": {
+          "next_step": "investigate",
+          "reasons": [
+            "Coverage is partially covered, not fully denied, so deny does not apply: clauses 3.1 and 3.3 are met (about 16-hour bag delay exceeds the 12-hour threshold, and the carrier property irregularity report delay_report.txt is provided), with covered_amount of 100.00 under the Essentials daily cap in 3.1.",
+            "Risk level is high, so investigate applies ahead of request_information or pay. Flag duplicate_receipt: receipt_toiletries_1.txt and receipt_toiletries_2.txt are the same Boots receipt (no. 4471-2290, 2026-10-19 10:12, USD 64.20), yet both were claimed as separate purchases.",
+            "Flag amounts_inconsistent: total claimed is 173.40 but the documents support only 109.20 (64.20 + 45.00). Clause 6.2 allows each receipt to be claimed once, so the duplicate 64.20 is excluded. The overstatement needs adjuster review for possible misrepresentation.",
+            "No required document is missing (delay_report.txt and receipts are present), and the other checks are clean: policy bought 34 days before the incident, delay report matches the narrative, purchases made after the delay began, and the claim was filed within 90 days. The concern is limited to the duplicated receipt.",
+            "This is a proposal for adjuster review because of the fraud-related flags. If the adjuster clears the claim, the payable amount is 100.00 (eligible 109.20 capped at the daily limit)."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "recommended investigation",
+            "fraud flags: duplicate_receipt, amounts_inconsistent"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2062,
+            "output_tokens": 931,
+            "seconds": 4.25
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4215,
+            "output_tokens": 299,
+            "seconds": 2.87
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2363,
+            "output_tokens": 1396,
+            "seconds": 6.62
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1738,
+            "output_tokens": 515,
+            "seconds": 5.14
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_001",
+        "trial": 3,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 10,
+        "unsupported": [],
+        "cost_usd": 0.0246424,
+        "seconds": 17.58
+      },
+      "result": {
+        "claim_id": "claim_001",
+        "extraction": {
+          "claimant_name": "Daniel Okafor",
+          "policy_number": "WTP-ESS-100231",
+          "claim_type": "trip_cancellation",
+          "incident_date": "2026-08-14",
+          "incident_location": "St. Bartholomew's Hospital",
+          "claimed_items": [
+            {
+              "description": "Flight (Atlantic Arc Airways booking QZ7K2M, BOS-LIS 2026-08-20)",
+              "amount": 842.0
+            },
+            {
+              "description": "Hotel (Casa do Miradouro, Lisbon, 10 nights from 2026-08-20)",
+              "amount": 1150.0
+            }
+          ],
+          "total_claimed": 1992.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "discharge_summary.txt",
+            "airline_cancellation.txt",
+            "hotel_invoice.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "covered",
+          "applicable_clauses": [
+            "2.1",
+            "2.2"
+          ],
+          "covered_amount": 1992.0,
+          "reasoning": "Clause 2.1(a): the insured had sudden acute appendicitis with emergency surgery on 2026-08-14. The consultant surgeon advised no air travel for 3 weeks, which makes the 2026-08-20 departure inadvisable. The flight (842.00) and hotel (1,150.00) were prepaid and non-refundable, and both suppliers confirm 0 refunded. Clause 2.3 is met: the insured learned of the reason on 08-14 and cancelled on 08-15, within 72 hours. Clause 2.4 does not apply because the reason arose 74 days after the 2026-06-02 purchase. Clause 5.1 does not apply because the discharge summary shows no relevant prior history. The claim was submitted on 08-25, within 90 days (6.1). The total of 1,992.00 is under the Essentials trip cancellation limit of 3,000 (2.2), and no deductible applies to cancellation, so it is paid in full."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "No flags apply. The policy was purchased 2026-06-02, 73 days before the 2026-08-14 incident, so it is outside the 14-day window. The claim is for trip cancellation, so the receipt-date, baggage-report and duplicate-receipt checks do not apply. Claimed amounts match the documents: flight USD 842.00 matches the Atlantic Arc Airways letter (booking QZ7K2M) and hotel USD 1,150.00 matches the Casa do Miradouro invoice, totalling USD 1,992.00. Dates are consistent across the narrative, discharge summary (admitted and operated on 2026-08-14), carrier cancellation (2026-08-15), hotel invoice (stay 2026-08-20 to 2026-08-30) and policy trip record. The claim was submitted 2026-08-25, 11 days after the incident, so it is not late."
+        },
+        "recommendation": {
+          "next_step": "pay",
+          "reasons": [
+            "Coverage: the assessment found the claim covered under clauses 2.1(a) and 2.2. The insured had emergency surgery for acute appendicitis on 2026-08-14 and the surgeon advised no air travel for 3 weeks, which is evidenced by discharge_summary.txt.",
+            "Covered amount: the full 1,992.00 USD (flight 842.00 and hotel 1,150.00) is within the 3,000 Essentials trip cancellation limit (2.2). No deductible applies to cancellation. Both suppliers confirm 0 refunded (airline_cancellation.txt, hotel_invoice.txt).",
+            "Conditions met: the insured cancelled on 2026-08-15, within 72 hours of learning of the reason on 08-14 (2.3). The claim was submitted 2026-08-25, within the 90-day limit (6.1). The pre-existing condition exclusion (5.1) does not apply, and the purchase-date exclusion (2.4) does not apply because the reason arose 74 days after purchase.",
+            "Risk: the level is low with no flags. Claimed amounts match the airline letter (booking QZ7K2M) and the hotel invoice, and dates are consistent across all documents, so investigation is not warranted.",
+            "Documents: discharge_summary.txt, airline_cancellation.txt and hotel_invoice.txt are all present, so no required document is missing and no information request is needed.",
+            "Adjuster note: this is a proposal only. An adjuster should review the payout before release if the 1,992.00 USD amount counts as a large payout under internal thresholds."
+          ]
+        },
+        "routing": {
+          "route": "auto",
+          "reasons": []
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2146,
+            "output_tokens": 590,
+            "seconds": 3.06
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4265,
+            "output_tokens": 612,
+            "seconds": 4.91
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2413,
+            "output_tokens": 919,
+            "seconds": 4.52
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1696,
+            "output_tokens": 539,
+            "seconds": 5.09
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_002",
+        "trial": 3,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 12,
+        "unsupported": [],
+        "cost_usd": 0.027027100000000002,
+        "seconds": 21.16
+      },
+      "result": {
+        "claim_id": "claim_002",
+        "extraction": {
+          "claimant_name": "Mei Lin Zhou",
+          "policy_number": "WTP-PLS-200118",
+          "claim_type": "baggage_delay",
+          "incident_date": "2026-09-11",
+          "incident_location": "Haneda",
+          "claimed_items": [
+            {
+              "description": "Toiletries (drugstore purchase, Hoshino Drugstore, Shinjuku, 2026-09-11)",
+              "amount": 38.5
+            },
+            {
+              "description": "1 shirt and 1 pair of trousers (Kumo Apparel, Shinjuku, 2026-09-11)",
+              "amount": 214.0
+            },
+            {
+              "description": "Underwear (3) and socks (3) (Kumo Apparel, Shinjuku, 2026-09-12)",
+              "amount": 29.99
+            }
+          ],
+          "total_claimed": 282.49,
+          "currency": "USD",
+          "supporting_documents": [
+            "baggage_delay_report.txt",
+            "receipt_drugstore.txt",
+            "receipt_clothing.txt",
+            "receipt_underwear.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "covered",
+          "applicable_clauses": [
+            "3.1",
+            "3.3"
+          ],
+          "covered_amount": 282.49,
+          "reasoning": "Under clause 3.1 the checked bag was delayed on the outbound journey from arrival at 2026-09-11 14:20 to delivery at 2026-09-12 20:30, about 30 hours. That is over the 12-hour threshold and counts as 2 full or part 24-hour periods. On the Plus plan that gives a ceiling of 2 x 150 = 300, within the 5-day maximum. I read the daily amount as an aggregate ceiling over the delay, not a cap on each calendar day's spending. The claimed items are toiletries, a shirt and trousers, and underwear and socks. These are essential toiletries and clothing, with itemised receipts dated during the delay, and they total 282.49, which is under 300. The carrier property irregularity report (HNDPC41887) was obtained, so clause 3.3 is met. The claim was submitted on 2026-09-28, within the 90-day limit in clause 6.1. The full amount is payable."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "Policy WTP-PLS-200118 was purchased 2026-08-01, 41 days before the 2026-09-11 incident, so the 14-day purchase flag does not apply. The carrier Property Irregularity Report (HNDPC41887) confirms the bag was not received on arrival at 2026-09-11 14:20 and was delivered 2026-09-12 20:30, matching the narrative. The three receipts (Hoshino Drugstore 2026-09-11 18:05 for $38.50, Kumo Apparel 2026-09-11 19:20 for $214.00, Kumo Apparel 2026-09-12 10:15 for $29.99) are dated after the loss, which is expected for delay purchases. The line items sum to $282.49, matching the narrative and intake total. No receipt is duplicated. The claim was submitted 2026-09-28, 17 days after the incident, so it is not late."
+        },
+        "recommendation": {
+          "next_step": "pay",
+          "reasons": [
+            "Coverage assessment decision is 'covered', so the deny step does not apply. Clauses 3.1 and 3.3 apply and the covered amount is 282.49 USD, the full amount claimed.",
+            "Risk level is low with no flags, so investigate does not apply. Policy WTP-PLS-200118 was bought 41 days before the incident, so the 14-day purchase flag is not triggered. The carrier Property Irregularity Report HNDPC41887 matches the claimed delay timeline, and no receipt is duplicated.",
+            "No required document is missing, so request_information does not apply. Clause 3.3 is met by carrier report HNDPC41887. Itemised receipts were supplied for all three purchases: receipt_drugstore.txt (38.50), receipt_clothing.txt (214.00) and receipt_underwear.txt (29.99).",
+            "The delay ran about 30 hours (arrival 2026-09-11 14:20, delivery 2026-09-12 20:30), over the 12-hour threshold in clause 3.1. That gives 2 periods x 150 = 300 on the Plus plan. The claimed 282.49 is under this ceiling and the items are essential toiletries and clothing bought during the delay.",
+            "The claim was submitted 2026-09-28, 17 days after the incident and within the 90-day limit in clause 6.1. Recommend paying 282.49 USD. This is a proposal, and an adjuster should confirm if the payout size requires review."
+          ]
+        },
+        "routing": {
+          "route": "auto",
+          "reasons": []
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2053,
+            "output_tokens": 516,
+            "seconds": 2.3
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4245,
+            "output_tokens": 887,
+            "seconds": 6.92
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2393,
+            "output_tokens": 853,
+            "seconds": 4.5
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1769,
+            "output_tokens": 500,
+            "seconds": 7.44
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_003",
+        "trial": 3,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 11,
+        "unsupported": [],
+        "cost_usd": 0.021183399999999998,
+        "seconds": 18.78
+      },
+      "result": {
+        "claim_id": "claim_003",
+        "extraction": {
+          "claimant_name": "Carlos Mendes",
+          "policy_number": "WTP-PLS-200342",
+          "claim_type": "emergency_medical",
+          "incident_date": "2026-07-17",
+          "incident_location": "Marked Edelweiss trail above Zermatt",
+          "claimed_items": [
+            {
+              "description": "Emergency room",
+              "amount": 1150.0
+            },
+            {
+              "description": "X-rays",
+              "amount": 420.0
+            },
+            {
+              "description": "Reduction and cast",
+              "amount": 3960.0
+            },
+            {
+              "description": "Follow-up consultation",
+              "amount": 950.0
+            }
+          ],
+          "total_claimed": 6480.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "visp_hospital_invoice.txt",
+            "followup_invoice.txt",
+            "medical_report.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "covered",
+          "applicable_clauses": [
+            "4.1"
+          ],
+          "covered_amount": 6480.0,
+          "reasoning": "The displaced distal radius fracture occurred on 2026-07-17, during the insured trip (12-26 July), so it is a sudden injury that first occurred in the trip. The medical report notes no prior wrist injury, so clause 5.1 does not apply. Hiking on a marked trail is expressly not a hazardous activity under 5.5. The treatment was emergency care (ER, X-rays, reduction and cast) and a follow-up visit on 2026-07-24, within the trip. The invoices total 5,530 + 950 = 6,480, which matches the amount claimed. The Plus plan has a 250,000 limit and a 0 deductible under 4.1. The 10,000 notification threshold in 4.2 is not reached. The claim was submitted within 90 days under 6.1. The full amount is payable."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "No flags apply. The policy was bought 2026-06-20, 27 days before the 2026-07-17 incident, outside the 14-day window. This is a medical claim, so no carrier report is required, and no receipt is offered as proof of owning a lost or damaged item. The Visp invoice lines (1,150 + 420 + 3,960) sum to its stated 5,530 total, and with the 950 follow-up invoice they match the 6,480 claimed. The narrative, Visp invoice and medical report all give 2026-07-17 as the injury date, and the 2026-07-24 follow-up fits the medical report's fit-to-fly date of 2026-07-25 and the 2026-07-26 return. The claim was submitted 2026-08-03, 17 days after the incident, so it is not late."
+        },
+        "recommendation": {
+          "next_step": "pay",
+          "reasons": [
+            "Coverage assessment found the claim covered under clause 4.1 for the full 6,480.00 USD. The fracture occurred on 2026-07-17 during the insured trip (12-26 July), so deny does not apply.",
+            "Risk level is low with no flags. The policy was bought 27 days before the incident, outside the 14-day window, and the invoices, medical report and narrative are consistent, so investigate does not apply.",
+            "No required document is missing. The Visp hospital invoice (5,530 total), the follow-up invoice (950) and the medical report support all four claimed items, which total 6,480 and match the covered amount, so request_information does not apply.",
+            "Policy terms support payment in full. The Plus plan limit is 250,000 with a 0 deductible under 4.1, the claim was submitted within 90 days under 6.1, clause 5.1 (pre-existing condition) does not apply because the medical report notes no prior wrist injury, and marked-trail hiking is not a hazardous activity under 5.5.",
+            "The 10,000 notification threshold in clause 4.2 is not reached, so no large-payout review is triggered."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "payout 6,480.00 above 2,500 threshold"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2014,
+            "output_tokens": 415,
+            "seconds": 2.79
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4132,
+            "output_tokens": 492,
+            "seconds": 4.17
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2280,
+            "output_tokens": 697,
+            "seconds": 4.15
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1602,
+            "output_tokens": 381,
+            "seconds": 7.67
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_004",
+        "trial": 3,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 1.0,
+        "coverage_correct": true,
+        "risk_level": true,
+        "flag_precision": null,
+        "flag_recall": null,
+        "next_step": true,
+        "route": true,
+        "values_checked": 9,
+        "unsupported": [],
+        "cost_usd": 0.0229437,
+        "seconds": 15.52
+      },
+      "result": {
+        "claim_id": "claim_004",
+        "extraction": {
+          "claimant_name": "Aisha Bello",
+          "policy_number": "WTP-ESS-100587",
+          "claim_type": "trip_cancellation",
+          "incident_date": "2026-08-29",
+          "incident_location": null,
+          "claimed_items": [
+            {
+              "description": "Flights (non-refundable fare, booking TR88JX)",
+              "amount": 1780.0
+            },
+            {
+              "description": "Safari lodge deposit (non-refundable)",
+              "amount": 860.0
+            }
+          ],
+          "total_claimed": 2640.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "gastroenterologist_letter.txt",
+            "flight_cancellation.txt",
+            "lodge_cancellation.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "not_covered",
+          "applicable_clauses": [
+            "1.2",
+            "5.1"
+          ],
+          "covered_amount": 0.0,
+          "reasoning": "The cancellation was caused by a Crohn's disease flare. Under clause 1.2, a pre-existing condition includes one where prescribed medication changed in the 90 days before purchase. The policy was bought on 2026-07-10, so the window runs from about 2026-04-11. The doctor's letter says her medication was changed on 2026-05-28, which falls inside it, and she also received ongoing care. Clause 5.1 excludes claims arising from pre-existing conditions. The waiver is only available on the Plus plan, and this is an Essentials policy, so it cannot apply. The 14-day waiting period in clause 2.4 is not an issue, since the flare was on 2026-08-29, well after purchase. Prompt cancellation under clause 2.3 was also met, since she cancelled on 2026-08-30. None of that changes the outcome, because the exclusion applies. Nothing is payable."
+        },
+        "risk": {
+          "level": "low",
+          "flags": [],
+          "reasoning": "Checked each flag against the record. The policy was bought 2026-07-10, about 50 days before the 2026-08-29 incident, so policy_purchased_shortly_before_incident does not apply. The claim is a trip cancellation, not a lost or damaged item, so no receipt-date or carrier-report flags apply. The claimed amounts match the documents: flights $1,780.00 (carrier letter, booking TR88JX) and lodge deposit $860.00 (invoice), totalling $2,640.00. Dates are consistent across the narrative and documents: the incident on 2026-08-29 matches the gastroenterologist letter, cancellations on 2026-08-30 match both carrier and lodge letters, the 2026-04-02 deposit matches the policy record, and the 2026-09-05 departure matches the policy trip record. The claim was submitted 2026-09-08, 10 days after the incident, so it is not late. No duplicate receipts appear."
+        },
+        "recommendation": {
+          "next_step": "deny",
+          "reasons": [
+            "Coverage assessment decision is not_covered with a covered amount of $0.00 out of $2,640.00 claimed, so the first rule (deny) applies.",
+            "Clause 1.2 (pre-existing condition): the gastroenterologist letter shows her Crohn's disease medication was changed on 2026-05-28, inside the 90-day look-back window before the 2026-07-10 purchase (window starts about 2026-04-11). She also received ongoing care for the condition.",
+            "Clause 5.1 excludes claims arising from pre-existing conditions. The cancellation was caused by a Crohn's flare on 2026-08-29, so the exclusion applies to both the flights ($1,780.00, booking TR88JX) and the lodge deposit ($860.00).",
+            "The pre-existing condition waiver is only available on the Plus plan. Policy WTP-ESS-100587 is an Essentials policy, so the waiver cannot apply.",
+            "Other conditions were met and do not change the outcome: the clause 2.4 waiting period is not an issue (flare was well after purchase) and prompt cancellation under clause 2.3 was satisfied (cancelled 2026-08-30).",
+            "Risk assessment is low with no flags, and the documents are consistent, so this is a coverage-based denial and not a fraud concern. A denial is only a proposal and requires adjuster review and decision."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "recommended denial"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2027,
+            "output_tokens": 358,
+            "seconds": 1.91
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4097,
+            "output_tokens": 576,
+            "seconds": 5.17
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2245,
+            "output_tokens": 863,
+            "seconds": 4.82
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1646,
+            "output_tokens": 466,
+            "seconds": 3.62
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_005",
+        "trial": 3,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": true,
+        "clause_recall": 0.5,
+        "coverage_correct": false,
+        "risk_level": true,
+        "flag_precision": 1.0,
+        "flag_recall": 1.0,
+        "next_step": true,
+        "route": true,
+        "values_checked": 9,
+        "unsupported": [],
+        "cost_usd": 0.027498,
+        "seconds": 22.22
+      },
+      "result": {
+        "claim_id": "claim_005",
+        "extraction": {
+          "claimant_name": "Tomasz Wisniewski",
+          "policy_number": "WTP-ESS-100902",
+          "claim_type": "baggage_loss",
+          "incident_date": "2026-10-03",
+          "incident_location": "Barcelona",
+          "claimed_items": [
+            {
+              "description": "Laptop",
+              "amount": 1400.0
+            },
+            {
+              "description": "Camera",
+              "amount": 490.0
+            }
+          ],
+          "total_claimed": 1890.0,
+          "currency": "USD",
+          "supporting_documents": [
+            "laptop_receipt.txt",
+            "camera_receipt.txt",
+            "booking_confirmation.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "partially_covered",
+          "applicable_clauses": [
+            "3.2"
+          ],
+          "covered_amount": 490.0,
+          "reasoning": "Clause 3.2 covers lost checked baggage but requires proof of ownership and value for items over 100. The camera receipt (2025-12-14, $490) proves ownership before the trip. It is a valuable (1.5) and is within the Essentials $500 per-item limit and $750 combined valuables limit, so $490 is payable. The laptop receipt is dated 2026-10-06, three days after the bag was lost on 2026-10-03, so it cannot show the laptop was in the lost bag. Ownership at the time of loss is therefore not proven and the $1,400 is not payable. Even if it were proven, the $500 per-item and $750 valuables limits would apply. Clause 3.3: the claimant says the baggage desk was closed, which is accepted as a reason for not having a carrier report, though the adjuster may want to confirm it. No depreciation basis is available, so the camera is paid at its receipt value."
+        },
+        "risk": {
+          "level": "high",
+          "flags": [
+            "policy_purchased_shortly_before_incident",
+            "receipt_dated_after_incident",
+            "missing_carrier_report"
+          ],
+          "reasoning": "The policy (WTP-ESS-100902) was purchased on 2026-10-01, two days before the claimed baggage loss on 2026-10-03, which falls within the 14-day window. The laptop receipt (laptop_receipt.txt) is dated 2026-10-06, three days after the incident, yet the claimant says the laptop was inside the checked bag when it went missing; a later date could reflect a replacement purchase, but the claim is for the lost laptop itself. The narrative says the baggage desk was closed and no carrier report was obtained, so the baggage loss has no carrier report. The camera receipt (dated 2025-12-14), the amounts (1,400 + 490 = 1,890, matching the receipts), the incident date and the submission timing (9 days after the incident) show no other problems. Several flags together put this claim at high risk for the adjuster to review."
+        },
+        "recommendation": {
+          "next_step": "investigate",
+          "reasons": [
+            "Coverage is not 'nothing covered', so deny does not apply: the assessment found the claim partially covered under clause 3.2, with $490.00 payable for the camera (receipt camera_receipt.txt dated 2025-12-14 proves pre-trip ownership; within the $500 per-item and $750 valuables limits).",
+            "Risk level is high, which triggers investigate ahead of request_information or pay. The flags are policy_purchased_shortly_before_incident (policy WTP-ESS-100902 bought 2026-10-01, two days before the 2026-10-03 loss, inside the 14-day window), receipt_dated_after_incident, and missing_carrier_report.",
+            "The laptop receipt (laptop_receipt.txt) is dated 2026-10-06, three days after the loss, so ownership at the time of loss is unproven and the $1,400 laptop item is not payable under clause 3.2. The investigation should establish whether the laptop was actually in the lost bag or whether the receipt reflects a replacement purchase.",
+            "No carrier report exists because the claimant says the baggage desk was closed. Clause 3.3 accepts this as a reason, but the adjuster may want to confirm it, for example against the Barcelona airport desk hours.",
+            "If the investigation clears the flags, the covered amount to pay is $490.00 for the camera at receipt value (no depreciation basis available). Because a fraud-related risk flag is present, an adjuster must decide this case."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "recommended investigation",
+            "fraud flags: policy_purchased_shortly_before_incident, receipt_dated_after_incident, missing_carrier_report"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 1870,
+            "output_tokens": 532,
+            "seconds": 3.47
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 3917,
+            "output_tokens": 1022,
+            "seconds": 8.57
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2065,
+            "output_tokens": 1069,
+            "seconds": 5.96
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1635,
+            "output_tokens": 498,
+            "seconds": 4.22
+          }
+        ]
+      }
+    },
+    {
+      "score": {
+        "claim_id": "claim_006",
+        "trial": 3,
+        "error": null,
+        "extraction_fields": {
+          "claimant_name": true,
+          "policy_number": true,
+          "claim_type": true,
+          "incident_date": true,
+          "incident_location": true,
+          "claimed_items": true,
+          "total_claimed": true,
+          "currency": true,
+          "supporting_documents": true
+        },
+        "coverage_decision": true,
+        "covered_amount": false,
+        "clause_recall": 1.0,
+        "coverage_correct": false,
+        "risk_level": false,
+        "flag_precision": 0.5,
+        "flag_recall": 1.0,
+        "next_step": false,
+        "route": true,
+        "values_checked": 12,
+        "unsupported": [],
+        "cost_usd": 0.0216969,
+        "seconds": 19.83
+      },
+      "result": {
+        "claim_id": "claim_006",
+        "extraction": {
+          "claimant_name": "Grace Whitfield",
+          "policy_number": "WTP-ESS-101144",
+          "claim_type": "baggage_delay",
+          "incident_date": "2026-10-19",
+          "incident_location": "Dublin",
+          "claimed_items": [
+            {
+              "description": "Toiletries purchased at Boots",
+              "amount": 64.2
+            },
+            {
+              "description": "Second toiletries receipt (Boots)",
+              "amount": 64.2
+            },
+            {
+              "description": "Change of clothes purchased at Penneys",
+              "amount": 45.0
+            }
+          ],
+          "total_claimed": 173.4,
+          "currency": "USD",
+          "supporting_documents": [
+            "delay_report.txt",
+            "receipt_toiletries_1.txt",
+            "receipt_toiletries_2.txt",
+            "receipt_clothes.txt"
+          ]
+        },
+        "coverage": {
+          "decision": "partially_covered",
+          "applicable_clauses": [
+            "3.1",
+            "6.2"
+          ],
+          "covered_amount": 109.2,
+          "reasoning": "Clause 3.1: the bag was delayed on the outbound journey from arrival at 07:05 to delivery at 23:10 on 19 Oct, about 16 hours, which is over the 12-hour threshold. Essential toiletries and clothing are covered, and the carrier report (3.3) was obtained. One part day of delay falls under the Essentials limit of 100 per day, so the most payable is 100 for that day. The two toiletries receipts are the same document (receipt no. 4471-2290, same time and amount), and under 6.2 each receipt may be claimed once, so only one $64.20 is eligible. Eligible purchases are 64.20 + 45.00 = 109.20. The 100 daily cap applies to a single part day, so the payable amount is 100.00, not 109.20."
+        },
+        "risk": {
+          "level": "high",
+          "flags": [
+            "duplicate_receipt",
+            "amounts_inconsistent"
+          ],
+          "reasoning": "The two Boots receipts (receipt_toiletries_1.txt and receipt_toiletries_2.txt) are identical: receipt no. 4471-2290, dated 2026-10-19 10:12, USD 64.20, same item list. The narrative presents the second as a separate purchase, but the documents show only one transaction. The claimed total of USD 173.40 includes the duplicate, so it exceeds the documented total of USD 109.20 (64.20 Boots plus 45.00 Penneys). The claimed amount is therefore inconsistent with the documents, and the customer's description of a second purchase is not supported. Two flags together, with the duplicate going beyond a simple resubmission error, make this high. Other checks passed: policy purchased 2026-09-15, 34 days before the 2026-10-19 incident; the carrier report DUBEW20577 is present and matches the narrative times (arrival 07:05, delivery 23:10); receipts post-date the delay as expected for delay-driven purchases; submitted 2026-10-28, 9 days after the incident."
+        },
+        "recommendation": {
+          "next_step": "investigate",
+          "reasons": [
+            "Coverage is not 'not covered', so deny does not apply: coverage assessment found the claim partially covered under clauses 3.1 and 6.2, with a payable amount of 100.00 after the per-day Essentials cap (eligible purchases total 109.20).",
+            "Risk level is high, so investigate applies ahead of request_information or pay. Flags: duplicate_receipt and amounts_inconsistent.",
+            "Duplicate receipt: receipt_toiletries_1.txt and receipt_toiletries_2.txt are identical (Boots receipt no. 4471-2290, 2026-10-19 10:12, USD 64.20, same item list), yet the claim presents them as two separate purchases. Clause 6.2 allows each receipt to be claimed only once.",
+            "Amounts inconsistent: claimed total USD 173.40 exceeds the documented total of USD 109.20 (64.20 Boots + 45.00 Penneys) by the duplicated 64.20, and the customer's description of a second purchase is not supported by the documents.",
+            "Supporting facts that passed checks: carrier report DUBEW20577 is present (clause 3.3) and matches the narrative (arrival 07:05, delivery 23:10, about 16 hours, over the 12-hour threshold in clause 3.1); policy purchased 34 days before the incident; claim submitted 9 days after the incident.",
+            "An adjuster must decide this case because it carries fraud flags. If the investigation clears the duplicate as a submission error, the covered payable amount is 100.00."
+          ]
+        },
+        "routing": {
+          "route": "adjuster",
+          "reasons": [
+            "recommended investigation",
+            "fraud flags: duplicate_receipt, amounts_inconsistent"
+          ]
+        },
+        "agent_calls": [
+          {
+            "agent_id": "intake",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "f20dccefa0d0d0aedd7689386a1f76ba44ad994d1c9262fa3bb0b9a894736e3e",
+            "prompt_version": "intake-v1",
+            "input_tokens": 2062,
+            "output_tokens": 692,
+            "seconds": 3.1
+          },
+          {
+            "agent_id": "coverage_check",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "21666b0efcfe9bf9b3d3986deb77f10d7d135e8dbd622845fbe6b3a37ceccfc8",
+            "prompt_version": "coverage-check-v1",
+            "input_tokens": 4174,
+            "output_tokens": 310,
+            "seconds": 3.26
+          },
+          {
+            "agent_id": "risk_fraud",
+            "agent_version": "0.1.0",
+            "model": "claude-haiku-5-5",
+            "manifest_digest": "21c3d6351c15e12089107a159d361abdace20321ed8a50c217357dcd1659dda8",
+            "prompt_version": "risk-fraud-v1",
+            "input_tokens": 2322,
+            "output_tokens": 1597,
+            "seconds": 8.51
+          },
+          {
+            "agent_id": "recommendation",
+            "agent_version": "0.1.0",
+            "model": "claude-sonnet-5-5",
+            "manifest_digest": "f376708f7cac1138b3ff7a31e9032793d8eef5dcf4239f710432e2e60e83c0db",
+            "prompt_version": "recommendation-v1",
+            "input_tokens": 1718,
+            "output_tokens": 523,
+            "seconds": 4.96
+          }
+        ]
+      }
+    }
+  ]
+}
