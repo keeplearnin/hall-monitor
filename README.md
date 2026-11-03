@@ -79,6 +79,8 @@ Milestone	Extraction accuracy	Coverage-reasoning accuracy	Hallucination rate	Cos
 Baseline (single pass, 6 claims x 3 trials)	100.0%	83.3%	0.0%	$0.024	n/a
 
 Every claim was routed correctly in all 18 runs. Details: evals/results/baseline/findings.md and report.md.
+
+One-page overviews: docs/executive-brief.html for business leaders and docs/architecture.html for engineering managers and architects. Download and open them in a browser; GitHub shows HTML files as source.
 Roadmap
  1. Repo, agent registry, synthetic claims and policies with ground truth, tracing
  2. Baseline eval run, results committed
