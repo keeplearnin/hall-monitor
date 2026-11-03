@@ -1,6 +1,6 @@
 id: recommendation
 name: Recommendation
-version: 0.2.0
+version: 0.3.0
 owner: claims-ai-platform
 purpose: Propose a next step (pay, request information, investigate, deny) with reasons and evidence. Never decides denials or large payouts.
 risk_tier: high
@@ -8,3 +8,5 @@ status: active
 model: claude-sonnet-5-5
 allowed_tools: []
 data_classes: [pii, financial]
+economy_model: claude-haiku-5-5
+economy_max_claim_usd: 1000

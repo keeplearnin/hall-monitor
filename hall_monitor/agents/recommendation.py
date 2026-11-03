@@ -44,6 +44,7 @@ def run_recommendation(
     risk: RiskAssessment,
     registry: Registry,
     client: anthropic.Anthropic | None = None,
+    economy: bool = False,
 ) -> AgentRun[Recommendation]:
     content = "\n\n".join(
         [
@@ -61,4 +62,5 @@ def run_recommendation(
         output_format=Recommendation,
         prompt_version=PROMPT_VERSION,
         claim_id=claim_id,
+        economy=economy,
     )

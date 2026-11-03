@@ -73,7 +73,8 @@ def test_coverage_check_sees_the_policy_record_and_wording():
         client=client,
     )
     coverage_call = client.messages.calls[1]
-    assert "<policy_wording>" in coverage_call["system"]
+    assert "<policy_wording>" in coverage_call["system"][0]["text"]
+    assert coverage_call["system"][0]["cache_control"] == {"type": "ephemeral"}
     assert "WTP-ESS-100231" in coverage_call["messages"][0]["content"]
 
 

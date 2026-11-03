@@ -15,7 +15,7 @@ from enum import StrEnum
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 DEFAULT_REGISTRY_DIR = Path(__file__).resolve().parents[1] / "registry"
 SCHEMA_FILENAME = "agent_manifest.schema.json"
@@ -64,6 +64,20 @@ class AgentManifest(BaseModel):
     data_classes: tuple[DataClass, ...] = Field(
         default=(), description="Sensitive data categories the agent may receive."
     )
+    economy_model: str | None = Field(
+        default=None,
+        description="A cheaper model approved for small claims, used only when model routing "
+        "is on. Revisions after a critic review always use the main model.",
+    )
+    economy_max_claim_usd: float | None = Field(
+        default=None, gt=0, description="Largest total claimed that may use the economy model."
+    )
+
+    @model_validator(mode="after")
+    def _economy_fields_together(self) -> AgentManifest:
+        if (self.economy_model is None) != (self.economy_max_claim_usd is None):
+            raise ValueError("economy_model and economy_max_claim_usd must be set together")
+        return self
 
     def digest(self) -> str:
         """SHA-256 of the canonical manifest, so a run can prove which hall pass it used."""

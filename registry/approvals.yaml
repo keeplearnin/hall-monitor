@@ -2,27 +2,27 @@
 # a change to this file is an approval and should be reviewed as one.
 agents:
   coverage_check:
-    manifest_digest: 91d2983ef1e20abaf079ee2db802abcfdb7b742c9060ce879fd87baf1a728f22
+    manifest_digest: c7f2db21c94154c2047917e8b463d0023024d76a0b5531ac4480ce296c52f32b
     prompt_sha256: 7a3f6a0c3c53046b2b18123dc6ae7556d975aeba7882bc2d07080450e0fa304b
     prompt_version: coverage-check-v3
-    version: 0.3.0
+    version: 0.4.0
   critic:
-    manifest_digest: a977744b54321c5e479b96a8b9d7a0afc6643c4f805ed26526747a1ac59b9f1d
+    manifest_digest: ef44581bf4ad3f4a0c1efdb406f81b58a798b5bef0d3f609fd2334c82160c884
     prompt_sha256: 1bec59189b4c6535a772a4615805da4c52278f9c5a021acd750dea7a59b5825a
     prompt_version: critic-v2
     version: 0.2.0
   intake:
-    manifest_digest: 7b2baeb0a9960efaf52726a93adefc294d26263217d025f843a5806fdaa05d7c
+    manifest_digest: 524459146f8713edd12604c239f4686642cef37985e57e23be535daf6212ece4
     prompt_sha256: a1f3e7edeeebb404eb8bd0ddaf61052278701c1622cfd286e1c5bd59bc2332a0
     prompt_version: intake-v3
     version: 0.3.0
   recommendation:
-    manifest_digest: 9ef72531b9a9ca61269723aee10f625f75315ab6785f1a8df27504db6ef71b61
+    manifest_digest: a50b954264e7f0d5109f6e1302d16789e9a70fc0506e1c22e131bbbd23f8ea6d
     prompt_sha256: e05b4044ffac30827bbac3715f0f7a00380fcad09791b32e9e6a55c01bc1c8b8
     prompt_version: recommendation-v2
-    version: 0.2.0
+    version: 0.3.0
   risk_fraud:
-    manifest_digest: 2fe219043f422a96fabb038493ac6a3c5d3d32e50d1319f3e85f23ffc507c165
+    manifest_digest: 68a42cd9359f7406f51cfa92c62b1197a87bac1e7a95a39e837d11482ecf6244
     prompt_sha256: b69322452de055c6ee520caad71512bcb12194d3baede986f84a9ae1fdec467f
     prompt_version: risk-fraud-v2
     version: 0.2.0

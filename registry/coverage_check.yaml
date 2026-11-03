@@ -1,6 +1,6 @@
 id: coverage_check
 name: Coverage check
-version: 0.3.0
+version: 0.4.0
 owner: claims-ai-platform
 purpose: Compare the claim with the policy wording and identify applicable clauses, exclusions and limits.
 risk_tier: high
@@ -8,3 +8,5 @@ status: active
 model: claude-sonnet-5-5
 allowed_tools: [policy_lookup]
 data_classes: [pii, financial]
+economy_model: claude-haiku-5-5
+economy_max_claim_usd: 1000

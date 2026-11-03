@@ -27,6 +27,7 @@ from hall_monitor.agents.critic import run_critic
 from hall_monitor.agents.intake import run_intake
 from hall_monitor.agents.recommendation import run_recommendation
 from hall_monitor.agents.risk_fraud import run_risk_fraud
+from hall_monitor.gateway.cost import call_cost
 from hall_monitor.governance.routing import route_claim, route_stopped
 from hall_monitor.models import (
     AgentCall,
@@ -93,6 +94,10 @@ class _Run:
         return sorted({f"{r.stage.value}.{f}" for r in self.history for f in r.changed_fields})
 
 
+def _cost(run: _Run) -> float:
+    return round(sum(call_cost(c) for c in run.calls), 6)
+
+
 def _lookup(extraction: IntakeExtraction, gateway: ToolGateway, run: _Run) -> PolicyRecord | None:
     return gateway.lookup_policy(extraction.policy_number, run.tool_calls)
 
@@ -111,6 +116,16 @@ def _problems(review: CriticReview) -> dict[ReviewedStage, list[str]]:
     return by_stage
 
 
+def _economy(registry: Registry, agent_id: str, extraction: IntakeExtraction, on: bool) -> bool:
+    """Model routing: the cheaper approved model for claims within the manifest's limit."""
+    manifest = registry.require(agent_id)
+    return (
+        on
+        and manifest.economy_model is not None
+        and extraction.total_claimed <= manifest.economy_max_claim_usd
+    )
+
+
 def _feedback(
     problems: dict[ReviewedStage, list[str]], stage: ReviewedStage, previous: BaseModel
 ) -> str | None:
@@ -126,12 +141,15 @@ def triage(
     gateway: ToolGateway | None = None,
     client: anthropic.Anthropic | None = None,
     critic: bool = True,
+    model_routing: bool = False,
 ) -> TriageResult:
+    """model_routing=False (the default) runs every agent on its main model."""
     client = client or anthropic.Anthropic()
     gateway = gateway or ToolGateway(registry)
     run = _Run()
     try:
-        return _triage(claim, run, registry, gateway, wording, client, critic)
+        result = _triage(claim, run, registry, gateway, wording, client, critic, model_routing)
+        return result.model_copy(update={"cost_usd": _cost(run)})
     except AgentRefusedError as exc:
         run.calls.append(exc.call)
         reason = f"agent refused or returned no usable output: {exc}"
@@ -157,6 +175,7 @@ def triage(
         tool_calls=run.tool_calls,
         revisions=run.revisions,
         stopped_reason=reason,
+        cost_usd=_cost(run),
     )
 
 
@@ -168,6 +187,7 @@ def _triage(
     wording: str,
     client: anthropic.Anthropic,
     critic: bool,
+    model_routing: bool,
 ) -> TriageResult:
     # Intake, then a code check that the policy exists. One retry with the problem spelled out.
     run.extraction = run.output(run_intake(claim, registry, client))
@@ -194,8 +214,20 @@ def _triage(
         raise PipelineStopped("no policy record found for the policy number on the claim")
     tools = ToolAccess(gateway, run.tool_calls)
 
+    economy = {
+        agent: _economy(registry, agent, run.extraction, model_routing)
+        for agent in ("coverage_check", "recommendation")
+    }
     coverage: CoverageAssessment = run.output(
-        run_coverage_check(claim, run.extraction, wording, registry, client, tools=tools)
+        run_coverage_check(
+            claim,
+            run.extraction,
+            wording,
+            registry,
+            client,
+            tools=tools,
+            economy=economy["coverage_check"],
+        )
     )
     risk: RiskAssessment = run.output(
         run_risk_fraud(claim, run.extraction, registry, client, tools=tools)
@@ -268,7 +300,15 @@ def _triage(
             )
 
     recommendation = run.output(
-        run_recommendation(claim.claim_id, run.extraction, coverage, risk, registry, client)
+        run_recommendation(
+            claim.claim_id,
+            run.extraction,
+            coverage,
+            risk,
+            registry,
+            client,
+            economy=economy["recommendation"],
+        )
     )
     routing = route_claim(
         run.extraction,
