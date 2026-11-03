@@ -66,7 +66,7 @@ Tamper-evident audit log	Append-only log, each entry hashed with the previous on
 PII and health-data redaction	Personal and medical details masked before they reach a model or a log	Manage	Planned
 Model routing	Cheaper model by default; stronger model for complex or high-risk claims	Manage	Planned
 Cost and value telemetry	Cost per claim, time to triage, human override rate, exception rate	Measure	Planned
-Eval harness	Extraction accuracy, coverage-reasoning accuracy and hallucination rate against ground truth	Measure	Planned
+Eval harness	Extraction accuracy, coverage-reasoning accuracy and hallucination rate against ground truth	Measure	Built (milestone 2)
 Fairness checks	Recommendation rates compared across synthetic customer groups, so systematic skew is caught before release	Measure	Planned
 Adversarial test suite	Prompt injection in claim text and attachments, PII leakage, unauthorized tool escalation	Measure, Manage	Planned
 CI eval gate	A pull request fails if eval scores drop below threshold	Manage	Planned
@@ -76,7 +76,9 @@ Results
 Numbers are published as each milestone lands, from runs anyone can reproduce with the commands in this repo.
 
 Milestone	Extraction accuracy	Coverage-reasoning accuracy	Hallucination rate	Cost per claim	Human override rate
-Baseline	to be published	to be published	to be published	to be published	n/a
+Baseline (single pass, 6 claims x 3 trials)	100.0%	83.3%	0.0%	$0.024	n/a
+
+Every claim was routed correctly in all 18 runs. Details: evals/results/baseline/findings.md and report.md.
 Roadmap
  1. Repo, agent registry, synthetic claims and policies with ground truth, tracing
  2. Baseline eval run, results committed
@@ -94,7 +96,7 @@ Python 3.12 · LangGraph · Claude (Haiku and Sonnet) · MCP via fastmcp · Post
 
 Quickstart
 
-Milestone 1 runs the intake agent on a claim and prints its extraction with the hall pass it ran under.
+The pipeline runs a claim through all four agents and prints each output with the hall passes used.
 
 bash
 git clone https://github.com/keeplearnin/hall-monitor.git
@@ -102,7 +104,8 @@ cd hall-monitor
 uv sync
 cp .env.example .env   # add ANTHROPIC_API_KEY and Langfuse keys
 uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
-uv run pytest          # registry, dataset and intake checks; no API calls
+uv run pytest          # registry, dataset, pipeline and scoring checks; no API calls
+uv run python -m hall_monitor.evals.baseline --trials 3   # live baseline, about $0.45
 Repository layout
 text
 hall-monitor/
