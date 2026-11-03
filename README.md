@@ -17,8 +17,8 @@ Those answers usually live in policy documents. hall-monitor puts them in code:
 
 - **Every agent is registered** (its hall pass) before it can run, with an owner, a risk tier and an explicit tool allow-list.
 - **Consequential decisions stop for a human**, and the evidence the human saw is recorded with their decision.
-- **Every step is logged** in an append-only, hash-chained audit trail that shows if anything was altered.
-- **Every change is evaluated in CI**, so a new prompt or model can't silently ship a regression.
+- **Every step is logged** in an append-only, hash-chained audit trail that shows if anything was altered. *(Planned, milestone 6. Today each result records every agent call with its hall pass, prompt and input hashes, and Anthropic request ID, plus every critic revision.)*
+- **Every change is evaluated in CI**, so a new prompt or model can't silently ship a regression. *(Tests, lint and the approvals check run on every PR today; the eval gate is milestone 9.)*
 - **Every control maps to a framework** (NIST AI RMF; FINOS AI Governance Framework planned), so risk, compliance and audit teams can evaluate it without reading the code.
 
 The governance layer is the product. Claims triage is the proof that it works on a real-shaped regulated workflow.
@@ -41,7 +41,7 @@ The agents:
 
 The agent never denies a claim or approves a large payout on its own. Denials, payouts above a threshold and any fraud flag go to a human adjuster through an approval gate.
 
-Agents get supporting records only through governed MCP tools (`policy_lookup`, `claims_history`).
+Agents get supporting records only through governed MCP tools (`policy_lookup`, `claims_history`). *(Milestone 4. Until then the pipeline passes the policy record and wording in directly.)*
 
 All data in this repository is synthetic. No real customer, policy or claims data from any company is used.
 
@@ -76,11 +76,13 @@ What is built today, after milestone 3: intake, coverage check, risk and fraud, 
 
 GitHub shows HTML files as source, so download them and open them in a browser.
 
+Tracing sends IDs, versions, hashes and token counts to Langfuse, never claim text or policy records: trace decorators don't capture function inputs or outputs, and the Anthropic SDK's spans stay metadata-only.
+
 ## Governance controls
 
 | Control | What it does | NIST AI RMF function | Status |
 |---|---|---|---|
-| Agent registry | Typed manifest per agent: ID, owner, risk tier, model, allowed tools, version. Unregistered agents are refused. | Govern | Built (milestone 1) |
+| Agent registry | Typed manifest per agent: ID, owner, risk tier, model, allowed tools, version. Unregistered, inactive or unapproved agents are refused: each manifest digest and prompt hash must match `registry/approvals.yaml`. | Govern | Built (milestones 1 and 3) |
 | Tool allow-list | Agents can call only the MCP tools their manifest names | Govern, Manage | Planned |
 | Adjuster approval gates | Graph interrupts on denials, payouts above threshold and fraud flags; the adjuster's identity, the evidence shown and the decision are recorded | Manage | Planned |
 | Tamper-evident audit log | Append-only log, each entry hashed with the previous one | Govern, Manage | Planned |

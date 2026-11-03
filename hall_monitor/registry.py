@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 DEFAULT_REGISTRY_DIR = Path(__file__).resolve().parents[1] / "registry"
 SCHEMA_FILENAME = "agent_manifest.schema.json"
+APPROVALS_FILENAME = "approvals.yaml"
 
 
 class RiskTier(StrEnum):
@@ -83,8 +84,23 @@ class ToolNotAllowedError(RegistryError):
     pass
 
 
+class UnapprovedManifestError(RegistryError):
+    pass
+
+
+def load_approvals(path: Path = DEFAULT_REGISTRY_DIR / APPROVALS_FILENAME) -> dict[str, dict]:
+    """Approved manifest digests and prompt hashes, per agent. Changes go through review."""
+    return yaml.safe_load(path.read_text())["agents"]
+
+
 class Registry:
-    def __init__(self, manifests: Iterable[AgentManifest]):
+    def __init__(
+        self,
+        manifests: Iterable[AgentManifest],
+        approved_digests: dict[str, str] | None = None,
+    ):
+        """approved_digests=None skips the approval check; from_dir always enforces it."""
+        self._approved = approved_digests
         self._manifests: dict[str, AgentManifest] = {}
         for manifest in manifests:
             if manifest.id in self._manifests:
@@ -95,11 +111,14 @@ class Registry:
     def from_dir(cls, path: Path = DEFAULT_REGISTRY_DIR) -> Registry:
         manifests = []
         for file in sorted(path.glob("*.yaml")):
+            if file.name == APPROVALS_FILENAME:
+                continue
             manifest = AgentManifest.model_validate(yaml.safe_load(file.read_text()))
             if manifest.id != file.stem:
                 raise ValueError(f"{file.name}: id {manifest.id!r} must match the file name")
             manifests.append(manifest)
-        return cls(manifests)
+        approvals = load_approvals(path / APPROVALS_FILENAME)
+        return cls(manifests, {a: v["manifest_digest"] for a, v in approvals.items()})
 
     def get(self, agent_id: str) -> AgentManifest:
         try:
@@ -112,6 +131,10 @@ class Registry:
         manifest = self.get(agent_id)
         if manifest.status is not AgentStatus.ACTIVE:
             raise AgentNotActiveError(f"agent {agent_id!r} is {manifest.status}, not active")
+        if self._approved is not None and self._approved.get(agent_id) != manifest.digest():
+            raise UnapprovedManifestError(
+                f"agent {agent_id!r} manifest {manifest.digest()[:12]} is not the approved version"
+            )
         return manifest
 
     def check_tool(self, agent_id: str, tool: str) -> None:

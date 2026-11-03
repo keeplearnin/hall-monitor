@@ -74,3 +74,36 @@ def test_digest_changes_with_any_field(registry):
 def test_published_schema_is_current():
     published = (DEFAULT_REGISTRY_DIR / SCHEMA_FILENAME).read_text()
     assert published == manifest_json_schema(), "run: uv run python -m hall_monitor.registry"
+
+
+# --- Approvals -------------------------------------------------------------------
+
+
+def test_approvals_match_the_current_manifests_and_prompts():
+    from hall_monitor.approvals import current_approvals
+    from hall_monitor.registry import load_approvals
+
+    assert load_approvals() == current_approvals(), (
+        "A manifest or prompt changed without approval. Bump the version (and PROMPT_VERSION "
+        "for a prompt change), then run: uv run python -m hall_monitor.approvals"
+    )
+
+
+def test_unapproved_manifest_is_refused(registry, tmp_path):
+    import shutil
+
+    from hall_monitor.registry import UnapprovedManifestError
+
+    shutil.copytree(DEFAULT_REGISTRY_DIR, tmp_path / "registry")
+    edited = tmp_path / "registry" / "intake.yaml"
+    edited.write_text(edited.read_text().replace("claude-haiku-5-5", "claude-sonnet-5-5"))
+    with pytest.raises(UnapprovedManifestError):
+        Registry.from_dir(tmp_path / "registry").require("intake")
+
+
+def test_agent_without_an_approval_is_refused():
+    from hall_monitor.registry import UnapprovedManifestError
+
+    manifest = Registry.from_dir().get("intake")
+    with pytest.raises(UnapprovedManifestError):
+        Registry([manifest], approved_digests={}).require("intake")

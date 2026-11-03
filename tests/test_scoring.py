@@ -37,7 +37,7 @@ def result_from_truth(claim_id: str) -> TriageResult:
         coverage=coverage,
         risk=risk,
         recommendation=recommendation,
-        routing=route_claim(coverage, risk, recommendation),
+        routing=route_claim(truth.extraction, coverage, risk, recommendation),
         agent_calls=[],
     )
 
@@ -111,6 +111,10 @@ def test_call_cost_uses_list_prices():
         model="claude-sonnet-5-5",
         manifest_digest="x",
         prompt_version="v1",
+        system_prompt_sha256="x",
+        input_sha256="x",
+        request_id=None,
+        stop_reason="end_turn",
         input_tokens=1_000_000,
         output_tokens=100_000,
         seconds=1.0,
@@ -153,3 +157,27 @@ def test_report_renders(tmp_path):
         {"claim_001": load_ground_truth("claim_001")},
     )
     assert "Runs revised after critic review" in (tmp_path / "report.md").read_text()
+
+
+@pytest.mark.parametrize(
+    ("amount", "text", "found"),
+    [
+        (100.0, "Total USD 1,100.00", False),
+        (100.0, "Paid USD 100.00 today", True),
+        (1150.0, "USD 1,150.00", True),
+        (1150.0, "USD 1150.00", True),
+        (50.0, "USD 150.00", False),
+    ],
+)
+def test_amounts_match_whole_numbers_only(amount, text, found):
+    from hall_monitor.evals.scoring import amount_in
+
+    assert amount_in(amount, text) is found
+
+
+def test_over_citing_lowers_clause_precision_not_recall():
+    result = result_from_truth("claim_001")
+    result.coverage.applicable_clauses += ["2.2", "2.3", "6.2"]
+    s = score(result)
+    assert s.clause_recall == 1.0
+    assert s.clause_precision == 0.25

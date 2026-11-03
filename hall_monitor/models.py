@@ -217,6 +217,11 @@ class AgentCall(BaseModel):
     model: str
     manifest_digest: str
     prompt_version: str
+    # What exactly ran: hashes of the rendered system prompt and input, and Anthropic's request ID.
+    system_prompt_sha256: str
+    input_sha256: str
+    request_id: str | None
+    stop_reason: str | None
     input_tokens: int
     output_tokens: int
     seconds: float
@@ -229,11 +234,24 @@ class RoutingDecision(BaseModel):
     reasons: list[str]
 
 
+class RevisionRecord(BaseModel):
+    """One critic-driven revision: the stage's answer before and after, and what changed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stage: ReviewedStage
+    round: int
+    before: dict
+    after: dict
+    changed_fields: list[str]
+
+
 class TriageResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     claim_id: str
-    extraction: IntakeExtraction
+    # None when the pipeline stopped before intake finished (see stopped_reason).
+    extraction: IntakeExtraction | None
     # None when the pipeline stopped before that step (see stopped_reason).
     coverage: CoverageAssessment | None
     risk: RiskAssessment | None
@@ -241,6 +259,7 @@ class TriageResult(BaseModel):
     routing: RoutingDecision
     agent_calls: list[AgentCall]
     critic_reviews: list[CriticReview] = Field(default_factory=list)
+    revision_history: list[RevisionRecord] = Field(default_factory=list)
     revisions: int = 0
     critic_unresolved: bool = False
     stopped_reason: str | None = None

@@ -9,8 +9,8 @@ from hall_monitor.data import (
     load_policy_records,
     load_policy_wording,
 )
-from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
-from hall_monitor.models import NextStep, Route
+from hall_monitor.governance.routing import route_claim
+from hall_monitor.models import CoverageAssessment, Recommendation, RiskAssessment
 
 CLAIMS = list(iter_claims())
 POLICIES = load_policy_records()
@@ -39,13 +39,13 @@ def test_ground_truth_matches_claim(claim):
 
 @pytest.mark.parametrize("claim", CLAIMS, ids=lambda c: c.claim_id)
 def test_route_follows_routing_rule(claim):
+    # The answer key's route must be what the real routing rule gives for the right answers.
     truth = load_ground_truth(claim.claim_id)
-    needs_adjuster = (
-        truth.next_step in {NextStep.DENY, NextStep.INVESTIGATE}
-        or truth.coverage.covered_amount > ADJUSTER_PAYOUT_THRESHOLD_USD
-        or bool(truth.risk.flags)
-    )
-    assert truth.route == (Route.ADJUSTER if needs_adjuster else Route.AUTO)
+    coverage = CoverageAssessment(**truth.coverage.model_dump())
+    risk = RiskAssessment(**truth.risk.model_dump(), reasoning="")
+    recommendation = Recommendation(next_step=truth.next_step, reasons=[])
+    routing = route_claim(truth.extraction, coverage, risk, recommendation)
+    assert routing.route == truth.route, routing.reasons
 
 
 @pytest.mark.parametrize("claim", CLAIMS, ids=lambda c: c.claim_id)
