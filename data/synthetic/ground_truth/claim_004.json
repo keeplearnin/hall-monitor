@@ -1,0 +1,43 @@
+{
+  "claim_id": "claim_004",
+  "scenario": "Cancellation due to a Crohn's flare-up; pre-existing condition, so a denial.",
+  "extraction": {
+    "claimant_name": "Aisha Bello",
+    "policy_number": "WTP-ESS-100587",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2026-08-29",
+    "incident_location": null,
+    "claimed_items": [
+      {
+        "description": "Non-refundable flights",
+        "amount": 1780.0
+      },
+      {
+        "description": "Safari lodge deposit",
+        "amount": 860.0
+      }
+    ],
+    "total_claimed": 2640.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "gastroenterologist_letter.txt",
+      "flight_cancellation.txt",
+      "lodge_cancellation.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "not_covered",
+    "applicable_clauses": [
+      "1.2",
+      "5.1"
+    ],
+    "covered_amount": 0.0,
+    "reasoning": "Medication was changed on 2026-05-28, within 90 days before the 2026-07-10 purchase date, so Crohn's is a pre-existing condition (1.2) and excluded (5.1). Essentials has no waiver, and the policy was bought more than 14 days after the deposit anyway."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "deny",
+  "route": "adjuster"
+}

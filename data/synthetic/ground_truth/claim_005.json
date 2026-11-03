@@ -1,0 +1,48 @@
+{
+  "claim_id": "claim_005",
+  "scenario": "Lost bag with valuables; receipt dated after the loss, no carrier report, policy bought 2 days before travel.",
+  "extraction": {
+    "claimant_name": "Tomasz Wisniewski",
+    "policy_number": "WTP-ESS-100902",
+    "claim_type": "baggage_loss",
+    "incident_date": "2026-10-03",
+    "incident_location": "Barcelona, Spain",
+    "claimed_items": [
+      {
+        "description": "Laptop",
+        "amount": 1400.0
+      },
+      {
+        "description": "Camera",
+        "amount": 490.0
+      }
+    ],
+    "total_claimed": 1890.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "laptop_receipt.txt",
+      "camera_receipt.txt",
+      "booking_confirmation.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "3.2",
+      "3.3",
+      "5.6"
+    ],
+    "covered_amount": 750.0,
+    "reasoning": "If genuine, the most payable is 750: laptop capped at 500 per item, camera 490, both capped by the 750 valuables limit (3.2). No carrier report was obtained (3.3). The laptop receipt is dated three days after the loss, which needs investigation before any payment (5.6)."
+  },
+  "risk": {
+    "level": "high",
+    "flags": [
+      "receipt_dated_after_incident",
+      "missing_carrier_report",
+      "policy_purchased_shortly_before_incident"
+    ]
+  },
+  "next_step": "investigate",
+  "route": "adjuster"
+}

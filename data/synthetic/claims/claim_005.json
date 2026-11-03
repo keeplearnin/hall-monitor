@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_005",
+  "submitted_at": "2026-10-12T21:47:00Z",
+  "channel": "web_form",
+  "narrative": "Tomasz Wisniewski, policy WTP-ESS-100902. My checked bag never arrived when I landed in Barcelona on 3 October and the airline says it can't be found. The baggage desk was closed when I got there so I couldn't get a report. Inside were my laptop ($1,400.00) and my camera ($490.00). I'm claiming $1,890.00. Receipts for both attached, plus my booking.",
+  "attachments": [
+    {
+      "filename": "laptop_receipt.txt",
+      "kind": "receipt",
+      "text": "TechHarbor Electronics\nDate: 2026-10-06\n1 x Aerion 14 laptop, 16GB/1TB  USD 1,400.00\nPaid: card ending 5521"
+    },
+    {
+      "filename": "camera_receipt.txt",
+      "kind": "receipt",
+      "text": "Lumen Camera Co.\nDate: 2025-12-14\n1 x Lumen M5 mirrorless body  USD 490.00\nPaid: card ending 5521"
+    },
+    {
+      "filename": "booking_confirmation.txt",
+      "kind": "booking_confirmation",
+      "text": "Iberian Skyline - E-ticket\nPassenger: WISNIEWSKI/TOMASZ  Booking: BX4L9P\nORD-BCN 2026-10-03, BCN-ORD 2026-10-10\n1 checked bag included"
+    }
+  ]
+}

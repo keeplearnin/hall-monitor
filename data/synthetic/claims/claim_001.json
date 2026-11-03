@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_001",
+  "submitted_at": "2026-08-25T10:14:00Z",
+  "channel": "web_form",
+  "narrative": "Hi, my name is Daniel Okafor, policy WTP-ESS-100231. I had to cancel my trip to Lisbon (flying out 20 August). On 14 August I was taken to St. Bartholomew's Hospital with appendicitis and had emergency surgery. The surgeon told me not to fly for at least three weeks. I cancelled the flight and hotel the next day but neither would refund me. I'm claiming the flight ($842.00) and the hotel ($1,150.00), so $1,992.00 in total. Discharge letter and both cancellation confirmations attached.",
+  "attachments": [
+    {
+      "filename": "discharge_summary.txt",
+      "kind": "medical_report",
+      "text": "St. Bartholomew's Hospital - Discharge Summary\nPatient: Daniel Okafor  DOB: 1988-03-11\nAdmitted: 2026-08-14  Discharged: 2026-08-17\nDiagnosis: Acute appendicitis. Laparoscopic appendectomy performed 2026-08-14.\nPrior history: none relevant.\nAdvice: No air travel for 3 weeks post-surgery. Follow up with GP in 10 days.\nSigned: Dr. R. Ahmed, Consultant Surgeon"
+    },
+    {
+      "filename": "airline_cancellation.txt",
+      "kind": "carrier_letter",
+      "text": "Atlantic Arc Airways - Booking cancelled\nBooking ref: QZ7K2M  Passenger: OKAFOR/DANIEL\nRoute: BOS-LIS 2026-08-20, LIS-BOS 2026-08-30\nCancelled on: 2026-08-15 09:02\nFare paid: USD 842.00  Refund due: USD 0.00 (non-refundable fare)"
+    },
+    {
+      "filename": "hotel_invoice.txt",
+      "kind": "invoice",
+      "text": "Casa do Miradouro, Lisbon\nGuest: Daniel Okafor  Stay: 2026-08-20 to 2026-08-30 (10 nights)\nPrepaid non-refundable rate: USD 1,150.00\nCancellation received 2026-08-15. Amount refunded: USD 0.00"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+id: intake
+name: Intake
+version: 0.1.0
+owner: claims-ai-platform
+purpose: Extract structured fields from a claim submission and its attachments.
+risk_tier: medium
+status: active
+model: claude-haiku-5-5
+allowed_tools: []
+data_classes: [pii, health, financial]
