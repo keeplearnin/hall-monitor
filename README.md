@@ -19,7 +19,7 @@ Those answers usually live in policy documents. hall-monitor puts them in code:
 - **Consequential decisions stop for a human**, and the evidence the human saw is recorded with their decision.
 - **Every step is logged** in an append-only, hash-chained audit trail that shows if anything was altered.
 - **Every change is evaluated in CI**, so a new prompt or model can't silently ship a regression. *(Tests, lint and the approvals check run on every PR today; the eval gate is milestone 9.)*
-- **Every control maps to a framework** (NIST AI RMF; FINOS AI Governance Framework planned), so risk, compliance and audit teams can evaluate it without reading the code.
+- **Every control maps to a framework** (NIST AI RMF and the FINOS AI Governance Framework), so risk, compliance and audit teams can evaluate it without reading the code. *(Milestone 9, in progress.)*
 
 The governance layer is the product. Claims triage is the proof that it works on a real-shaped regulated workflow.
 
@@ -34,12 +34,12 @@ The agents:
 | Agent | What it does |
 |---|---|
 | **Intake** | Extract structured fields from the claim submission: claimant, policy number, incident date and type, amounts claimed, supporting documents. |
-| **Coverage check** | Compare the claim with the policy wording (retrieved from a policy library) and identify the clauses that apply, including exclusions and limits. |
-| **Critic** | Check the extraction and the coverage reasoning against the source documents and send them back for correction when they disagree. |
-| **Risk and fraud flags** | Flag inconsistencies, such as dates that don't line up, duplicate receipts or claims filed soon after a policy started, and assign a risk level. |
-| **Recommendation** | Propose a next step with its reasons and the evidence behind it. |
+| **Coverage check** | Compare the claim with the policy wording and the policy record (fetched with `policy_lookup`) and work out what the policy pays, including exclusions, limits, deductibles and depreciation. |
+| **Critic** | Check intake, coverage and risk against the claim documents and the policy, and send work back for correction (up to twice). |
+| **Risk and fraud flags** | Flag inconsistencies, such as dates that don't line up, duplicate receipts, claims filed soon after a policy started, or earlier similar claims (fetched with `claims_history`), and assign a risk level. |
+| **Recommendation** | Propose a next step with its reasons, from a structured summary only: no names, claim text or medical details. |
 
-The agent never denies a claim or approves a large payout on its own. Denials, payouts above a threshold and any fraud flag go to a human adjuster through an approval gate.
+The agents never deny a claim or approve a large payout on their own. A routing rule written in code sends denials, payouts above $2,500, fraud flags, critic corrections, possible prompt injection and any failure to a human adjuster, who decides at an approval gate.
 
 Agents get supporting records only through governed MCP tools (`policy_lookup`, `claims_history`). Every call goes through a gateway that checks the agent's allow-list and records the call. The policy wording is reference text and is still passed in directly.
 
@@ -47,29 +47,36 @@ All data in this repository is synthetic. No real customer, policy or claims dat
 
 ## Architecture
 
-The target design:
+How a claim moves through the system today (after milestone 8):
 
 ```mermaid
 flowchart LR
-    claim[Claim submission] --> gateway["Gateway<br/>registry check, routing,<br/>PII redaction, cost"]
-    gateway --> intake[Intake agent]
-    intake --> coverage[Coverage check agent]
-    coverage --> critic[Critic agent]
-    critic -- disagrees --> coverage
-    critic --> risk[Risk and fraud agent]
-    risk --> rec[Recommendation]
-    rec -- "denial, large payout<br/>or fraud flag" --> adjuster["Adjuster<br/>approval gate"]
-    rec -- "routine, low value" --> next[Next step]
-    adjuster -- approved --> next
-    adjuster -- sent back --> rec
+    claim["Claim submission<br/>(untrusted)"] --> checks["Code checks<br/>injection detector,<br/>identifier redaction"]
+    checks --> intake[Intake]
+    intake --> gate["Policy gate<br/>(code)"]
+    gate --> coverage[Coverage check]
+    gate --> risk[Risk and fraud]
+    coverage --> critic[Critic]
+    risk --> critic
+    critic -- "sends back<br/>(up to 2x)" --> coverage
+    critic --> rec["Recommendation<br/>(structured summary only)"]
+    rec --> route{"Routing rule<br/>(code)"}
+    route -- "small, clean" --> auto[Decided automatically]
+    route -- "denial, over $2,500, flags,<br/>critic changes, failures" --> adjuster["Adjuster<br/>approval gate"]
 
-    subgraph controls [Governance controls]
+    coverage -. records only via .-> tools["Tool gateway<br/>allow-list + claim scope"]
+    risk -.-> tools
+    critic -.-> tools
+    tools --> mcp["MCP server<br/>policy_lookup, claims_history"]
+
+    subgraph controls [Governance controls on every step]
+        registry["Agent registry<br/>approved manifests + prompts"]
         audit["Hash-chained<br/>audit log"]
-        langfuse["Langfuse<br/>traces, cost, evals"]
+        langfuse["Langfuse traces<br/>metadata only"]
     end
 ```
 
-What is built today, after milestone 8: intake, coverage check, risk and fraud, the critic's review-and-revise loop and recommendation, with the registry check on every model call and routing to an adjuster as a code rule. Agents fetch policy records and claims history through governed MCP tools. The pipeline stops if the claim's policy can't be found. Claims routed to a person wait at an adjuster approval gate. Every step is written to a hash-chained audit log. For the runtime path with module names, and a plain-English version, see:
+Every model call goes through one function that checks the agent's approved hall pass, calls the model the pass names, runs tool calls through the gateway and records what ran. Claims routed to a person wait at the approval gate (LangGraph, with state saved in SQLite) until an adjuster decides; every step is written to the audit log. More detail, and a plain-English version:
 
 - [`docs/architecture.html`](docs/architecture.html), for engineering managers and architects
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
@@ -90,11 +97,13 @@ Tracing sends IDs, versions, hashes and token counts to Langfuse, never claim te
 | PII and health-data redaction | Identifiers no agent needs (dates of birth, emails, phones, card numbers, passport and SSN numbers) are removed before any model sees the claim; counts by type are recorded. Medical details stay, because coverage depends on them, and only agents whose manifests allow health data see them: the recommender gets structured fields only. No claim text in traces or the audit log. | Manage | Built (milestone 8) |
 | Model routing | A manifest may name a cheaper approved model and a claim-size limit; a code rule uses it for small claims, and critic-driven revisions always go back to the main model. Off by default until it is evaluated (`--model-routing`). | Manage | Built, off by default (milestone 7) |
 | Cost and value telemetry | Cost per claim on every result and in the audit log, cache-aware, by agent and model; time to triage; human override rate; stopped-claim rate. The policy wording is prompt-cached. | Measure | Built (milestone 7) |
-| Eval harness | Extraction accuracy, coverage-reasoning accuracy and hallucination rate against ground truth | Measure | Built (milestone 2) |
+| Eval harness | Extraction accuracy, coverage-reasoning accuracy (with clause precision), hallucination rate, routing, cost and simulated override rate against ground truth; a seeded-error test of the critic; every run published with its findings | Measure | Built (milestones 2-3, extended since) |
+| Critic review | A second agent checks intake, coverage and risk against the documents and sends errors back; every revision is kept, and one that changes a decision field goes to a person | Measure, Manage | Built (milestone 3) |
+| Prompt-injection defences | Claim text is fenced and escaped; a code detector sends claims with text aimed at the AI to a person; tool lookups are limited to the claim's own policy | Manage | Built (milestones 3, 4 and 8) |
 | Fairness checks | Counterfactual runner: each claim re-run under names associated with six groups, swapped everywhere the name appears, counting outcome flips and per-group payment rates (`evals.fairness`). | Measure | Built; results need a live run (milestone 8) |
 | Adversarial test suite | Ten attacks planted in real claims (instruction override, forged reviewer tags, claimed prior approval, data exfiltration, forged documents, PII) and scored on whether any worked (`evals.adversarial`). Defences: escaped claim text, a code detector that sends flagged claims to a person, and tool lookups limited to the claim's own policy. | Measure, Manage | Built; results need a live run (milestone 8) |
 | CI eval gate | A pull request fails if eval scores drop below threshold | Manage | Planned (tests and lint already run on every PR) |
-| Framework mapping | Every control and audit field mapped to NIST AI RMF and FINOS AIGF | Map, Govern | Planned |
+| Framework mapping | Every control mapped to NIST AI RMF subcategories and FINOS AIGF risks and mitigations, each pointing to its code, tests and evidence | Map, Govern | In progress (milestone 9) |
 
 ## Results
 
@@ -109,7 +118,7 @@ Numbers are published as each milestone lands, from runs anyone can reproduce wi
 | Hardened, no critic (34 claims x 3 trials) | 98.5% | 98.0% | 0.0% | $0.024 | 3.3% (simulated) |
 | Hardened, with critic (34 claims x 3 trials) | 98.7% | 98.0% | 0.0% | $0.039 | 1.7% (simulated) |
 
-The two baseline rows use the same code; the second runs on a larger claim set. Milestone 3 computes the coverage label in code and stops when a policy can't be found, which took coverage reasoning to 100% without the critic. The critic's measured gain is on fraud flags: precision went from 92% to 100%, at about $0.016 more per claim. The amount slips it was built to catch didn't occur in either milestone 3 run, so that gain isn't measured yet. The hardened rows add 8 claims where a cap decides the amount, and fix the high-severity findings from two code reviews. No claim was routed automatically when it needed a person in any run. In the hardened run the critic raised no issues, so the gap between those two rows is run-to-run variation. A separate eval measures the critic directly by planting one error at a time in otherwise correct work. It caught all 84 planted errors, including all 16 amounts that ignored a cap, and raised 1 false alarm in 34 clean cases ([findings](evals/results/critic-seeded/findings.md)). Human override rate is simulated: an adjuster who always decides as the answer key does would have overridden the AI on 1 of 59 routed runs with the critic and 2 of 60 without, and no AI error went through automatically (`python -m hall_monitor.evals.override`). About 58% of runs go to a person, because the test claims are deliberately weighted towards edge cases. Details: findings for [6 claims](evals/results/baseline/findings.md), [26 claims](evals/results/baseline-26/findings.md), [milestone 3](evals/results/m3-critic/findings.md) and [the hardened pipeline](evals/results/hardened-critic/findings.md).
+The two baseline rows use the same code; the second runs on a larger claim set. Milestone 3 computes the coverage label in code and stops when a policy can't be found, which took coverage reasoning to 100% without the critic. The critic's measured gain is on fraud flags: precision went from 92% to 100%, at about $0.016 more per claim. The amount slips it was built to catch didn't occur in either milestone 3 run, so that gain isn't measured yet. The hardened rows add 8 claims where a cap decides the amount, and fix the high-severity findings from two code reviews. No claim was routed automatically when it needed a person in any run. In the hardened run the critic raised no issues, so the gap between those two rows is run-to-run variation. A separate eval measures the critic directly by planting one error at a time in otherwise correct work. It caught all 84 planted errors, including all 16 amounts that ignored a cap, and raised 1 false alarm in 34 clean cases ([findings](evals/results/critic-seeded/findings.md)). Milestones 4-8 (governed data access, the approval gate, the audit log, caching and routing, and the privacy and injection defences) have passed their offline tests but are not yet in a scored live run. Human override rate is simulated: an adjuster who always decides as the answer key does would have overridden the AI on 1 of 59 routed runs with the critic and 2 of 60 without, and no AI error went through automatically (`python -m hall_monitor.evals.override`). About 58% of runs go to a person, because the test claims are deliberately weighted towards edge cases. Details: findings for [6 claims](evals/results/baseline/findings.md), [26 claims](evals/results/baseline-26/findings.md), [milestone 3](evals/results/m3-critic/findings.md) and [the hardened pipeline](evals/results/hardened-critic/findings.md).
 
 ## Roadmap
 
@@ -134,7 +143,7 @@ In use today: Python 3.12, uv, Claude Haiku 5.5 and Sonnet 5.5 through the Anthr
 
 ## Quickstart
 
-The pipeline runs a claim through all four agents and prints each output with the hall passes used.
+`run` triages a claim through all five agents, then decides it automatically or leaves it waiting for an adjuster. The eval commands call the Claude API and cost the amounts shown.
 
 ```bash
 git clone https://github.com/keeplearnin/hall-monitor.git
@@ -145,37 +154,40 @@ uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
 uv run python -m hall_monitor.review list                  # claims waiting for an adjuster
 uv run python -m hall_monitor.review show claim_004        # evidence pack and its hash
 uv run python -m hall_monitor.audit verify                 # check the audit chain
+uv run python -m hall_monitor.evals.baseline --trials 3     # 36 claims x 3, about $4
+uv run python -m hall_monitor.evals.critic_seeded         # critic vs planted errors, about $2
 uv run python -m hall_monitor.evals.adversarial            # attack suite, about $1
 uv run python -m hall_monitor.evals.fairness               # name-swap fairness, about $10
-uv run pytest          # registry, dataset, pipeline and scoring checks; no API calls
-uv run python -m hall_monitor.evals.baseline --trials 3   # live baseline, about $0.45
+uv run python -m hall_monitor.evals.override evals/results/hardened-critic  # no API calls
+uv run pytest                                              # offline tests; no API calls
 ```
 
 ## Repository layout
 
 ```text
 hall-monitor/
-├── registry/            # Agent manifests (YAML) and the registry schema
+├── registry/                # Agent manifests, approvals.yaml, adjusters.yaml, manifest schema
 ├── hall_monitor/
-│   ├── agents/          # Intake, coverage check, critic, risk and fraud, recommendation
-│   ├── evals/           # Scoring, cost and the baseline runner
-│   ├── gateway/         # Routing, redaction, cost tracking
-│   ├── governance/      # Routing rule, approval gates, audit log
-│   ├── tools/           # MCP servers
-│   └── pipeline.py      # Claim triage, one agent after another
+│   ├── agents/              # Intake, coverage check, risk and fraud, critic, recommendation; base.py is the one call path
+│   ├── tools/               # MCP server (policy_lookup, claims_history) and the tool gateway
+│   ├── gateway/             # Cost, identifier redaction, injection detection
+│   ├── governance/          # Routing rule, approval gate, audit log
+│   ├── evals/               # Scoring, baseline, critic seeded test, override, adversarial, fairness
+│   ├── pipeline.py          # Claim triage
+│   ├── workflow.py          # LangGraph workflow with the approval gate
+│   ├── run.py, review.py, audit.py  # CLIs: submit a claim, review as an adjuster, verify the log
+│   └── registry.py, approvals.py, models.py, tracing.py
 ├── data/synthetic/
-│   ├── policies/        # Synthetic policy wordings
-│   ├── claims/          # Synthetic claim submissions
-│   └── ground_truth/    # Expected extractions and coverage decisions
-├── evals/results/       # Published eval runs
-├── docs/
-│   ├── architecture.html    # One-page architecture overview
-│   ├── executive-brief.html # One-page summary for business leaders
-│   ├── devlog/          # Daily progress notes
-│   ├── controls.md      # Control-to-framework mapping (planned)
-│   └── adr/             # Architecture decision records (planned)
-├── tests/               # Offline tests; the Claude client is faked
-└── .github/workflows/   # CI: lint and tests on every PR; eval gate planned
+│   ├── policies/            # Policy wording and policy records
+│   ├── claims/              # 36 claim submissions
+│   ├── ground_truth/        # Expected extraction, coverage, risk, next step and route
+│   ├── claims_history.json  # Earlier claims, served by claims_history
+│   └── adversarial/         # Attack cases
+├── evals/results/           # Published eval runs, each with findings
+├── docs/                    # One-pagers, business summary, daily devlog
+├── tests/                   # Offline tests; the Claude client is faked
+├── var/                     # Runtime state: workflow checkpoints and audit log (git-ignored)
+└── .github/workflows/       # CI: lint, tests and the approvals check on every PR
 ```
 
 ## Design principles

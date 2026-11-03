@@ -1,6 +1,6 @@
 # hall-monitor: business summary
 
-*November 2026, after milestone 4. Plain English, one page.*
+*November 2026, after milestone 8. Plain English, one page.*
 
 ## The problem
 
@@ -8,7 +8,7 @@ Insurers and banks want AI to speed up work like claims handling, but a regulato
 
 - What was the AI allowed to do?
 - Who approved it?
-- What records did it look at?
+- What records did it look at, and what happened to personal data?
 - Who made the final decision?
 - Can you prove all of that six months from now?
 
@@ -29,7 +29,10 @@ A customer's travel-insurance claim goes through five AI steps:
 Every AI step needs a **hall pass**: an approved permit that names its owner, its risk level, the AI
 model it may use and the records it may look up. A changed permit, or changed instructions, can't
 run until someone approves the change in a reviewed update. The AI can see policy records and claims
-history only through an approved, logged channel, and anything it isn't allowed is refused.
+history only through an approved, logged channel, and only for the claim in front of it.
+
+Before any AI sees a claim, software removes identifiers it doesn't need (dates of birth, card,
+passport and phone numbers, emails) and flags any text that tries to instruct the AI.
 
 The AI never decides on its own. A rule written in ordinary software (not AI) sends a claim to a
 human adjuster if any of these apply:
@@ -38,11 +41,15 @@ human adjuster if any of these apply:
 - it pays more than $2,500
 - it has any fraud flag
 - the double-check changed the answer
+- the claim contains text aimed at the AI
 - anything went wrong
 
-Only small, clean claims are handled automatically. Every claim keeps a full record: which AI ran,
-under which approved permit and instructions, which records it looked up, every correction, and
-what it cost.
+The claim then waits for an adjuster, who must have the authority for the amount. Their decision is
+recorded with the exact evidence they saw. Only small, clean claims are handled automatically.
+
+Every step goes into a **tamper-evident record**: which AI ran, under which approved permit and
+instructions, which records it looked up, every correction, the decision, who made it, and what it
+cost. Changing or deleting anything in that record shows up when it is checked.
 
 ## What we've measured
 
@@ -55,6 +62,11 @@ keys. Treat these as early signals, not proven rates.
   clean claims. It costs about 1.5 cents a claim.
 - **No invented facts.** Every name, amount and policy rule the AI used traced back to a source.
 - **About 4 cents and 21 seconds of AI time per claim.**
+- **An adjuster would have overridden the AI on about 2% of the claims sent to them** (simulated).
+
+These numbers come from runs before milestones 4 to 8. The approved data channel, the approval
+gate, the tamper-evident record and the privacy and attack defences have passed their tests, but
+haven't yet been scored in a full live run. Neither have the new attack and fairness tests.
 
 What went wrong along the way is published too. One example: an early version said "capped at
 $3,000" and then paid $3,640. The double-check now exists to catch exactly that, and in tests it
@@ -64,13 +76,9 @@ always did.
 
 | Next | What it adds |
 |---|---|
-| Milestone 5 | An approval screen for adjusters that saves the evidence they saw with their decision |
-| Milestone 6 | A tamper-evident record of every step |
-| Milestones 7-8 | Cheaper models for simple claims; privacy masking; fairness and attack testing |
-| Milestones 9-10 | Mapping to NIST AI RMF and FINOS; an automatic quality gate on every change; an external review |
-
-Milestone 4's own test results (the AI fetching its records through the approved channel) are
-still to come.
+| Live results | A scored run of everything built since milestone 4, the attack tests, and a fairness test that checks whether changing only the customer's name changes the outcome |
+| Milestone 9 | Every control mapped to the NIST AI Risk Management Framework and the FINOS AI Governance Framework; an automatic quality gate on every change |
+| Milestone 10 | Decision records, a one-page board brief and an external review |
 
 ## The ask
 
