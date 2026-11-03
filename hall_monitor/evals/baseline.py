@@ -24,7 +24,6 @@ from hall_monitor import tracing
 from hall_monitor.data import (
     iter_claims,
     load_ground_truth,
-    load_policy_records,
     load_policy_wording,
 )
 from hall_monitor.evals import scoring
@@ -33,6 +32,7 @@ from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
 from hall_monitor.models import ClaimSubmission, TriageResult
 from hall_monitor.pipeline import MAX_REVISIONS, triage
 from hall_monitor.registry import Registry
+from hall_monitor.tools.gateway import ToolGateway
 
 
 def _git(*args: str) -> str:
@@ -50,7 +50,7 @@ def run_one(
         result = triage(
             claim,
             registry=context["registry"],
-            policies=context["policies"],
+            gateway=context["gateway"],
             wording=context["wording"],
             client=context["client"],
             critic=context["critic"],
@@ -113,6 +113,9 @@ def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths
         f"| Runs revised after critic review | {_pct(summary['revised_rate'])} |",
         f"| Runs where the critic still disagreed | {_pct(summary['critic_unresolved_rate'])} |",
         f"| Runs stopped (policy not found) | {_pct(summary['stopped_rate'])} |",
+        f"| Tool calls per claim | {summary['tool_calls_per_claim'] or 0:.1f} |",
+        f"| Refused tool calls | {summary['refused_tool_calls']} |",
+        f"| Coverage looked up the policy | {_pct(summary['coverage_policy_lookup_rate'])} |",
     ]
 
     lines += [
@@ -215,9 +218,10 @@ def main(argv: list[str] | None = None) -> int:
 
     load_dotenv()
     claims = list(iter_claims())
+    registry = Registry.from_dir()
     context = {
-        "registry": Registry.from_dir(),
-        "policies": load_policy_records(),
+        "registry": registry,
+        "gateway": ToolGateway(registry),
         "wording": load_policy_wording(),
         "client": anthropic.Anthropic(),
         "truths": {c.claim_id: load_ground_truth(c.claim_id) for c in claims},

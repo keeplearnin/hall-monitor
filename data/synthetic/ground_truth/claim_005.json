@@ -39,7 +39,8 @@
     "flags": [
       "receipt_dated_after_incident",
       "missing_carrier_report",
-      "policy_purchased_shortly_before_incident"
+      "policy_purchased_shortly_before_incident",
+      "prior_similar_claim"
     ]
   },
   "next_step": "investigate",

@@ -116,6 +116,7 @@ class RiskFlag(StrEnum):
     AMOUNTS_INCONSISTENT = "amounts_inconsistent"
     DATES_INCONSISTENT = "dates_inconsistent"
     LATE_SUBMISSION = "late_submission"
+    PRIOR_SIMILAR_CLAIM = "prior_similar_claim"
 
 
 class NextStep(StrEnum):
@@ -220,10 +221,25 @@ class AgentCall(BaseModel):
     # What exactly ran: hashes of the rendered system prompt and input, and Anthropic's request ID.
     system_prompt_sha256: str
     input_sha256: str
-    request_id: str | None
+    request_ids: list[str]
     stop_reason: str | None
+    api_calls: int = 1  # more than one when the agent used tools
     input_tokens: int
     output_tokens: int
+    seconds: float
+
+
+class ToolCall(BaseModel):
+    """One tool call through the gateway, allowed or refused."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    actor: str  # an agent ID, or "pipeline" for the code's own policy check
+    tool: str
+    arguments: dict
+    allowed: bool
+    result_sha256: str | None
+    error: str | None = None
     seconds: float
 
 
@@ -262,6 +278,7 @@ class TriageResult(BaseModel):
     revision_history: list[RevisionRecord] = Field(default_factory=list)
     # Deterministic fixes made by code from the claim text, e.g. a policy number intake missed.
     code_corrections: list[str] = Field(default_factory=list)
+    tool_calls: list[ToolCall] = Field(default_factory=list)
     revisions: int = 0
     critic_unresolved: bool = False
     stopped_reason: str | None = None

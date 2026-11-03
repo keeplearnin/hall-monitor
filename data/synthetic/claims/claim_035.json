@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_035",
+  "submitted_at": "2026-10-26T10:30:00Z",
+  "channel": "web_form",
+  "narrative": "Priya Shah, policy WTP-PLS-200761. My checked bag was lost when I landed at Incheon on 8 October and the airline has declared it lost. It had my Lumen M5 camera ($900.00) and clothes ($300.00). Total $1,200.00. Receipts and the airline report are attached.",
+  "attachments": [
+    {
+      "filename": "property_irregularity_report.txt",
+      "kind": "carrier_letter",
+      "text": "Han River Air - Property Irregularity Report\nFile ref: ICNHR4471  Passenger: SHAH/PRIYA\nFlight HR 18 SFO-ICN arrived 2026-10-08. Bag not received.\nStatus 2026-10-20: declared permanently lost."
+    },
+    {
+      "filename": "receipt_camera.txt",
+      "kind": "receipt",
+      "text": "Lumen Camera Co.  Receipt no. LC-55821\nDate: 2025-10-20\n1 x Lumen M5 mirrorless camera  USD 900.00"
+    },
+    {
+      "filename": "receipt_clothes.txt",
+      "kind": "receipt",
+      "text": "Linenworks  2026-06-02\nClothes  USD 300.00"
+    }
+  ]
+}

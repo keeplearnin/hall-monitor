@@ -294,6 +294,20 @@
     }
   },
   {
+    "policy_number": "WTP-ESS-101738",
+    "plan": "essentials",
+    "insured_name": "Tom Becker",
+    "purchase_date": "2026-08-10",
+    "coverage_start": "2026-08-10",
+    "coverage_end": "2026-10-19",
+    "trip": {
+      "destination": "Copenhagen, Denmark",
+      "departure_date": "2026-10-12",
+      "return_date": "2026-10-19",
+      "initial_deposit_date": "2026-08-05"
+    }
+  },
+  {
     "policy_number": "WTP-PLS-200118",
     "plan": "plus",
     "insured_name": "Mei Lin Zhou",
@@ -473,6 +487,20 @@
       "departure_date": "2026-09-05",
       "return_date": "2026-09-15",
       "initial_deposit_date": "2026-06-28"
+    }
+  },
+  {
+    "policy_number": "WTP-PLS-200761",
+    "plan": "plus",
+    "insured_name": "Priya Shah",
+    "purchase_date": "2026-07-20",
+    "coverage_start": "2026-07-20",
+    "coverage_end": "2026-10-18",
+    "trip": {
+      "destination": "Seoul, South Korea",
+      "departure_date": "2026-10-08",
+      "return_date": "2026-10-18",
+      "initial_deposit_date": "2026-07-15"
     }
   }
 ]

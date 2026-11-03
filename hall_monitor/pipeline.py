@@ -6,7 +6,9 @@ a field that drives the decision sends the claim to an adjuster, as does disagre
 survives the revisions. A claim whose policy can't be found, or that fails for any reason
 (refusal, API error, invalid output), stops and goes to an adjuster.
 
-No MCP tools yet (milestone 4): the policy record and wording are passed in directly.
+Agents read policy records and claims history only through the governed MCP tools, via the
+tool gateway, which enforces each agent's allow-list and records every call. The policy wording
+is reference text and is passed in directly.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ import anthropic
 from pydantic import BaseModel, ValidationError
 
 from hall_monitor import tracing
-from hall_monitor.agents.base import AgentRefusedError, AgentRun, render_feedback
+from hall_monitor.agents.base import AgentRefusedError, AgentRun, ToolAccess, render_feedback
 from hall_monitor.agents.coverage_check import run_coverage_check
 from hall_monitor.agents.critic import run_critic
 from hall_monitor.agents.intake import run_intake
@@ -38,9 +40,11 @@ from hall_monitor.models import (
     ReviewedStage,
     RevisionRecord,
     RiskAssessment,
+    ToolCall,
     TriageResult,
 )
 from hall_monitor.registry import Registry, RegistryError
+from hall_monitor.tools.gateway import ToolGateway
 
 MAX_REVISIONS = 2
 
@@ -68,6 +72,7 @@ class _Run:
     reviews: list[CriticReview] = field(default_factory=list)
     history: list[RevisionRecord] = field(default_factory=list)
     code_corrections: list[str] = field(default_factory=list)
+    tool_calls: list[ToolCall] = field(default_factory=list)
     revisions: int = 0
 
     def output[T](self, run: AgentRun[T]) -> T:
@@ -88,14 +93,15 @@ class _Run:
         return sorted({f"{r.stage.value}.{f}" for r in self.history for f in r.changed_fields})
 
 
-def _lookup(extraction: IntakeExtraction, policies: dict[str, PolicyRecord]) -> PolicyRecord | None:
-    return policies.get((extraction.policy_number or "").strip().upper())
+def _lookup(extraction: IntakeExtraction, gateway: ToolGateway, run: _Run) -> PolicyRecord | None:
+    return gateway.lookup_policy(extraction.policy_number, run.tool_calls)
 
 
-def _policy_numbers_in(claim: ClaimSubmission, policies: dict[str, PolicyRecord]) -> list[str]:
+def _policy_numbers_in(claim: ClaimSubmission, gateway: ToolGateway, run: _Run) -> list[str]:
     """Policy numbers in the claim text that match a real policy record."""
     text = "\n".join([claim.narrative, *(a.text for a in claim.attachments)]).upper()
-    return sorted({n for n in POLICY_NUMBER_PATTERN.findall(text) if n in policies})
+    candidates = sorted(set(POLICY_NUMBER_PATTERN.findall(text)))
+    return [n for n in candidates if gateway.lookup_policy(n, run.tool_calls) is not None]
 
 
 def _problems(review: CriticReview) -> dict[ReviewedStage, list[str]]:
@@ -116,15 +122,16 @@ def triage(
     claim: ClaimSubmission,
     *,
     registry: Registry,
-    policies: dict[str, PolicyRecord],
     wording: str,
+    gateway: ToolGateway | None = None,
     client: anthropic.Anthropic | None = None,
     critic: bool = True,
 ) -> TriageResult:
     client = client or anthropic.Anthropic()
+    gateway = gateway or ToolGateway(registry)
     run = _Run()
     try:
-        return _triage(claim, run, registry, policies, wording, client, critic)
+        return _triage(claim, run, registry, gateway, wording, client, critic)
     except AgentRefusedError as exc:
         run.calls.append(exc.call)
         reason = f"agent refused or returned no usable output: {exc}"
@@ -147,6 +154,7 @@ def triage(
         critic_reviews=run.reviews,
         revision_history=run.history,
         code_corrections=run.code_corrections,
+        tool_calls=run.tool_calls,
         revisions=run.revisions,
         stopped_reason=reason,
     )
@@ -156,24 +164,24 @@ def _triage(
     claim: ClaimSubmission,
     run: _Run,
     registry: Registry,
-    policies: dict[str, PolicyRecord],
+    gateway: ToolGateway,
     wording: str,
     client: anthropic.Anthropic,
     critic: bool,
 ) -> TriageResult:
     # Intake, then a code check that the policy exists. One retry with the problem spelled out.
     run.extraction = run.output(run_intake(claim, registry, client))
-    policy = _lookup(run.extraction, policies)
+    policy = _lookup(run.extraction, gateway, run)
     if policy is None:
         # Code first: if the claim text contains exactly one real policy number, use it.
-        found = _policy_numbers_in(claim, policies)
+        found = _policy_numbers_in(claim, gateway, run)
         if len(found) == 1:
             run.code_corrections.append(
                 f"policy_number {run.extraction.policy_number!r} replaced by {found[0]!r}, "
                 "the only valid policy number in the claim text"
             )
             run.extraction = run.extraction.model_copy(update={"policy_number": found[0]})
-            policy = policies[found[0]]
+            policy = _lookup(run.extraction, gateway, run)
     if policy is None:
         problem = (
             f"No policy record matches policy_number {run.extraction.policy_number!r}. Find the "
@@ -181,21 +189,24 @@ def _triage(
         )
         feedback = render_feedback(run.extraction, [problem])
         run.extraction = run.output(run_intake(claim, registry, client, feedback=feedback))
-        policy = _lookup(run.extraction, policies)
+        policy = _lookup(run.extraction, gateway, run)
     if policy is None:
         raise PipelineStopped("no policy record found for the policy number on the claim")
+    tools = ToolAccess(gateway, run.tool_calls)
 
     coverage: CoverageAssessment = run.output(
-        run_coverage_check(claim, run.extraction, policy, wording, registry, client)
+        run_coverage_check(claim, run.extraction, wording, registry, client, tools=tools)
     )
     risk: RiskAssessment = run.output(
-        run_risk_fraud(claim, run.extraction, policy, registry, client)
+        run_risk_fraud(claim, run.extraction, registry, client, tools=tools)
     )
 
     unresolved = False
     while critic:
         review = run.output(
-            run_critic(claim, run.extraction, policy, coverage, risk, wording, registry, client)
+            run_critic(
+                claim, run.extraction, coverage, risk, wording, registry, client, tools=tools
+            )
         )
         run.reviews.append(review)
         if not review.issues:
@@ -220,7 +231,7 @@ def _triage(
                     )
                 ),
             )
-            policy = _lookup(run.extraction, policies)
+            policy = _lookup(run.extraction, gateway, run)
             if policy is None:
                 raise PipelineStopped("no policy record found after the critic's correction")
         if ReviewedStage.INTAKE in problems or ReviewedStage.COVERAGE_CHECK in problems:
@@ -232,11 +243,11 @@ def _triage(
                     run_coverage_check(
                         claim,
                         run.extraction,
-                        policy,
                         wording,
                         registry,
                         client,
                         feedback=_feedback(problems, ReviewedStage.COVERAGE_CHECK, coverage),
+                        tools=tools,
                     )
                 ),
             )
@@ -248,10 +259,10 @@ def _triage(
                     run_risk_fraud(
                         claim,
                         run.extraction,
-                        policy,
                         registry,
                         client,
                         feedback=_feedback(problems, ReviewedStage.RISK_FRAUD, risk),
+                        tools=tools,
                     )
                 ),
             )
@@ -278,6 +289,7 @@ def _triage(
         critic_reviews=run.reviews,
         revision_history=run.history,
         code_corrections=run.code_corrections,
+        tool_calls=run.tool_calls,
         revisions=run.revisions,
         critic_unresolved=unresolved,
     )

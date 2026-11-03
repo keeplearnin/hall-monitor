@@ -149,6 +149,9 @@ class RunScore:
     critic_reviews: int = 0
     critic_unresolved: bool = False
     stopped: bool = False
+    tool_calls: int = 0
+    refused_tool_calls: int = 0
+    coverage_looked_up_policy: bool | None = None
 
 
 def score_run(
@@ -201,6 +204,15 @@ def score_run(
         critic_reviews=len(result.critic_reviews),
         critic_unresolved=result.critic_unresolved,
         stopped=result.stopped_reason is not None,
+        tool_calls=len(result.tool_calls),
+        refused_tool_calls=sum(not t.allowed for t in result.tool_calls),
+        coverage_looked_up_policy=(
+            any(
+                t.actor == "coverage_check" and t.tool == "policy_lookup" for t in result.tool_calls
+            )
+            if result.coverage is not None
+            else None
+        ),
     )
 
 
@@ -246,4 +258,13 @@ def summarize(scores: list[RunScore]) -> dict[str, float | int | None]:
         "revised_rate": _mean([float(s.revisions > 0) for s in ok_runs]),
         "critic_unresolved_rate": _mean([float(s.critic_unresolved) for s in ok_runs]),
         "stopped_rate": _mean([float(s.stopped) for s in ok_runs]),
+        "tool_calls_per_claim": _mean([float(s.tool_calls) for s in ok_runs]),
+        "refused_tool_calls": sum(s.refused_tool_calls for s in ok_runs),
+        "coverage_policy_lookup_rate": _mean(
+            [
+                float(s.coverage_looked_up_policy)
+                for s in ok_runs
+                if s.coverage_looked_up_policy is not None
+            ]
+        ),
     }

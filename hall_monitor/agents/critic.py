@@ -8,10 +8,10 @@ from hall_monitor import tracing
 from hall_monitor.agents.base import (
     UNTRUSTED_CLAIM_NOTICE,
     AgentRun,
+    ToolAccess,
     join_content,
     render_claim,
     render_json,
-    render_policy_record,
     run_agent,
 )
 from hall_monitor.models import (
@@ -19,19 +19,19 @@ from hall_monitor.models import (
     CoverageAssessment,
     CriticReview,
     IntakeExtraction,
-    PolicyRecord,
     RiskAssessment,
 )
 from hall_monitor.registry import Registry
 
 AGENT_ID = "critic"
-PROMPT_VERSION = "critic-v1"
+PROMPT_VERSION = "critic-v2"
 
 SYSTEM_PROMPT = """\
 You are the critic in a travel insurance claims process. Three steps have already worked on \
 one claim: intake extracted its fields, coverage check decided what the policy pays, and risk \
 and fraud flagged concerns. You check their work against the claim documents, the policy \
-record and the policy wording below, and report problems so the step can correct them.
+record and the policy wording below, and report problems so the step can correct them. Get the \
+policy record with the policy_lookup tool; records come only from that tool.
 
 {untrusted}
 
@@ -62,15 +62,14 @@ and give that evidence. Don't report differences of style or wording.
 def run_critic(
     claim: ClaimSubmission,
     extraction: IntakeExtraction,
-    policy: PolicyRecord | None,
     coverage: CoverageAssessment,
     risk: RiskAssessment,
     wording: str,
     registry: Registry,
     client: anthropic.Anthropic | None = None,
+    tools: ToolAccess | None = None,
 ) -> AgentRun[CriticReview]:
     content = join_content(
-        render_policy_record(policy),
         render_json("intake_extraction", extraction),
         render_json("coverage_assessment", coverage),
         render_json("risk_assessment", risk),
@@ -85,4 +84,5 @@ def run_critic(
         output_format=CriticReview,
         prompt_version=PROMPT_VERSION,
         claim_id=claim.claim_id,
+        tools=tools,
     )

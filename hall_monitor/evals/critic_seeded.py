@@ -24,11 +24,11 @@ import anthropic
 from dotenv import load_dotenv
 
 from hall_monitor import tracing
+from hall_monitor.agents.base import ToolAccess
 from hall_monitor.agents.critic import run_critic
 from hall_monitor.data import (
     iter_claims,
     load_ground_truth,
-    load_policy_records,
     load_policy_wording,
 )
 from hall_monitor.evals.cost import call_cost
@@ -45,6 +45,7 @@ from hall_monitor.models import (
     RiskLevel,
 )
 from hall_monitor.registry import Registry
+from hall_monitor.tools.gateway import ToolGateway
 
 
 @dataclass
@@ -144,12 +145,12 @@ def run_case(case: Case, claim: ClaimSubmission, context: dict) -> CaseResult:
         run = run_critic(
             claim,
             case.extraction,
-            context["policies"].get(case.extraction.policy_number or ""),
             case.coverage,
             case.risk,
             context["wording"],
             context["registry"],
             context["client"],
+            tools=ToolAccess(context["gateway"]),
         )
     except Exception as exc:  # a failed case is reported, not hidden
         result.error = f"{type(exc).__name__}: {exc}"
@@ -232,9 +233,10 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv()
     claims = {c.claim_id: c for c in iter_claims()}
     cases = build_cases([load_ground_truth(cid) for cid in claims])
+    registry = Registry.from_dir()
     context = {
-        "registry": Registry.from_dir(),
-        "policies": load_policy_records(),
+        "registry": registry,
+        "gateway": ToolGateway(registry),
         "wording": load_policy_wording(),
         "client": anthropic.Anthropic(),
     }

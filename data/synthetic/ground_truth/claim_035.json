@@ -1,0 +1,44 @@
+{
+  "claim_id": "claim_035",
+  "scenario": "History-only fraud signal: the same camera receipt was claimed and paid in 2025.",
+  "extraction": {
+    "claimant_name": "Priya Shah",
+    "policy_number": "WTP-PLS-200761",
+    "claim_type": "baggage_loss",
+    "incident_date": "2026-10-08",
+    "incident_location": "Incheon, Seoul",
+    "claimed_items": [
+      {
+        "description": "Lumen M5 camera",
+        "amount": 900.0
+      },
+      {
+        "description": "Clothes",
+        "amount": 300.0
+      }
+    ],
+    "total_claimed": 1200.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "property_irregularity_report.txt",
+      "receipt_camera.txt",
+      "receipt_clothes.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "partially_covered",
+    "applicable_clauses": [
+      "3.2"
+    ],
+    "covered_amount": 800.0,
+    "reasoning": "If genuine: the camera is under a year old, so 900, capped at the 500 per-item limit and within the Plus valuables limit; clothes 300. Total 800 (3.2). Carrier report obtained. The camera receipt (LC-55821) was already used in a paid claim in 2025, which is for the fraud check."
+  },
+  "risk": {
+    "level": "high",
+    "flags": [
+      "prior_similar_claim"
+    ]
+  },
+  "next_step": "investigate",
+  "route": "adjuster"
+}

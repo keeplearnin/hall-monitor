@@ -1,6 +1,6 @@
 id: coverage_check
 name: Coverage check
-version: 0.2.0
+version: 0.3.0
 owner: claims-ai-platform
 purpose: Compare the claim with the policy wording and identify applicable clauses, exclusions and limits.
 risk_tier: high

@@ -1,6 +1,6 @@
 id: critic
 name: Critic
-version: 0.1.0
+version: 0.2.0
 owner: claims-ai-platform
 purpose: Check extraction and coverage reasoning against the source documents and send them back when they disagree.
 risk_tier: medium
