@@ -181,3 +181,47 @@ def test_over_citing_lowers_clause_precision_not_recall():
     s = score(result)
     assert s.clause_recall == 1.0
     assert s.clause_precision == 0.25
+
+
+# --- Critic seeded-error eval --------------------------------------------------------
+
+
+def test_seeded_cases_plant_exactly_one_error_each():
+    from hall_monitor.evals.critic_seeded import build_cases
+
+    truths = [load_ground_truth(cid) for cid in sorted(CLAIMS)]
+    cases = build_cases(truths)
+    by_seed = {}
+    for case in cases:
+        by_seed.setdefault(case.seed, []).append(case)
+    assert len(by_seed["control"]) == len(truths)
+    for case in by_seed["amount_ignores_cap"]:
+        truth = load_ground_truth(case.claim_id)
+        assert case.coverage.covered_amount == truth.extraction.total_claimed
+        assert case.coverage.covered_amount != truth.coverage.covered_amount
+        assert case.risk.flags == truth.risk.flags
+    for case in by_seed["unsupported_flag"]:
+        assert "amounts_inconsistent" in case.risk.flags
+    for case in by_seed["missing_incident_date"]:
+        assert case.extraction.incident_date is None
+
+
+def test_seeded_scoring():
+    from hall_monitor.data import load_policy_records
+    from hall_monitor.evals.critic_seeded import _control, _missing_date, run_case
+    from hall_monitor.models import CriticIssue, CriticReview, ReviewedStage
+    from hall_monitor.registry import Registry
+    from tests.fakes import fake_client
+
+    truth = load_ground_truth("claim_001")
+    issue = CriticReview(
+        issues=[CriticIssue(stage=ReviewedStage.INTAKE, problem="Date missing.", evidence="x")]
+    )
+    context = {
+        "policies": load_policy_records(),
+        "wording": WORDING,
+        "registry": Registry.from_dir(),
+        "client": fake_client({CriticReview: issue}),
+    }
+    assert run_case(_missing_date(truth), CLAIMS["claim_001"], context).caught is True
+    assert run_case(_control(truth), CLAIMS["claim_001"], context).false_alarm is True

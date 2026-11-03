@@ -6,7 +6,7 @@
     "policy_number": "WTP-PLS-200501",
     "claim_type": "trip_cancellation",
     "incident_date": "2026-10-01",
-    "incident_location": "France",
+    "incident_location": "Paris, France",
     "claimed_items": [
       {
         "description": "Non-refundable hotel",
