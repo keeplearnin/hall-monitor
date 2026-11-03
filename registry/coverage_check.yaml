@@ -4,7 +4,7 @@ version: 0.1.0
 owner: claims-ai-platform
 purpose: Compare the claim with the policy wording and identify applicable clauses, exclusions and limits.
 risk_tier: high
-status: planned
+status: active
 model: claude-sonnet-5-5
 allowed_tools: [policy_lookup]
 data_classes: [pii, financial]

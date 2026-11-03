@@ -4,7 +4,7 @@ version: 0.1.0
 owner: claims-ai-platform
 purpose: Propose a next step (pay, request information, investigate, deny) with reasons and evidence. Never decides denials or large payouts.
 risk_tier: high
-status: planned
+status: active
 model: claude-sonnet-5-5
 allowed_tools: []
 data_classes: [pii, financial]

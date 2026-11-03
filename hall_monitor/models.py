@@ -93,9 +93,6 @@ class IntakeExtraction(BaseModel):
     supporting_documents: list[str] = Field(description="Filenames of attachments provided.")
 
 
-# --- Ground truth ---------------------------------------------------------
-
-
 class CoverageDecision(StrEnum):
     COVERED = "covered"
     PARTIALLY_COVERED = "partially_covered"
@@ -106,6 +103,16 @@ class RiskLevel(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+
+
+class RiskFlag(StrEnum):
+    POLICY_PURCHASED_SHORTLY_BEFORE_INCIDENT = "policy_purchased_shortly_before_incident"
+    RECEIPT_DATED_AFTER_INCIDENT = "receipt_dated_after_incident"
+    MISSING_CARRIER_REPORT = "missing_carrier_report"
+    DUPLICATE_RECEIPT = "duplicate_receipt"
+    AMOUNTS_INCONSISTENT = "amounts_inconsistent"
+    DATES_INCONSISTENT = "dates_inconsistent"
+    LATE_SUBMISSION = "late_submission"
 
 
 class NextStep(StrEnum):
@@ -120,11 +127,85 @@ class Route(StrEnum):
     ADJUSTER = "adjuster"
 
 
+class CoverageAssessment(BaseModel):
+    """Output of the coverage check agent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: CoverageDecision
+    applicable_clauses: list[str] = Field(
+        description='Clause numbers that decide the outcome or amount, e.g. "3.1", "5.1".'
+    )
+    covered_amount: float = Field(description="What the policy pays in USD. 0 if not covered.")
+    reasoning: str
+
+
+class RiskAssessment(BaseModel):
+    """Output of the risk and fraud agent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    level: RiskLevel
+    flags: list[RiskFlag]
+    reasoning: str
+
+
+class Recommendation(BaseModel):
+    """Output of the recommendation agent. A proposal; an adjuster decides consequential cases."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    next_step: NextStep
+    reasons: list[str] = Field(description="Each reason with the evidence behind it.")
+
+
+# --- Pipeline record ------------------------------------------------------
+
+
+class AgentCall(BaseModel):
+    """One agent step: the hall pass it ran under and what it cost."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent_id: str
+    agent_version: str
+    model: str
+    manifest_digest: str
+    prompt_version: str
+    input_tokens: int
+    output_tokens: int
+    seconds: float
+
+
+class RoutingDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    route: Route
+    reasons: list[str]
+
+
+class TriageResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: str
+    extraction: IntakeExtraction
+    coverage: CoverageAssessment
+    risk: RiskAssessment
+    recommendation: Recommendation
+    routing: RoutingDecision
+    agent_calls: list[AgentCall]
+
+
+# --- Ground truth ---------------------------------------------------------
+
+
 class ExpectedCoverage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     decision: CoverageDecision
-    applicable_clauses: list[str]
+    applicable_clauses: list[str] = Field(
+        description="The clauses that decide the outcome. Scored on recall."
+    )
     covered_amount: float
     reasoning: str
 
@@ -133,7 +214,7 @@ class ExpectedRisk(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     level: RiskLevel
-    flags: list[str]
+    flags: list[RiskFlag]
 
 
 class GroundTruth(BaseModel):

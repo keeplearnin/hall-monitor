@@ -33,8 +33,7 @@
   "coverage": {
     "decision": "covered",
     "applicable_clauses": [
-      "3.1",
-      "3.3"
+      "3.1"
     ],
     "covered_amount": 282.49,
     "reasoning": "Delay of 30h10m on the outbound flight is two part-days; Plus pays 150 per day, so the cap is 300. All purchases are toiletries or clothing with receipts, and a carrier report was obtained."

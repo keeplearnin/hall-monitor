@@ -1,22 +1,19 @@
-"""Run a claim through the pipeline.
+"""Triage a claim: intake, coverage check, risk and fraud, recommendation, routing.
 
-    uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
-
-Milestone 1 runs the intake agent only.
+uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 from hall_monitor import tracing
-from hall_monitor.agents.intake import run_intake
-from hall_monitor.data import load_claim
+from hall_monitor.data import load_claim, load_policy_records, load_policy_wording
+from hall_monitor.pipeline import triage
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, Registry, RegistryError
 
 
@@ -27,29 +24,20 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     load_dotenv()
-    registry = Registry.from_dir(args.registry)
-    claim = load_claim(args.claim)
-
     try:
-        extraction = run_intake(claim, registry)
+        result = triage(
+            load_claim(args.claim),
+            registry=Registry.from_dir(args.registry),
+            policies=load_policy_records(),
+            wording=load_policy_wording(),
+        )
     except RegistryError as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return 2
     finally:
         tracing.flush()
 
-    manifest = registry.get("intake")
-    output = {
-        "claim_id": claim.claim_id,
-        "hall_pass": {
-            "agent_id": manifest.id,
-            "version": manifest.version,
-            "model": manifest.model,
-            "manifest_digest": manifest.digest(),
-        },
-        "extraction": extraction.model_dump(mode="json"),
-    }
-    print(json.dumps(output, indent=2))
+    print(result.model_dump_json(indent=2))
     return 0
 
 

@@ -29,11 +29,10 @@
     "decision": "partially_covered",
     "applicable_clauses": [
       "3.2",
-      "3.3",
-      "5.6"
+      "3.3"
     ],
-    "covered_amount": 750.0,
-    "reasoning": "If genuine, the most payable is 750: laptop capped at 500 per item, camera 490, both capped by the 750 valuables limit (3.2). No carrier report was obtained (3.3). The laptop receipt is dated three days after the loss, which needs investigation before any payment (5.6)."
+    "covered_amount": 490.0,
+    "reasoning": "Only the camera is payable: 490, within the 500 per-item and 750 valuables limits (3.2). Clause 3.2 requires proof of ownership and value for items over 100, and the laptop receipt is dated 2026-10-06, three days after the loss, so it can't show the laptop was owned when the bag was lost. No carrier report was obtained, which can reduce or decline the claim unless it wasn't reasonably possible (3.3); the claimant says the desk was closed. Whether the receipt itself is genuine is for the fraud check."
   },
   "risk": {
     "level": "high",

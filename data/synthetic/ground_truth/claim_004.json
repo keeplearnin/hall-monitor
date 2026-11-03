@@ -28,7 +28,6 @@
   "coverage": {
     "decision": "not_covered",
     "applicable_clauses": [
-      "1.2",
       "5.1"
     ],
     "covered_amount": 0.0,
