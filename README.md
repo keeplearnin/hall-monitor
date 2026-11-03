@@ -100,8 +100,9 @@ Numbers are published as each milestone lands, from runs anyone can reproduce wi
 | Milestone | Extraction accuracy | Coverage-reasoning accuracy | Hallucination rate | Cost per claim | Human override rate |
 |---|---|---|---|---|---|
 | Baseline (single pass, 6 claims x 3 trials) | 100.0% | 83.3% | 0.0% | $0.024 | n/a |
+| Baseline (single pass, 26 claims x 3 trials) | 98.3% | 89.7% | 0.0% | $0.022 | n/a |
 
-Every claim was routed correctly in all 18 runs. Details: [findings](evals/results/baseline/findings.md) and the generated [report](evals/results/baseline/report.md).
+Same code for both rows; the second runs on a larger claim set. In the 26-claim run, 77 of 78 runs were routed correctly and no wrong amount was ever paid automatically: every miss that touched money went to an adjuster. Details: findings for [6 claims](evals/results/baseline/findings.md) and [26 claims](evals/results/baseline-26/findings.md).
 
 ## Roadmap
 
