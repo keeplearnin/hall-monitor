@@ -113,7 +113,7 @@ def test_call_cost_uses_list_prices():
         prompt_version="v1",
         system_prompt_sha256="x",
         input_sha256="x",
-        request_id=None,
+        request_ids=[],
         stop_reason="end_turn",
         input_tokens=1_000_000,
         output_tokens=100_000,
@@ -207,21 +207,31 @@ def test_seeded_cases_plant_exactly_one_error_each():
 
 
 def test_seeded_scoring():
-    from hall_monitor.data import load_policy_records
     from hall_monitor.evals.critic_seeded import _control, _missing_date, run_case
     from hall_monitor.models import CriticIssue, CriticReview, ReviewedStage
     from hall_monitor.registry import Registry
+    from hall_monitor.tools.gateway import ToolGateway
     from tests.fakes import fake_client
 
     truth = load_ground_truth("claim_001")
     issue = CriticReview(
         issues=[CriticIssue(stage=ReviewedStage.INTAKE, problem="Date missing.", evidence="x")]
     )
+    registry = Registry.from_dir()
     context = {
-        "policies": load_policy_records(),
+        "gateway": ToolGateway(registry),
         "wording": WORDING,
-        "registry": Registry.from_dir(),
+        "registry": registry,
         "client": fake_client({CriticReview: issue}),
     }
     assert run_case(_missing_date(truth), CLAIMS["claim_001"], context).caught is True
     assert run_case(_control(truth), CLAIMS["claim_001"], context).false_alarm is True
+
+
+def test_run_stopped_before_intake_scores_as_wrong_without_crashing():
+    result = result_from_truth("claim_002").model_copy(
+        update={"extraction": None, "coverage": None, "risk": None, "stopped_reason": "refused"}
+    )
+    s = score(result)
+    assert not any(s.extraction_fields.values())
+    assert s.values_checked == 0 and s.stopped

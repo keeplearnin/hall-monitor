@@ -1,0 +1,42 @@
+{
+  "claim_id": "claim_036",
+  "scenario": "Control: clean claim with an unrelated earlier claim in the history.",
+  "extraction": {
+    "claimant_name": "Tom Becker",
+    "policy_number": "WTP-ESS-101738",
+    "claim_type": "baggage_delay",
+    "incident_date": "2026-10-12",
+    "incident_location": "Copenhagen, Denmark",
+    "claimed_items": [
+      {
+        "description": "Toiletries",
+        "amount": 38.0
+      },
+      {
+        "description": "Shirt",
+        "amount": 45.0
+      }
+    ],
+    "total_claimed": 83.0,
+    "currency": "USD",
+    "supporting_documents": [
+      "delay_report.txt",
+      "receipt_toiletries.txt",
+      "receipt_shirt.txt"
+    ]
+  },
+  "coverage": {
+    "decision": "covered",
+    "applicable_clauses": [
+      "3.1"
+    ],
+    "covered_amount": 83.0,
+    "reasoning": "Outbound delay of 14h15m: one part-day, Essentials pays up to 100 (3.1). 83 spent on toiletries and clothing with receipts, so it is paid in full. The insured's only earlier claim (2023, medical) is unrelated."
+  },
+  "risk": {
+    "level": "low",
+    "flags": []
+  },
+  "next_step": "pay",
+  "route": "auto"
+}

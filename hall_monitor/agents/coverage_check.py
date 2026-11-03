@@ -8,10 +8,10 @@ from hall_monitor import tracing
 from hall_monitor.agents.base import (
     UNTRUSTED_CLAIM_NOTICE,
     AgentRun,
+    ToolAccess,
     join_content,
     render_claim,
     render_json,
-    render_policy_record,
     run_agent,
 )
 from hall_monitor.models import (
@@ -19,12 +19,11 @@ from hall_monitor.models import (
     CoverageAssessment,
     CoverageFinding,
     IntakeExtraction,
-    PolicyRecord,
 )
 from hall_monitor.registry import Registry
 
 AGENT_ID = "coverage_check"
-PROMPT_VERSION = "coverage-check-v2"
+PROMPT_VERSION = "coverage-check-v3"
 
 SYSTEM_PROMPT = """\
 You are the coverage check step in a travel insurance claims process. You compare one claim \
@@ -33,8 +32,10 @@ genuine: a separate step checks for fraud, and an adjuster makes the final decis
 
 {untrusted}
 
-You also get the policy record (plan, purchase and trip dates) and the structured fields the \
-intake step extracted. Check the extracted fields against the claim documents where it matters.
+You also get the structured fields the intake step extracted. Check them against the claim \
+documents where it matters. Look up the policy record with the policy_lookup tool, using the \
+extracted policy number, before you decide: it gives the plan and the purchase, deposit and trip \
+dates. Policy records come only from that tool.
 
 Rules:
 - Base every conclusion on the policy wording, the policy record and the claim documents.
@@ -56,14 +57,13 @@ exactly as written in the wording (e.g. "3.1", "5.1").
 def run_coverage_check(
     claim: ClaimSubmission,
     extraction: IntakeExtraction,
-    policy: PolicyRecord | None,
     wording: str,
     registry: Registry,
     client: anthropic.Anthropic | None = None,
     feedback: str | None = None,
+    tools: ToolAccess | None = None,
 ) -> AgentRun[CoverageAssessment]:
     content = join_content(
-        render_policy_record(policy),
         render_json("intake_extraction", extraction),
         render_claim(claim),
         feedback,
@@ -77,6 +77,7 @@ def run_coverage_check(
         output_format=CoverageFinding,
         prompt_version=PROMPT_VERSION,
         claim_id=claim.claim_id,
+        tools=tools,
     )
     # The label is defined by the amount, so code sets it rather than the model.
     assessment = CoverageAssessment.from_finding(run.output, extraction.total_claimed)

@@ -11,6 +11,7 @@ import argparse
 import json
 import subprocess
 import sys
+import threading
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -24,7 +25,6 @@ from hall_monitor import tracing
 from hall_monitor.data import (
     iter_claims,
     load_ground_truth,
-    load_policy_records,
     load_policy_wording,
 )
 from hall_monitor.evals import scoring
@@ -33,6 +33,7 @@ from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
 from hall_monitor.models import ClaimSubmission, TriageResult
 from hall_monitor.pipeline import MAX_REVISIONS, triage
 from hall_monitor.registry import Registry
+from hall_monitor.tools.gateway import ToolGateway
 
 
 def _git(*args: str) -> str:
@@ -50,21 +51,32 @@ def run_one(
         result = triage(
             claim,
             registry=context["registry"],
-            policies=context["policies"],
+            gateway=context["gateway"],
             wording=context["wording"],
             client=context["client"],
             critic=context["critic"],
         )
     except Exception as exc:  # a failed run is scored, not hidden
         return scoring.failed_run(claim.claim_id, trial, f"{type(exc).__name__}: {exc}"), None
-    score = scoring.score_run(
-        result,
-        context["truths"][claim.claim_id],
-        claim,
-        context["wording"],
-        trial=trial,
-        cost_usd=sum(call_cost(c) for c in result.agent_calls),
-    )
+    # An API failure (outage, rate limit, no credit) says nothing about the model: count it as
+    # an infrastructure error, not as a stopped claim, so it can't pass as model behaviour.
+    if result.stopped_reason and result.stopped_reason.endswith("from the model call"):
+        return scoring.failed_run(claim.claim_id, trial, result.stopped_reason), result
+    try:
+        score = scoring.score_run(
+            result,
+            context["truths"][claim.claim_id],
+            claim,
+            context["wording"],
+            trial=trial,
+            cost_usd=sum(call_cost(c) for c in result.agent_calls),
+        )
+    except Exception as exc:  # a scoring bug must not lose the run: keep the result, flag it
+        score = scoring.failed_run(claim.claim_id, trial, f"scoring {type(exc).__name__}: {exc}")
+    # Save each raw result as it finishes, so a crash later can't lose paid-for runs.
+    with context["lock"]:
+        with context["raw_path"].open("a") as raw:
+            raw.write(result.model_dump_json() + "\n")
     return score, result
 
 
@@ -113,6 +125,9 @@ def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths
         f"| Runs revised after critic review | {_pct(summary['revised_rate'])} |",
         f"| Runs where the critic still disagreed | {_pct(summary['critic_unresolved_rate'])} |",
         f"| Runs stopped (policy not found) | {_pct(summary['stopped_rate'])} |",
+        f"| Tool calls per claim | {summary['tool_calls_per_claim'] or 0:.1f} |",
+        f"| Refused tool calls | {summary['refused_tool_calls']} |",
+        f"| Coverage looked up the policy | {_pct(summary['coverage_policy_lookup_rate'])} |",
     ]
 
     lines += [
@@ -215,14 +230,19 @@ def main(argv: list[str] | None = None) -> int:
 
     load_dotenv()
     claims = list(iter_claims())
+    registry = Registry.from_dir()
     context = {
-        "registry": Registry.from_dir(),
-        "policies": load_policy_records(),
+        "registry": registry,
+        "gateway": ToolGateway(registry),
         "wording": load_policy_wording(),
         "client": anthropic.Anthropic(),
         "truths": {c.claim_id: load_ground_truth(c.claim_id) for c in claims},
         "critic": not args.no_critic,
+        "lock": threading.Lock(),
+        "raw_path": args.out / "raw_results.jsonl",
     }
+    args.out.mkdir(parents=True, exist_ok=True)
+    context["raw_path"].unlink(missing_ok=True)
     jobs = [(claim, trial) for trial in range(1, args.trials + 1) for claim in claims]
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         outcomes = list(pool.map(lambda job: run_one(*job, context), jobs))

@@ -8,7 +8,6 @@ from hall_monitor.agents.base import render_claim, render_feedback
 from hall_monitor.data import (
     iter_claims,
     load_ground_truth,
-    load_policy_records,
     load_policy_wording,
 )
 from hall_monitor.governance.routing import route_claim
@@ -29,10 +28,12 @@ from hall_monitor.models import (
 )
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
+from hall_monitor.tools.gateway import ToolGateway
 from tests.fakes import fake_client, outputs_from_truth
 
 CLAIMS = list(iter_claims())
 REGISTRY = Registry.from_dir()
+GATEWAY = ToolGateway(REGISTRY)
 
 
 @pytest.mark.parametrize("claim", CLAIMS, ids=lambda c: c.claim_id)
@@ -43,7 +44,7 @@ def test_correct_agent_outputs_give_the_expected_route(claim):
     result = triage(
         claim,
         registry=REGISTRY,
-        policies=load_policy_records(),
+        gateway=GATEWAY,
         wording=load_policy_wording(),
         client=client,
     )
@@ -67,7 +68,7 @@ def test_coverage_check_sees_the_policy_record_and_wording():
     triage(
         claim,
         registry=REGISTRY,
-        policies=load_policy_records(),
+        gateway=GATEWAY,
         wording=load_policy_wording(),
         client=client,
     )
@@ -84,7 +85,7 @@ def test_pipeline_stops_if_an_agent_loses_its_hall_pass():
     result = triage(
         claim,
         registry=registry,
-        policies=load_policy_records(),
+        gateway=GATEWAY,
         wording=load_policy_wording(),
         client=client,
     )
@@ -136,14 +137,13 @@ def test_anything_but_a_clean_small_payment_goes_to_an_adjuster(kwargs):
 
 # --- Policy lookup gate -------------------------------------------------------
 
-POLICIES = load_policy_records()
 WORDING = load_policy_wording()
 
 
 def _triage(claim, outputs, **kwargs):
     client = fake_client(outputs)
     result = triage(
-        claim, registry=REGISTRY, policies=POLICIES, wording=WORDING, client=client, **kwargs
+        claim, registry=REGISTRY, gateway=GATEWAY, wording=WORDING, client=client, **kwargs
     )
     return result, client.messages
 
@@ -281,7 +281,7 @@ def test_refusal_stops_the_claim_and_keeps_its_cost():
     claim = CLAIMS[0]
     client = fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)), "refusal")
 
-    result = triage(claim, registry=REGISTRY, policies=POLICIES, wording=WORDING, client=client)
+    result = triage(claim, registry=REGISTRY, gateway=GATEWAY, wording=WORDING, client=client)
 
     assert result.stopped_reason and "refused" in result.stopped_reason
     assert result.routing.route is Route.ADJUSTER
@@ -297,7 +297,7 @@ def test_api_error_stops_the_claim():
         raise anthropic.APIConnectionError(request=httpx.Request("POST", "https://example"))
 
     client.messages.parse = fail
-    result = triage(claim, registry=REGISTRY, policies=POLICIES, wording=WORDING, client=client)
+    result = triage(claim, registry=REGISTRY, gateway=GATEWAY, wording=WORDING, client=client)
 
     assert result.routing.route is Route.ADJUSTER
     assert "APIConnectionError" in result.stopped_reason

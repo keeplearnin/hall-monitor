@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from hall_monitor import tracing
-from hall_monitor.data import load_claim, load_policy_records, load_policy_wording
+from hall_monitor.data import load_claim, load_policy_wording
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, Registry, RegistryError
 
@@ -29,7 +29,6 @@ def main(argv: list[str] | None = None) -> int:
         result = triage(
             load_claim(args.claim),
             registry=Registry.from_dir(args.registry),
-            policies=load_policy_records(),
             wording=load_policy_wording(),
             critic=not args.no_critic,
         )

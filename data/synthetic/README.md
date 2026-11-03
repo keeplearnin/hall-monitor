@@ -8,6 +8,7 @@ hospitals, airlines and receipts are fictional. No real customer, policy or clai
 - `policies/policy_records.json`: one policy record per claim (plan, purchase date, trip dates).
 - `claims/`: claim submissions as the customer sent them: a free-text narrative plus attachment
   text. Treat this as untrusted input.
+- `claims_history.json`: earlier claims by some of the insured people, served by the `claims_history` MCP tool.
 - `ground_truth/`: the expected intake extraction, coverage decision, risk flags, next step and
   route for each claim, with the reasoning written out.
 
@@ -41,6 +42,16 @@ hospitals, airlines and receipts are fictional. No real customer, policy or clai
 | claim_024 | Emergency medical | Deny, adjuster | Pre-existing on Plus, bought too late for the waiver |
 | claim_025 | Emergency medical | Deny, adjuster | Invoice dated before the trip; new policy (high risk) |
 | claim_026 | Trip cancellation | Pay 2,100, auto | Grandparent's death; clean |
+| claim_027 | Trip cancellation | Pay 3,000, adjuster | Cap test: 180 over the Essentials limit |
+| claim_028 | Trip cancellation | Pay 7,500, adjuster | Cap test: 440 over the Plus limit |
+| claim_029 | Baggage delay | Pay 200, auto | Cap test: two-day delay cap well below the spend |
+| claim_030 | Baggage delay | Pay 750, auto | Cap test: five-day delay at the Plus maximum |
+| claim_031 | Baggage delay | Pay 290, auto | Control: the day cap applies but doesn't bind |
+| claim_032 | Baggage loss | Pay 1,000, auto | Cap test: 150 over the Essentials baggage loss limit |
+| claim_033 | Baggage loss | Pay 1,240, auto | Cap test: depreciation, per-item limits, then the valuables limit |
+| claim_034 | Trip cancellation | Pay 2,050, auto | Cap test: the 72-hour rule sets the amount, not the limit |
+| claim_035 | Baggage loss | Investigate (800 payable if genuine), adjuster | The camera receipt was already claimed and paid in 2025: only the claims history shows it |
+| claim_036 | Baggage delay | Pay 83, auto | Control: clean claim with an unrelated earlier claim in the history |
 
 ## Routing rule
 
@@ -65,3 +76,4 @@ scored against the answer key as of its commit.
 | 2026-11-03 | claims 001, 002, 004, 005 | `applicable_clauses` cut to the clauses that decide the outcome | Clause recall is scored, so the key should list deciding clauses only, not every clause that was checked. Decided before the baseline run. |
 | 2026-11-03 | claim_005 | `covered_amount` 750 → 490 | Found by the first baseline run: all three runs paid only the camera. Clause 3.2 requires proof of ownership, and a laptop receipt dated after the loss can't provide it even if genuine. The original key was wrong. |
 | 2026-11-03 | claims 011, 034 | `incident_location` set by the narrative-only rule: 011 "France" → "Paris, France" (the narrative names both), 034 null → "home" | The intake definition now takes the place from the narrative only. Every other key already followed that rule. In the hardened run the model said "home" for 034, which was right; the key was wrong. Changed before the next run. |
+| 2026-11-03 | claim_005 | `risk.flags` gains `prior_similar_claim` | Milestone 4 adds claims history; it shows the same laptop model claimed lost in 2025. The flag and the data are new together, so this is an addition rather than a correction. |

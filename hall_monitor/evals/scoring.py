@@ -97,9 +97,11 @@ def unsupported_values(
     result: TriageResult, claim: ClaimSubmission, wording: str
 ) -> tuple[int, list[str]]:
     """Return how many values were checked and which ones aren't traceable to a source."""
+    extraction = result.extraction
+    if extraction is None:  # stopped before intake finished: nothing extracted to check
+        return 0, []
     source = source_text(claim)
     source_tokens = _tokens(source)
-    extraction = result.extraction
     checks: list[tuple[str, bool]] = [
         (
             f"claimant_name={extraction.claimant_name}",
@@ -149,6 +151,9 @@ class RunScore:
     critic_reviews: int = 0
     critic_unresolved: bool = False
     stopped: bool = False
+    tool_calls: int = 0
+    refused_tool_calls: int = 0
+    coverage_looked_up_policy: bool | None = None
 
 
 def score_run(
@@ -182,7 +187,11 @@ def score_run(
     return RunScore(
         claim_id=claim.claim_id,
         trial=trial,
-        extraction_fields=score_extraction(result.extraction, truth.extraction),
+        extraction_fields=(
+            score_extraction(result.extraction, truth.extraction)
+            if result.extraction is not None
+            else {f: False for f in EXTRACTION_FIELDS}
+        ),
         coverage_decision=decision_ok,
         covered_amount=amount_ok,
         clause_recall=clause_recall,
@@ -201,6 +210,15 @@ def score_run(
         critic_reviews=len(result.critic_reviews),
         critic_unresolved=result.critic_unresolved,
         stopped=result.stopped_reason is not None,
+        tool_calls=len(result.tool_calls),
+        refused_tool_calls=sum(not t.allowed for t in result.tool_calls),
+        coverage_looked_up_policy=(
+            any(
+                t.actor == "coverage_check" and t.tool == "policy_lookup" for t in result.tool_calls
+            )
+            if result.coverage is not None
+            else None
+        ),
     )
 
 
@@ -246,4 +264,13 @@ def summarize(scores: list[RunScore]) -> dict[str, float | int | None]:
         "revised_rate": _mean([float(s.revisions > 0) for s in ok_runs]),
         "critic_unresolved_rate": _mean([float(s.critic_unresolved) for s in ok_runs]),
         "stopped_rate": _mean([float(s.stopped) for s in ok_runs]),
+        "tool_calls_per_claim": _mean([float(s.tool_calls) for s in ok_runs]),
+        "refused_tool_calls": sum(s.refused_tool_calls for s in ok_runs),
+        "coverage_policy_lookup_rate": _mean(
+            [
+                float(s.coverage_looked_up_policy)
+                for s in ok_runs
+                if s.coverage_looked_up_policy is not None
+            ]
+        ),
     }

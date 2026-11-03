@@ -1,0 +1,23 @@
+{
+  "claim_id": "claim_036",
+  "submitted_at": "2026-10-22T18:05:00Z",
+  "channel": "mobile_app",
+  "narrative": "Tom Becker, WTP-ESS-101738. My bag was delayed when I landed in Copenhagen on 12 October at 07:30 and arrived at my hotel at 21:45. I bought toiletries ($38.00) and a shirt ($45.00), $83.00 in total.",
+  "attachments": [
+    {
+      "filename": "delay_report.txt",
+      "kind": "carrier_letter",
+      "text": "Nordlys Air - Property Irregularity Report\nFile ref: CPHNA3390  Passenger: BECKER/TOM\nFlight NA 70 BOS-CPH arrived 2026-10-12 07:30. Bag delayed.\nDelivered 2026-10-12 21:45"
+    },
+    {
+      "filename": "receipt_toiletries.txt",
+      "kind": "receipt",
+      "text": "Matas, Copenhagen  2026-10-12 10:20\nToiletries  Total: USD 38.00"
+    },
+    {
+      "filename": "receipt_shirt.txt",
+      "kind": "receipt",
+      "text": "Magasin, Copenhagen  2026-10-12 12:40\nShirt  Total: USD 45.00"
+    }
+  ]
+}

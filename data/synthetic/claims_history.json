@@ -1,0 +1,49 @@
+[
+  {
+    "claim_ref": "HIST-2024-0412",
+    "insured_name": "Mei Lin Zhou",
+    "policy_number": "WTP-PLS-198220",
+    "claim_type": "trip_cancellation",
+    "incident_date": "2024-03-02",
+    "summary": "Trip to Seoul cancelled after the insured's father was hospitalised.",
+    "items": [{"description": "Non-refundable flights", "amount": 1850.00, "receipt_ref": null}],
+    "outcome": "paid",
+    "paid_amount": 1850.00
+  },
+  {
+    "claim_ref": "HIST-2025-1108",
+    "insured_name": "Tomasz Wisniewski",
+    "policy_number": "WTP-ESS-097551",
+    "claim_type": "baggage_loss",
+    "incident_date": "2025-08-14",
+    "summary": "Checked bag reported lost on arrival in Lisbon. No carrier report.",
+    "items": [{"description": "Aerion 14 laptop", "amount": 1400.00, "receipt_ref": "TH-20250818"}],
+    "outcome": "paid",
+    "paid_amount": 500.00
+  },
+  {
+    "claim_ref": "HIST-2025-1290",
+    "insured_name": "Priya Shah",
+    "policy_number": "WTP-PLS-199804",
+    "claim_type": "baggage_loss",
+    "incident_date": "2025-11-02",
+    "summary": "Checked bag lost on arrival in Singapore.",
+    "items": [
+      {"description": "Lumen M5 mirrorless camera", "amount": 900.00, "receipt_ref": "LC-55821"},
+      {"description": "Clothes", "amount": 260.00, "receipt_ref": "LW-2025-3310"}
+    ],
+    "outcome": "paid",
+    "paid_amount": 760.00
+  },
+  {
+    "claim_ref": "HIST-2023-0587",
+    "insured_name": "Tom Becker",
+    "policy_number": "WTP-ESS-091102",
+    "claim_type": "emergency_medical",
+    "incident_date": "2023-06-19",
+    "summary": "Treated for a sprained ankle in Lisbon.",
+    "items": [{"description": "Clinic visit and strapping", "amount": 340.00, "receipt_ref": null}],
+    "outcome": "paid",
+    "paid_amount": 240.00
+  }
+]
