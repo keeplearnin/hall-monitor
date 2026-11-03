@@ -101,15 +101,15 @@
 <body>
 <main class="sheet">
   <header>
-    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · after milestone 4 · November 2026</span></div>
-    <h1>Governance sits in the call path, the tool gateway and the router, not inside the model</h1>
-    <p class="lede">Five agents triage a claim. Every model call goes through one function that checks the agent's approved hall pass, calls the model the pass names, runs any tool calls through a gateway that enforces the pass's allow-list, validates typed output and records what ran. A critic checks the work and sends errors back. Routing to a human is a plain code rule that checks facts, not the agents' labels. Python 3.12, Claude Haiku 5.5 and Sonnet 5.5, Pydantic, fastmcp, Langfuse.</p>
+    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · after milestone 8 · November 2026</span></div>
+    <h1>Governance sits in the call path, the tool gateway, the router and the record, not inside the model</h1>
+    <p class="lede">Five agents triage a claim. Every model call goes through one function that checks the agent's approved hall pass, calls the model the pass names, runs any tool calls through a gateway that enforces the pass's allow-list, validates typed output and records what ran. A critic checks the work and sends errors back. Routing to a human is a plain code rule that checks facts, not the agents' labels; claims routed to a person wait at an approval gate, and every step goes into a hash-chained audit log. Python 3.12, Claude Haiku 5.5 and Sonnet 5.5, Pydantic, fastmcp, LangGraph, SQLite, Langfuse.</p>
   </header>
 
   <figure>
     <div class="figtop">
       <h2>Runtime path of one claim</h2>
-      <div class="legend"><span><i class="sw"></i>built</span><span><i class="sw dash"></i>planned</span><span><i class="sw un"></i>untrusted input</span></div>
+      <div class="legend"><span><i class="sw"></i>built</span><span><i class="sw un"></i>untrusted input</span></div>
     </div>
     <div class="scroll">
       <svg class="arch" viewBox="0 0 1120 570" role="img" aria-label="A claim submission, treated as untrusted and escaped, enters the triage pipeline. Intake extracts fields, a code gate confirms the policy exists, coverage check and risk and fraud work from the extraction, the critic reviews them and sends errors back up to twice, and recommendation proposes a next step. Every agent call passes through run_agent, which checks the approved registry, calls the Claude API and routes tool calls through the tool gateway to the MCP server. route_claim, a code rule over facts, sends the claim to auto or to an adjuster. Results feed the eval harness and metadata-only Langfuse traces. A hash-chained audit log is planned.">
@@ -118,10 +118,11 @@
           <marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="pah"/></marker>
         </defs>
 
-        <rect class="untrusted" x="10" y="200" width="150" height="70" rx="4"/>
-        <text class="t" x="85" y="224" text-anchor="middle">Claim submission</text>
-        <text class="s" x="85" y="242" text-anchor="middle">story + attachments</text>
-        <text class="warnt" x="85" y="261" text-anchor="middle">UNTRUSTED · ESCAPED</text>
+        <rect class="untrusted" x="10" y="192" width="150" height="84" rx="4"/>
+        <text class="t" x="85" y="214" text-anchor="middle">Claim submission</text>
+        <text class="s" x="85" y="232" text-anchor="middle">code checks first:</text>
+        <text class="s" x="85" y="248" text-anchor="middle">injection, redaction</text>
+        <text class="warnt" x="85" y="266" text-anchor="middle">UNTRUSTED · ESCAPED</text>
         <polyline class="line" points="160,232 193,232" marker-end="url(#a)"/>
 
         <rect class="box" x="300" y="16" width="360" height="72" rx="4"/>
@@ -132,11 +133,11 @@
         <polyline class="line" points="480,88 480,108" marker-end="url(#a)"/>
         <text class="lab" x="490" y="104">require(agent)</text>
 
-        <rect class="plan" x="880" y="16" width="230" height="64" rx="4"/>
-        <text class="pt" x="896" y="40">Audit log</text>
+        <rect class="box" x="880" y="16" width="230" height="64" rx="4"/>
+        <text class="t" x="896" y="40">Audit log</text>
         <text class="s" x="896" y="58">append-only, hash-chained</text>
-        <text class="sm" x="896" y="74">planned · M6</text>
-        <polyline class="pline" points="935,195 935,82" marker-end="url(#pa)"/>
+        <text class="sm" x="896" y="74">verify · anchor the head</text>
+        <polyline class="line" points="935,195 935,82" marker-end="url(#a)"/>
         <text class="lab" x="943" y="150">decisions</text>
 
         <rect class="group" x="180" y="110" width="680" height="290" rx="6"/>
@@ -193,24 +194,27 @@
         <text class="s" x="1060" y="190" text-anchor="middle">small, clean</text>
 
         <polyline class="line" points="990,245 1000,245 1000,290 1008,290" marker-end="url(#a)"/>
-        <rect class="humanb" x="1010" y="250" width="100" height="110" rx="4"/>
-        <text class="humant" x="1060" y="272" text-anchor="middle">adjuster</text>
-        <text class="s" x="1060" y="292" text-anchor="middle">denials</text>
-        <text class="s" x="1060" y="309" text-anchor="middle">&gt;$2,500 · flags</text>
-        <text class="s" x="1060" y="326" text-anchor="middle">critic changes</text>
-        <text class="s" x="1060" y="343" text-anchor="middle">failures</text>
+        <rect class="humanb" x="1010" y="250" width="100" height="136" rx="4"/>
+        <text class="humant" x="1060" y="271" text-anchor="middle">adjuster</text>
+        <text class="s" x="1060" y="288" text-anchor="middle">approval gate</text>
+        <text class="sm" x="1060" y="306" text-anchor="middle">denials</text>
+        <text class="sm" x="1060" y="320" text-anchor="middle">over $2,500</text>
+        <text class="sm" x="1060" y="334" text-anchor="middle">fraud flags</text>
+        <text class="sm" x="1060" y="348" text-anchor="middle">failures</text>
+        <text class="sm" x="1060" y="362" text-anchor="middle">critic changes</text>
+        <text class="sm" x="1060" y="376" text-anchor="middle">injection signs</text>
 
         <line class="line" x1="320" y1="370" x2="320" y2="428" marker-start="url(#a)" marker-end="url(#a)"/>
         <text class="lab" x="328" y="404">typed output</text>
         <rect class="box" x="230" y="430" width="180" height="54" rx="4"/>
         <text class="t" x="320" y="452" text-anchor="middle">Claude API</text>
-        <text class="sm" x="320" y="472" text-anchor="middle">parse · model from pass</text>
+        <text class="sm" x="320" y="472" text-anchor="middle">model from pass · cached</text>
 
         <polyline class="line" points="570,368 570,428" marker-end="url(#a)"/>
         <text class="lab" x="578" y="404">tool calls</text>
         <rect class="box" x="440" y="430" width="260" height="54" rx="4"/>
         <text class="t" x="570" y="452" text-anchor="middle">Tool gateway</text>
-        <text class="sm" x="570" y="472" text-anchor="middle">allow-list check · audit every call</text>
+        <text class="sm" x="570" y="472" text-anchor="middle">allow-list · claim scope · audit</text>
 
         <polyline class="line" points="700,457 728,457" marker-end="url(#a)"/>
         <rect class="box" x="730" y="430" width="230" height="54" rx="4"/>
@@ -235,7 +239,7 @@
         <text class="sm" x="256" y="550">IDs, hashes, tokens; no claim text</text>
       </svg>
     </div>
-    <figcaption>Intake reads the untrusted claim; a code gate confirms the policy exists (filling in a policy number intake missed if the claim text holds exactly one valid number) before any other agent runs. Coverage check, risk and fraud, and the critic fetch policy records and claims history themselves, only through the tool gateway, which offers each agent just the tools its pass allows, checks every call again and records it. The critic reviews intake, coverage and risk against the documents and sends errors back; every revision is kept, and a revision that changes a decision field goes to an adjuster. Any failure stops the claim and sends it to a person.</figcaption>
+    <figcaption>Before any model runs, code checks the claim: text aimed at the AI is flagged (the claim will go to a person) and identifiers no agent needs are removed. Intake reads the claim; a code gate confirms the policy exists. Coverage check, risk and fraud, and the critic fetch records only through the tool gateway, which offers each agent just the tools its pass allows, limits lookups to the claim's own policy and records every call. The critic sends errors back; a revision that changes a decision field goes to a person. The recommender sees a structured summary only. Claims routed to a person pause at the approval gate (LangGraph, state in SQLite) until an adjuster with the authority decides, quoting the hash of the evidence they saw. Any failure stops the claim and sends it to a person.</figcaption>
   </figure>
 
   <section class="grid">
@@ -243,25 +247,26 @@
       <div>
         <h2>Every claim records</h2>
         <dl class="record">
-          <dt>each model call</dt><dd>agent, version, model, manifest digest, prompt version and hash, input hash, Anthropic request IDs, tokens, time</dd>
-          <dt>each tool call</dt><dd>who called, which tool, arguments, allowed or refused, hash of the result</dd>
+          <dt>each model call</dt><dd>agent, version, model and tier, manifest digest, prompt version and hash, input hash, request IDs, tokens incl. cache, cost, time</dd>
+          <dt>each tool call</dt><dd>who called, which tool, arguments, allowed or refused (and why), hash of the result</dd>
           <dt>each critic review</dt><dd>the issues raised, and every revision's before and after</dd>
-          <dt>code corrections</dt><dd>e.g. a policy number filled in from the claim text</dd>
+          <dt>code checks</dt><dd>identifiers redacted (counts by type), injection signals, policy-number corrections</dd>
           <dt>the route</dt><dd>auto or adjuster, with every reason</dd>
-          <dt>a stopped claim</dt><dd>why it stopped, plus everything recorded up to then</dd>
+          <dt>the decision</dt><dd>who decided, their authority, the AI's recommendation, any override and why, the evidence hash</dd>
+          <dt>the audit log</dt><dd>all of the above as hash-chained entries; IDs, hashes and decisions only, never claim text</dd>
         </dl>
       </div>
 
       <div>
         <h2>Design decisions</h2>
         <ul class="decisions">
-          <li><b>Routing checks facts, not labels.</b><span>A $0 payout is a denial whatever the recommendation says; a payout above the claim, any risk above low, or a critic change goes to a person.</span></li>
-          <li><b>Approved permits and prompts.</b><span>approvals.yaml pins each manifest digest and prompt hash. Unapproved versions are refused at run time; CI fails on an unapproved prompt change.</span></li>
-          <li><b>Records only through the gateway.</b><span>The allow-list is enforced on every call, not just declared. The pipeline's own lookup uses the same audited path.</span></li>
-          <li><b>Failures go to a person.</b><span>Refusals, API errors, invalid output and refused hall passes stop the claim with the reason recorded.</span></li>
-          <li><b>The critic is insurance.</b><span>It caught 84 of 84 planted errors with 1 false alarm in 34, for about 1.5¢. Plain Python loop; LangGraph comes with the approval gate.</span></li>
-          <li><b>Untrusted text stays fenced; traces stay clean.</b><span>Claim text and model output are escaped. Langfuse gets IDs, hashes and token counts only.</span></li>
-          <li><b>The pass pins the model.</b><span>No silent fallback to another model on refusal.</span></li>
+          <li><b>Routing checks facts, not labels.</b><span>A $0 payout is a denial whatever the recommendation says; a payout above the claim, any risk above low, a critic change or a sign of injection goes to a person.</span></li>
+          <li><b>Approved permits and prompts.</b><span>approvals.yaml pins each manifest digest and prompt hash. Unapproved versions are refused at run time; CI fails on an unapproved change.</span></li>
+          <li><b>Records only through the gateway, only for this claim.</b><span>The allow-list and the claim's policy number are enforced on every call; refusals are logged.</span></li>
+          <li><b>Minimum data per agent.</b><span>Identifiers are removed before any model; the recommender sees a structured summary only. Data classes in the manifests match what each agent reads.</span></li>
+          <li><b>Injection: defence in depth.</b><span>Claim text is escaped and fenced, a code detector routes suspicious claims to a person, and lookups can't leave the claim's scope.</span></li>
+          <li><b>A record that shows tampering.</b><span>Hash-chained and append-only. Copy the chain head elsewhere: that's what catches a full rewrite.</span></li>
+          <li><b>Cheaper models only when measured.</b><span>Economy routing is approved per manifest but off until evaluated. The critic never economises.</span></li>
         </ul>
       </div>
     </div>
@@ -274,19 +279,20 @@
             <thead><tr><th>Control</th><th>Where</th><th>Status</th><th>NIST AI RMF</th></tr></thead>
             <tbody>
               <tr><td>Agent registry with approved manifests and prompts</td><td class="where">registry.py, approvals.yaml</td><td><span class="chip built">built</span></td><td>Govern</td></tr>
-              <tr><td>Tool allow-list, every call audited</td><td class="where">tools/gateway.py</td><td><span class="chip built">built</span></td><td>Govern, Manage</td></tr>
-              <tr><td>Routing to a person on facts, failures and critic changes</td><td class="where">routing.py</td><td><span class="chip built">built</span></td><td>Manage</td></tr>
+              <tr><td>Tool allow-list and claim scope, every call audited</td><td class="where">tools/gateway.py</td><td><span class="chip built">built</span></td><td>Govern, Manage</td></tr>
+              <tr><td>Routing to a person on facts, failures, critic changes and injection signs</td><td class="where">routing.py</td><td><span class="chip built">built</span></td><td>Manage</td></tr>
               <tr><td>Critic review with revision history</td><td class="where">critic.py, pipeline.py</td><td><span class="chip built">built</span></td><td>Measure, Manage</td></tr>
+              <tr><td>Approval gate with saved checkpoints and authority limits</td><td class="where">workflow.py, approval.py</td><td><span class="chip built">built</span></td><td>Manage</td></tr>
+              <tr><td>Hash-chained audit log</td><td class="where">governance/audit.py</td><td><span class="chip built">built</span></td><td>Govern, Manage</td></tr>
+              <tr><td>Identifier redaction and data minimisation</td><td class="where">gateway/redaction.py</td><td><span class="chip built">built</span></td><td>Measure, Manage</td></tr>
+              <tr><td>Cost per claim, prompt caching; economy routing (off)</td><td class="where">gateway/cost.py</td><td><span class="chip built">built</span></td><td>Measure, Manage</td></tr>
               <tr><td>Eval harness and seeded critic test</td><td class="where">evals/</td><td><span class="chip built">built</span></td><td>Measure</td></tr>
-              <tr><td>Approval gate with persisted checkpoints</td><td class="where">governance/</td><td><span class="chip planned">M5</span></td><td>Manage</td></tr>
-              <tr><td>Hash-chained audit log</td><td class="where">governance/</td><td><span class="chip planned">M6</span></td><td>Govern, Manage</td></tr>
-              <tr><td>Model routing, live cost per claim, prompt caching</td><td class="where">gateway/</td><td><span class="chip planned">M7</span></td><td>Manage, Measure</td></tr>
-              <tr><td>PII redaction, fairness, adversarial suite</td><td class="where">gateway/, evals/</td><td><span class="chip part">M8</span></td><td>Measure, Manage</td></tr>
-              <tr><td>CI eval gate, NIST and FINOS mapping</td><td class="where">.github/, docs/</td><td><span class="chip part">M9</span></td><td>Map, Govern</td></tr>
+              <tr><td>Adversarial suite, fairness check</td><td class="where">evals/</td><td><span class="chip part">needs live run</span></td><td>Measure</td></tr>
+              <tr><td>CI eval gate, NIST and FINOS mapping</td><td class="where">.github/, controls/</td><td><span class="chip planned">M9</span></td><td>Map, Govern</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="note">Partly built: untrusted text is escaped today (the adversarial suite is M8); CI already runs lint, tests and the approvals check on every PR (the eval gate is M9).</p>
+        <p class="note">CI already runs lint, tests and the approvals check on every PR; the eval gate is milestone 9. The adversarial and fairness runners are built and tested offline; their results need a live run.</p>
       </div>
 
       <div>
@@ -299,7 +305,7 @@
           <span><b>$0.039</b>per claim</span>
           <span><b>~21s</b>per claim</span>
         </div>
-        <p class="note">Milestone 4's own eval (36 claims, agents fetching records through tools) is still to run.</p>
+        <p class="note">These numbers predate milestones 4-8. The tool gateway, approval gate, audit log, caching and privacy and injection defences have passed their offline tests but not yet a scored live run.</p>
       </div>
     </div>
   </section>

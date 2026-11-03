@@ -92,7 +92,7 @@
 <body>
 <main class="sheet">
   <header>
-    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · briefing for business leaders · November 2026 · after milestone 4</span></div>
+    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · briefing for business leaders · November 2026 · after milestone 8</span></div>
     <h1>AI that prepares insurance claims, with people making the calls that matter</h1>
     <p class="lede">hall-monitor shows how a regulated firm can use AI agents to speed up claims work <strong>and still answer the regulator's questions</strong>: what each AI was allowed to do, who approved it, what records it looked at, and who made the final decision. The rules live in software, not in a policy binder.</p>
   </header>
@@ -107,8 +107,9 @@
 
         <rect class="box" x="10" y="120" width="140" height="90" rx="4"/>
         <text class="t" x="80" y="156" text-anchor="middle">Customer claim</text>
-        <text class="s" x="80" y="176" text-anchor="middle">their story, receipts,</text>
-        <text class="s" x="80" y="192" text-anchor="middle">doctors' letters</text>
+        <text class="s" x="80" y="174" text-anchor="middle">their story, receipts,</text>
+        <text class="s" x="80" y="189" text-anchor="middle">doctors' letters;</text>
+        <text class="s" x="80" y="204" text-anchor="middle">ID numbers removed</text>
         <line class="line" x1="150" y1="165" x2="178" y2="165" marker-end="url(#arr)"/>
 
         <rect class="groupfill" x="180" y="40" width="600" height="260" rx="6"/>
@@ -183,20 +184,20 @@
         <text class="humant" x="1015" y="222" text-anchor="middle">Adjuster</text>
         <text class="humant" x="1015" y="240" text-anchor="middle">decides</text>
         <text class="s" x="1015" y="264" text-anchor="middle">every denial</text>
-        <text class="s" x="1015" y="282" text-anchor="middle">over $2,500</text>
-        <text class="s" x="1015" y="300" text-anchor="middle">any fraud flag</text>
-        <text class="s" x="1015" y="318" text-anchor="middle">any AI correction</text>
-        <text class="s" x="1015" y="336" text-anchor="middle">anything the AI</text>
-        <text class="s" x="1015" y="352" text-anchor="middle">couldn't finish</text>
+        <text class="s" x="1015" y="281" text-anchor="middle">over $2,500</text>
+        <text class="s" x="1015" y="298" text-anchor="middle">any fraud flag</text>
+        <text class="s" x="1015" y="315" text-anchor="middle">any AI correction</text>
+        <text class="s" x="1015" y="332" text-anchor="middle">suspicious text</text>
+        <text class="s" x="1015" y="349" text-anchor="middle">AI failures</text>
 
         <polyline class="dots" points="480,300 480,404"/>
         <polyline class="dots" points="1015,378 1015,404"/>
         <rect class="ledger" x="10" y="404" width="1060" height="48" rx="4"/>
-        <text class="t" x="28" y="433">Record of every step</text>
-        <text class="s" x="190" y="433">which AI, its approved instructions, every record it looked up, any correction, what it cost</text>
+        <text class="t" x="28" y="433">Tamper-evident record</text>
+        <text class="s" x="200" y="433">every AI step, its approved instructions, every lookup and correction, the decision and who made it, the cost</text>
       </svg>
     </div>
-    <figcaption>Each AI step has a <b>hall pass</b>: a registered, approved permit naming its owner, risk level, the AI model it may use and the records it may look up. A changed permit or changed instructions can't run until a reviewed approval says so. The AI gathers evidence and proposes; it never denies or pays a claim on its own. Step 4 is a second AI that checks the others' work against the documents and sends mistakes back. The rule that decides when a person must step in is ordinary software, so the AI can't argue its way past it.</figcaption>
+    <figcaption>Each AI step has a <b>hall pass</b>: a registered, approved permit naming its owner, risk level, the AI model it may use and the records it may look up. A changed permit or changed instructions can't run until a reviewed approval says so. Before any AI sees a claim, ID numbers are removed and text that tries to instruct the AI is flagged. The AI gathers evidence and proposes; it never denies or pays a claim on its own. Step 4 is a second AI that checks the others' work against the documents and sends mistakes back. The rule that decides when a person must step in is ordinary software, so the AI can't argue its way past it.</figcaption>
   </figure>
 
   <section class="grid">
@@ -214,32 +215,32 @@
     <div class="col">
       <h2>What a regulator will ask</h2>
       <ul class="qa">
-        <li><span class="q">What is this AI allowed to do? <span class="chip built">Built</span></span><span class="a">Its permit lists the model, the records and the lookups it may use. Anything else is refused and logged.</span></li>
+        <li><span class="q">What is this AI allowed to do? <span class="chip built">Built</span></span><span class="a">Its permit lists the model, the records and the lookups it may use, for this claim only. Anything else is refused and logged.</span></li>
         <li><span class="q">Who approved it? <span class="chip built">Built</span></span><span class="a">Every permit names an owner, and each version and its instructions need a reviewed approval to run.</span></li>
-        <li><span class="q">Who makes the big calls? <span class="chip part">Partly</span></span><span class="a">Denials, large payouts, fraud and AI corrections go to a person. The adjuster's approval screen is next.</span></li>
-        <li><span class="q">Is it accurate? <span class="chip built">Built</span></span><span class="a">Scored against answer keys on 36 test claims, misses published.</span></li>
-        <li><span class="q">Can you prove it months later? <span class="chip part">Partly</span></span><span class="a">Each claim records every AI step, its instructions, every lookup and every correction. A tamper-evident log is planned.</span></li>
+        <li><span class="q">Who makes the big calls? <span class="chip built">Built</span></span><span class="a">Denials, large payouts, fraud and AI corrections wait for an adjuster, within their authority limit.</span></li>
+        <li><span class="q">What happens to personal data? <span class="chip built">Built</span></span><span class="a">ID numbers are removed before the AI sees a claim; nothing personal goes into logs or traces.</span></li>
+        <li><span class="q">Is it accurate and fair? <span class="chip part">Partly</span></span><span class="a">Scored on 36 test claims, misses published. Fairness and attack tests are built; their results are next.</span></li>
+        <li><span class="q">Can you prove it months later? <span class="chip built">Built</span></span><span class="a">A hash-chained record shows any change. Keep a copy of its latest hash elsewhere to catch a full rewrite.</span></li>
       </ul>
     </div>
 
     <div class="col">
       <h2>Roadmap</h2>
       <ol class="road">
-        <li class="done"><span class="m">1-2</span><span>Permits, four AI steps, first published scores</span></li>
-        <li class="done"><span class="m">3</span><span>A second AI that double-checks the work</span></li>
-        <li class="done"><span class="m">4</span><span>Approved, logged access to policy and claims history</span></li>
-        <li class="now"><span class="m">5</span><span>Adjuster approval screen that saves the evidence they saw</span></li>
-        <li><span class="m">6</span><span>Tamper-evident record of every step</span></li>
-        <li><span class="m">7</span><span>Cheaper models for simple claims, cost tracking</span></li>
-        <li><span class="m">8</span><span>Privacy masking, fairness checks, attack tests</span></li>
-        <li><span class="m">9-10</span><span>Mapped to NIST AI RMF and FINOS; quality gate on every change; external review</span></li>
+        <li class="done"><span class="m">1-3</span><span>Permits, five AI steps including a double-check, published scores</span></li>
+        <li class="done"><span class="m">4-5</span><span>Approved data access; adjuster approval screen that saves the evidence they saw</span></li>
+        <li class="done"><span class="m">6</span><span>Tamper-evident record of every step</span></li>
+        <li class="done"><span class="m">7</span><span>Cost per claim; cheaper models for small claims (off until tested)</span></li>
+        <li class="done"><span class="m">8</span><span>Privacy, attack defences, fairness and attack tests (results next)</span></li>
+        <li class="now"><span class="m">9</span><span>Mapped to NIST AI RMF and FINOS; quality gate on every change</span></li>
+        <li><span class="m">10</span><span>Decision records, board brief, external review</span></li>
       </ol>
     </div>
   </section>
 
   <footer>
     <span>A reference implementation, not a production claims system. All claims, policies and people are fictional.</span>
-    <span>Scores: 34 test claims × 3 runs plus a planted-mistake test, November 2026. Milestone 4's own scores are still to come. A small sample: it shows the kinds of mistakes, not reliable rates.</span>
+    <span>Scores: 34 test claims × 3 runs plus a planted-mistake test, November 2026; they predate milestones 4-8, whose live scores are next. A small sample: it shows the kinds of mistakes, not reliable rates.</span>
     <a href="https://github.com/keeplearnin/hall-monitor">github.com/keeplearnin/hall-monitor</a>
   </footer>
 </main>
