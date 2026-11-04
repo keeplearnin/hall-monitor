@@ -83,10 +83,23 @@ def clause_exists(clause: str, wording: str) -> bool:
 
 
 def amount_in(amount: float, text: str) -> bool:
-    """The amount appears as a whole number in the text: 100.00 doesn't match inside 1,100.00."""
+    """The amount appears as a whole number in the text, with or without cents for a whole
+    amount ($1,000 or 1,000.00), but never as part of another: 100 doesn't match inside 1,100,
+    and 1,000 doesn't match 1,000.50."""
     forms = {f"{amount:,.2f}", f"{amount:.2f}"}
-    pattern = "|".join(re.escape(f) for f in forms)
-    return re.search(rf"(?<![\d,.])(?:{pattern})(?![\d])", text) is not None
+    if float(amount).is_integer():
+        forms |= {f"{int(amount):,}", f"{int(amount)}"}
+    pattern = "|".join(re.escape(f) for f in sorted(forms, key=len, reverse=True))
+    return re.search(rf"(?<![\d,.])(?:{pattern})(?!\d|[.,]\d)", text) is not None
+
+
+def is_infrastructure_stop(reason: str | None) -> bool:
+    """A stop that says nothing about the model: an API failure (outage, rate limit, no
+    credit) or an unexpected error in our own code. Evals count these as errors, so neither can
+    pass as a safely stopped claim."""
+    return bool(reason) and (
+        reason.endswith("from the model call") or reason.startswith("unexpected ")
+    )
 
 
 def source_text(claim: ClaimSubmission) -> str:

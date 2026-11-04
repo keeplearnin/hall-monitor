@@ -243,5 +243,6 @@ class ClaimWorkflow:
 
     def waiting(self) -> list[str]:
         """Claims waiting for an adjuster."""
-        threads = {c.config["configurable"]["thread_id"] for c in self.saver.list(None)}
-        return sorted(t for t in threads if self.status(t)["state"] == "waiting_for_adjuster")
+        # One row per claim, not one per saved checkpoint version.
+        rows = self.saver.conn.execute("SELECT DISTINCT thread_id FROM checkpoints").fetchall()
+        return sorted(t for (t,) in rows if self.status(t)["state"] == "waiting_for_adjuster")
