@@ -103,8 +103,14 @@ assert in the automatic decision.
 not plain SHA-256; every audit read takes the writer's lock. A test with three writers and three
 readers failed before the lock (a read saw a half-written entry) and passes after.
 
-**Not fixed yet** (in the roadmap or noted as gaps): failed tool calls aren't
-logged; the gateway can't run inside an event loop; the recommender's input is declared financial but its claim type and clauses can imply
-health; claims history matches names exactly; the scoring check misses amounts written without
-cents; the fairness runner picks a claim's policy by text match and swaps first names that are
-also ordinary words; `waiting()` scans every checkpoint; and smaller cleanups.
+**Fixed in Phase A3 (gateway and tools):** a tool call that fails after it was allowed is
+recorded; the gateway runs inside an event loop; agents aren't offered tools their data classes
+would refuse; identifiers removed from tool results are counted per call; claims history matches
+names ignoring case, accents, spacing and punctuation (nicknames still don't match); the
+recommender's input is declared, and its manifest approved (0.4.1), as health data, because its
+claim type and clause numbers can reveal a medical claim.
+
+**Not fixed yet** (in the roadmap or noted as gaps): the scoring check misses amounts written
+without cents; the fairness runner picks a claim's policy by text match and swaps first names
+that are also ordinary words; `waiting()` scans every checkpoint; the catch-all in triage can hide
+internal bugs as stopped claims in evals; and smaller cleanups.

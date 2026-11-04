@@ -17,10 +17,10 @@ agents:
     prompt_version: intake-v3
     version: 0.3.0
   recommendation:
-    manifest_digest: 05c9d356a130286a3fdf3e9ea25246075492e26369e0a34dd884e7ac8db92f2b
+    manifest_digest: 123c2e4e273f39500cf4c0870c6d7de9400c18bb59b7e3f1c8405314674b2d40
     prompt_sha256: b854d7a2b948e1b08083514787424f2d341b748e998acaf858a5a54a9caf0b84
     prompt_version: recommendation-v3
-    version: 0.4.0
+    version: 0.4.1
   risk_fraud:
     manifest_digest: f9c3cf229208b93a4531b411546088852c06bea21f0dcc57fd9fd020096c3d61
     prompt_sha256: b69322452de055c6ee520caad71512bcb12194d3baede986f84a9ae1fdec467f

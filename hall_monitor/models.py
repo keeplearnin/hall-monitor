@@ -245,6 +245,8 @@ class ToolCall(BaseModel):
     allowed: bool
     result_sha256: str | None
     error: str | None = None
+    # Identifiers removed from the result before the agent saw it, by type (never the values).
+    identifiers_redacted: dict[str, int] = Field(default_factory=dict)
     seconds: float
 
 

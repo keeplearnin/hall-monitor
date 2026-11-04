@@ -70,6 +70,9 @@ controls:
       - tests/test_tools.py::test_agents_are_offered_only_their_allowed_tools
       - tests/test_tools.py::test_call_outside_the_allow_list_is_refused_and_recorded
       - tests/test_privacy_security.py::test_a_lookup_outside_the_claims_policy_is_refused
+      - tests/test_tools.py::test_a_tool_call_that_fails_after_it_was_allowed_is_still_recorded
+      - tests/test_tools.py::test_agents_are_offered_only_tools_their_data_classes_allow
+      - tests/test_tools.py::test_the_gateway_works_inside_a_running_event_loop
     evidence: []
     nist: [GOVERN 1.4, MEASURE 2.7, MANAGE 1.3]
     finos:
@@ -247,8 +250,10 @@ controls:
       Dates of birth, emails, phone, card, passport and SSN numbers are removed from the claim
       text, attachment file names and tool results before any model sees them. Each agent input
       and each tool declares the data classes it carries, and anything beyond the agent's manifest
-      is refused before the model or tool is called. The recommender (financial only) gets a
-      structured summary with no names, claim text or reasoning.
+      is refused before the model or tool is called, and agents aren't offered tools they'd be
+      refused. The recommender gets a structured summary with no names, claim text or reasoning;
+      its claim type and clause numbers can reveal a medical claim, so it is approved for health
+      data. Identifiers removed from tool results are counted on each tool call.
     status: built
     code:
       - hall_monitor/gateway/redaction.py::redact_claim
