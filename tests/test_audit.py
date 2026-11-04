@@ -257,3 +257,10 @@ def test_reads_and_writes_from_many_threads_stay_consistent(log):
     for th in threads:
         th.join()
     assert errors == [] and log.verify().ok and log.verify().entries == 5 + 150
+
+
+def test_verify_checks_an_anchor_at_sequence_zero(log):
+    from hall_monitor.audit import main
+
+    path = str(log.path)
+    assert main(["--db", path, "verify", "--expect-seq", "0", "--expect-hash", "x" * 64]) == 3

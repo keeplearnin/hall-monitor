@@ -4,7 +4,7 @@ The evidence pack is everything the AI found, in one record. It is stored under 
 (governance/audit.py), the adjuster must quote that hash back, and their signature covers it, so
 the record shows which evidence the decision was made on. Decisions are checked in code: the
 adjuster must be registered, the decision signed with their key (governance/signing.py) and
-within their authority, the payout must fit the claim, paying a flagged claim needs a senior
+within their authority, the payout must fit a USD claim, paying a flagged claim needs a senior
 adjuster, and changing the AI's recommendation needs a reason.
 """
 
@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from hall_monitor.governance import signing
 from hall_monitor.governance.audit import evidence_body, sha256
-from hall_monitor.models import ClaimSubmission, NextStep, Route, TriageResult
+from hall_monitor.models import ClaimSubmission, NextStep, RiskLevel, Route, TriageResult
 from hall_monitor.registry import ADJUSTERS_FILENAME, DEFAULT_REGISTRY_DIR
 
 ADJUSTERS_FILE = DEFAULT_REGISTRY_DIR / ADJUSTERS_FILENAME
@@ -50,7 +50,7 @@ class AdjusterDecision(BaseModel):
 
     adjuster_id: str
     next_step: NextStep
-    payout_usd: float = Field(ge=0)
+    payout_usd: float = Field(ge=0, allow_inf_nan=False)
     reason: str = ""
     evidence_sha256: str = Field(description="The hash of the evidence pack they reviewed.")
     signature: str = Field("", description="The adjuster's Ed25519 signature (base64).")
@@ -149,8 +149,18 @@ def validate_decision(
         raise DecisionRejected(f"the decision isn't signed with {adjuster.id}'s key")
     if decision.evidence_sha256 != pack_sha256:
         raise DecisionRejected("evidence hash doesn't match the current evidence pack")
-    claimed = result.extraction.total_claimed if result.extraction else None
+    extraction = result.extraction
+    in_usd = extraction is not None and extraction.currency.strip().upper() == "USD"
+    # The amount claimed, in USD, or None when it can't be compared with USD payouts and limits
+    # (nothing was extracted, or the claim is in another currency).
+    claimed = extraction.total_claimed if in_usd else None
     senior = adjuster.may_pay_flagged
+    if decision.next_step in (NextStep.PAY, NextStep.DENY) and claimed is None and not senior:
+        why = f"is in {extraction.currency}" if extraction else "has no amount extracted"
+        raise DecisionRejected(
+            f"this claim {why}, so its amount can't be checked against USD limits; "
+            "a senior adjuster must decide"
+        )
     if decision.next_step is NextStep.DENY and claimed is not None:
         if claimed > adjuster.authority_limit_usd:
             raise DecisionRejected(
@@ -173,8 +183,11 @@ def validate_decision(
             raise DecisionRejected(
                 "paying a claim the AI never assessed for fraud needs a senior adjuster"
             )
-        if result.risk and result.risk.flags and not senior:
-            raise DecisionRejected("paying a claim with a fraud flag needs a senior adjuster")
+        if result.risk and (result.risk.flags or result.risk.level is not RiskLevel.LOW):
+            if not senior:
+                raise DecisionRejected(
+                    "paying a claim with a fraud flag or above-low risk needs a senior adjuster"
+                )
     elif decision.payout_usd != 0:
         raise DecisionRejected(f"{decision.next_step.value} can't carry a payout")
     if (changes_ai(decision, result) or decision.next_step is NextStep.DENY) and len(

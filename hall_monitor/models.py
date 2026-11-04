@@ -71,7 +71,11 @@ class ClaimedItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     description: str
-    amount: float = Field(description="Amount claimed for this item, in the claim currency.")
+    # Non-finite amounts (NaN, infinity) are refused: every comparison with NaN is false, so it
+    # would slip past the routing rule's checks.
+    amount: float = Field(
+        allow_inf_nan=False, description="Amount claimed for this item, in the claim currency."
+    )
 
 
 class IntakeExtraction(BaseModel):
@@ -91,7 +95,7 @@ class IntakeExtraction(BaseModel):
         "delay or loss was discovered on arrival. Null if the narrative names no place."
     )
     claimed_items: list[ClaimedItem]
-    total_claimed: float
+    total_claimed: float = Field(allow_inf_nan=False)
     currency: str = Field(description="ISO 4217 code, e.g. USD.")
     supporting_documents: list[str] = Field(description="Filenames of attachments provided.")
 
@@ -139,7 +143,9 @@ class CoverageFinding(BaseModel):
     applicable_clauses: list[str] = Field(
         description='Clause numbers that decide the outcome or amount, e.g. "3.1", "5.1".'
     )
-    covered_amount: float = Field(description="What the policy pays in USD. 0 if not covered.")
+    covered_amount: float = Field(
+        allow_inf_nan=False, description="What the policy pays in USD. 0 if not covered."
+    )
     reasoning: str
 
 
@@ -150,7 +156,7 @@ class CoverageAssessment(BaseModel):
 
     decision: CoverageDecision
     applicable_clauses: list[str]
-    covered_amount: float
+    covered_amount: float = Field(allow_inf_nan=False)
     reasoning: str
 
     @classmethod

@@ -55,3 +55,10 @@ def test_adr_has_status_and_known_controls(adr):
     cited = set(re.findall(r"\bHM-\d{2}\b", text))
     assert cited, "an ADR names the control it supports"
     assert cited <= CONTROL_IDS
+
+
+def test_adr_0001_lists_every_routing_check():
+    """The ADR that explains the routing rule must name each fact the code checks."""
+    adr = (DOCS / "adr" / "0001-routing-decided-in-code.md").read_text()
+    for fact in ("insured", "coverage period", "USD", "no policy record", "incident date"):
+        assert fact in adr, fact

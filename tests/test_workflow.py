@@ -211,7 +211,7 @@ def test_an_edited_checkpoint_cant_change_the_evidence(db, rehash):
     assert "evidence pack" in status["previous_decision_rejected"]
 
 
-def test_a_claim_whose_triage_crashed_can_be_submitted_again(db, monkeypatch):
+def test_a_claim_whose_triage_crashed_can_be_restarted_on_request(db, monkeypatch):
     import hall_monitor.workflow as workflow_module
 
     real = workflow_module.build_evidence_pack
@@ -226,7 +226,11 @@ def test_a_claim_whose_triage_crashed_can_be_submitted_again(db, monkeypatch):
         assert workflow.status("claim_001")["state"] == "in_progress"
 
     monkeypatch.setattr(workflow_module, "build_evidence_pack", real)
-    assert _submit(db, "claim_001")["state"] == "decided"
+    # Not restarted silently: another process might still be triaging it.
+    with pytest.raises(ValueError, match="restart"):
+        _submit(db, "claim_001")
+    with _open(db, "claim_001") as workflow:
+        assert workflow.submit(CLAIMS["claim_001"], restart=True)["state"] == "decided"
 
 
 def test_the_adjuster_is_shown_the_stored_evidence_not_an_edited_checkpoint(db):

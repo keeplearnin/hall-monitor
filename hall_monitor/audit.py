@@ -42,7 +42,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if (args.expect_seq is None) != (args.expect_hash is None):
             parser.error("--expect-seq and --expect-hash go together")
-        expect = ChainHead(args.expect_seq, args.expect_hash) if args.expect_seq else None
+        expect = (
+            ChainHead(args.expect_seq, args.expect_hash) if args.expect_seq is not None else None
+        )
         result = log.verify(expect)
         print(
             json.dumps(
