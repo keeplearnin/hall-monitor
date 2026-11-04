@@ -101,7 +101,7 @@
 <body>
 <main class="sheet">
   <header>
-    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · after milestone 9 · November 2026</span></div>
+    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · after milestone 10 · November 2026</span></div>
     <h1>Governance sits in the call path, the tool gateway, the router and the record, not inside the model</h1>
     <p class="lede">Five agents triage a claim. Every model call goes through one function that checks the agent's approved hall pass, calls the model the pass names, runs any tool calls through a gateway that enforces the pass's allow-list, validates typed output and records what ran. A critic checks the work and sends errors back. Routing to a human is a plain code rule that checks facts, not the agents' labels; claims routed to a person wait at an approval gate, and every step goes into a hash-chained audit log. Python 3.12, Claude Haiku 5.5 and Sonnet 5.5, Pydantic, fastmcp, LangGraph, SQLite, Langfuse.</p>
   </header>
@@ -252,7 +252,7 @@
           <dt>each critic review</dt><dd>the issues raised, and every revision's before and after</dd>
           <dt>code checks</dt><dd>identifiers redacted (counts by type), injection signals, policy-number corrections</dd>
           <dt>the route</dt><dd>auto or adjuster, with every reason</dd>
-          <dt>the decision</dt><dd>who decided, their authority, the AI's recommendation, any override and why, the evidence hash</dd>
+          <dt>the decision</dt><dd>who decided (a registered adjuster ID), the AI's recommendation, any override and why, the evidence hash</dd>
           <dt>the audit log</dt><dd>all of the above as hash-chained entries; IDs, hashes and decisions only, never claim text</dd>
         </dl>
       </div>
@@ -261,9 +261,9 @@
         <h2>Design decisions</h2>
         <ul class="decisions">
           <li><b>Routing checks facts, not labels.</b><span>A $0 payout is a denial whatever the recommendation says; a payout above the claim, any risk above low, a critic change or a sign of injection goes to a person.</span></li>
-          <li><b>Approved permits and prompts.</b><span>approvals.yaml pins each manifest digest and prompt hash. Unapproved versions are refused at run time; CI fails on an unapproved change.</span></li>
+          <li><b>Approved permits and prompts.</b><span>approvals.yaml pins each manifest digest and prompt-template hash. Both are checked at run time and the template hash is recorded on every call; CI fails on an unapproved change.</span></li>
           <li><b>Records only through the gateway, only for this claim.</b><span>The allow-list and the claim's policy number are enforced on every call; refusals are logged.</span></li>
-          <li><b>Minimum data per agent.</b><span>Identifiers are removed before any model; the recommender sees a structured summary only. Data classes in the manifests match what each agent reads.</span></li>
+          <li><b>Minimum data per agent.</b><span>Identifiers are removed from claim text before any model; the recommender sees a structured summary only, enforced by its input schema. Manifest data classes are declared, not yet enforced.</span></li>
           <li><b>Injection: defence in depth.</b><span>Claim text is escaped and fenced, a code detector routes suspicious claims to a person, and lookups can't leave the claim's scope.</span></li>
           <li><b>A record that shows tampering.</b><span>Hash-chained and append-only. Copy the chain head elsewhere: that's what catches a full rewrite.</span></li>
           <li><b>Cheaper models only when measured.</b><span>Economy routing is approved per manifest but off until evaluated. The critic never economises.</span></li>
@@ -276,23 +276,23 @@
         <h2>Controls</h2>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Control</th><th>Where</th><th>Status</th><th>NIST AI RMF</th></tr></thead>
+            <thead><tr><th>Control</th><th>Where</th><th>Status</th><th>Register</th></tr></thead>
             <tbody>
-              <tr><td>Agent registry with approved manifests and prompts</td><td class="where">registry.py, approvals.yaml</td><td><span class="chip built">built</span></td><td>Govern</td></tr>
-              <tr><td>Tool allow-list and claim scope, every call audited</td><td class="where">tools/gateway.py</td><td><span class="chip built">built</span></td><td>Govern, Manage</td></tr>
-              <tr><td>Routing to a person on facts, failures, critic changes and injection signs</td><td class="where">routing.py</td><td><span class="chip built">built</span></td><td>Manage</td></tr>
-              <tr><td>Critic review with revision history</td><td class="where">critic.py, pipeline.py</td><td><span class="chip built">built</span></td><td>Measure, Manage</td></tr>
-              <tr><td>Approval gate with saved checkpoints and authority limits</td><td class="where">workflow.py, approval.py</td><td><span class="chip built">built</span></td><td>Manage</td></tr>
-              <tr><td>Hash-chained audit log</td><td class="where">governance/audit.py</td><td><span class="chip built">built</span></td><td>Govern, Manage</td></tr>
-              <tr><td>Identifier redaction and data minimisation</td><td class="where">gateway/redaction.py</td><td><span class="chip built">built</span></td><td>Measure, Manage</td></tr>
-              <tr><td>Cost per claim, prompt caching; economy routing (off)</td><td class="where">gateway/cost.py</td><td><span class="chip built">built</span></td><td>Measure, Manage</td></tr>
-              <tr><td>Eval harness and seeded critic test</td><td class="where">evals/</td><td><span class="chip built">built</span></td><td>Measure</td></tr>
-              <tr><td>Adversarial suite, fairness check</td><td class="where">evals/</td><td><span class="chip part">needs live run</span></td><td>Measure</td></tr>
-              <tr><td>CI eval gate; controls mapped to NIST AI RMF and FINOS AIGF</td><td class="where">evals/gate.py, controls/</td><td><span class="chip built">built</span></td><td>Map, Govern</td></tr>
+              <tr><td>Agent registry with approved manifests and prompts</td><td class="where">registry.py, approvals.yaml</td><td><span class="chip built">built</span></td><td>HM-01, 02</td></tr>
+              <tr><td>Tool allow-list and claim scope, every call audited</td><td class="where">tools/gateway.py</td><td><span class="chip built">built</span></td><td>HM-03</td></tr>
+              <tr><td>Routing to a person on facts, failures, critic changes and injection signs</td><td class="where">routing.py</td><td><span class="chip built">built</span></td><td>HM-04, 08</td></tr>
+              <tr><td>Critic review with revision history</td><td class="where">critic.py, pipeline.py</td><td><span class="chip built">built</span></td><td>HM-07</td></tr>
+              <tr><td>Approval gate with saved checkpoints and authority limits</td><td class="where">workflow.py, approval.py</td><td><span class="chip built">built</span></td><td>HM-05</td></tr>
+              <tr><td>Hash-chained audit log</td><td class="where">governance/audit.py</td><td><span class="chip built">built</span></td><td>HM-06</td></tr>
+              <tr><td>Identifier redaction and data minimisation</td><td class="where">gateway/redaction.py</td><td><span class="chip built">built</span></td><td>HM-10, 11</td></tr>
+              <tr><td>Cost per claim, prompt caching; economy routing (off)</td><td class="where">gateway/cost.py</td><td><span class="chip built">built</span></td><td>HM-16</td></tr>
+              <tr><td>Eval harness and seeded critic test</td><td class="where">evals/</td><td><span class="chip built">built</span></td><td>HM-12, 13</td></tr>
+              <tr><td>Adversarial suite, fairness check</td><td class="where">evals/</td><td><span class="chip part">needs live run</span></td><td>HM-14, 15</td></tr>
+              <tr><td>CI eval gate; controls mapped to NIST AI RMF and FINOS AIGF</td><td class="where">evals/gate.py, controls/</td><td><span class="chip built">built</span></td><td>HM-17</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="note">CI runs lint, tests, the approvals check and the eval gate on every PR; the gate warns on stale results until a fresh baseline. Full mapping: docs/controls.md. The adversarial and fairness runners are built and tested offline; their results need a live run.</p>
+        <p class="note">CI runs lint, tests, the approvals check and the eval gate on every PR; the gate warns on stale results until a fresh baseline. NIST AI RMF and FINOS AIGF mapping for each register ID: docs/controls.md. Why each design choice was made: docs/adr/. The adversarial and fairness runners are built and tested offline; their results need a live run.</p>
       </div>
 
       <div>
@@ -305,7 +305,7 @@
           <span><b>$0.039</b>per claim</span>
           <span><b>~21s</b>per claim</span>
         </div>
-        <p class="note">These numbers predate milestones 4-8. The tool gateway, approval gate, audit log, caching and privacy and injection defences have passed their offline tests but not yet a scored live run.</p>
+        <p class="note">These numbers were scored on earlier agent versions (commit d083a79) and predate milestones 4-8. The tool gateway, approval gate, audit log, caching and privacy and injection defences have passed their offline tests but not yet a scored live run.</p>
       </div>
     </div>
   </section>

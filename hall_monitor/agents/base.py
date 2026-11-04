@@ -67,6 +67,7 @@ def run_agent[T: BaseModel](
     claim_id: str,
     tools: ToolAccess | None = None,
     economy: bool = False,
+    prompt_template: str | None = None,
 ) -> AgentRun[T]:
     """Call the model named on the agent's hall pass and return validated, typed output.
 
@@ -75,8 +76,13 @@ def run_agent[T: BaseModel](
     approved economy model, if it names one; the routing rule decides that, not the agent.
     The system prompt is marked for prompt caching: it is stable across claims, and for agents
     that carry the policy wording it is most of the input.
+
+    prompt_template is the system prompt before the policy wording was filled in (the same as
+    system when nothing is filled in). Its hash must match the approved one, or the agent is
+    refused, and it is recorded on the call so the audit trail ties back to the approval.
     """
-    manifest = registry.require(agent_id)
+    template_sha256 = _sha256(prompt_template if prompt_template is not None else system)
+    manifest = registry.require(agent_id, prompt_sha256=template_sha256)
     use_economy = economy and manifest.economy_model is not None
     model = manifest.economy_model if use_economy else manifest.model
     started = time.perf_counter()
@@ -129,6 +135,7 @@ def run_agent[T: BaseModel](
         model=model,
         manifest_digest=manifest.digest(),
         prompt_version=prompt_version,
+        prompt_template_sha256=template_sha256,
         system_prompt_sha256=_sha256(system),
         input_sha256=_sha256(content),
         request_ids=request_ids,

@@ -81,7 +81,10 @@ def check(spec: dict, approvals: dict, stale_policy: str) -> CheckResult:
     if stale:
         out.notes.append("scored on agent versions no longer approved: " + ", ".join(stale))
     elif not data.get("meta", {}).get("agents"):
-        out.notes.append("result doesn't record agent versions, so staleness can't be checked")
+        # Unknown versions are treated as stale: a result that can't show what it scored
+        # mustn't pass a gate that requires current results.
+        stale = ["unrecorded"]
+        out.notes.append("result doesn't record agent versions, so it counts as stale")
 
     if out.failures:
         out.state = "fail"

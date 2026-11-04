@@ -169,6 +169,10 @@ def triage(
         reason = f"hall pass refused: {exc}"
     except PipelineStopped as exc:
         reason = str(exc)
+    except (
+        Exception
+    ) as exc:  # anything unforeseen (a tool server error, say) still goes to a person
+        reason = f"unexpected {type(exc).__name__}: {exc}"
     return TriageResult(
         claim_id=claim.claim_id,
         extraction=run.extraction,

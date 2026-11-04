@@ -218,7 +218,9 @@ class AgentCall(BaseModel):
     model: str
     manifest_digest: str
     prompt_version: str
-    # What exactly ran: hashes of the rendered system prompt and input, and Anthropic's request ID.
+    # What exactly ran: the prompt template's hash (as approved in registry/approvals.yaml), hashes
+    # of the rendered system prompt and input, and Anthropic's request ID.
+    prompt_template_sha256: str | None = None
     system_prompt_sha256: str
     input_sha256: str
     request_ids: list[str]

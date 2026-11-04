@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
+from hall_monitor.agents import coverage_check
 from hall_monitor.agents.base import run_agent
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.gateway.cost import call_cost
@@ -69,6 +70,7 @@ def test_system_prompt_is_cacheable_and_cache_use_is_recorded():
         registry=REGISTRY,
         client=SimpleNamespace(messages=SimpleNamespace(parse=parse)),
         system="the policy wording",
+        prompt_template=coverage_check.SYSTEM_PROMPT,
         content="c",
         output_format=CoverageFinding,
         prompt_version="v",
