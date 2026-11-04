@@ -33,3 +33,10 @@ uv run python -m hall_monitor.approvals            # re-approve manifests/prompt
 - Nothing personal in the audit log or traces: IDs, hashes, decision fields and costs only.
 - Synthetic data only. Answer-key changes are logged with the reason in
   `data/synthetic/README.md`.
+
+## Review
+
+- Before opening a PR, run the `governance-reviewer` agent (`.claude/agents/`) on the branch's
+  changes, and on the whole repo at the end of each phase. Fix or log every finding it confirms;
+  record review results in `docs/review/log.md`.
+- New fixes are test-first: a test that fails before the change and passes after.
