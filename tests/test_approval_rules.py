@@ -17,6 +17,7 @@ from hall_monitor.models import (
     NextStep,
     Recommendation,
     RiskAssessment,
+    RiskLevel,
     Route,
     RoutingDecision,
     TriageResult,
@@ -107,3 +108,37 @@ def test_the_recorded_override_matches_the_rule_that_demanded_a_reason(step, pay
 def test_an_automatic_decision_needs_an_automatic_route():
     with pytest.raises(ValueError, match="routed automatically"):
         final_auto(_triaged("claim_003", route=Route.ADJUSTER), PACK)
+
+
+# --- Phase A5: from the end-of-phase review ---------------------------------------------
+
+
+def _in_currency(claim_id: str, currency: str, total: float) -> TriageResult:
+    result = _triaged(claim_id)
+    extraction = result.extraction.model_copy(update={"currency": currency, "total_claimed": total})
+    return result.model_copy(update={"extraction": extraction})
+
+
+@pytest.mark.parametrize(
+    ("step", "payout"), [(NextStep.PAY, 4900.0), (NextStep.DENY, 0.0)], ids=["pay", "deny"]
+)
+def test_a_claim_not_in_usd_needs_a_senior_adjuster(step, payout):
+    result = _in_currency("claim_001", "JPY", 100_000)  # about $650: limits are in USD
+    with pytest.raises(DecisionRejected, match="senior adjuster"):
+        _decide(result, "adj-101", step, payout)
+    _decide(result, "adj-201", step, payout)
+
+
+def test_denying_a_claim_nothing_was_extracted_from_needs_a_senior_adjuster():
+    result = _stopped("claim_001", extracted=False)  # the amount claimed is unknown
+    with pytest.raises(DecisionRejected, match="senior adjuster"):
+        _decide(result, "adj-101", NextStep.DENY)
+    _decide(result, "adj-201", NextStep.DENY)
+
+
+def test_paying_a_risky_claim_with_no_flags_needs_a_senior_adjuster():
+    result = _triaged("claim_001")
+    risky = RiskAssessment(level=RiskLevel.HIGH, flags=[], reasoning="")
+    result = result.model_copy(update={"risk": risky})
+    with pytest.raises(DecisionRejected, match="senior adjuster"):
+        _decide(result, "adj-101", NextStep.PAY, 100.0)

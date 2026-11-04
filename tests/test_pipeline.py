@@ -5,6 +5,7 @@ from datetime import date
 import anthropic
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from hall_monitor.agents.base import render_claim, render_feedback
 from hall_monitor.data import (
@@ -439,3 +440,22 @@ def test_a_recording_failure_stops_the_claim():
     )
     assert result.routing.route is Route.ADJUSTER
     assert "RuntimeError" in result.stopped_reason
+
+
+def test_claimant_name_match_ignores_accents():
+    accented = EXTRACTION.model_copy(update={"claimant_name": "Dániel Okáfor"})
+    assert _route(extraction=accented).route is Route.AUTO
+
+
+@pytest.mark.parametrize(
+    ("model", "field"),
+    [(CoverageFinding, "covered_amount"), (IntakeExtraction, "total_claimed")],
+)
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")], ids=["nan", "inf"])
+def test_non_finite_amounts_are_refused(model, field, bad):
+    if model is CoverageFinding:
+        good = CoverageFinding(applicable_clauses=[], covered_amount=1.0, reasoning="")
+    else:
+        good = EXTRACTION
+    with pytest.raises(ValidationError):
+        model.model_validate(good.model_dump() | {field: bad})

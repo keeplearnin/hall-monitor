@@ -11,8 +11,6 @@ bounds goes to an adjuster.
 
 from __future__ import annotations
 
-import re
-
 from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
 from hall_monitor.models import (
     CoverageAssessment,
@@ -26,10 +24,7 @@ from hall_monitor.models import (
     Route,
     RoutingDecision,
 )
-
-
-def _name(text: str) -> str:
-    return " ".join(re.sub(r"[^\w\s]", " ", text.casefold()).split())
+from hall_monitor.names import name_key
 
 
 def route_claim(
@@ -49,7 +44,7 @@ def route_claim(
     if policy is None:
         reasons.append("no policy record to check the claim against")
     else:
-        if _name(extraction.claimant_name) != _name(policy.insured_name):
+        if name_key(extraction.claimant_name) != name_key(policy.insured_name):
             reasons.append("claimant is not the insured named on the policy")
         if extraction.incident_date is None:
             reasons.append("no incident date to check against the coverage period")

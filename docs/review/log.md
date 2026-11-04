@@ -85,7 +85,7 @@ findings. **Fixed in:** this branch.
 | Covered amount (USD) compared with the claimed amount in the claim's currency | A claim not in USD goes to a person, and economy routing applies only to USD claims |
 | A model missing from the price table crashed triage | Clear error; the claim stops for a person instead of crashing; a test checks every approved model is priced |
 | The eval gate's staleness check ignored prompt changes | Results record each agent's prompt-template hash, and the gate compares it with the approval |
-| Adversarial and fairness results recorded no agent versions, so they would always be stale | Every eval runner records the same run metadata, agents included, from one helper |
+| Adversarial and fairness results recorded no agent versions, so they would always be stale | The adversarial, fairness and seeded-critic runners record run metadata, agents included, from one helper; the baseline runner records the agents from the calls it made |
 | `audit verify` crashed on a malformed evidence entry | Reported as a problem |
 | The "read-only" audit CLI re-created triggers an attacker had removed | The CLI opens the log read-only, and verify reports missing triggers |
 | A claim whose triage crashed could never be resubmitted | Resubmitting starts its triage again; earlier events stay in the log |
@@ -119,3 +119,25 @@ checkpoint version.
 
 All 32 findings from review 3 are now fixed, each with a test written to fail first. Nicknames
 in claims history (Dan for Daniel) still don't match, as noted in the code.
+
+## Review 4: end of Phase A
+
+**Reviewer:** the `governance-reviewer` agent (`.claude/agents/`), whole repo, read-only, each
+finding verified against the code (7 reproduced with an offline script). 10 findings, mostly gaps
+the Phase A fixes didn't reach. **Fixed in:** Phase A5, each with a test written to fail first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Adjuster rules compared USD payouts and limits with amounts in the claim's currency | High | A claim not in USD, or with no amount extracted, needs a senior adjuster to pay or deny |
+| Denying a claim nothing was extracted from needed no authority | Medium | Needs a senior adjuster |
+| Paying a high- or medium-risk claim with no flags didn't need a senior adjuster | Medium | It does now |
+| NaN or infinite amounts made every routing comparison false | Medium | Amounts must be finite; a non-finite one fails validation and stops the claim |
+| Routing and claims history used different name matching (accents) | Medium | One `name_key` for both |
+| Claims history can cross between namesakes | Medium | Logged as a gap (HM-03): the data has no customer ID |
+| Resubmitting a claim whose triage hadn't finished could race a run still in progress | Medium | Restarting now needs `restart=True` (`run --fresh`) |
+| A refused hall pass and "cost unknown" stops counted as safe stops in evals | Low | Counted as errors |
+| `audit verify --expect-seq 0` skipped the anchor check | Low | Fixed |
+| ADR 0001 and the review log were out of date | Low | Updated; a test checks ADR 0001 names every routing check |
+
+Not checked by the reviewer: whether the model can actually emit NaN, SQLite contention across
+processes, and the HTML one-pagers.

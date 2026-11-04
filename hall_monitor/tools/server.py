@@ -11,14 +11,13 @@ agent's allow-list before any call reaches it.
 from __future__ import annotations
 
 import json
-import re
-import unicodedata
 from pathlib import Path
 
 from fastmcp import FastMCP
 
 from hall_monitor.data import DATA_DIR, load_policy_records
 from hall_monitor.models import PolicyRecord
+from hall_monitor.names import name_key
 from hall_monitor.registry import DataClass
 
 POLICY_LOOKUP = "policy_lookup"
@@ -32,12 +31,6 @@ TOOL_DATA_CLASSES: dict[str, frozenset[DataClass]] = {
     # Earlier claims: summaries can describe illness or injury.
     CLAIMS_HISTORY: frozenset({DataClass.PII, DataClass.HEALTH, DataClass.FINANCIAL}),
 }
-
-
-def name_key(name: str) -> str:
-    """A name for matching: case, accents, punctuation and spacing don't count."""
-    plain = "".join(c for c in unicodedata.normalize("NFKD", name) if not unicodedata.combining(c))
-    return " ".join(re.sub(r"[^\w\s]", " ", plain.casefold()).split())
 
 
 def build_server(

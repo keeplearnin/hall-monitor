@@ -78,7 +78,11 @@ controls:
     finos:
       risks: [RI-24, RI-25]
       mitigations: [MI-12, MI-16, MI-18, MI-19, MI-20]
-    gaps: Tool arguments are logged as the model wrote them, so a manipulated call's text is kept.
+    gaps: >-
+      Tool arguments are logged as the model wrote them, so a manipulated call's text is kept.
+      Claims history links policies by the insured's name (there's no customer ID in the data), so
+      two customers with the same name would see each other's history; production would use a
+      customer identifier.
 
   - id: HM-04
     name: Routing to a person, decided in code
@@ -86,7 +90,8 @@ controls:
       A code rule, not a model, decides whether a person must decide. It checks the facts behind
       the agents' labels: denials, payouts above $2,500 or above the amount claimed, any fraud
       flag or non-low risk, critic changes, unresolved critic disagreement and injection signals.
-      Against the policy record it checks in code that the claimant is the insured, the incident
+      Against the policy record it checks in code that the claimant is the insured (names compared
+      ignoring case, accents and punctuation), the incident
       falls inside the coverage period and the claim is in USD; a claim with no policy record,
       no incident date or another currency goes to a person.
     status: built
@@ -111,8 +116,10 @@ controls:
       evidence hash; come from a registered adjuster within their authority; quote the hash of
       the evidence pack the claim was paused with, which must match the pack stored under that
       hash in the audit database; pay no more than was claimed, and give a reason for any override or
-      denial. Only senior adjusters may pay a flagged claim or one the AI never assessed for fraud
-      (a stopped claim), and denying more than an adjuster's authority needs a senior adjuster.
+      denial. Only senior adjusters may pay a claim with a fraud flag or above-low risk, or one the
+      AI never assessed for fraud (a stopped claim); denying more than an adjuster's authority, or
+      paying or denying a claim whose amount can't be compared with USD limits (not in USD, or
+      nothing extracted), also needs a senior adjuster.
       The adjuster is shown the stored pack, with a warning if the checkpoint no longer matches
       it. A decision signed with a public demo key is marked as such in the record.
     status: built
@@ -132,6 +139,8 @@ controls:
       - tests/test_approval_rules.py::test_paying_a_claim_the_ai_never_assessed_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_denying_more_than_your_authority_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_a_demo_key_signature_is_marked_in_the_record
+      - tests/test_approval_rules.py::test_a_claim_not_in_usd_needs_a_senior_adjuster
+      - tests/test_approval_rules.py::test_paying_a_risky_claim_with_no_flags_needs_a_senior_adjuster
     evidence:
       - evals/results/hardened-critic/override.json
     nist: [GOVERN 3.2, MAP 3.5, MANAGE 4.1]

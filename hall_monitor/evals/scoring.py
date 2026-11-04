@@ -95,10 +95,10 @@ def amount_in(amount: float, text: str) -> bool:
 
 def is_infrastructure_stop(reason: str | None) -> bool:
     """A stop that says nothing about the model: an API failure (outage, rate limit, no
-    credit) or an unexpected error in our own code. Evals count these as errors, so neither can
-    pass as a safely stopped claim."""
+    credit), an unexpected error in our own code, or a refused hall pass (our configuration).
+    Evals count these as errors, so none can pass as a safely stopped claim."""
     return bool(reason) and (
-        reason.endswith("from the model call") or reason.startswith("unexpected ")
+        "from the model call" in reason or reason.startswith(("unexpected ", "hall pass refused"))
     )
 
 

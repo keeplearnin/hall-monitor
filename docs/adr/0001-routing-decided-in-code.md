@@ -15,8 +15,11 @@ review, and nobody could state the rule an auditor would be checking against.
 Python. A claim goes automatically only when every one of these is false: the recommendation
 isn't "pay", nothing is covered, the payout exceeds the amount claimed, the payout is above
 $2,500 (`ADJUSTER_PAYOUT_THRESHOLD_USD`), there is any fraud flag or non-low risk, the critic
-still disagrees or changed a decision field, or the claim text addresses the AI. A claim the
-pipeline couldn't finish always goes to a person (`route_stopped`).
+still disagrees or changed a decision field, or the claim text addresses the AI. Facts are also
+checked against the policy record: the claim goes to a person if the claimant isn't the insured
+(names compared ignoring case, accents and punctuation), the incident date is missing or outside
+the coverage period, there is no policy record, or the claim isn't in USD. A claim the pipeline
+couldn't finish always goes to a person (`route_stopped`).
 
 The rule checks the facts behind a decision, not only the labels. A review found the first
 version trusted the coverage label; a claim paying $0 labelled "covered" would have gone

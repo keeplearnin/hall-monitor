@@ -281,7 +281,8 @@ def test_amounts_are_found_with_or_without_cents(amount, text, found):
         ("APIConnectionError from the model call", True),
         ("unexpected KeyError: 'claude-x'", True),
         ("no policy record found for the policy number on the claim", False),
-        ("hall pass refused: agent 'intake' is planned, not active", False),
+        ("hall pass refused: agent 'intake' is planned, not active", True),
+        ("APIError from the model call; cost unknown: no price for model 'x'", True),
     ],
 )
 def test_infrastructure_stops_are_told_apart_from_model_behaviour(reason, infrastructure):
