@@ -15,8 +15,14 @@ CACHE_WRITE_MULTIPLIER = 1.25
 CACHE_READ_MULTIPLIER = 0.10
 
 
+class UnpricedModelError(ValueError):
+    pass
+
+
 def call_cost(call: AgentCall) -> float:
     """input_tokens counts only uncached input; cached reads and writes are priced separately."""
+    if call.model not in PRICES_PER_MTOK:
+        raise UnpricedModelError(f"no price for model {call.model!r} in PRICES_PER_MTOK")
     input_price, output_price = PRICES_PER_MTOK[call.model]
     cents = (
         call.input_tokens * input_price

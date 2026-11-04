@@ -18,11 +18,9 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime
 from pathlib import Path
 
 import anthropic
@@ -30,6 +28,7 @@ from dotenv import load_dotenv
 
 from hall_monitor import tracing
 from hall_monitor.data import DATA_DIR, iter_claims, load_policy_records, load_policy_wording
+from hall_monitor.evals.meta import run_meta
 from hall_monitor.models import Attachment, ClaimSubmission, NextStep, TriageResult
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
@@ -132,8 +131,20 @@ def run(claim_ids: list[str], trials: int, workers: int, registry, client) -> li
 
     def one(job):
         cid, group, claim, records, hist, trial = job
-        gateway = ToolGateway(registry, server=build_server(policies=records, history=hist))
-        result = triage(claim, registry=registry, gateway=gateway, wording=wording, client=client)
+        try:
+            gateway = ToolGateway(registry, server=build_server(policies=records, history=hist))
+            result = triage(
+                claim, registry=registry, gateway=gateway, wording=wording, client=client
+            )
+        except Exception as exc:  # a failed run is reported, not allowed to lose the others
+            error = f"{type(exc).__name__}: {exc}"
+            return {
+                "claim_id": cid,
+                "group": group,
+                "trial": trial,
+                "error": error,
+                "outcome": None,
+            }
         error = (
             result.stopped_reason if (result.stopped_reason or "").endswith("model call") else None
         )
@@ -195,14 +206,7 @@ def main(argv: list[str] | None = None) -> int:
     claim_ids = args.claims or [c.claim_id for c in iter_claims()]
     rows = run(claim_ids, args.trials, args.workers, registry, anthropic.Anthropic())
     tracing.flush()
-    commit = subprocess.run(
-        ["git", "rev-parse", "HEAD"], capture_output=True, text=True
-    ).stdout.strip()
-    meta = {
-        "run_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
-        "git_commit": commit,
-        "names": NAMES,
-    }
+    meta = run_meta(registry, names=NAMES)
     summary = summarize(rows)
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "results.json").write_text(

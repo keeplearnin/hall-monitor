@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.db.exists():
         print(f"no audit log at {args.db}", file=sys.stderr)
         return 1
-    log = AuditLog(args.db)
+    log = AuditLog(args.db, read_only=True)
     try:
         if args.command == "head":
             head = log.head()

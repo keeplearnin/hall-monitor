@@ -13,11 +13,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 
 import anthropic
@@ -25,6 +23,7 @@ from dotenv import load_dotenv
 
 from hall_monitor import tracing
 from hall_monitor.data import DATA_DIR, iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.evals.meta import run_meta
 from hall_monitor.models import Attachment, ClaimSubmission, NextStep, Route, TriageResult
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
@@ -183,11 +182,7 @@ def main(argv: list[str] | None = None) -> int:
         results = list(pool.map(lambda j: run_case(j[0], j[1], claims, context), jobs))
     tracing.flush()
 
-    git = lambda *a: subprocess.run(["git", *a], capture_output=True, text=True).stdout.strip()  # noqa: E731
-    meta = {
-        "run_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
-        "git_commit": git("rev-parse", "HEAD"),
-    }
+    meta = run_meta(registry)
     summary = summarize(results)
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "results.json").write_text(

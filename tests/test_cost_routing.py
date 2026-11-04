@@ -8,7 +8,7 @@ import yaml
 from hall_monitor.agents import coverage_check
 from hall_monitor.agents.base import run_agent
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
-from hall_monitor.gateway.cost import call_cost
+from hall_monitor.gateway.cost import PRICES_PER_MTOK, call_cost
 from hall_monitor.models import AgentCall, CoverageFinding, CriticReview, ReviewedStage
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, AgentManifest, Registry
@@ -152,3 +152,17 @@ def test_cost_per_claim_is_recorded():
     result, _ = _triage("claim_001")
     assert result.cost_usd == pytest.approx(sum(call_cost(c) for c in result.agent_calls), abs=1e-6)
     assert result.cost_usd > 0
+
+
+def test_every_approved_model_has_a_price():
+    models = {m.model for m in REGISTRY} | {m.economy_model for m in REGISTRY if m.economy_model}
+    assert models <= set(PRICES_PER_MTOK)
+
+
+def test_an_unpriced_model_stops_the_claim_instead_of_crashing(monkeypatch):
+    monkeypatch.delitem(PRICES_PER_MTOK, "claude-haiku-5-5")
+    claim = next(iter_claims())
+    client = fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)))
+    result = triage(claim, registry=REGISTRY, wording=load_policy_wording(), client=client)
+    assert result.routing.route.value == "adjuster"
+    assert "no price for model 'claude-haiku-5-5'" in result.stopped_reason

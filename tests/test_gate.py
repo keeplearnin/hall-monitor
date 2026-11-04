@@ -87,3 +87,15 @@ def test_unsafe_routes_count_only_claims_that_needed_a_person():
 def test_published_results_pass_the_gate():
     ok, results = run_gate()
     assert ok, [(r.name, r.failures) for r in results if r.state == "fail"]
+
+
+def test_a_changed_prompt_makes_a_result_stale(tmp_path):
+    agents = [
+        a | {"prompt_template_sha256": load_approvals()[a["agent_id"]]["prompt_sha256"]}
+        for a in _current_agents()
+    ]
+    ok, [result] = run_gate(_setup(tmp_path, {"score": 1.0}, agents=agents, stale="fail"))
+    assert ok and result.state == "pass"
+    agents[0] = agents[0] | {"prompt_template_sha256": "0" * 64}
+    ok, [result] = run_gate(_setup(tmp_path, {"score": 1.0}, agents=agents, stale="fail"))
+    assert not ok and result.state == "fail"

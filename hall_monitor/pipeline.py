@@ -28,7 +28,7 @@ from hall_monitor.agents.critic import run_critic
 from hall_monitor.agents.intake import run_intake
 from hall_monitor.agents.recommendation import run_recommendation
 from hall_monitor.agents.risk_fraud import run_risk_fraud
-from hall_monitor.gateway.cost import call_cost
+from hall_monitor.gateway.cost import UnpricedModelError, call_cost
 from hall_monitor.gateway.injection import detect_instructions
 from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.governance.routing import route_claim, route_stopped
@@ -146,6 +146,7 @@ def _economy(registry: Registry, agent_id: str, extraction: IntakeExtraction, on
     return (
         on
         and manifest.economy_model is not None
+        and extraction.currency.strip().upper() == "USD"
         and extraction.total_claimed <= manifest.economy_max_claim_usd
     )
 
@@ -224,10 +225,12 @@ def _triage_with_stop(
         reason = f"hall pass refused: {exc}"
     except PipelineStopped as exc:
         reason = str(exc)
-    except (
-        Exception
-    ) as exc:  # anything unforeseen (a tool server error, say) still goes to a person
+    except Exception as exc:  # anything unforeseen (a tool server error, say) goes to a person
         reason = f"unexpected {type(exc).__name__}: {exc}"
+    try:
+        cost = _cost(run)
+    except UnpricedModelError as exc:  # the claim still goes to a person; its cost is unknown
+        cost, reason = 0.0, f"{reason}; cost unknown: {exc}"
     return TriageResult(
         claim_id=claim.claim_id,
         extraction=run.extraction,
@@ -244,7 +247,7 @@ def _triage_with_stop(
         tool_calls=run.tool_calls,
         revisions=run.revisions,
         stopped_reason=reason,
-        cost_usd=_cost(run),
+        cost_usd=cost,
         redactions=redactions,
         injection_signals=signals,
     )
@@ -391,6 +394,7 @@ def _triage(
         critic_unresolved=unresolved,
         critic_changed=run.critic_changed(),
         injection_signals=injection_signals,
+        policy=policy,
     )
     return TriageResult(
         claim_id=claim.claim_id,

@@ -101,15 +101,39 @@ def evidence_body(pack: dict) -> str:
     return json.dumps(pack, sort_keys=True)
 
 
-class AuditLog:
-    """One writer at a time (a lock), any number of readers."""
+TRIGGERS = ("audit_log_no_update", "audit_log_no_delete", "evidence_no_update")
 
-    def __init__(self, path: Path = DEFAULT_AUDIT_DB):
-        path.parent.mkdir(parents=True, exist_ok=True)
+
+def _evidence_ref(payload: str) -> str | None:
+    """The evidence hash an evidence_pack entry refers to, or None if the entry is malformed."""
+    try:
+        digest = json.loads(payload)["evidence_sha256"]
+    except (ValueError, KeyError, TypeError):
+        return None
+    return digest if isinstance(digest, str) else None
+
+
+class AuditLog:
+    """One writer at a time (a lock), any number of readers.
+
+    read_only=True opens the file without creating or changing anything, for inspection: verify
+    then also reports triggers someone removed, which a normal open would quietly put back.
+    """
+
+    def __init__(self, path: Path = DEFAULT_AUDIT_DB, *, read_only: bool = False):
         self.path = path
         self._lock = threading.Lock()
-        self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
-        self._db.executescript(_SCHEMA)
+        if read_only:
+            self._db = sqlite3.connect(
+                f"{path.resolve().as_uri()}?mode=ro",
+                uri=True,
+                check_same_thread=False,
+                isolation_level=None,
+            )
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
+            self._db.executescript(_SCHEMA)
 
     def close(self) -> None:
         self._db.close()
@@ -162,7 +186,7 @@ class AuditLog:
             " ORDER BY seq DESC LIMIT 1",
             (claim_id,),
         ).fetchone()
-        return json.loads(row[0])["evidence_sha256"] if row else None
+        return _evidence_ref(row[0]) if row else None
 
     def head(self) -> ChainHead | None:
         row = self._db.execute(
@@ -209,11 +233,23 @@ class AuditLog:
                 f"the anchored head (entry {expect.seq}, {expect.entry_hash[:12]}) is not in the "
                 "chain: it was rewritten or truncated"
             )
+        present = {
+            name
+            for (name,) in self._db.execute("SELECT name FROM sqlite_master WHERE type = 'trigger'")
+        }
+        problems += [
+            f"trigger {name} is missing: entries could have been changed in place"
+            for name in TRIGGERS
+            if name not in present
+        ]
         erased = []
         for seq, _, _, event, _, payload, _, _ in rows:
             if event != "evidence_pack":
                 continue
-            digest = json.loads(payload)["evidence_sha256"]
+            digest = _evidence_ref(payload)
+            if digest is None:
+                problems.append(f"entry {seq}: evidence_pack entry is malformed")
+                continue
             try:
                 if self.get_evidence(digest) is None:
                     erased.append(digest)

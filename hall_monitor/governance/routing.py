@@ -2,11 +2,16 @@
 
 It checks the facts behind a decision, not just the labels the agents put on them: a claim
 the coverage step pays nothing on is a denial whatever the recommendation says, and a payout
-above the amount claimed is wrong whatever the coverage step says. Anything other than a
-clean, low-risk payment within bounds goes to an adjuster.
+above the amount claimed is wrong whatever the coverage step says. Facts the agents could get
+wrong are checked against the policy record in code: the claimant must be the insured, the
+incident must fall inside the coverage period, and amounts must be in USD (the policy pays in
+USD and nothing here converts currency). Anything other than a clean, low-risk payment within
+bounds goes to an adjuster.
 """
 
 from __future__ import annotations
+
+import re
 
 from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
 from hall_monitor.models import (
@@ -14,12 +19,17 @@ from hall_monitor.models import (
     CoverageDecision,
     IntakeExtraction,
     NextStep,
+    PolicyRecord,
     Recommendation,
     RiskAssessment,
     RiskLevel,
     Route,
     RoutingDecision,
 )
+
+
+def _name(text: str) -> str:
+    return " ".join(re.sub(r"[^\w\s]", " ", text.casefold()).split())
 
 
 def route_claim(
@@ -31,8 +41,20 @@ def route_claim(
     critic_unresolved: bool = False,
     critic_changed: list[str] | None = None,
     injection_signals: list[str] | None = None,
+    policy: PolicyRecord | None = None,
 ) -> RoutingDecision:
     reasons = []
+    if extraction.currency.strip().upper() != "USD":
+        reasons.append(f"claim is in {extraction.currency}, not USD: amounts can't be compared")
+    if policy is None:
+        reasons.append("no policy record to check the claim against")
+    else:
+        if _name(extraction.claimant_name) != _name(policy.insured_name):
+            reasons.append("claimant is not the insured named on the policy")
+        if extraction.incident_date is None:
+            reasons.append("no incident date to check against the coverage period")
+        elif not policy.coverage_start <= extraction.incident_date <= policy.coverage_end:
+            reasons.append("incident date is outside the coverage period")
     if recommendation.next_step is not NextStep.PAY:
         reasons.append(f"recommended {recommendation.next_step.value.replace('_', ' ')}")
     if coverage.decision is CoverageDecision.NOT_COVERED:

@@ -81,6 +81,7 @@ def test_a_consistent_rewrite_is_caught_only_by_an_anchor(log):
             "UPDATE audit_log SET prev_hash = ?, entry_hash = ? WHERE seq = ?", (prev, digest, seq)
         )
         prev = digest
+    AuditLog(log.path).close()  # a careful attacker puts the triggers back
 
     assert log.verify().ok  # internally consistent: the chain alone can't tell
     result = log.verify(expect=anchor)
@@ -183,9 +184,26 @@ def test_evidence_is_stored_by_hash_and_checked_by_verify(tmp_path):
         db.execute("DROP TRIGGER evidence_no_update")
         db.execute("UPDATE evidence SET body = replace(body, 'deny', 'pay')")
         result = log.verify()
-        assert not result.ok and "was changed after it was stored" in result.problems[0]
+        assert not result.ok
+        assert any("was changed after it was stored" in p for p in result.problems)
 
         db.execute("DELETE FROM evidence")  # erasure: allowed, reported, not tampering
+        db.close()
+        AuditLog(log.path).close()  # the dropped trigger is back
         result = log.verify()
         assert result.ok and result.evidence_erased == [digest]
-        db.close()
+
+
+def test_read_only_verify_reports_removed_triggers_and_malformed_entries(log):
+    log.append("claim_009", "evidence_pack", "pipeline", {"no": "hash"})
+    db = _raw(log)  # drops the triggers
+    db.close()
+    reader = AuditLog(log.path, read_only=True)
+    result = reader.verify()
+    reader.close()
+    assert any("trigger audit_log_no_update is missing" in p for p in result.problems)
+    assert any("evidence_pack entry is malformed" in p for p in result.problems)
+    db = sqlite3.connect(log.path)
+    triggers = db.execute("SELECT count(*) FROM sqlite_master WHERE type = 'trigger'").fetchone()
+    db.close()
+    assert triggers[0] == 1  # the read-only open put nothing back (evidence_no_update is untouched)

@@ -70,3 +70,34 @@ Fixes for the review 2 findings that were documented rather than fixed:
 
 Still open: the demo adjusters' keys are public by design; branch protection is not switched on,
 so approvals aren't enforced by repository settings; the live evals haven't been rerun.
+
+## Review 3: full code review (after milestone 11)
+
+**Reviewer:** Claude, reviewing all of `hall_monitor/` for correctness, cleanup and design depth.
+It ran in one pass with no separate verification step, so some findings may be wrong. 32
+findings. **Fixed in:** this branch.
+
+**Fixed**
+
+| Finding | Fix |
+|---|---|
+| No code checked that the claimant is the insured or that the incident is within cover | Routing checks both against the policy record; a claim with no policy record or no incident date goes to a person |
+| Covered amount (USD) compared with the claimed amount in the claim's currency | A claim not in USD goes to a person, and economy routing applies only to USD claims |
+| A model missing from the price table crashed triage | Clear error; the claim stops for a person instead of crashing; a test checks every approved model is priced |
+| The eval gate's staleness check ignored prompt changes | Results record each agent's prompt-template hash, and the gate compares it with the approval |
+| Adversarial and fairness results recorded no agent versions, so they would always be stale | Every eval runner records the same run metadata, agents included, from one helper |
+| `audit verify` crashed on a malformed evidence entry | Reported as a problem |
+| The "read-only" audit CLI re-created triggers an attacker had removed | The CLI opens the log read-only, and verify reports missing triggers |
+| A claim whose triage crashed could never be resubmitted | Resubmitting starts its triage again; earlier events stay in the log |
+| The evidence hash was computed in two places that had to agree | One definition |
+| The seeded critic eval divided by zero when every case of a seed errored, and returned success on errors | Fixed |
+| One exception lost the whole fairness run | Each run's failure is recorded, not raised |
+
+**Not fixed yet** (in the roadmap or noted as gaps): unsalted hashes of adjuster reasons
+(should be a keyed HMAC); demo-key signatures aren't marked in the record; no authority limit on
+denials; stopped claims skip the payout bound and fraud-flag checks; failed tool calls aren't
+logged; the gateway can't run inside an event loop; audit readers share a connection without
+the lock; the recommender's input is declared financial but its claim type and clauses can imply
+health; claims history matches names exactly; the scoring check misses amounts written without
+cents; the fairness runner picks a claim's policy by text match and swaps first names that are
+also ordinary words; `waiting()` scans every checkpoint; and smaller cleanups.
