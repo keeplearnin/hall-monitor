@@ -93,9 +93,14 @@ findings. **Fixed in:** this branch.
 | The seeded critic eval divided by zero when every case of a seed errored, and returned success on errors | Fixed |
 | One exception lost the whole fairness run | Each run's failure is recorded, not raised |
 
+**Fixed in Phase A1 (approval rules):** demo-key signatures are marked in the record; denials
+above an adjuster's authority need a senior adjuster; paying a claim the AI never assessed needs a
+senior adjuster; the adjuster is shown the stored evidence pack, with a warning if the checkpoint
+changed; one override rule shared by validation and the record; an explicit error instead of an
+assert in the automatic decision.
+
 **Not fixed yet** (in the roadmap or noted as gaps): unsalted hashes of adjuster reasons
-(should be a keyed HMAC); demo-key signatures aren't marked in the record; no authority limit on
-denials; stopped claims skip the payout bound and fraud-flag checks; failed tool calls aren't
+(should be a keyed HMAC); failed tool calls aren't
 logged; the gateway can't run inside an event loop; audit readers share a connection without
 the lock; the recommender's input is declared financial but its claim type and clauses can imply
 health; claims history matches names exactly; the scoring check misses amounts written without

@@ -213,11 +213,24 @@ class ClaimWorkflow:
         if "final" in values:
             return {"claim_id": claim_id, "state": "decided", "final": values["final"]}
         if "review" in snapshot.next:
+            # Show the pack stored under the hash the audit log recorded at triage, not the
+            # checkpoint's copy, and say if the checkpoint no longer matches it.
+            logged = self.audit.evidence_hash(claim_id)
+            try:
+                _check_evidence(self.audit, claim_id, values)
+                problem = None
+            except (DecisionRejected, EvidenceChanged) as exc:
+                problem = str(exc)
+            try:
+                stored = self.audit.get_evidence(logged) if logged else None
+            except EvidenceChanged:
+                stored = None
             return {
                 "claim_id": claim_id,
                 "state": "waiting_for_adjuster",
-                "evidence": values["evidence"],
-                "evidence_sha256": values["evidence_sha256"],
+                "evidence": stored if stored is not None else values["evidence"],
+                "evidence_sha256": logged or values["evidence_sha256"],
+                "evidence_problem": problem,
                 "routing_reasons": values["result"]["routing"]["reasons"],
                 "previous_decision_rejected": values.get("rejected"),
             }
