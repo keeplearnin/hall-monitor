@@ -108,7 +108,10 @@ controls:
       evidence hash; come from a registered adjuster within their authority; quote the hash of
       the evidence pack the claim was paused with, which must match the pack stored under that
       hash in the audit database; pay no more than was claimed, and give a reason for any override or
-      denial; only senior adjusters may pay a flagged claim.
+      denial. Only senior adjusters may pay a flagged claim or one the AI never assessed for fraud
+      (a stopped claim), and denying more than an adjuster's authority needs a senior adjuster.
+      The adjuster is shown the stored pack, with a warning if the checkpoint no longer matches
+      it. A decision signed with a public demo key is marked as such in the record.
     status: built
     code:
       - hall_monitor/workflow.py::build_graph
@@ -122,6 +125,10 @@ controls:
       - tests/test_workflow.py::test_decisions_that_break_the_rules_are_rejected
       - tests/test_workflow.py::test_a_decision_counts_only_with_the_adjusters_signature
       - tests/test_workflow.py::test_an_edited_checkpoint_cant_change_the_evidence
+      - tests/test_workflow.py::test_the_adjuster_is_shown_the_stored_evidence_not_an_edited_checkpoint
+      - tests/test_approval_rules.py::test_paying_a_claim_the_ai_never_assessed_needs_a_senior_adjuster
+      - tests/test_approval_rules.py::test_denying_more_than_your_authority_needs_a_senior_adjuster
+      - tests/test_approval_rules.py::test_a_demo_key_signature_is_marked_in_the_record
     evidence:
       - evals/results/hardened-critic/override.json
     nist: [GOVERN 3.2, MAP 3.5, MANAGE 4.1]
@@ -129,8 +136,8 @@ controls:
       risks: [RI-22]
       mitigations: [MI-24]
     gaps: >-
-      The fictional adjusters' keys are public demo keys; a deployment would issue keys from the
-      firm's identity system. The evidence pack lists document names rather than the documents.
+      The fictional adjusters' keys are public demo keys (decisions signed with them are marked);
+      a deployment would issue keys from the firm's identity system. The evidence pack lists document names rather than the documents.
       Other checkpoint state isn't integrity-checked. The override rate is simulated with an
       answer-key adjuster; no real adjusters yet.
 

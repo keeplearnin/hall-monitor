@@ -227,3 +227,16 @@ def test_a_claim_whose_triage_crashed_can_be_submitted_again(db, monkeypatch):
 
     monkeypatch.setattr(workflow_module, "build_evidence_pack", real)
     assert _submit(db, "claim_001")["state"] == "decided"
+
+
+def test_the_adjuster_is_shown_the_stored_evidence_not_an_edited_checkpoint(db):
+    _submit(db, "claim_004")
+    with _open(db) as workflow:
+        stored = workflow.status("claim_004")["evidence"]
+        edited = stored | {"recommendation": {"next_step": "pay", "reasons": []}}
+        workflow.app.update_state(
+            {"configurable": {"thread_id": "claim_004"}}, {"evidence": edited}
+        )
+        status = workflow.status("claim_004")
+    assert status["evidence"] == stored
+    assert "changed after triage" in status["evidence_problem"]

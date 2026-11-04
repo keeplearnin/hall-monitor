@@ -78,6 +78,9 @@ class FinalDecision(BaseModel):
     routing_reasons: list[str]
     evidence_sha256: str
     decided_at: str
+    # True when the signature was made with a public demo key (registry/adjusters.yaml), so the
+    # record shows the decision proves nothing about who made it.
+    signed_with_demo_key: bool = False
 
 
 class DecisionRejected(ValueError):
@@ -124,6 +127,14 @@ def ai_payout(result: TriageResult) -> float | None:
     return result.coverage.covered_amount if result.coverage else None
 
 
+def changes_ai(decision: AdjusterDecision, result: TriageResult) -> bool:
+    """The adjuster chose a different next step, or a different payout on a payment."""
+    return decision.next_step is not result.recommendation.next_step or (
+        decision.next_step is NextStep.PAY
+        and abs(decision.payout_usd - (ai_payout(result) or 0)) > 0.005
+    )
+
+
 def validate_decision(
     decision: AdjusterDecision,
     result: TriageResult,
@@ -140,6 +151,13 @@ def validate_decision(
     if decision.evidence_sha256 != pack_sha256:
         raise DecisionRejected("evidence hash doesn't match the current evidence pack")
     claimed = result.extraction.total_claimed if result.extraction else None
+    senior = adjuster.may_pay_flagged
+    if decision.next_step is NextStep.DENY and claimed is not None:
+        if claimed > adjuster.authority_limit_usd:
+            raise DecisionRejected(
+                f"denying {claimed:,.2f} exceeds {adjuster.name}'s authority of "
+                f"{adjuster.authority_limit_usd:,.0f}; a senior adjuster must decide"
+            )
     if decision.next_step is NextStep.PAY:
         if decision.payout_usd <= 0:
             raise DecisionRejected("a payment needs a payout above 0")
@@ -150,15 +168,17 @@ def validate_decision(
                 f"payout exceeds {adjuster.name}'s authority of "
                 f"{adjuster.authority_limit_usd:,.0f}; a senior adjuster must decide"
             )
-        if result.risk and result.risk.flags and not adjuster.may_pay_flagged:
+        if result.risk is None and not senior:
+            # Stopped before the fraud check (or before intake): nothing bounds or vets this
+            # payment except the person, so it needs the senior authority.
+            raise DecisionRejected(
+                "paying a claim the AI never assessed for fraud needs a senior adjuster"
+            )
+        if result.risk and result.risk.flags and not senior:
             raise DecisionRejected("paying a claim with a fraud flag needs a senior adjuster")
     elif decision.payout_usd != 0:
         raise DecisionRejected(f"{decision.next_step.value} can't carry a payout")
-    changes_ai = decision.next_step is not result.recommendation.next_step or (
-        decision.next_step is NextStep.PAY
-        and abs(decision.payout_usd - (ai_payout(result) or 0)) > 0.005
-    )
-    if (changes_ai or decision.next_step is NextStep.DENY) and len(
+    if (changes_ai(decision, result) or decision.next_step is NextStep.DENY) and len(
         decision.reason.strip()
     ) < MIN_REASON_LENGTH:
         raise DecisionRejected(
@@ -172,9 +192,6 @@ def final_from_adjuster(
     decision: AdjusterDecision, adjuster: Adjuster, result: TriageResult, pack_sha256: str
 ) -> FinalDecision:
     payout = ai_payout(result)
-    overrode = decision.next_step is not result.recommendation.next_step or (
-        decision.next_step is NextStep.PAY and abs(decision.payout_usd - (payout or 0)) > 0.005
-    )
     return FinalDecision(
         claim_id=result.claim_id,
         decided_by=f"adjuster:{adjuster.id}",
@@ -183,11 +200,12 @@ def final_from_adjuster(
         payout_usd=decision.payout_usd,
         ai_next_step=result.recommendation.next_step,
         ai_payout_usd=payout,
-        overrode_ai=overrode,
+        overrode_ai=changes_ai(decision, result),
         reason=decision.reason,
         routing_reasons=result.routing.reasons,
         evidence_sha256=pack_sha256,
         decided_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        signed_with_demo_key=adjuster.demo_key,
     )
 
 
@@ -204,7 +222,8 @@ def audit_payload(final: FinalDecision, signature: str | None = None) -> dict:
 
 def final_auto(result: TriageResult, pack_sha256: str) -> FinalDecision:
     """A claim the routing rule let through: the AI's recommendation stands, as routed."""
-    assert result.routing.route is Route.AUTO and result.coverage is not None
+    if result.routing.route is not Route.AUTO or result.coverage is None:
+        raise ValueError(f"{result.claim_id} wasn't routed automatically; a person must decide")
     return FinalDecision(
         claim_id=result.claim_id,
         decided_by="auto",
