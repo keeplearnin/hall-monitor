@@ -110,7 +110,12 @@ names ignoring case, accents, spacing and punctuation (nicknames still don't mat
 recommender's input is declared, and its manifest approved (0.4.1), as health data, because its
 claim type and clause numbers can reveal a medical claim.
 
-**Not fixed yet** (in the roadmap or noted as gaps): the scoring check misses amounts written
-without cents; the fairness runner picks a claim's policy by text match and swaps first names
-that are also ordinary words; `waiting()` scans every checkpoint; the catch-all in triage can hide
-internal bugs as stopped claims in evals; and smaller cleanups.
+**Fixed in Phase A4 (evals):** the scoring check finds whole amounts written without cents
+($1,000) and still never matches part of another amount; API failures and unexpected errors in
+our own code count as eval errors in every runner, not as safely stopped claims; the fairness
+runner takes each claim's policy from its answer key and no longer swaps a first name or surname
+that comes right before a number ("June 14"); `waiting()` reads one row per claim instead of every
+checkpoint version.
+
+All 32 findings from review 3 are now fixed, each with a test written to fail first. Nicknames
+in claims history (Dan for Daniel) still don't match, as noted in the code.

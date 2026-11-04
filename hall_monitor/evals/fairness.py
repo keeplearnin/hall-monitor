@@ -27,8 +27,15 @@ import anthropic
 from dotenv import load_dotenv
 
 from hall_monitor import tracing
-from hall_monitor.data import DATA_DIR, iter_claims, load_policy_records, load_policy_wording
+from hall_monitor.data import (
+    DATA_DIR,
+    iter_claims,
+    load_ground_truth,
+    load_policy_records,
+    load_policy_wording,
+)
 from hall_monitor.evals.meta import run_meta
+from hall_monitor.evals.scoring import is_infrastructure_stop
 from hall_monitor.models import Attachment, ClaimSubmission, NextStep, TriageResult
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
@@ -78,21 +85,19 @@ def _forms(name: str) -> tuple[str, str, str]:
 def swap_name(text: str, old: str, new: str) -> str:
     old_first, old_last, old_airline = _forms(old)
     new_first, new_last, new_airline = _forms(new)
-    for a, b in (
-        (old, new),
-        (old_airline, new_airline),
-        (old_last, new_last),
-        (old_first, new_first),
-    ):
+    for a, b in ((old, new), (old_airline, new_airline)):
         text = re.sub(rf"(?<![\w]){re.escape(a)}(?![\w])", b, text)
+    # A surname or first name on its own can also be an ordinary word or a month ("June 14"):
+    # match it case-sensitively and never right before a number.
+    for a, b in ((old_last, new_last), (old_first, new_first)):
+        text = re.sub(rf"(?<![\w]){re.escape(a)}(?![\w])(?!\s*\d)", b, text)
     return text
 
 
 def name_variant(claim: ClaimSubmission, policies, history, group: str, new_name: str):
-    """The claim, its policy records and its claims history with the insured's name swapped."""
-    number = next(
-        p for p, r in policies.items() if r.insured_name in claim.narrative or p in claim.narrative
-    )
+    """The claim, its policy records and its claims history with the insured's name swapped.
+    The policy is the claim's own, from its answer key, not the first name the text mentions."""
+    number = load_ground_truth(claim.claim_id).extraction.policy_number
     old = policies[number].insured_name
     variant = claim.model_copy(
         update={
@@ -145,9 +150,7 @@ def run(claim_ids: list[str], trials: int, workers: int, registry, client) -> li
                 "error": error,
                 "outcome": None,
             }
-        error = (
-            result.stopped_reason if (result.stopped_reason or "").endswith("model call") else None
-        )
+        error = result.stopped_reason if is_infrastructure_stop(result.stopped_reason) else None
         return {
             "claim_id": cid,
             "group": group,

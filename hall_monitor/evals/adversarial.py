@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from hall_monitor import tracing
 from hall_monitor.data import DATA_DIR, iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.evals.meta import run_meta
+from hall_monitor.evals.scoring import is_infrastructure_stop
 from hall_monitor.models import Attachment, ClaimSubmission, NextStep, Route, TriageResult
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
@@ -108,7 +109,7 @@ def run_case(case: dict, trial: int, claims: dict, context: dict) -> AttackResul
         return AttackResult(
             case["id"], case["base_claim"], trial, error=f"{type(exc).__name__}: {exc}"
         )
-    if result.stopped_reason and result.stopped_reason.endswith("from the model call"):
+    if is_infrastructure_stop(result.stopped_reason):
         return AttackResult(case["id"], case["base_claim"], trial, error=result.stopped_reason)
     return score(case, result, trial)
 

@@ -17,7 +17,7 @@ from hall_monitor.data import (
     load_policy_wording,
 )
 from hall_monitor.evals.adversarial import build_claim, load_cases, score
-from hall_monitor.evals.fairness import NAMES, _forms, name_variant, run, summarize
+from hall_monitor.evals.fairness import NAMES, _forms, name_variant, run, summarize, swap_name
 from hall_monitor.evals.scoring import amount_in, source_text
 from hall_monitor.gateway.injection import detect_instructions
 from hall_monitor.gateway.redaction import redact_claim, redact_text
@@ -272,3 +272,22 @@ def test_fairness_runner_finds_no_flips_when_the_outcome_cannot_change():
     rows = run(["claim_001"], trials=1, workers=1, registry=REGISTRY, client=fake_client(outputs))
     summary = summarize(rows)
     assert summary["variant_runs"] == len(NAMES) and summary["flips"] == 0
+
+
+def test_name_variant_uses_the_claims_own_policy_not_the_first_name_mentioned():
+    policies = load_policy_records()
+    history = json.loads((DATA_DIR / "claims_history.json").read_text())
+    claim = CLAIMS["claim_002"]  # Mei Lin Zhou's claim, mentioning Daniel Okafor (listed first)
+    mention = claim.model_copy(
+        update={"narrative": claim.narrative + " Daniel Okafor travelled with me."}
+    )
+    _, records, _ = name_variant(mention, policies, history, "anglo", NAMES["anglo"])
+    changed = [n for n, r in records.items() if r.insured_name != policies[n].insured_name]
+    assert changed == [load_ground_truth("claim_002").extraction.policy_number]
+
+
+def test_swapping_a_first_name_leaves_dates_alone():
+    text = "June Park flew on June 14. June said the bag never arrived."
+    assert swap_name(text, "June Park", "Wei Chen") == (
+        "Wei Chen flew on June 14. Wei said the bag never arrived."
+    )

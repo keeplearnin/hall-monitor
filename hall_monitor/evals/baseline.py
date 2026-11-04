@@ -55,9 +55,9 @@ def run_one(
         )
     except Exception as exc:  # a failed run is scored, not hidden
         return scoring.failed_run(claim.claim_id, trial, f"{type(exc).__name__}: {exc}"), None
-    # An API failure (outage, rate limit, no credit) says nothing about the model: count it as
-    # an infrastructure error, not as a stopped claim, so it can't pass as model behaviour.
-    if result.stopped_reason and result.stopped_reason.endswith("from the model call"):
+    # An API failure or a bug in our own code says nothing about the model: count it as an
+    # error, not as a stopped claim, so it can't pass as model behaviour.
+    if scoring.is_infrastructure_stop(result.stopped_reason):
         return scoring.failed_run(claim.claim_id, trial, result.stopped_reason), result
     try:
         score = scoring.score_run(

@@ -9,8 +9,10 @@ from hall_monitor.data import (
     load_policy_wording,
 )
 from hall_monitor.evals.scoring import (
+    amount_in,
     clause_exists,
     failed_run,
+    is_infrastructure_stop,
     location_matches,
     normalize_clause,
     score_run,
@@ -256,3 +258,31 @@ def test_simulated_override_rate_on_a_published_run():
     summary = simulate(Path("evals/results/hardened-critic"))
     assert summary["routed_to_adjuster"] + summary["routed_automatically"] == 102
     assert summary["overrides"] == 1 and summary["unreviewed_ai_errors"] == 0
+
+
+@pytest.mark.parametrize(
+    ("amount", "text", "found"),
+    [
+        (1000.0, "Total: $1,000", True),
+        (1000.0, "Total 1000 USD", True),
+        (1000.0, "Total: 1,000.00", True),
+        (1000.0, "Total: 1,000.50", False),
+        (100.0, "Total: 1,100", False),
+        (100.5, "Total: 100", False),
+    ],
+)
+def test_amounts_are_found_with_or_without_cents(amount, text, found):
+    assert amount_in(amount, text) is found
+
+
+@pytest.mark.parametrize(
+    ("reason", "infrastructure"),
+    [
+        ("APIConnectionError from the model call", True),
+        ("unexpected KeyError: 'claude-x'", True),
+        ("no policy record found for the policy number on the claim", False),
+        ("hall pass refused: agent 'intake' is planned, not active", False),
+    ],
+)
+def test_infrastructure_stops_are_told_apart_from_model_behaviour(reason, infrastructure):
+    assert is_infrastructure_stop(reason) is infrastructure
