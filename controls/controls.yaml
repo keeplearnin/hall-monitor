@@ -94,7 +94,8 @@ controls:
       ignoring case, accents and punctuation), the incident
       falls inside the coverage period and the claim is in USD; a claim with no policy record,
       no incident date or another currency goes to a person. Against the claim documents it
-      checks that every claimed amount appears in them and that the items add up to the total.
+      checks that each claimed item matches its own occurrence of that figure, that the total claimed
+      appears in them, and that the items add up to the total.
     status: built
     code:
       - hall_monitor/governance/routing.py::route_claim
@@ -115,7 +116,9 @@ controls:
       A wrong answer that agrees with every fact the rule checks still routes automatically: a
       risk step that misses a fraud signal, or a coverage step that ignores a limit but pays no
       more than was claimed and no more than $2,500. Tests pin both. The amount trace checks the
-      agents' figures against what the claimant sent, not the claimant's own figures.
+      agents' figures against what the claimant sent, not the claimant's own figures, and a figure
+      written in both the narrative and a receipt counts twice, so wrong items whose total happens
+      to appear in the documents would pass it.
 
   - id: HM-05
     name: Adjuster approval gate

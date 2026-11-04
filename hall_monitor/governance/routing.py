@@ -7,13 +7,14 @@ wrong are checked in code against the policy record and the claim documents: the
 be the insured, the incident must fall inside the coverage period, every claimed amount must
 appear in the documents and the items must add up to the total, and amounts must be in USD (the
 policy pays in USD and nothing here converts currency). The amount check traces an agent's
-figures to what the claimant sent; it doesn't verify the claimant's own figures. Anything other
+figures to what the claimant sent: each item to its own occurrence in the documents, and the
+total too. It doesn't verify the claimant's own figures. Anything other
 than a clean, low-risk payment within bounds goes to an adjuster.
 """
 
 from __future__ import annotations
 
-from hall_monitor.amounts import amount_in
+from hall_monitor.amounts import amount_in, untraced
 from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
 from hall_monitor.models import (
     CoverageAssessment,
@@ -59,11 +60,11 @@ def route_claim(
     if claim_text is None:
         reasons.append("no claim text to check the claimed amounts against")
     else:
-        untraced = [
-            i.amount for i in extraction.claimed_items if not amount_in(i.amount, claim_text)
-        ]
-        if untraced:
-            listed = ", ".join(f"{a:,.2f}" for a in untraced)
+        missing = untraced([i.amount for i in extraction.claimed_items], claim_text)
+        if not amount_in(extraction.total_claimed, claim_text):
+            missing.append(extraction.total_claimed)
+        if missing:
+            listed = ", ".join(f"{a:,.2f}" for a in missing)
             reasons.append(f"claimed amounts not in the claim documents: {listed}")
     items_total = sum(i.amount for i in extraction.claimed_items)
     if abs(items_total - extraction.total_claimed) > 0.005:

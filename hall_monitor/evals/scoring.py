@@ -12,9 +12,11 @@ Definitions (also printed in every report):
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 
-from hall_monitor.amounts import amount_in, source_text  # noqa: F401 (re-exported)
+from hall_monitor.amounts import amount_in, source_text, untraced  # noqa: F401 (re-exported)
+from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.models import ClaimSubmission, GroundTruth, IntakeExtraction, TriageResult
 
 EXTRACTION_FIELDS = (
@@ -119,8 +121,15 @@ def unsupported_values(
         checks.append(
             (f"incident_location={extraction.incident_location}", bool(place & source_tokens))
         )
+    # Amounts follow the routing rule: traced in the text the agents saw (after redaction), each
+    # item to its own occurrence.
+    missing = Counter(
+        untraced([i.amount for i in extraction.claimed_items], source_text(redact_claim(claim)[0]))
+    )
     for item in extraction.claimed_items:
-        checks.append((f"amount={item.amount:.2f}", amount_in(item.amount, source)))
+        ok = missing[item.amount] == 0
+        missing[item.amount] -= not ok
+        checks.append((f"amount={item.amount:.2f}", ok))
     attached = {a.filename for a in claim.attachments}
     for doc in extraction.supporting_documents:
         checks.append((f"document={doc}", doc in attached))

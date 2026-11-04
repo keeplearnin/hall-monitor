@@ -68,6 +68,16 @@ def _pay(outputs: dict, amount: float) -> None:
     _update(outputs, CoverageFinding, covered_amount=amount)
 
 
+def _add_items(outputs: dict, *amounts: float) -> None:
+    """Intake lists extra items; the total and the payout follow, so only the trace can tell."""
+    intake = _intake(outputs)
+    extra = [ClaimedItem(description="extra", amount=a) for a in amounts]
+    items = [*intake.claimed_items, *extra]
+    total = round(sum(i.amount for i in items), 2)
+    _update(outputs, IntakeExtraction, claimed_items=items, total_claimed=total)
+    _pay(outputs, total)
+
+
 def _inflate(outputs: dict, factor: float) -> None:
     """Intake reports larger amounts than the documents show; coverage pays them in full."""
     intake = _intake(outputs)
@@ -118,6 +128,18 @@ FAULTS = {
     ),
     "intake and coverage: amounts not in the documents": (
         lambda o: _inflate(o, 1.1),
+        "not in the claim documents",
+    ),
+    "intake: an item counted twice": (
+        lambda o: _add_items(o, _intake(o).claimed_items[0].amount),
+        "not in the claim documents",
+    ),
+    "intake: the total line counted as an item": (
+        lambda o: _add_items(o, _intake(o).total_claimed),
+        "not in the claim documents",
+    ),
+    "intake: a date counted as an amount": (
+        lambda o: _add_items(o, 20),
         "not in the claim documents",
     ),
     "intake: total isn't the sum of the items": (
@@ -249,11 +271,12 @@ def test_an_answer_of_the_wrong_type_stops_the_claim_for_a_person(kind):
 
 
 @pytest.mark.parametrize("stop_reason", ["max_tokens", "refusal", "pause_turn"])
-def test_an_incomplete_answer_stops_the_claim_for_a_person(stop_reason):
+@pytest.mark.parametrize("kind", AGENT_OUTPUTS, ids=lambda k: k.__name__)
+def test_an_incomplete_answer_stops_the_claim_for_a_person(kind, stop_reason):
     claim = AUTO_CLAIMS[0]
     outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
 
-    result = _run(claim, outputs, stop_reason=stop_reason)
+    result = _run(claim, outputs, stop_reason={kind: stop_reason})
 
     assert result.routing.route is Route.ADJUSTER
     assert result.stopped_reason

@@ -15,6 +15,7 @@ from hall_monitor.data import (
     load_policy_records,
     load_policy_wording,
 )
+from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.governance.routing import route_claim
 from hall_monitor.models import (
     CoverageAssessment,
@@ -103,7 +104,7 @@ def test_pipeline_stops_if_an_agent_loses_its_hall_pass():
 
 EXTRACTION = load_ground_truth("claim_001").extraction  # 1,992 claimed
 POLICY = load_policy_records()[EXTRACTION.policy_number]
-CLAIM_TEXT = source_text(CLAIMS[0])
+CLAIM_TEXT = source_text(redact_claim(CLAIMS[0])[0])  # what the pipeline traces against
 
 
 def _route(amount=100.0, flags=(), step=NextStep.PAY, level=RiskLevel.LOW, **kwargs):

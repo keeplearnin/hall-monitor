@@ -10,6 +10,7 @@ from hall_monitor.data import (
     load_policy_records,
     load_policy_wording,
 )
+from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.governance.routing import route_claim
 from hall_monitor.models import CoverageAssessment, Recommendation, RiskAssessment
 
@@ -52,7 +53,7 @@ def test_route_follows_routing_rule(claim):
         risk,
         recommendation,
         policy=policy,
-        claim_text=source_text(claim),
+        claim_text=source_text(redact_claim(claim)[0]),
     )
     assert routing.route == truth.route, routing.reasons
 

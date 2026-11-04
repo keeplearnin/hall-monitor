@@ -18,8 +18,10 @@ from hall_monitor.evals.scoring import (
     normalize_clause,
     score_run,
     summarize,
+    untraced,
 )
 from hall_monitor.gateway.cost import call_cost
+from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.governance.routing import route_claim
 from hall_monitor.models import (
     AgentCall,
@@ -51,7 +53,7 @@ def result_from_truth(claim_id: str) -> TriageResult:
             risk,
             recommendation,
             policy=load_policy_records().get(truth.extraction.policy_number),
-            claim_text=source_text(CLAIMS[claim_id]),
+            claim_text=source_text(redact_claim(CLAIMS[claim_id])[0]),
         ),
         agent_calls=[],
     )
@@ -79,6 +81,17 @@ def test_invented_amount_and_clause_count_as_hallucinations():
     s = score(result)
     assert s.unsupported == ["amount=57.25", "clause=9.9"]
     assert not s.extraction_fields["claimed_items"]
+
+
+def test_an_item_counted_more_often_than_it_appears_is_a_hallucination():
+    """Scoring traces amounts as the routing rule does: each item to its own occurrence. The
+    842.00 flight is in the narrative and on the airline's letter, so a third is unsupported."""
+    result = result_from_truth("claim_001")
+    flight = result.extraction.claimed_items[0]
+    assert flight.amount == 842.0
+    result.extraction.claimed_items += [flight.model_copy(), flight.model_copy()]
+    s = score(result)
+    assert s.unsupported == ["amount=842.00"]
 
 
 def test_missing_deciding_clause_fails_coverage():
@@ -290,3 +303,16 @@ def test_amounts_are_found_with_or_without_cents(amount, text, found):
 )
 def test_infrastructure_stops_are_told_apart_from_model_behaviour(reason, infrastructure):
     assert is_infrastructure_stop(reason) is infrastructure
+
+
+@pytest.mark.parametrize(
+    ("amounts", "text", "missing"),
+    [
+        ([45.0, 45.0], "Ticket: 45.00", [45.0]),
+        ([45.0, 45.0], "Ticket: 45.00. Second ticket: $45", []),
+        ([100.0], "Total 1,100.00", [100.0]),
+        ([], "anything", []),
+    ],
+)
+def test_each_amount_needs_its_own_occurrence(amounts, text, missing):
+    assert untraced(amounts, text) == missing

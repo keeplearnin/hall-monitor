@@ -19,21 +19,26 @@ still disagrees or changed a decision field, or the claim text addresses the AI.
 checked against the policy record: the claim goes to a person if the claimant isn't the insured
 (names compared ignoring case, accents and punctuation), the incident date is missing or outside
 the coverage period, there is no policy record, or the claim isn't in USD. The amounts are traced
-too: every claimed item must appear in the claim documents and the items must add up to the
-total claimed, so an extraction that invents or inflates a figure goes to a person even when
-coverage pays it in full. A claim the pipeline couldn't finish always goes to a person
+too: each claimed item must match its own occurrence of that figure in the claim documents, the
+total claimed must appear in them as well, and the items must add up to the total. An item
+invented, inflated, counted twice or copied from a total line, a date or a year then goes to a
+person even when coverage pays it in full, because the new total isn't in the documents. A claim the pipeline couldn't finish always goes to a person
 (`route_stopped`).
 
 The rule checks the facts behind a decision, not only the labels. A review found the first
 version trusted the coverage label; a claim paying $0 labelled "covered" would have gone
 through. It now checks the amounts as well. Phase B's fault-injection tests
 (`tests/test_agent_faults.py`) bend each agent's answer on every automatically routed test claim
-and found that invented amounts passed; the amount trace was added for that.
+and found that invented amounts passed; the amount trace was added for that. The first version
+only asked whether each figure appeared anywhere, and the pre-PR review showed a duplicated item
+or a total line counted as an item still passed; tracing the total closed that.
 
 What it can't catch is a wrong answer that agrees with every fact it checks: a risk step that
 misses a fraud signal, or a coverage step that ignores a limit but pays no more than was
 claimed. Those tests pin both as known limits; the critic, the evals and the adjuster are what
-stand against them.
+stand against them. The amount trace has a limit too: a figure written in both the narrative and
+a receipt counts as two occurrences, so a wrong set of items whose total happens to appear in the
+documents would pass it.
 
 ## Alternatives considered
 
