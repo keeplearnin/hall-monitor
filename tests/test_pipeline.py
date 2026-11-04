@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from hall_monitor.agents.base import render_claim, render_feedback
+from hall_monitor.amounts import source_text
 from hall_monitor.data import (
     iter_claims,
     load_ground_truth,
@@ -102,6 +103,7 @@ def test_pipeline_stops_if_an_agent_loses_its_hall_pass():
 
 EXTRACTION = load_ground_truth("claim_001").extraction  # 1,992 claimed
 POLICY = load_policy_records()[EXTRACTION.policy_number]
+CLAIM_TEXT = source_text(CLAIMS[0])
 
 
 def _route(amount=100.0, flags=(), step=NextStep.PAY, level=RiskLevel.LOW, **kwargs):
@@ -112,6 +114,7 @@ def _route(amount=100.0, flags=(), step=NextStep.PAY, level=RiskLevel.LOW, **kwa
     risk = RiskAssessment(level=level, flags=list(flags), reasoning="")
     recommendation = Recommendation(next_step=step, reasons=[])
     kwargs.setdefault("policy", POLICY)
+    kwargs.setdefault("claim_text", CLAIM_TEXT)
     extraction = kwargs.pop("extraction", EXTRACTION)
     return route_claim(extraction, coverage, risk, recommendation, **kwargs)
 
@@ -130,8 +133,18 @@ def _route(amount=100.0, flags=(), step=NextStep.PAY, level=RiskLevel.LOW, **kwa
         ({"extraction": EXTRACTION.model_copy(update={"incident_date": None})}, "no incident date"),
         ({"extraction": EXTRACTION.model_copy(update={"currency": "JPY"})}, "not USD"),
         ({"policy": None}, "no policy record"),
+        ({"claim_text": None}, "no claim text"),
+        ({"claim_text": "Nothing about money here."}, "not in the claim documents"),
     ],
-    ids=["claimant-not-insured", "outside-cover", "no-date", "not-usd", "no-policy"],
+    ids=[
+        "claimant-not-insured",
+        "outside-cover",
+        "no-date",
+        "not-usd",
+        "no-policy",
+        "no-claim-text",
+        "amounts-not-in-text",
+    ],
 )
 def test_facts_checked_against_the_policy_send_the_claim_to_a_person(change, reason):
     routing = _route(**change)

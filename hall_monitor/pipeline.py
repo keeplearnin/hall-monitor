@@ -28,6 +28,7 @@ from hall_monitor.agents.critic import run_critic
 from hall_monitor.agents.intake import run_intake
 from hall_monitor.agents.recommendation import run_recommendation
 from hall_monitor.agents.risk_fraud import run_risk_fraud
+from hall_monitor.amounts import source_text
 from hall_monitor.gateway.cost import UnpricedModelError, call_cost
 from hall_monitor.gateway.injection import detect_instructions
 from hall_monitor.gateway.redaction import redact_claim
@@ -395,6 +396,7 @@ def _triage(
         critic_changed=run.critic_changed(),
         injection_signals=injection_signals,
         policy=policy,
+        claim_text=source_text(claim),
     )
     return TriageResult(
         claim_id=claim.claim_id,

@@ -2,6 +2,7 @@
 
 import pytest
 
+from hall_monitor.amounts import source_text
 from hall_monitor.data import (
     iter_claims,
     load_ground_truth,
@@ -50,6 +51,7 @@ def result_from_truth(claim_id: str) -> TriageResult:
             risk,
             recommendation,
             policy=load_policy_records().get(truth.extraction.policy_number),
+            claim_text=source_text(CLAIMS[claim_id]),
         ),
         agent_calls=[],
     )

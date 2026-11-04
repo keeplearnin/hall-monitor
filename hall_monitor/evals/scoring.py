@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from hall_monitor.amounts import amount_in, source_text  # noqa: F401 (re-exported)
 from hall_monitor.models import ClaimSubmission, GroundTruth, IntakeExtraction, TriageResult
 
 EXTRACTION_FIELDS = (
@@ -82,17 +83,6 @@ def clause_exists(clause: str, wording: str) -> bool:
     return re.search(rf"^{re.escape(clause)}\s", wording, re.MULTILINE) is not None
 
 
-def amount_in(amount: float, text: str) -> bool:
-    """The amount appears as a whole number in the text, with or without cents for a whole
-    amount ($1,000 or 1,000.00), but never as part of another: 100 doesn't match inside 1,100,
-    and 1,000 doesn't match 1,000.50."""
-    forms = {f"{amount:,.2f}", f"{amount:.2f}"}
-    if float(amount).is_integer():
-        forms |= {f"{int(amount):,}", f"{int(amount)}"}
-    pattern = "|".join(re.escape(f) for f in sorted(forms, key=len, reverse=True))
-    return re.search(rf"(?<![\d,.])(?:{pattern})(?!\d|[.,]\d)", text) is not None
-
-
 def is_infrastructure_stop(reason: str | None) -> bool:
     """A stop that says nothing about the model: an API failure (outage, rate limit, no
     credit), an unexpected error in our own code, a refused hall pass or a model with no price
@@ -103,10 +93,6 @@ def is_infrastructure_stop(reason: str | None) -> bool:
         or "cost unknown:" in reason
         or reason.startswith(("unexpected ", "hall pass refused"))
     )
-
-
-def source_text(claim: ClaimSubmission) -> str:
-    return "\n".join([claim.narrative, *(a.text for a in claim.attachments)])
 
 
 def unsupported_values(

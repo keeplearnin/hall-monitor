@@ -2,6 +2,7 @@
 
 import pytest
 
+from hall_monitor.amounts import source_text
 from hall_monitor.data import (
     DATA_DIR,
     iter_claims,
@@ -45,7 +46,14 @@ def test_route_follows_routing_rule(claim):
     risk = RiskAssessment(**truth.risk.model_dump(), reasoning="")
     recommendation = Recommendation(next_step=truth.next_step, reasons=[])
     policy = POLICIES.get(truth.extraction.policy_number)
-    routing = route_claim(truth.extraction, coverage, risk, recommendation, policy=policy)
+    routing = route_claim(
+        truth.extraction,
+        coverage,
+        risk,
+        recommendation,
+        policy=policy,
+        claim_text=source_text(claim),
+    )
     assert routing.route == truth.route, routing.reasons
 
 
