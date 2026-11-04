@@ -99,10 +99,12 @@ senior adjuster; the adjuster is shown the stored evidence pack, with a warning 
 changed; one override rule shared by validation and the record; an explicit error instead of an
 assert in the automatic decision.
 
-**Not fixed yet** (in the roadmap or noted as gaps): unsalted hashes of adjuster reasons
-(should be a keyed HMAC); failed tool calls aren't
-logged; the gateway can't run inside an event loop; audit readers share a connection without
-the lock; the recommender's input is declared financial but its claim type and clauses can imply
+**Fixed in Phase A2 (audit log):** reasons and critic issues are stored as keyed hashes (HMAC),
+not plain SHA-256; every audit read takes the writer's lock. A test with three writers and three
+readers failed before the lock (a read saw a half-written entry) and passes after.
+
+**Not fixed yet** (in the roadmap or noted as gaps): failed tool calls aren't
+logged; the gateway can't run inside an event loop; the recommender's input is declared financial but its claim type and clauses can imply
 health; claims history matches names exactly; the scoring check misses amounts written without
 cents; the fairness runner picks a claim's policy by text match and swaps first names that are
 also ordinary words; `waiting()` scans every checkpoint; and smaller cleanups.

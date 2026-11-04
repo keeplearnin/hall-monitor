@@ -88,7 +88,7 @@ def test_a_demo_key_signature_is_marked_in_the_record():
     decision, adjuster = _decide(result, "adj-201", NextStep.PAY, 6480.0)
     final = final_from_adjuster(decision, adjuster, result, PACK)
     assert final.signed_with_demo_key is True
-    assert audit_payload(final, decision.signature)["signed_with_demo_key"] is True
+    assert audit_payload(final, "h", decision.signature)["signed_with_demo_key"] is True
 
 
 @pytest.mark.parametrize(
