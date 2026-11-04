@@ -49,6 +49,13 @@ def test_stale_results_are_flagged(tmp_path):
     assert not ok and result.state == "fail"
 
 
+def test_results_without_agent_versions_count_as_stale(tmp_path):
+    ok, [result] = run_gate(_setup(tmp_path, {"score": 1.0}, agents=[], stale="warn"))
+    assert ok and result.state == "stale"
+    ok, [result] = run_gate(_setup(tmp_path, {"score": 1.0}, agents=[], stale="fail"))
+    assert not ok and result.state == "fail"
+
+
 def test_missing_results_fail_only_when_required(tmp_path):
     config = tmp_path / "gate.yaml"
     spec = {"name": "x", "results": str(tmp_path / "nope.json"), "max": {"errors": 0}}

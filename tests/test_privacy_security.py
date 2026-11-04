@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hall_monitor.agents import risk_fraud
 from hall_monitor.agents.base import ToolAccess, run_agent
 from hall_monitor.agents.recommendation import RecommendationInput
 from hall_monitor.data import (
@@ -130,6 +131,7 @@ def test_a_lookup_outside_the_claims_policy_is_refused():
         registry=REGISTRY,
         client=SimpleNamespace(messages=SimpleNamespace(parse=lambda **k: next(calls))),
         system="s",
+        prompt_template=risk_fraud.SYSTEM_PROMPT,
         content="c",
         output_format=CoverageFinding,
         prompt_version="v",

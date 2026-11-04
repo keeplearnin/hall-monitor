@@ -74,6 +74,7 @@ def run_coverage_check(
         registry=registry,
         client=client or anthropic.Anthropic(),
         system=SYSTEM_PROMPT.format(untrusted=UNTRUSTED_CLAIM_NOTICE, wording=wording),
+        prompt_template=SYSTEM_PROMPT,
         content=content,
         output_format=CoverageFinding,
         prompt_version=PROMPT_VERSION,

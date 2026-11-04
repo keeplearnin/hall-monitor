@@ -9,23 +9,23 @@ Every hall-monitor control, mapped to the NIST AI Risk Management Framework 1.0 
 | ID | Control | Status | NIST AI RMF | FINOS risks | FINOS mitigations |
 |---|---|---|---|---|---|
 | [HM-01](#hm-01) | Agent registry and approvals | built | GOVERN 1.6, GOVERN 2.1, MAP 1.1, MANAGE 2.4 | RI-05, RI-18 | MI-10 |
-| [HM-02](#hm-02) | Pinned models, no silent fallback | built | GOVERN 6.1, MAP 4.1, MANAGE 3.1 | RI-05, RI-07 | MI-10 |
-| [HM-03](#hm-03) | Tool gateway with allow-list and claim scope | built | GOVERN 1.4, MEASURE 2.7, MANAGE 1.3 | RI-24, RI-25, RI-26 | MI-12, MI-16, MI-18, MI-19, MI-20 |
+| [HM-02](#hm-02) | Pinned models, no silent fallback | built | MANAGE 3.1 | RI-05 | MI-10 |
+| [HM-03](#hm-03) | Tool gateway with allow-list and claim scope | built | GOVERN 1.4, MEASURE 2.7, MANAGE 1.3 | RI-24, RI-25 | MI-12, MI-16, MI-18, MI-19, MI-20 |
 | [HM-04](#hm-04) | Routing to a person, decided in code | built | GOVERN 3.2, MAP 3.5, MANAGE 1.3 | RI-22, RI-24 | MI-24 |
-| [HM-05](#hm-05) | Adjuster approval gate | built | GOVERN 3.2, MAP 3.5, MANAGE 4.1 | RI-22 | MI-11, MI-24 |
-| [HM-06](#hm-06) | Tamper-evident audit log | built | MEASURE 2.8, MANAGE 4.1, MANAGE 4.3 | RI-17, RI-22 | MI-04, MI-21 |
+| [HM-05](#hm-05) | Adjuster approval gate | built | GOVERN 3.2, MAP 3.5, MANAGE 4.1 | RI-22 | MI-24 |
+| [HM-06](#hm-06) | Tamper-evident audit log | built | MEASURE 2.8, MANAGE 4.1 | RI-17, RI-22 | MI-04, MI-21 |
 | [HM-07](#hm-07) | Critic review with revision history | built | MEASURE 2.3, MEASURE 2.5, MANAGE 1.3 | RI-04, RI-06, RI-14 | MI-15, MI-21 |
 | [HM-08](#hm-08) | Failures stop the claim and go to a person | built | MANAGE 2.4, MANAGE 4.3 | RI-07 | MI-24 |
 | [HM-09](#hm-09) | Prompt-injection defences | built, results pending | MEASURE 2.7, MANAGE 1.3 | RI-10, RI-14, RI-25, RI-28 | MI-03, MI-17, MI-19 |
 | [HM-10](#hm-10) | Identifier redaction and data minimisation | built | MEASURE 2.10 | RI-01 | MI-01, MI-06, MI-12 |
-| [HM-11](#hm-11) | Telemetry without claim content | built | GOVERN 1.5, MEASURE 2.10 | RI-01 | MI-01, MI-04 |
-| [HM-12](#hm-12) | Eval harness and published results | built | MEASURE 1.1, MEASURE 2.1, MEASURE 2.3, MEASURE 2.5 | RI-04, RI-06, RI-19 | MI-05 |
+| [HM-11](#hm-11) | Telemetry without claim content | built | MEASURE 2.10 | RI-01 | MI-01, MI-04 |
+| [HM-12](#hm-12) | Eval harness and published results | built | MEASURE 1.1, MEASURE 2.1, MEASURE 2.3, MEASURE 2.5 | RI-04, RI-06 | MI-05 |
 | [HM-13](#hm-13) | Grounding checks and evidence for every decision | built | MEASURE 2.9 | RI-04, RI-17 | MI-13, MI-21 |
 | [HM-14](#hm-14) | Counterfactual fairness test | built, results pending | MEASURE 2.11 | RI-16 | MI-05 |
 | [HM-15](#hm-15) | Adversarial suite | built, results pending | MEASURE 2.7 | RI-10, RI-24, RI-25 | MI-05 |
-| [HM-16](#hm-16) | Cost per claim and economy model routing | built | MEASURE 3.1, MANAGE 3.1 | RI-07 | MI-09 |
-| [HM-17](#hm-17) | CI checks and the eval gate | built | GOVERN 1.5, MEASURE 3.1, MANAGE 4.1 | RI-05, RI-06 | MI-05, MI-10 |
-| [HM-18](#hm-18) | Synthetic data and documented limits | built | MAP 1.1, MAP 2.1, MEASURE 1.1, MEASURE 2.5 | RI-19, RI-20 | MI-06 |
+| [HM-16](#hm-16) | Cost per claim and economy model routing | built | MEASURE 3.1, MANAGE 3.1 |  | MI-09 |
+| [HM-17](#hm-17) | CI checks and the eval gate | built | MEASURE 3.1 | RI-05, RI-06 | MI-05, MI-10 |
+| [HM-18](#hm-18) | Synthetic data and documented limits | built | MAP 1.1, MAP 2.1, MEASURE 1.1, MEASURE 2.5 | RI-19 | MI-06 |
 
 ## Controls
 
@@ -33,13 +33,14 @@ Every hall-monitor control, mapped to the NIST AI Risk Management Framework 1.0 
 
 **Agent registry and approvals** (built)
 
-Every agent has a typed manifest naming its owner, risk tier, status, model, tools and data classes. Unregistered, inactive or unapproved agents are refused at run time; each manifest digest and prompt hash must match registry/approvals.yaml, and CI fails on an unapproved change.
+Every agent has a typed manifest naming its owner, risk tier, status, model, tools and data classes. Unregistered, inactive or unapproved agents are refused at run time: the manifest digest and the system-prompt template hash must match registry/approvals.yaml, and the template hash is recorded on every call. CI fails on an unapproved change.
 
 - **Code:** [`hall_monitor/registry.py`](../hall_monitor/registry.py) `Registry`; [`hall_monitor/approvals.py`](../hall_monitor/approvals.py) `current_approvals`; [`registry/approvals.yaml`](../registry/approvals.yaml)
-- **Tests:** [`tests/test_registry.py`](../tests/test_registry.py) `test_unregistered_agent_is_refused`; [`tests/test_registry.py`](../tests/test_registry.py) `test_unapproved_manifest_is_refused`; [`tests/test_registry.py`](../tests/test_registry.py) `test_approvals_match_the_current_manifests_and_prompts`
+- **Tests:** [`tests/test_registry.py`](../tests/test_registry.py) `test_unregistered_agent_is_refused`; [`tests/test_registry.py`](../tests/test_registry.py) `test_unapproved_manifest_is_refused`; [`tests/test_registry.py`](../tests/test_registry.py) `test_approvals_match_the_current_manifests_and_prompts`; [`tests/test_registry.py`](../tests/test_registry.py) `test_unapproved_prompt_is_refused_at_run_time`
 - **NIST AI RMF:** GOVERN 1.6 (Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities); GOVERN 2.1 (Roles and responsibilities and lines of communication related to mapping, measuring, and managing AI risks are documented and are clear to individuals and teams throughout the organization); MAP 1.1 (Intended purposes, potentially beneficial uses, context-specific laws, norms and expectations, and prospective settings in which the AI system will be deployed are understood and documented); MANAGE 2.4 (Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use)
 - **FINOS risks:** RI-05 Foundation Model Versioning; RI-18 Model Overreach / Expanded Use
 - **FINOS mitigations:** MI-10 AI Model Version Pinning
+- **Gaps:** Anyone who can commit can regenerate approvals.yaml. Review of that change depends on repository settings: .github/CODEOWNERS names an owner, but main has no branch protection yet, so it isn't enforced. Owner and risk tier are inventory fields; nothing reads them at run time.
 
 ### HM-02
 
@@ -48,9 +49,9 @@ Every agent has a typed manifest naming its owner, risk tier, status, model, too
 Each call uses the model its approved manifest names. A refusal or outage never switches to another model; the claim stops and goes to a person.
 
 - **Code:** [`hall_monitor/agents/base.py`](../hall_monitor/agents/base.py) `run_agent`
-- **Tests:** [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_correct_agent_outputs_give_the_expected_route`; [`tests/test_cost_routing.py`](../tests/test_cost_routing.py) `test_routing_is_off_by_default`
-- **NIST AI RMF:** GOVERN 6.1 (Policies and procedures are in place that address AI risks associated with third-party entities, including risks of infringement of a third-party's intellectual property or other rights); MAP 4.1 (Approaches for mapping AI technology and legal risks of its components – including the use of third-party data or software – are in place, followed, and documented, as are risks of infringement of a third party's intellectual property or other rights); MANAGE 3.1 (AI risks and benefits from third-party resources are regularly monitored, and risk controls are applied and documented)
-- **FINOS risks:** RI-05 Foundation Model Versioning; RI-07 Availability of Foundational Model
+- **Tests:** [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_every_call_records_what_ran`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_api_error_stops_the_claim`; [`tests/test_cost_routing.py`](../tests/test_cost_routing.py) `test_routing_is_off_by_default`
+- **NIST AI RMF:** MANAGE 3.1 (AI risks and benefits from third-party resources are regularly monitored, and risk controls are applied and documented)
+- **FINOS risks:** RI-05 Foundation Model Versioning
 - **FINOS mitigations:** MI-10 AI Model Version Pinning
 - **Gaps:** No fallback model, so a provider outage stops claims; availability is an accepted risk.
 
@@ -63,8 +64,9 @@ Agents read policy records and claims history only through MCP tools behind a ga
 - **Code:** [`hall_monitor/tools/gateway.py`](../hall_monitor/tools/gateway.py) `ToolGateway`; [`hall_monitor/tools/server.py`](../hall_monitor/tools/server.py) `build_server`
 - **Tests:** [`tests/test_tools.py`](../tests/test_tools.py) `test_agents_are_offered_only_their_allowed_tools`; [`tests/test_tools.py`](../tests/test_tools.py) `test_call_outside_the_allow_list_is_refused_and_recorded`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_a_lookup_outside_the_claims_policy_is_refused`
 - **NIST AI RMF:** GOVERN 1.4 (The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities); MEASURE 2.7 (AI system security and resilience – as identified in the map function – are evaluated and documented); MANAGE 1.3 (Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented)
-- **FINOS risks:** RI-24 Agent Action Authorization Bypass; RI-25 Tool Chain Manipulation and Injection; RI-26 MCP Server Supply Chain Compromise
+- **FINOS risks:** RI-24 Agent Action Authorization Bypass; RI-25 Tool Chain Manipulation and Injection
 - **FINOS mitigations:** MI-12 Role-Based Access Control for AI Data; MI-16 Preserving Source Data Access Controls in AI Systems; MI-18 Agent Authority Least Privilege Framework; MI-19 Tool Chain Validation and Sanitization; MI-20 MCP Server Security Governance
+- **Gaps:** Tool arguments are logged as the model wrote them, so a manipulated call's text is kept.
 
 ### HM-04
 
@@ -83,28 +85,28 @@ A code rule, not a model, decides whether a person must decide. It checks the fa
 
 **Adjuster approval gate** (built)
 
-Claims routed to a person pause in a LangGraph workflow with state saved in SQLite. A decision must come from a registered adjuster within their authority, quote the hash of the evidence pack they saw, pay no more than was claimed, and give a reason for any override or denial; only senior adjusters may pay a flagged claim.
+Claims routed to a person pause in a LangGraph workflow with state saved in SQLite. A decision must come from a registered adjuster ID within its authority, quote the hash of the evidence pack the claim was paused with, pay no more than was claimed, and give a reason for any override or denial; only senior adjusters may pay a flagged claim.
 
 - **Code:** [`hall_monitor/workflow.py`](../hall_monitor/workflow.py) `build_graph`; [`hall_monitor/governance/approval.py`](../hall_monitor/governance/approval.py) `validate_decision`; [`registry/adjusters.yaml`](../registry/adjusters.yaml)
 - **Tests:** [`tests/test_workflow.py`](../tests/test_workflow.py) `test_claim_waits_for_an_adjuster_across_a_restart`; [`tests/test_workflow.py`](../tests/test_workflow.py) `test_payout_above_authority_needs_a_senior_adjuster`; [`tests/test_workflow.py`](../tests/test_workflow.py) `test_decisions_that_break_the_rules_are_rejected`
 - **Evidence:** [`evals/results/hardened-critic/override.json`](../evals/results/hardened-critic/override.json)
 - **NIST AI RMF:** GOVERN 3.2 (Policies and procedures are in place to define and differentiate roles and responsibilities for human-AI configurations and oversight of AI systems); MAP 3.5 (Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function); MANAGE 4.1 (Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management)
 - **FINOS risks:** RI-22 Regulatory Compliance and Oversight
-- **FINOS mitigations:** MI-11 Human Feedback Loop for AI Systems; MI-24 Human-in-the-Loop Action Approval Gate
-- **Gaps:** The override rate is simulated with an answer-key adjuster; no real adjusters yet.
+- **FINOS mitigations:** MI-24 Human-in-the-Loop Action Approval Gate
+- **Gaps:** Adjuster IDs are checked against the register but not authenticated. The audit log records the evidence pack's hash; the pack itself is in the checkpoint store, which isn't tamper-evident, and it lists document names rather than the documents. The override rate is simulated with an answer-key adjuster; no real adjusters yet.
 
 ### HM-06
 
 **Tamper-evident audit log** (built)
 
-Every step of every claim is written to an append-only SQLite log in which each entry's hash covers the previous one. Triggers refuse edits and deletes, and verify reports any changed, missing or reordered entry. Entries hold IDs, hashes and decisions, never claim text.
+Each claim's triage (agent calls, tool calls, critic reviews, revisions, corrections, result) and every adjuster decision are written to an append-only SQLite log in which each entry's hash covers the previous one. Triggers refuse edits and deletes, and verify reports any changed, missing or reordered entry. Entries hold no claim narrative or documents.
 
 - **Code:** [`hall_monitor/governance/audit.py`](../hall_monitor/governance/audit.py) `AuditLog`; [`hall_monitor/audit.py`](../hall_monitor/audit.py) `main`
 - **Tests:** [`tests/test_audit.py`](../tests/test_audit.py) `test_a_changed_entry_is_detected`; [`tests/test_audit.py`](../tests/test_audit.py) `test_a_consistent_rewrite_is_caught_only_by_an_anchor`; [`tests/test_audit.py`](../tests/test_audit.py) `test_the_log_holds_no_claim_text`
-- **NIST AI RMF:** MEASURE 2.8 (Risks associated with transparency and accountability – as identified in the map function – are examined and documented); MANAGE 4.1 (Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management); MANAGE 4.3 (Incidents and errors are communicated to relevant AI actors, including affected communities)
+- **NIST AI RMF:** MEASURE 2.8 (Risks associated with transparency and accountability – as identified in the map function – are examined and documented); MANAGE 4.1 (Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management)
 - **FINOS risks:** RI-17 Lack of Explainability; RI-22 Regulatory Compliance and Oversight
 - **FINOS mitigations:** MI-04 AI System Observability; MI-21 Agent Decision Audit and Explainability
-- **Gaps:** Someone with write access to the file can rewrite the whole chain consistently; only a chain head copied elsewhere catches that.
+- **Gaps:** Someone with write access to the file can rewrite the whole chain consistently; only a chain head copied elsewhere catches that. Triage events are written together after triage finishes, grouped by kind, not as each step happens. Entries do hold policy numbers, decision fields, tool-call arguments and the adjuster's name and written reason.
 
 ### HM-07
 
@@ -123,10 +125,10 @@ A second agent checks intake, coverage and risk against the documents and sends 
 
 **Failures stop the claim and go to a person** (built)
 
-A refusal, API error, invalid output, refused hall pass or missing policy stops the claim, records why, keeps the cost of calls already made, and routes it to an adjuster.
+A refusal, API error, invalid output, refused hall pass, missing policy or any unexpected error stops the claim, records why, keeps the cost of calls already made, and routes it to an adjuster.
 
 - **Code:** [`hall_monitor/pipeline.py`](../hall_monitor/pipeline.py) `triage`
-- **Tests:** [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_refusal_stops_the_claim_and_keeps_its_cost`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_api_error_stops_the_claim`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_pipeline_stops_when_the_policy_cant_be_found`
+- **Tests:** [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_refusal_stops_the_claim_and_keeps_its_cost`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_api_error_stops_the_claim`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_unexpected_error_stops_the_claim`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_pipeline_stops_when_the_policy_cant_be_found`
 - **NIST AI RMF:** MANAGE 2.4 (Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use); MANAGE 4.3 (Incidents and errors are communicated to relevant AI actors, including affected communities)
 - **FINOS risks:** RI-07 Availability of Foundational Model
 - **FINOS mitigations:** MI-24 Human-in-the-Loop Action Approval Gate
@@ -149,26 +151,27 @@ Claim text and model output are escaped and fenced as untrusted. A code detector
 
 **Identifier redaction and data minimisation** (built)
 
-Dates of birth, emails, phone, card, passport and SSN numbers are removed before any model sees a claim. Manifests declare the data classes each agent reads; the recommender, declared financial only, gets a structured summary with no names, claim text or reasoning.
+Dates of birth, emails, phone, card, passport and SSN numbers are removed from the claim narrative and attachment text before any model sees them. The recommender gets a structured summary with no names, claim text or reasoning, enforced by its input schema.
 
 - **Code:** [`hall_monitor/gateway/redaction.py`](../hall_monitor/gateway/redaction.py) `redact_claim`; [`hall_monitor/agents/recommendation.py`](../hall_monitor/agents/recommendation.py) `recommendation_input`
 - **Tests:** [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_no_identifier_reaches_any_model`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_redaction_never_removes_evidence_from_a_real_claim`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_recommender_sees_structured_fields_only`
 - **NIST AI RMF:** MEASURE 2.10 (Privacy risk of the AI system – as identified in the map function – is examined and documented)
 - **FINOS risks:** RI-01 Information Leaked To Hosted Model
 - **FINOS mitigations:** MI-01 AI Data Leakage Prevention and Detection; MI-06 Data Quality & Classification/Sensitivity; MI-12 Role-Based Access Control for AI Data
-- **Gaps:** Names and medical details still reach the agents that need them to decide.
+- **Gaps:** Names and medical details still reach the agents that need them to decide. Attachment file names and tool results (claims history has short health summaries) aren't redacted. Manifests declare data classes, but nothing checks them at run time.
 
 ### HM-11
 
 **Telemetry without claim content** (built)
 
-Langfuse traces carry IDs, versions, hashes and token counts only: trace decorators don't capture function inputs or outputs, and the Anthropic SDK's spans stay metadata-only.
+Langfuse traces carry IDs, versions, hashes and token counts only: trace decorators don't capture function inputs or outputs.
 
 - **Code:** [`hall_monitor/tracing.py`](../hall_monitor/tracing.py) `observe`
 - **Tests:** [`tests/test_controls.py`](../tests/test_controls.py) `test_traces_never_capture_inputs_or_outputs`
-- **NIST AI RMF:** GOVERN 1.5 (Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and organizational roles and responsibilities clearly defined, including determining the frequency of periodic review); MEASURE 2.10 (Privacy risk of the AI system – as identified in the map function – is examined and documented)
+- **NIST AI RMF:** MEASURE 2.10 (Privacy risk of the AI system – as identified in the map function – is examined and documented)
 - **FINOS risks:** RI-01 Information Leaked To Hosted Model
 - **FINOS mitigations:** MI-01 AI Data Leakage Prevention and Detection; MI-04 AI System Observability
+- **Gaps:** Only the decorators are tested. Spans from any SDK instrumentation stay metadata-only only if it isn't configured to capture content; nothing in the code prevents that.
 
 ### HM-12
 
@@ -180,8 +183,9 @@ Deterministic scoring against answer keys: extraction, coverage reasoning with c
 - **Tests:** [`tests/test_scoring.py`](../tests/test_scoring.py) `test_ground_truth_scores_perfectly`; [`tests/test_scoring.py`](../tests/test_scoring.py) `test_failed_runs_count_against_every_metric`
 - **Evidence:** [`evals/results/baseline-26/findings.md`](../evals/results/baseline-26/findings.md); [`evals/results/hardened-critic/findings.md`](../evals/results/hardened-critic/findings.md)
 - **NIST AI RMF:** MEASURE 1.1 (Approaches and metrics for measurement of AI risks enumerated during the map function are selected for implementation starting with the most significant AI risks); MEASURE 2.1 (Test sets, metrics, and details about the tools used during TEVV are documented); MEASURE 2.3 (AI system performance or assurance criteria are measured qualitatively or quantitatively and demonstrated for conditions similar to deployment setting(s)); MEASURE 2.5 (The AI system to be deployed is demonstrated to be valid and reliable)
-- **FINOS risks:** RI-04 Hallucination and Inaccurate Outputs; RI-06 Non-Deterministic Behaviour; RI-19 Data Quality and Drift
+- **FINOS risks:** RI-04 Hallucination and Inaccurate Outputs; RI-06 Non-Deterministic Behaviour
 - **FINOS mitigations:** MI-05 System Acceptance Testing
+- **Gaps:** Published results were scored on earlier agent versions (named in each findings note). Coverage counts as correct when every deciding clause is cited, even with extra clauses; clause precision is reported separately.
 
 ### HM-13
 
@@ -195,7 +199,7 @@ Every extracted name, policy number, place and amount, and every cited clause, m
 - **NIST AI RMF:** MEASURE 2.9 (The AI model is explained, validated, and documented, and AI system output is interpreted within its context – as identified in the map function – to inform responsible use and governance)
 - **FINOS risks:** RI-04 Hallucination and Inaccurate Outputs; RI-17 Lack of Explainability
 - **FINOS mitigations:** MI-13 Providing Citations and Source Traceability for AI-Generated Information; MI-21 Agent Decision Audit and Explainability
-- **Gaps:** Reasoning text itself isn't checked for unsupported claims.
+- **Gaps:** Only extracted values and cited clauses are checked; reasoning text isn't.
 
 ### HM-14
 
@@ -233,7 +237,7 @@ Cost per claim, cache-aware and by agent, on every result and in the audit log; 
 - **Code:** [`hall_monitor/gateway/cost.py`](../hall_monitor/gateway/cost.py) `call_cost`; [`hall_monitor/pipeline.py`](../hall_monitor/pipeline.py) `_economy`
 - **Tests:** [`tests/test_cost_routing.py`](../tests/test_cost_routing.py) `test_cost_prices_cached_input_separately`; [`tests/test_cost_routing.py`](../tests/test_cost_routing.py) `test_critic_revision_of_economy_work_uses_the_main_model`
 - **NIST AI RMF:** MEASURE 3.1 (Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts); MANAGE 3.1 (AI risks and benefits from third-party resources are regularly monitored, and risk controls are applied and documented)
-- **FINOS risks:** RI-07 Availability of Foundational Model
+- **FINOS risks:** 
 - **FINOS mitigations:** MI-09 AI System Alerting and Denial of Wallet (DoW) / Spend Monitoring
 - **Gaps:** No spend alerting; economy routing is unmeasured and off.
 
@@ -241,14 +245,14 @@ Cost per claim, cache-aware and by agent, on every result and in the audit log; 
 
 **CI checks and the eval gate** (built)
 
-Every pull request runs lint, the offline tests, the approvals check, this register's checks, and the eval gate, which fails when a published score is below its threshold and flags results scored on an older agent version than the one approved.
+Every pull request runs lint, the offline tests, the approvals check, this register's checks, and the eval gate, which fails when a published score is below its threshold and flags results scored on an older agent version than the one approved, or that don't record their versions.
 
 - **Code:** [`.github/workflows/ci.yml`](../.github/workflows/ci.yml); [`hall_monitor/evals/gate.py`](../hall_monitor/evals/gate.py) `run_gate`; [`evals/gate.yaml`](../evals/gate.yaml)
-- **Tests:** [`tests/test_gate.py`](../tests/test_gate.py) `test_a_score_below_threshold_fails`; [`tests/test_gate.py`](../tests/test_gate.py) `test_stale_results_are_flagged`
-- **NIST AI RMF:** GOVERN 1.5 (Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and organizational roles and responsibilities clearly defined, including determining the frequency of periodic review); MEASURE 3.1 (Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts); MANAGE 4.1 (Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management)
+- **Tests:** [`tests/test_gate.py`](../tests/test_gate.py) `test_a_score_below_threshold_fails`; [`tests/test_gate.py`](../tests/test_gate.py) `test_stale_results_are_flagged`; [`tests/test_gate.py`](../tests/test_gate.py) `test_results_without_agent_versions_count_as_stale`
+- **NIST AI RMF:** MEASURE 3.1 (Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts)
 - **FINOS risks:** RI-05 Foundation Model Versioning; RI-06 Non-Deterministic Behaviour
 - **FINOS mitigations:** MI-05 System Acceptance Testing; MI-10 AI Model Version Pinning
-- **Gaps:** The gate checks published results; it doesn't run live evals itself (that costs money and needs an API key), so a stale result is only a warning until a fresh baseline exists.
+- **Gaps:** The gate checks published results; it doesn't run live evals itself (that costs money and needs an API key), so a stale result is only a warning until a fresh baseline exists. Until then the gate doesn't block a regression. Metrics other than unsafe routes are read from the summary each run wrote.
 
 ### HM-18
 
@@ -260,8 +264,9 @@ All data is synthetic, with answer keys whose changes are dated and justified. E
 - **Tests:** [`tests/test_data.py`](../tests/test_data.py) `test_ground_truth_matches_claim`; [`tests/test_data.py`](../tests/test_data.py) `test_cited_clauses_exist_in_wording`
 - **Evidence:** [`evals/results/hardened-critic/findings.md`](../evals/results/hardened-critic/findings.md)
 - **NIST AI RMF:** MAP 1.1 (Intended purposes, potentially beneficial uses, context-specific laws, norms and expectations, and prospective settings in which the AI system will be deployed are understood and documented); MAP 2.1 (The specific tasks and methods used to implement the tasks that the AI system will support are defined (e); MEASURE 1.1 (Approaches and metrics for measurement of AI risks enumerated during the map function are selected for implementation starting with the most significant AI risks); MEASURE 2.5 (The AI system to be deployed is demonstrated to be valid and reliable)
-- **FINOS risks:** RI-19 Data Quality and Drift; RI-20 Reputational Risk
+- **FINOS risks:** RI-19 Data Quality and Drift
 - **FINOS mitigations:** MI-06 Data Quality & Classification/Sensitivity
+- **Gaps:** Data quality is documented, not monitored; there is no drift detection.
 
 ## NIST AI RMF coverage
 
@@ -269,16 +274,16 @@ All data is synthetic, with answer keys whose changes are dated and justified. E
 |---|---|
 | **GOVERN 1.1** Legal and regulatory requirements involving AI are understood, managed, and documented. | Not covered: Legal and regulatory requirements for claims handling aren't analysed; this is a reference implementation, not legal advice. |
 | **GOVERN 1.4** The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities. | [HM-03](#hm-03) |
-| **GOVERN 1.5** Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and organizational roles and responsibilities clearly defined, including determining the frequency of periodic review. | [HM-11](#hm-11), [HM-17](#hm-17) |
+| **GOVERN 1.5** Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and organizational roles and responsibilities clearly defined, including determining the frequency of periodic review. | Not covered: CI checks every change, but nothing schedules periodic review of the risk process or its outcomes. |
 | **GOVERN 1.6** Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities. | [HM-01](#hm-01) |
 | **GOVERN 2.1** Roles and responsibilities and lines of communication related to mapping, measuring, and managing AI risks are documented and are clear to individuals and teams throughout the organization. | [HM-01](#hm-01) |
 | **GOVERN 3.2** Policies and procedures are in place to define and differentiate roles and responsibilities for human-AI configurations and oversight of AI systems. | [HM-04](#hm-04), [HM-05](#hm-05) |
 | **GOVERN 4.1** Organizational policies and practices are in place to foster a critical thinking and safety-first mindset in the design, development, deployment, and uses of AI systems to minimize potential negative impacts. | Not covered: Organisational culture and practices are outside a codebase. |
-| **GOVERN 6.1** Policies and procedures are in place that address AI risks associated with third-party entities, including risks of infringement of a third-party's intellectual property or other rights. | [HM-02](#hm-02) |
+| **GOVERN 6.1** Policies and procedures are in place that address AI risks associated with third-party entities, including risks of infringement of a third-party's intellectual property or other rights. | Not covered: Third-party policies, including intellectual-property risk from the model provider, aren't addressed; the model is pinned, not assessed. |
 | **MAP 1.1** Intended purposes, potentially beneficial uses, context-specific laws, norms and expectations, and prospective settings in which the AI system will be deployed are understood and documented. | [HM-01](#hm-01), [HM-18](#hm-18) |
 | **MAP 2.1** The specific tasks and methods used to implement the tasks that the AI system will support are defined (e.g., classifiers, generative models, recommenders). | [HM-18](#hm-18) |
 | **MAP 3.5** Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function. | [HM-04](#hm-04), [HM-05](#hm-05) |
-| **MAP 4.1** Approaches for mapping AI technology and legal risks of its components – including the use of third-party data or software – are in place, followed, and documented, as are risks of infringement of a third party's intellectual property or other rights. | [HM-02](#hm-02) |
+| **MAP 4.1** Approaches for mapping AI technology and legal risks of its components – including the use of third-party data or software – are in place, followed, and documented, as are risks of infringement of a third party's intellectual property or other rights. | Not covered: Legal and intellectual-property risks of third-party components aren't mapped. |
 | **MEASURE 1.1** Approaches and metrics for measurement of AI risks enumerated during the map function are selected for implementation starting with the most significant AI risks. The risks or trustworthiness characteristics that will not – or cannot – be measured are properly documented. | [HM-12](#hm-12), [HM-18](#hm-18) |
 | **MEASURE 2.1** Test sets, metrics, and details about the tools used during TEVV are documented. | [HM-12](#hm-12) |
 | **MEASURE 2.3** AI system performance or assurance criteria are measured qualitatively or quantitatively and demonstrated for conditions similar to deployment setting(s). Measures are documented. | [HM-07](#hm-07), [HM-12](#hm-12) |
@@ -292,8 +297,8 @@ All data is synthetic, with answer keys whose changes are dated and justified. E
 | **MANAGE 1.3** Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented. Risk response options can include mitigating, transferring, avoiding, or accepting. | [HM-03](#hm-03), [HM-04](#hm-04), [HM-07](#hm-07), [HM-09](#hm-09) |
 | **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08) |
 | **MANAGE 3.1** AI risks and benefits from third-party resources are regularly monitored, and risk controls are applied and documented. | [HM-02](#hm-02), [HM-16](#hm-16) |
-| **MANAGE 4.1** Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management. | [HM-05](#hm-05), [HM-06](#hm-06), [HM-17](#hm-17) |
-| **MANAGE 4.3** Incidents and errors are communicated to relevant AI actors, including affected communities. Processes for tracking, responding to, and recovering from incidents and errors are followed and documented. | [HM-06](#hm-06), [HM-08](#hm-08) |
+| **MANAGE 4.1** Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management. | [HM-05](#hm-05), [HM-06](#hm-06) |
+| **MANAGE 4.3** Incidents and errors are communicated to relevant AI actors, including affected communities. Processes for tracking, responding to, and recovering from incidents and errors are followed and documented. | [HM-08](#hm-08) |
 
 ## FINOS AIGF risks
 
@@ -304,7 +309,7 @@ All data is synthetic, with answer keys whose changes are dated and justified. E
 | RI-04 | Hallucination and Inaccurate Outputs | [HM-07](#hm-07), [HM-12](#hm-12), [HM-13](#hm-13) |
 | RI-05 | Foundation Model Versioning | [HM-01](#hm-01), [HM-02](#hm-02), [HM-17](#hm-17) |
 | RI-06 | Non-Deterministic Behaviour | [HM-07](#hm-07), [HM-12](#hm-12), [HM-17](#hm-17) |
-| RI-07 | Availability of Foundational Model | [HM-02](#hm-02), [HM-08](#hm-08), [HM-16](#hm-16) |
+| RI-07 | Availability of Foundational Model | [HM-08](#hm-08) |
 | RI-08 | Tampering With the Foundational Model | Not covered: Tampering with the foundation model is the provider's control; the repo only pins the model. |
 | RI-09 | Data Poisoning | Not covered: There is no training or fine-tuning, so no training data to poison. |
 | RI-10 | Prompt Injection | [HM-09](#hm-09), [HM-15](#hm-15) |
@@ -312,13 +317,13 @@ All data is synthetic, with answer keys whose changes are dated and justified. E
 | RI-16 | Bias and Discrimination | [HM-14](#hm-14) |
 | RI-17 | Lack of Explainability | [HM-06](#hm-06), [HM-13](#hm-13) |
 | RI-18 | Model Overreach / Expanded Use | [HM-01](#hm-01) |
-| RI-19 | Data Quality and Drift | [HM-12](#hm-12), [HM-18](#hm-18) |
-| RI-20 | Reputational Risk | [HM-18](#hm-18) |
+| RI-19 | Data Quality and Drift | [HM-18](#hm-18) |
+| RI-20 | Reputational Risk | Not covered: Reputational risk is a business judgement; publishing results, failures included, is the only part this repo touches. |
 | RI-22 | Regulatory Compliance and Oversight | [HM-04](#hm-04), [HM-05](#hm-05), [HM-06](#hm-06) |
 | RI-23 | Intellectual Property (IP) and Copyright | Not covered: Intellectual property in model output isn't assessed. |
 | RI-24 | Agent Action Authorization Bypass | [HM-03](#hm-03), [HM-04](#hm-04), [HM-15](#hm-15) |
 | RI-25 | Tool Chain Manipulation and Injection | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15) |
-| RI-26 | MCP Server Supply Chain Compromise | [HM-03](#hm-03) |
+| RI-26 | MCP Server Supply Chain Compromise | Not covered: The MCP server is first-party and runs in-process; nothing checks a third-party server's integrity because there isn't one. |
 | RI-27 | Agent State Persistence Poisoning | Not covered: Workflow checkpoints are trusted local state; they aren't integrity-checked like the audit log. |
 | RI-28 | Multi-Agent Trust Boundary Violations | [HM-09](#hm-09) |
 | RI-29 | Agent-Mediated Credential Discovery and Harvesting | Not covered: Agents hold no credentials; the API key stays in the host process. |
@@ -338,7 +343,7 @@ All data is synthetic, with answer keys whose changes are dated and justified. E
 | MI-08 | Quality of Service (QoS) and DDoS Prevention for AI Systems | Not covered: There is no rate limiting or denial-of-service protection; nothing is exposed as a service. |
 | MI-09 | AI System Alerting and Denial of Wallet (DoW) / Spend Monitoring | [HM-16](#hm-16) |
 | MI-10 | AI Model Version Pinning | [HM-01](#hm-01), [HM-02](#hm-02), [HM-17](#hm-17) |
-| MI-11 | Human Feedback Loop for AI Systems | [HM-05](#hm-05) |
+| MI-11 | Human Feedback Loop for AI Systems | Not covered: Adjuster overrides are recorded but not fed back into prompts, answer keys or evals. |
 | MI-12 | Role-Based Access Control for AI Data | [HM-03](#hm-03), [HM-10](#hm-10) |
 | MI-13 | Providing Citations and Source Traceability for AI-Generated Information | [HM-13](#hm-13) |
 | MI-14 | Encryption of AI Data at Rest | Not covered: The audit log and checkpoints are unencrypted SQLite files. |

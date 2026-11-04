@@ -13,9 +13,9 @@ controls:
     name: Agent registry and approvals
     what: >-
       Every agent has a typed manifest naming its owner, risk tier, status, model, tools and data
-      classes. Unregistered, inactive or unapproved agents are refused at run time; each manifest
-      digest and prompt hash must match registry/approvals.yaml, and CI fails on an unapproved
-      change.
+      classes. Unregistered, inactive or unapproved agents are refused at run time: the manifest
+      digest and the system-prompt template hash must match registry/approvals.yaml, and the
+      template hash is recorded on every call. CI fails on an unapproved change.
     status: built
     code:
       - hall_monitor/registry.py::Registry
@@ -25,11 +25,17 @@ controls:
       - tests/test_registry.py::test_unregistered_agent_is_refused
       - tests/test_registry.py::test_unapproved_manifest_is_refused
       - tests/test_registry.py::test_approvals_match_the_current_manifests_and_prompts
+      - tests/test_registry.py::test_unapproved_prompt_is_refused_at_run_time
     evidence: []
     nist: [GOVERN 1.6, GOVERN 2.1, MAP 1.1, MANAGE 2.4]
     finos:
       risks: [RI-05, RI-18]
       mitigations: [MI-10]
+    gaps: >-
+      Anyone who can commit can regenerate approvals.yaml. Review of that change depends on
+      repository settings: .github/CODEOWNERS names an owner, but main has no branch protection
+      yet, so it isn't enforced. Owner and risk tier are inventory fields; nothing reads them at
+      run time.
 
   - id: HM-02
     name: Pinned models, no silent fallback
@@ -40,12 +46,13 @@ controls:
     code:
       - hall_monitor/agents/base.py::run_agent
     tests:
-      - tests/test_pipeline.py::test_correct_agent_outputs_give_the_expected_route
+      - tests/test_pipeline.py::test_every_call_records_what_ran
+      - tests/test_pipeline.py::test_api_error_stops_the_claim
       - tests/test_cost_routing.py::test_routing_is_off_by_default
     evidence: []
-    nist: [GOVERN 6.1, MAP 4.1, MANAGE 3.1]
+    nist: [MANAGE 3.1]
     finos:
-      risks: [RI-05, RI-07]
+      risks: [RI-05]
       mitigations: [MI-10]
     gaps: No fallback model, so a provider outage stops claims; availability is an accepted risk.
 
@@ -66,8 +73,9 @@ controls:
     evidence: []
     nist: [GOVERN 1.4, MEASURE 2.7, MANAGE 1.3]
     finos:
-      risks: [RI-24, RI-25, RI-26]
+      risks: [RI-24, RI-25]
       mitigations: [MI-12, MI-16, MI-18, MI-19, MI-20]
+    gaps: Tool arguments are logged as the model wrote them, so a manipulated call's text is kept.
 
   - id: HM-04
     name: Routing to a person, decided in code
@@ -92,8 +100,8 @@ controls:
     name: Adjuster approval gate
     what: >-
       Claims routed to a person pause in a LangGraph workflow with state saved in SQLite. A
-      decision must come from a registered adjuster within their authority, quote the hash of the
-      evidence pack they saw, pay no more than was claimed, and give a reason for any override or
+      decision must come from a registered adjuster ID within its authority, quote the hash of the
+      evidence pack the claim was paused with, pay no more than was claimed, and give a reason for any override or
       denial; only senior adjusters may pay a flagged claim.
     status: built
     code:
@@ -109,15 +117,20 @@ controls:
     nist: [GOVERN 3.2, MAP 3.5, MANAGE 4.1]
     finos:
       risks: [RI-22]
-      mitigations: [MI-11, MI-24]
-    gaps: The override rate is simulated with an answer-key adjuster; no real adjusters yet.
+      mitigations: [MI-24]
+    gaps: >-
+      Adjuster IDs are checked against the register but not authenticated. The audit log records
+      the evidence pack's hash; the pack itself is in the checkpoint store, which isn't
+      tamper-evident, and it lists document names rather than the documents. The override rate is
+      simulated with an answer-key adjuster; no real adjusters yet.
 
   - id: HM-06
     name: Tamper-evident audit log
     what: >-
-      Every step of every claim is written to an append-only SQLite log in which each entry's hash
-      covers the previous one. Triggers refuse edits and deletes, and verify reports any changed,
-      missing or reordered entry. Entries hold IDs, hashes and decisions, never claim text.
+      Each claim's triage (agent calls, tool calls, critic reviews, revisions, corrections, result)
+      and every adjuster decision are written to an append-only SQLite log in which each entry's
+      hash covers the previous one. Triggers refuse edits and deletes, and verify reports any
+      changed, missing or reordered entry. Entries hold no claim narrative or documents.
     status: built
     code:
       - hall_monitor/governance/audit.py::AuditLog
@@ -127,13 +140,15 @@ controls:
       - tests/test_audit.py::test_a_consistent_rewrite_is_caught_only_by_an_anchor
       - tests/test_audit.py::test_the_log_holds_no_claim_text
     evidence: []
-    nist: [MEASURE 2.8, MANAGE 4.1, MANAGE 4.3]
+    nist: [MEASURE 2.8, MANAGE 4.1]
     finos:
       risks: [RI-17, RI-22]
       mitigations: [MI-04, MI-21]
     gaps: >-
       Someone with write access to the file can rewrite the whole chain consistently; only a
-      chain head copied elsewhere catches that.
+      chain head copied elsewhere catches that. Triage events are written together after triage
+      finishes, grouped by kind, not as each step happens. Entries do hold policy numbers,
+      decision fields, tool-call arguments and the adjuster's name and written reason.
 
   - id: HM-07
     name: Critic review with revision history
@@ -159,14 +174,15 @@ controls:
   - id: HM-08
     name: Failures stop the claim and go to a person
     what: >-
-      A refusal, API error, invalid output, refused hall pass or missing policy stops the claim,
-      records why, keeps the cost of calls already made, and routes it to an adjuster.
+      A refusal, API error, invalid output, refused hall pass, missing policy or any unexpected
+      error stops the claim, records why, keeps the cost of calls already made, and routes it to an adjuster.
     status: built
     code:
       - hall_monitor/pipeline.py::triage
     tests:
       - tests/test_pipeline.py::test_refusal_stops_the_claim_and_keeps_its_cost
       - tests/test_pipeline.py::test_api_error_stops_the_claim
+      - tests/test_pipeline.py::test_unexpected_error_stops_the_claim
       - tests/test_pipeline.py::test_pipeline_stops_when_the_policy_cant_be_found
     evidence: []
     nist: [MANAGE 2.4, MANAGE 4.3]
@@ -199,9 +215,9 @@ controls:
   - id: HM-10
     name: Identifier redaction and data minimisation
     what: >-
-      Dates of birth, emails, phone, card, passport and SSN numbers are removed before any model
-      sees a claim. Manifests declare the data classes each agent reads; the recommender, declared
-      financial only, gets a structured summary with no names, claim text or reasoning.
+      Dates of birth, emails, phone, card, passport and SSN numbers are removed from the claim
+      narrative and attachment text before any model sees them. The recommender gets a structured
+      summary with no names, claim text or reasoning, enforced by its input schema.
     status: built
     code:
       - hall_monitor/gateway/redaction.py::redact_claim
@@ -215,23 +231,29 @@ controls:
     finos:
       risks: [RI-01]
       mitigations: [MI-01, MI-06, MI-12]
-    gaps: Names and medical details still reach the agents that need them to decide.
+    gaps: >-
+      Names and medical details still reach the agents that need them to decide. Attachment file
+      names and tool results (claims history has short health summaries) aren't redacted.
+      Manifests declare data classes, but nothing checks them at run time.
 
   - id: HM-11
     name: Telemetry without claim content
     what: >-
       Langfuse traces carry IDs, versions, hashes and token counts only: trace decorators don't
-      capture function inputs or outputs, and the Anthropic SDK's spans stay metadata-only.
+      capture function inputs or outputs.
     status: built
     code:
       - hall_monitor/tracing.py::observe
     tests:
       - tests/test_controls.py::test_traces_never_capture_inputs_or_outputs
     evidence: []
-    nist: [GOVERN 1.5, MEASURE 2.10]
+    nist: [MEASURE 2.10]
     finos:
       risks: [RI-01]
       mitigations: [MI-01, MI-04]
+    gaps: >-
+      Only the decorators are tested. Spans from any SDK instrumentation stay metadata-only only if
+      it isn't configured to capture content; nothing in the code prevents that.
 
   - id: HM-12
     name: Eval harness and published results
@@ -251,8 +273,12 @@ controls:
       - evals/results/hardened-critic/findings.md
     nist: [MEASURE 1.1, MEASURE 2.1, MEASURE 2.3, MEASURE 2.5]
     finos:
-      risks: [RI-04, RI-06, RI-19]
+      risks: [RI-04, RI-06]
       mitigations: [MI-05]
+    gaps: >-
+      Published results were scored on earlier agent versions (named in each findings note).
+      Coverage counts as correct when every deciding clause is cited, even with extra clauses;
+      clause precision is reported separately.
 
   - id: HM-13
     name: Grounding checks and evidence for every decision
@@ -273,7 +299,7 @@ controls:
     finos:
       risks: [RI-04, RI-17]
       mitigations: [MI-13, MI-21]
-    gaps: Reasoning text itself isn't checked for unsupported claims.
+    gaps: Only extracted values and cited clauses are checked; reasoning text isn't.
 
   - id: HM-14
     name: Counterfactual fairness test
@@ -329,7 +355,7 @@ controls:
     evidence: []
     nist: [MEASURE 3.1, MANAGE 3.1]
     finos:
-      risks: [RI-07]
+      risks: []
       mitigations: [MI-09]
     gaps: No spend alerting; economy routing is unmeasured and off.
 
@@ -338,7 +364,8 @@ controls:
     what: >-
       Every pull request runs lint, the offline tests, the approvals check, this register's
       checks, and the eval gate, which fails when a published score is below its threshold and
-      flags results scored on an older agent version than the one approved.
+      flags results scored on an older agent version than the one approved, or that don't record
+      their versions.
     status: built
     code:
       - .github/workflows/ci.yml
@@ -347,14 +374,17 @@ controls:
     tests:
       - tests/test_gate.py::test_a_score_below_threshold_fails
       - tests/test_gate.py::test_stale_results_are_flagged
+      - tests/test_gate.py::test_results_without_agent_versions_count_as_stale
     evidence: []
-    nist: [GOVERN 1.5, MEASURE 3.1, MANAGE 4.1]
+    nist: [MEASURE 3.1]
     finos:
       risks: [RI-05, RI-06]
       mitigations: [MI-05, MI-10]
     gaps: >-
       The gate checks published results; it doesn't run live evals itself (that costs money and
       needs an API key), so a stale result is only a warning until a fresh baseline exists.
+      Until then the gate doesn't block a regression. Metrics other than unsafe routes are read
+      from the summary each run wrote.
 
   - id: HM-18
     name: Synthetic data and documented limits
@@ -371,23 +401,34 @@ controls:
       - evals/results/hardened-critic/findings.md
     nist: [MAP 1.1, MAP 2.1, MEASURE 1.1, MEASURE 2.5]
     finos:
-      risks: [RI-19, RI-20]
+      risks: [RI-19]
       mitigations: [MI-06]
+    gaps: Data quality is documented, not monitored; there is no drift detection.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
   - ref: GOVERN 1.1
     why: Legal and regulatory requirements for claims handling aren't analysed; this is a reference implementation, not legal advice.
+  - ref: GOVERN 1.5
+    why: CI checks every change, but nothing schedules periodic review of the risk process or its outcomes.
   - ref: GOVERN 4.1
     why: Organisational culture and practices are outside a codebase.
+  - ref: GOVERN 6.1
+    why: Third-party policies, including intellectual-property risk from the model provider, aren't addressed; the model is pinned, not assessed.
+  - ref: MAP 4.1
+    why: Legal and intellectual-property risks of third-party components aren't mapped.
   - ref: RI-02
     why: There is no vector store or retrieval index.
   - ref: RI-08
     why: Tampering with the foundation model is the provider's control; the repo only pins the model.
   - ref: RI-09
     why: There is no training or fine-tuning, so no training data to poison.
+  - ref: RI-20
+    why: Reputational risk is a business judgement; publishing results, failures included, is the only part this repo touches.
   - ref: RI-23
     why: Intellectual property in model output isn't assessed.
+  - ref: RI-26
+    why: The MCP server is first-party and runs in-process; nothing checks a third-party server's integrity because there isn't one.
   - ref: RI-27
     why: Workflow checkpoints are trusted local state; they aren't integrity-checked like the audit log.
   - ref: RI-29
@@ -400,6 +441,8 @@ not_covered:
     why: Legal and contractual terms with the model provider are out of scope.
   - ref: MI-23
     why: Agents hold no credentials (see RI-29), so there is nothing for them to protect.
+  - ref: MI-11
+    why: Adjuster overrides are recorded but not fed back into prompts, answer keys or evals.
   - ref: MI-08
     why: There is no rate limiting or denial-of-service protection; nothing is exposed as a service.
   - ref: MI-14

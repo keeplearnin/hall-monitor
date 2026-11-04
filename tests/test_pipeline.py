@@ -27,7 +27,7 @@ from hall_monitor.models import (
     Route,
 )
 from hall_monitor.pipeline import triage
-from hall_monitor.registry import Registry
+from hall_monitor.registry import Registry, load_approvals
 from hall_monitor.tools.gateway import ToolGateway
 from tests.fakes import fake_client, outputs_from_truth
 
@@ -304,11 +304,27 @@ def test_api_error_stops_the_claim():
     assert "APIConnectionError" in result.stopped_reason
 
 
+def test_unexpected_error_stops_the_claim():
+    claim = CLAIMS[0]
+    client = fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)))
+
+    def fail(**kwargs):
+        raise ConnectionResetError("tool server went away")
+
+    client.messages.parse = fail
+    result = triage(claim, registry=REGISTRY, gateway=GATEWAY, wording=WORDING, client=client)
+
+    assert result.routing.route is Route.ADJUSTER
+    assert "ConnectionResetError" in result.stopped_reason
+
+
 def test_every_call_records_what_ran():
     claim = CLAIMS[0]
     result, _ = _triage(claim, outputs_from_truth(load_ground_truth(claim.claim_id)))
+    approvals = load_approvals()
     for call in result.agent_calls:
         assert len(call.system_prompt_sha256) == 64 and len(call.input_sha256) == 64
+        assert call.prompt_template_sha256 == approvals[call.agent_id]["prompt_sha256"]
         assert call.stop_reason == "end_turn"
 
 

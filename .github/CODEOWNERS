@@ -1,0 +1,6 @@
+# Changes to an agent's hall pass, its prompt or its approval need the owner's review.
+# CODEOWNERS takes effect only with branch protection that requires code-owner review.
+/registry/                @keeplearnin
+/hall_monitor/agents/     @keeplearnin
+/controls/                @keeplearnin
+/evals/gate.yaml          @keeplearnin

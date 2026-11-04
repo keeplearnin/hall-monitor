@@ -80,6 +80,7 @@ def run_critic(
         registry=registry,
         client=client or anthropic.Anthropic(),
         system=SYSTEM_PROMPT.format(untrusted=UNTRUSTED_CLAIM_NOTICE, wording=wording),
+        prompt_template=SYSTEM_PROMPT,
         content=content,
         output_format=CriticReview,
         prompt_version=PROMPT_VERSION,

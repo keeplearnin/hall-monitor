@@ -16,9 +16,9 @@ Most agent demos show what a model can do. Regulated firms need to know what an 
 Those answers usually live in policy documents. hall-monitor puts them in code:
 
 - **Every agent is registered** (its hall pass) before it can run, with an owner, a risk tier and an explicit tool allow-list.
-- **Consequential decisions stop for a human**, and the evidence the human saw is recorded with their decision.
-- **Every step is logged** in an append-only, hash-chained audit trail that shows if anything was altered.
-- **Every change is evaluated in CI**, so a new prompt or model can't silently ship a regression. *(Tests, lint, the approvals check and the eval gate run on every PR. Until a fresh baseline is published on the current agents, the gate warns about stale results rather than failing.)*
+- **Consequential decisions stop for a human**, and their decision is bound to the hash of the evidence pack they were shown.
+- **Every triage and decision is logged** in an append-only, hash-chained audit trail that shows if anything was altered.
+- **Every change is checked in CI**: tests, lint, the approvals check and the eval gate run on every PR, and a prompt or model change can't merge without a new approval. *The gate doesn't yet block regressions: the published results were scored on earlier agent versions, so it warns about stale results rather than failing until a fresh baseline is published.*
 - **Every control maps to a framework** (NIST AI RMF and the FINOS AI Governance Framework), so risk, compliance and audit teams can evaluate it without reading the code. See [`docs/controls.md`](docs/controls.md).
 
 The governance layer is the product. Claims triage is the proof that it works on a real-shaped regulated workflow.
@@ -39,7 +39,7 @@ The agents:
 | **Risk and fraud flags** | Flag inconsistencies, such as dates that don't line up, duplicate receipts, claims filed soon after a policy started, or earlier similar claims (fetched with `claims_history`), and assign a risk level. |
 | **Recommendation** | Propose a next step with its reasons, from a structured summary only: no names, claim text or medical details. |
 
-The agents never deny a claim or approve a large payout on their own. A routing rule written in code sends denials, payouts above $2,500, fraud flags, critic corrections, possible prompt injection and any failure to a human adjuster, who decides at an approval gate.
+The agents never deny a claim or approve a large payout on their own. A routing rule written in code sends denials, payouts above $2,500, fraud flags, critic corrections, possible prompt injection and any failure (including any unexpected error) to a human adjuster, who decides at an approval gate.
 
 Agents get supporting records only through governed MCP tools (`policy_lookup`, `claims_history`). Every call goes through a gateway that checks the agent's allow-list and records the call. The policy wording is reference text and is still passed in directly.
 
@@ -81,6 +81,9 @@ Every model call goes through one function that checks the agent's approved hall
 - [`docs/architecture.html`](docs/architecture.html), for engineering managers and architects
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
 - [`docs/business-summary.md`](docs/business-summary.md), a one-page business summary in plain English
+- [`docs/board-brief.md`](docs/board-brief.md), one page for a board or risk committee: the risks, the evidence, what isn't proven and the decisions a pilot would need
+- [`docs/adr/`](docs/adr/README.md), 13 architecture decision records: why each design choice was made and what it costs
+- [`docs/review/`](docs/review/README.md), the external review package and a log of every review so far and what it changed
 
 GitHub shows HTML files as source, so download them and open them in a browser.
 
@@ -88,22 +91,24 @@ Tracing sends IDs, versions, hashes and token counts to Langfuse, never claim te
 
 ## Governance controls
 
-| Control | What it does | NIST AI RMF function | Status |
+Each control's NIST AI RMF and FINOS AIGF mapping is in the [controls register](docs/controls.md); the Register column gives its ID there.
+
+| Control | What it does | Register | Status |
 |---|---|---|---|
-| Agent registry | Typed manifest per agent: ID, owner, risk tier, model, allowed tools, version. Unregistered, inactive or unapproved agents are refused: each manifest digest and prompt hash must match `registry/approvals.yaml`. | Govern | Built (milestones 1 and 3) |
-| Tool allow-list | Agents can call only the MCP tools their manifest names; the gateway refuses anything else and records every call, allowed or refused | Govern, Manage | Built (milestone 4) |
-| Adjuster approval gates | A LangGraph interrupt pauses every claim the routing rule sends to a person, with state saved in SQLite so it can wait across restarts. Code checks the adjuster's identity and authority limit, payout bounds, who may pay a flagged claim, and that overrides and denials carry a reason. The decision is recorded with the adjuster and the hash of the evidence they saw. | Manage | Built (milestone 5) |
-| Tamper-evident audit log | Append-only SQLite log; each entry's hash covers the previous one, triggers refuse edits and deletes, and `verify` reports any changed, missing or reordered entry. Entries hold IDs, hashes and decisions, never claim text. Someone with write access to the file could rewrite the whole chain consistently, so copy the chain head (`audit head`) somewhere else and verify against it. | Govern, Manage | Built (milestone 6) |
-| PII and health-data redaction | Identifiers no agent needs (dates of birth, emails, phones, card numbers, passport and SSN numbers) are removed before any model sees the claim; counts by type are recorded. Medical details stay, because coverage depends on them, and only agents whose manifests allow health data see them: the recommender gets structured fields only. No claim text in traces or the audit log. | Manage | Built (milestone 8) |
-| Model routing | A manifest may name a cheaper approved model and a claim-size limit; a code rule uses it for small claims, and critic-driven revisions always go back to the main model. Off by default until it is evaluated (`--model-routing`). | Manage | Built, off by default (milestone 7) |
-| Cost and value telemetry | Cost per claim on every result and in the audit log, cache-aware, by agent and model; time to triage; human override rate; stopped-claim rate. The policy wording is prompt-cached. | Measure | Built (milestone 7) |
-| Eval harness | Extraction accuracy, coverage-reasoning accuracy (with clause precision), hallucination rate, routing, cost and simulated override rate against ground truth; a seeded-error test of the critic; every run published with its findings | Measure | Built (milestones 2-3, extended since) |
-| Critic review | A second agent checks intake, coverage and risk against the documents and sends errors back; every revision is kept, and one that changes a decision field goes to a person | Measure, Manage | Built (milestone 3) |
-| Prompt-injection defences | Claim text is fenced and escaped; a code detector sends claims with text aimed at the AI to a person; tool lookups are limited to the claim's own policy | Manage | Built (milestones 3, 4 and 8) |
-| Fairness checks | Counterfactual runner: each claim re-run under names associated with six groups, swapped everywhere the name appears, counting outcome flips and per-group payment rates (`evals.fairness`). | Measure | Built; results need a live run (milestone 8) |
-| Adversarial test suite | Ten attacks planted in real claims (instruction override, forged reviewer tags, claimed prior approval, data exfiltration, forged documents, PII) and scored on whether any worked (`evals.adversarial`). Defences: escaped claim text, a code detector that sends flagged claims to a person, and tool lookups limited to the claim's own policy. | Measure, Manage | Built; results need a live run (milestone 8) |
-| CI eval gate | Every PR runs `evals.gate`: published results must meet the thresholds in `evals/gate.yaml` (accuracy, hallucination, unsafe routes, critic catch rate; attacks and fairness once run), and results scored on agent versions that are no longer approved are flagged. Live evals run on demand from a manual workflow. | Manage | Built (milestone 9); stale results warn until a fresh baseline |
-| Framework mapping | 18 controls in `controls/controls.yaml`, each with its code, tests and evidence, mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't verified. Readable version: [`docs/controls.md`](docs/controls.md). | Map, Govern | Built (milestone 9) |
+| Agent registry | Typed manifest per agent: ID, owner, risk tier, model, allowed tools, version. Unregistered, inactive or unapproved agents are refused at run time: the manifest digest and the system-prompt template hash must match `registry/approvals.yaml`, and the template hash is recorded on every call. The approvals file is a committed diff; who may approve it depends on repository settings (CODEOWNERS and branch protection). | HM-01, HM-02 | Built (milestones 1 and 3) |
+| Tool allow-list | Agents can call only the MCP tools their manifest names; the gateway refuses anything else and records every call, allowed or refused | HM-03 | Built (milestone 4) |
+| Adjuster approval gates | A LangGraph interrupt pauses every claim the routing rule sends to a person, with state saved in SQLite so it can wait across restarts. Code checks that the adjuster ID is registered (it is not authenticated) and their authority limit, payout bounds, who may pay a flagged claim, and that overrides and denials carry a reason. The decision is recorded with the adjuster and the hash of the evidence pack it was made on (the pack itself is kept in the checkpoint store, which isn't tamper-evident). | HM-04, HM-05 | Built (milestone 5) |
+| Tamper-evident audit log | Append-only SQLite log; each entry's hash covers the previous one, triggers refuse edits and deletes, and `verify` reports any changed, missing or reordered entry. Entries hold IDs, hashes, decisions and costs, not the claim narrative or documents; they do include policy numbers, decision fields, tool-call arguments and the adjuster's name and written reason. Someone with write access to the file could rewrite the whole chain consistently, so copy the chain head (`audit head`) somewhere else and verify against it. | HM-06 | Built (milestone 6) |
+| PII and health-data redaction | Identifiers no agent needs (dates of birth, emails, phones, card numbers, passport and SSN numbers) are removed from the narrative and attachment text before any model sees the claim; counts by type are recorded. Attachment file names and tool results (claims history includes short health summaries) are not redacted. Medical details stay, because coverage depends on them. Manifests declare the data classes each agent may see, but that is not enforced at run time; the recommender's limit is enforced by its input schema (structured fields only). No claim narrative in traces or the audit log. | HM-10, HM-11 | Built (milestone 8) |
+| Model routing | A manifest may name a cheaper approved model and a claim-size limit; a code rule uses it for small claims, and critic-driven revisions always go back to the main model. Off by default until it is evaluated (`--model-routing`). | HM-16 | Built, off by default (milestone 7) |
+| Cost and value telemetry | Cost per claim on every result and in the audit log, cache-aware, by agent and model; time to triage; human override rate; stopped-claim rate. The policy wording is prompt-cached. | HM-16 | Built (milestone 7) |
+| Eval harness | Extraction accuracy, coverage-reasoning accuracy (with clause precision), hallucination rate, routing, cost and simulated override rate against ground truth; a seeded-error test of the critic; every run published with its findings | HM-12, HM-13 | Built (milestones 2-3, extended since) |
+| Critic review | A second agent checks intake, coverage and risk against the documents and sends errors back; every revision is kept, and one that changes a decision field goes to a person | HM-07 | Built (milestone 3) |
+| Prompt-injection defences | Claim text is fenced and escaped; a code detector sends claims with text aimed at the AI to a person; tool lookups are limited to the claim's own policy | HM-09 | Built (milestones 3, 4 and 8) |
+| Fairness checks | Counterfactual runner: each claim re-run under names associated with six groups, swapped everywhere the name appears, counting outcome flips and per-group payment rates (`evals.fairness`). | HM-14 | Built; results need a live run (milestone 8) |
+| Adversarial test suite | Ten attacks planted in real claims (instruction override, forged reviewer tags, claimed prior approval, data exfiltration, forged documents, PII) and scored on whether any worked (`evals.adversarial`). Defences: escaped claim text, a code detector that sends flagged claims to a person, and tool lookups limited to the claim's own policy. | HM-15 | Built; results need a live run (milestone 8) |
+| CI eval gate | Every PR runs `evals.gate`: published results must meet the thresholds in `evals/gate.yaml` (accuracy, hallucination, unsafe routes, critic catch rate; attacks and fairness once run), and results scored on agent versions that are no longer approved are flagged. Live evals run on demand from a manual workflow. | HM-17 | Built (milestone 9); stale results warn until a fresh baseline |
+| Framework mapping | 18 controls in `controls/controls.yaml`, each with its code, tests and evidence, mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
 
 ## Results
 
@@ -118,7 +123,7 @@ Numbers are published as each milestone lands, from runs anyone can reproduce wi
 | Hardened, no critic (34 claims x 3 trials) | 98.5% | 98.0% | 0.0% | $0.024 | 3.3% (simulated) |
 | Hardened, with critic (34 claims x 3 trials) | 98.7% | 98.0% | 0.0% | $0.039 | 1.7% (simulated) |
 
-The two baseline rows use the same code; the second runs on a larger claim set. Milestone 3 computes the coverage label in code and stops when a policy can't be found, which took coverage reasoning to 100% without the critic. The critic's measured gain is on fraud flags: precision went from 92% to 100%, at about $0.016 more per claim. The amount slips it was built to catch didn't occur in either milestone 3 run, so that gain isn't measured yet. The hardened rows add 8 claims where a cap decides the amount, and fix the high-severity findings from two code reviews. No claim was routed automatically when it needed a person in any run. In the hardened run the critic raised no issues, so the gap between those two rows is run-to-run variation. A separate eval measures the critic directly by planting one error at a time in otherwise correct work. It caught all 84 planted errors, including all 16 amounts that ignored a cap, and raised 1 false alarm in 34 clean cases ([findings](evals/results/critic-seeded/findings.md)). Milestones 4-8 (governed data access, the approval gate, the audit log, caching and routing, and the privacy and injection defences) have passed their offline tests but are not yet in a scored live run. Human override rate is simulated: an adjuster who always decides as the answer key does would have overridden the AI on 1 of 59 routed runs with the critic and 2 of 60 without, and no AI error went through automatically (`python -m hall_monitor.evals.override`). About 58% of runs go to a person, because the test claims are deliberately weighted towards edge cases. Details: findings for [6 claims](evals/results/baseline/findings.md), [26 claims](evals/results/baseline-26/findings.md), [milestone 3](evals/results/m3-critic/findings.md) and [the hardened pipeline](evals/results/hardened-critic/findings.md).
+The two baseline rows use the same code; the second runs on a larger claim set. Milestone 3 computes the coverage label in code and stops when a policy can't be found, which took coverage reasoning to 100% without the critic. The critic's measured gain is on fraud flags: precision went from 92% to 100%, at about $0.016 more per claim. The amount slips it was built to catch didn't occur in either milestone 3 run, so that gain isn't measured yet. The hardened rows add 8 claims where a cap decides the amount, and fix the high-severity findings from two code reviews. No claim was routed automatically when it needed a person in any run. In the hardened run the critic raised no issues, so the gap between those two rows is run-to-run variation. A separate eval measures the critic directly by planting one error at a time in otherwise correct work. It caught all 84 planted errors, including all 16 amounts that ignored a cap, and raised 1 false alarm in 34 clean cases ([findings](evals/results/critic-seeded/findings.md)). Milestones 4-8 (governed data access, the approval gate, the audit log, caching and routing, and the privacy and injection defences) have passed their offline tests but are not yet in a scored live run. The pipeline numbers were scored at commit `d083a79` on intake-v2, coverage-check-v2, risk-fraud-v1, critic-v1 and recommendation-v2, and the critic eval at `ecd20c3` on critic-v1; every agent has been revised since (now intake-v3, coverage-check-v3, risk-fraud-v2, critic-v2 and recommendation-v3), so the numbers describe earlier versions until the next live run. Human override rate is simulated: an adjuster who always decides as the answer key does would have overridden the AI on 1 of 59 routed runs with the critic and 2 of 60 without, and no AI error went through automatically (`python -m hall_monitor.evals.override`). About 58% of runs go to a person, because the test claims are deliberately weighted towards edge cases. Details: findings for [6 claims](evals/results/baseline/findings.md), [26 claims](evals/results/baseline-26/findings.md), [milestone 3](evals/results/m3-critic/findings.md) and [the hardened pipeline](evals/results/hardened-critic/findings.md).
 
 ## Roadmap
 
@@ -131,7 +136,7 @@ The two baseline rows use the same code; the second runs on a larger claim set. 
 7. ~~Model routing and cost-per-claim telemetry~~ (done; routing to be evaluated)
 8. ~~PII redaction, fairness checks and adversarial test suite~~ (done; attack and fairness results to follow)
 9. ~~NIST AI RMF and FINOS AIGF mapping; CI eval gate~~ (done)
-10. Architecture decision records, one-page board brief, external review
+10. ~~Architecture decision records, one-page board brief, external review package~~ (done; reviews by people outside the project are invited)
 
 Daily progress notes are in [`docs/devlog/`](docs/devlog/).
 
@@ -186,7 +191,7 @@ hall-monitor/
 │   └── adversarial/         # Attack cases
 ├── controls/                # Controls register and the verified framework identifiers
 ├── evals/                   # gate.yaml thresholds; results/ holds published runs with findings
-├── docs/                    # controls.md (generated), one-pagers, business summary, devlog
+├── docs/                    # controls.md (generated), one-pagers, board brief, ADRs, review package, devlog
 ├── tests/                   # Offline tests; the Claude client is faked
 ├── var/                     # Runtime state: workflow checkpoints and audit log (git-ignored)
 └── .github/workflows/       # CI on every PR; a manual live-eval workflow
@@ -196,7 +201,7 @@ hall-monitor/
 
 - **Governance in code, not in documents.** If a control can't be tested, it doesn't count.
 - **Humans make the consequential calls.** The agent prepares the evidence; an adjuster decides denials, large payouts and fraud.
-- **Measure before you claim.** Every result in this README comes from a reproducible run.
+- **Measure before you claim.** Every result in this README comes from a published run, with the agent versions it was scored on.
 - **Model-agnostic by design.** Controls sit in the gateway and the graph, not inside one vendor's model.
 - **Built for audit.** Any recommendation can be traced back to its inputs, model, prompt version, policy clauses and approver.
 

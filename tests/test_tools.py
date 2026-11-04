@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hall_monitor.agents import coverage_check
 from hall_monitor.agents.base import ToolAccess, run_agent
 from hall_monitor.models import CoverageFinding, ToolCall
 from hall_monitor.registry import Registry
@@ -100,6 +101,7 @@ def test_tool_loop_runs_calls_through_the_gateway(tool, allowed):
         registry=REGISTRY,
         client=SimpleNamespace(messages=messages),
         system="s",
+        prompt_template=coverage_check.SYSTEM_PROMPT,
         content="c",
         output_format=CoverageFinding,
         prompt_version="v",

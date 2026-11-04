@@ -115,9 +115,15 @@ class Registry:
         self,
         manifests: Iterable[AgentManifest],
         approved_digests: dict[str, str] | None = None,
+        approved_prompts: dict[str, str] | None = None,
     ):
-        """approved_digests=None skips the approval check; from_dir always enforces it."""
+        """approved_digests=None skips the approval check; from_dir always enforces it.
+
+        approved_prompts maps agent IDs to the approved system-prompt template hash; when given,
+        an agent run with any other prompt is refused.
+        """
         self._approved = approved_digests
+        self._approved_prompts = approved_prompts
         self._manifests: dict[str, AgentManifest] = {}
         for manifest in manifests:
             if manifest.id in self._manifests:
@@ -135,7 +141,11 @@ class Registry:
                 raise ValueError(f"{file.name}: id {manifest.id!r} must match the file name")
             manifests.append(manifest)
         approvals = load_approvals(path / APPROVALS_FILENAME)
-        return cls(manifests, {a: v["manifest_digest"] for a, v in approvals.items()})
+        return cls(
+            manifests,
+            {a: v["manifest_digest"] for a, v in approvals.items()},
+            {a: v["prompt_sha256"] for a, v in approvals.items() if "prompt_sha256" in v},
+        )
 
     def get(self, agent_id: str) -> AgentManifest:
         try:
@@ -143,14 +153,26 @@ class Registry:
         except KeyError:
             raise UnregisteredAgentError(f"agent {agent_id!r} has no hall pass") from None
 
-    def require(self, agent_id: str) -> AgentManifest:
-        """Return the manifest for an agent that is allowed to run, or refuse."""
+    def require(self, agent_id: str, *, prompt_sha256: str | None = None) -> AgentManifest:
+        """Return the manifest for an agent that is allowed to run, or refuse.
+
+        With prompt_sha256 (the hash of the system-prompt template about to run), the prompt
+        must be the approved one too.
+        """
         manifest = self.get(agent_id)
         if manifest.status is not AgentStatus.ACTIVE:
             raise AgentNotActiveError(f"agent {agent_id!r} is {manifest.status}, not active")
         if self._approved is not None and self._approved.get(agent_id) != manifest.digest():
             raise UnapprovedManifestError(
                 f"agent {agent_id!r} manifest {manifest.digest()[:12]} is not the approved version"
+            )
+        if (
+            prompt_sha256 is not None
+            and self._approved_prompts is not None
+            and self._approved_prompts.get(agent_id) != prompt_sha256
+        ):
+            raise UnapprovedManifestError(
+                f"agent {agent_id!r} prompt {prompt_sha256[:12]} is not the approved version"
             )
         return manifest
 
