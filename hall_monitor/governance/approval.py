@@ -4,7 +4,7 @@ The evidence pack is everything the AI found, in one record. It is stored under 
 (governance/audit.py), the adjuster must quote that hash back, and their signature covers it, so
 the record shows which evidence the decision was made on. Decisions are checked in code: the
 adjuster must be registered, the decision signed with their key (governance/signing.py) and
-within their authority, the payout must fit the claim, paying a flagged claim needs a senior
+within their authority, the payout must fit a USD claim, paying a flagged claim needs a senior
 adjuster, and changing the AI's recommendation needs a reason.
 """
 

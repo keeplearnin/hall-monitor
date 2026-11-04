@@ -447,15 +447,33 @@ def test_claimant_name_match_ignores_accents():
     assert _route(extraction=accented).route is Route.AUTO
 
 
-@pytest.mark.parametrize(
-    ("model", "field"),
-    [(CoverageFinding, "covered_amount"), (IntakeExtraction, "total_claimed")],
-)
+FINITE = {
+    "covered_amount": CoverageFinding(applicable_clauses=[], covered_amount=1.0, reasoning=""),
+    "total_claimed": EXTRACTION,
+    "amount": EXTRACTION.claimed_items[0],
+    "assessed_amount": CoverageAssessment.from_finding(
+        CoverageFinding(applicable_clauses=[], covered_amount=1.0, reasoning=""), 10.0
+    ),
+}
+
+
+@pytest.mark.parametrize("key", list(FINITE))
 @pytest.mark.parametrize("bad", [float("nan"), float("inf")], ids=["nan", "inf"])
-def test_non_finite_amounts_are_refused(model, field, bad):
-    if model is CoverageFinding:
-        good = CoverageFinding(applicable_clauses=[], covered_amount=1.0, reasoning="")
-    else:
-        good = EXTRACTION
+def test_non_finite_amounts_are_refused(key, bad):
+    good = FINITE[key]
+    field = "covered_amount" if key == "assessed_amount" else key
     with pytest.raises(ValidationError):
-        model.model_validate(good.model_dump() | {field: bad})
+        type(good).model_validate(good.model_dump() | {field: bad})
+
+
+def test_a_nan_amount_from_the_model_stops_the_claim_for_a_person():
+    claim = CLAIMS[0]
+    outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
+    # model_construct skips validation, as an SDK path that didn't validate would.
+    outputs[CoverageFinding] = CoverageFinding.model_construct(
+        applicable_clauses=["2.1"], covered_amount=float("nan"), reasoning=""
+    )
+    result = triage(
+        claim, registry=REGISTRY, gateway=GATEWAY, wording=WORDING, client=fake_client(outputs)
+    )
+    assert result.routing.route is Route.ADJUSTER and result.stopped_reason

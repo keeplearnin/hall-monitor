@@ -120,10 +120,12 @@ def _in_currency(claim_id: str, currency: str, total: float) -> TriageResult:
 
 
 @pytest.mark.parametrize(
-    ("step", "payout"), [(NextStep.PAY, 4900.0), (NextStep.DENY, 0.0)], ids=["pay", "deny"]
+    ("step", "payout"), [(NextStep.PAY, 500.0), (NextStep.DENY, 0.0)], ids=["pay", "deny"]
 )
 def test_a_claim_not_in_usd_needs_a_senior_adjuster(step, payout):
-    result = _in_currency("claim_001", "JPY", 100_000)  # about $650: limits are in USD
+    # JPY 100,000 is about $650. Limits are in USD and nothing converts currency, so only a
+    # senior adjuster may decide; the payout is capped by their authority, not by the claim.
+    result = _in_currency("claim_001", "JPY", 100_000)
     with pytest.raises(DecisionRejected, match="senior adjuster"):
         _decide(result, "adj-101", step, payout)
     _decide(result, "adj-201", step, payout)

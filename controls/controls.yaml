@@ -115,7 +115,7 @@ controls:
       decision must be signed with the adjuster's Ed25519 key over the claim, its fields and the
       evidence hash; come from a registered adjuster within their authority; quote the hash of
       the evidence pack the claim was paused with, which must match the pack stored under that
-      hash in the audit database; pay no more than was claimed, and give a reason for any override or
+      hash in the audit database; on a USD claim pay no more than was claimed, and give a reason for any override or
       denial. Only senior adjusters may pay a claim with a fraud flag or above-low risk, or one the
       AI never assessed for fraud (a stopped claim); denying more than an adjuster's authority, or
       paying or denying a claim whose amount can't be compared with USD limits (not in USD, or
@@ -148,6 +148,8 @@ controls:
       risks: [RI-22]
       mitigations: [MI-24]
     gaps: >-
+      A payout on a claim not in USD, or with no amount extracted, is capped only by the senior
+      adjuster's authority: nothing converts currency or bounds it by the claim.
       The fictional adjusters' keys are public demo keys (decisions signed with them are marked);
       a deployment would issue keys from the firm's identity system. The evidence pack lists document names rather than the documents.
       Other checkpoint state isn't integrity-checked. The override rate is simulated with an

@@ -128,16 +128,22 @@ the Phase A fixes didn't reach. **Fixed in:** Phase A5, each with a test written
 
 | Finding | Severity | Outcome |
 |---|---|---|
-| Adjuster rules compared USD payouts and limits with amounts in the claim's currency | High | A claim not in USD, or with no amount extracted, needs a senior adjuster to pay or deny |
+| Adjuster rules compared USD payouts and limits with amounts in the claim's currency | High | A claim not in USD, or with no amount extracted, needs a senior adjuster to pay or deny. Its payout is capped only by their authority (logged as an HM-05 gap) |
 | Denying a claim nothing was extracted from needed no authority | Medium | Needs a senior adjuster |
 | Paying a high- or medium-risk claim with no flags didn't need a senior adjuster | Medium | It does now |
 | NaN or infinite amounts made every routing comparison false | Medium | Amounts must be finite; a non-finite one fails validation and stops the claim |
 | Routing and claims history used different name matching (accents) | Medium | One `name_key` for both |
 | Claims history can cross between namesakes | Medium | Logged as a gap (HM-03): the data has no customer ID |
 | Resubmitting a claim whose triage hadn't finished could race a run still in progress | Medium | Restarting now needs `restart=True` (`run --fresh`) |
-| A refused hall pass and "cost unknown" stops counted as safe stops in evals | Low | Counted as errors |
+| A refused hall pass and "cost unknown" stops counted as safe stops in evals | Low | Counted as errors, whatever the rest of the stop reason |
 | `audit verify --expect-seq 0` skipped the anchor check | Low | Fixed |
 | ADR 0001 and the review log were out of date | Low | Updated; a test checks ADR 0001 names every routing check |
 
 Not checked by the reviewer: whether the model can actually emit NaN, SQLite contention across
 processes, and the HTML one-pagers.
+
+**Pre-PR review of Phase A5** (the same agent, on the branch's diff): 3 findings, fixed before
+the PR. The "cost unknown" fix only worked alongside an API failure; the docs still promised a
+payout cap that no longer applies to non-USD claims; and no test showed a NaN from the model
+stopping the claim. The last one now has a pipeline test, which passed first time: the guard
+already worked, and the test now proves it.
