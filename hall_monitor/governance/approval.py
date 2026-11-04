@@ -10,7 +10,6 @@ adjuster, and changing the AI's recommendation needs a reason.
 
 from __future__ import annotations
 
-import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -209,12 +208,12 @@ def final_from_adjuster(
     )
 
 
-def audit_payload(final: FinalDecision, signature: str | None = None) -> dict:
-    """The final decision as the audit log keeps it: the adjuster's ID, not their name, and the
-    written reason's hash, not its text (it can hold medical detail, and the log can't be
-    erased). The full decision stays in the workflow's record."""
+def audit_payload(final: FinalDecision, reason_hmac: str, signature: str | None = None) -> dict:
+    """The final decision as the audit log keeps it: the adjuster's ID, not their name, and a
+    keyed hash of the written reason, not its text (it can hold medical detail, and the log
+    can't be erased). The full decision stays in the workflow's record."""
     payload = final.model_dump(mode="json", exclude={"adjuster_name", "reason"})
-    payload["reason_sha256"] = hashlib.sha256(final.reason.encode()).hexdigest()
+    payload["reason_hmac"] = reason_hmac
     if signature is not None:
         payload["signature"] = signature
     return payload

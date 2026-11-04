@@ -1,6 +1,8 @@
 """The hash-chained audit log: append-only, tamper-evident, and what the workflow writes."""
 
+import hashlib
 import sqlite3
+import threading
 
 import pytest
 
@@ -170,7 +172,11 @@ def test_the_log_keeps_the_adjusters_reason_as_a_hash(tmp_path):
         everything = str(workflow.audit.entries())
         final = workflow.audit.entries("claim_004")[-1]["payload"]
     assert "Crohn" not in everything and "Jordan Avery" not in everything
-    assert len(final["reason_sha256"]) == 64 and final["signature"] == decision.signature
+    assert final["signature"] == decision.signature
+    # Keyed, so guessing the reason and hashing it can't confirm it.
+    assert "reason_sha256" not in final
+    assert final["reason_hmac"] != hashlib.sha256(reason.encode()).hexdigest()
+    assert final["reason_hmac"] == workflow.audit.keyed_hash(reason)
 
 
 def test_evidence_is_stored_by_hash_and_checked_by_verify(tmp_path):
@@ -207,3 +213,47 @@ def test_read_only_verify_reports_removed_triggers_and_malformed_entries(log):
     triggers = db.execute("SELECT count(*) FROM sqlite_master WHERE type = 'trigger'").fetchone()
     db.close()
     assert triggers[0] == 1  # the read-only open put nothing back (evidence_no_update is untouched)
+
+
+def test_keyed_hashes_depend_on_the_key(tmp_path, monkeypatch):
+    monkeypatch.delenv("HALL_MONITOR_AUDIT_KEY", raising=False)
+    first = AuditLog(tmp_path / "a" / "audit.sqlite")
+    second = AuditLog(tmp_path / "b" / "audit.sqlite")
+    key_file = tmp_path / "a" / "audit.key"
+    assert key_file.exists() and key_file.stat().st_mode & 0o077 == 0  # owner-only
+    assert first.keyed_hash("x") != second.keyed_hash("x")  # each log has its own key
+    reopened = AuditLog(tmp_path / "a" / "audit.sqlite")
+    assert reopened.keyed_hash("x") == first.keyed_hash("x")  # and keeps it
+    monkeypatch.setenv("HALL_MONITOR_AUDIT_KEY", "k" * 64)
+    assert AuditLog(tmp_path / "c" / "audit.sqlite").keyed_hash("x") == AuditLog(
+        tmp_path / "d" / "audit.sqlite"
+    ).keyed_hash("x")  # a key from the environment (a secrets manager) wins
+    for log in (first, second, reopened):
+        log.close()
+
+
+def test_reads_and_writes_from_many_threads_stay_consistent(log):
+    errors = []
+
+    def write(n):
+        try:
+            for i in range(50):
+                log.append(f"claim_{n}", "agent_call", "intake", {"i": i})
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    def read():
+        try:
+            for _ in range(50):
+                assert log.verify().ok
+                log.entries()
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=write, args=(n,)) for n in range(3)]
+    threads += [threading.Thread(target=read) for _ in range(3)]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    assert errors == [] and log.verify().ok and log.verify().entries == 5 + 150

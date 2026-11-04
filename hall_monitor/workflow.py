@@ -99,7 +99,12 @@ def build_graph(
     def auto(state: ClaimState) -> ClaimState:
         result = TriageResult.model_validate(state["result"])
         final = final_auto(result, state["evidence_sha256"])
-        audit.append(result.claim_id, "final_decision", "auto", audit_payload(final))
+        audit.append(
+            result.claim_id,
+            "final_decision",
+            "auto",
+            audit_payload(final, audit.keyed_hash(final.reason)),
+        )
         return {"final": final.model_dump(mode="json")}
 
     def review(state: ClaimState) -> ClaimState:
@@ -129,7 +134,7 @@ def build_graph(
             result.claim_id,
             "final_decision",
             final.decided_by,
-            audit_payload(final, decision.signature),
+            audit_payload(final, audit.keyed_hash(final.reason), decision.signature),
         )
         return {"final": final.model_dump(mode="json"), "rejected": None}
 

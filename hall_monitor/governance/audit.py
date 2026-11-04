@@ -13,8 +13,12 @@ be edited.
 
 from __future__ import annotations
 
+import functools
 import hashlib
+import hmac
 import json
+import os
+import secrets
 import sqlite3
 import threading
 from dataclasses import dataclass, field
@@ -113,16 +117,52 @@ def _evidence_ref(payload: str) -> str | None:
     return digest if isinstance(digest, str) else None
 
 
+KEY_ENV = "HALL_MONITOR_AUDIT_KEY"
+
+
+def _load_key(path: Path, create: bool) -> bytes | None:
+    """The key for keyed hashes: from the environment (a secrets manager in production), else
+    a file beside the log, created owner-only on first use."""
+    if os.getenv(KEY_ENV):
+        return os.environ[KEY_ENV].encode()
+    key_file = path.parent / "audit.key"
+    if key_file.exists():
+        return key_file.read_bytes()
+    if not create:
+        return None
+    key = secrets.token_hex(32).encode()
+    fd = os.open(key_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(key)
+    return key
+
+
+def _locked(method):
+    """Run a method under the log's lock: the connection is shared by threads, and a read
+    must never see another thread's half-written entry."""
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
+
 class AuditLog:
-    """One writer at a time (a lock), any number of readers.
+    """One connection shared by threads; every read and write takes the same lock.
 
     read_only=True opens the file without creating or changing anything, for inspection: verify
     then also reports triggers someone removed, which a normal open would quietly put back.
+
+    Free text that may hold personal data (an adjuster's reason, a critic's issue) is stored as
+    a keyed hash (HMAC-SHA256), so it can be matched by someone holding the key but not
+    confirmed by guessing the text and hashing it.
     """
 
     def __init__(self, path: Path = DEFAULT_AUDIT_DB, *, read_only: bool = False):
         self.path = path
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         if read_only:
             self._db = sqlite3.connect(
                 f"{path.resolve().as_uri()}?mode=ro",
@@ -134,6 +174,12 @@ class AuditLog:
             path.parent.mkdir(parents=True, exist_ok=True)
             self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
             self._db.executescript(_SCHEMA)
+        self._key = _load_key(path, create=not read_only)
+
+    def keyed_hash(self, text: str) -> str:
+        if self._key is None:
+            raise RuntimeError(f"no audit key available: set {KEY_ENV}")
+        return hmac.new(self._key, text.encode(), hashlib.sha256).hexdigest()
 
     def close(self) -> None:
         self._db.close()
@@ -169,6 +215,7 @@ class AuditLog:
             self._db.execute("INSERT OR IGNORE INTO evidence VALUES (?, ?)", (digest, body))
         return digest
 
+    @_locked
     def get_evidence(self, digest: str) -> dict | None:
         """The stored pack, or None if it isn't stored. Raises EvidenceChanged if it no longer
         matches its hash."""
@@ -179,6 +226,7 @@ class AuditLog:
             raise EvidenceChanged(f"evidence pack {digest[:12]} was changed after it was stored")
         return json.loads(row[0])
 
+    @_locked
     def evidence_hash(self, claim_id: str) -> str | None:
         """The hash of the latest evidence pack recorded for a claim."""
         row = self._db.execute(
@@ -188,12 +236,14 @@ class AuditLog:
         ).fetchone()
         return _evidence_ref(row[0]) if row else None
 
+    @_locked
     def head(self) -> ChainHead | None:
         row = self._db.execute(
             "SELECT seq, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"
         ).fetchone()
         return ChainHead(*row) if row else None
 
+    @_locked
     def entries(self, claim_id: str | None = None) -> list[dict]:
         query = "SELECT seq, recorded_at, claim_id, event, actor, payload, prev_hash, entry_hash"
         query += " FROM audit_log" + (" WHERE claim_id = ?" if claim_id else "") + " ORDER BY seq"
@@ -210,6 +260,7 @@ class AuditLog:
         )
         return [dict(zip(keys, r, strict=True)) | {"payload": json.loads(r[5])} for r in rows]
 
+    @_locked
     def verify(self, expect: ChainHead | None = None) -> Verification:
         """Recompute the chain. `expect` is a head copied out earlier: it must still be in it."""
         rows = self._db.execute(
@@ -298,12 +349,14 @@ class TriageRecorder:
     def _tool_call(tool) -> tuple[str, dict]:
         return tool.actor, tool.model_dump(mode="json")
 
-    @staticmethod
-    def _critic_review(review) -> tuple[str, dict]:
-        # Issue text can quote the claim, so only its hash is kept here.
+    def _critic_review(self, review) -> tuple[str, dict]:
+        # Issue text can quote the claim, so only its keyed hash is kept here.
         return "critic", {
             "issues": [
-                {"stage": i.stage.value, "problem_sha256": sha256(i.problem + i.evidence)}
+                {
+                    "stage": i.stage.value,
+                    "problem_hmac": self.log.keyed_hash(i.problem + i.evidence),
+                }
                 for i in review.issues
             ]
         }

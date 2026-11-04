@@ -149,8 +149,9 @@ controls:
       which each entry's hash covers the previous one. Triggers refuse edits and deletes, and
       verify reports any changed, missing or reordered entry, any stored evidence pack that no
       longer matches its hash, and (opened read-only, as the audit CLI does) any trigger someone
-      removed. Entries hold no claim narrative or documents, and keep a hash of
-      the adjuster's written reason, not the text.
+      removed. Entries hold no claim narrative or documents; the adjuster's written reason and
+      critic issues are kept as keyed hashes (HMAC-SHA256), so they can't be confirmed by
+      guessing. Every read and write takes the same lock.
     status: built
     code:
       - hall_monitor/governance/audit.py::AuditLog
@@ -164,6 +165,8 @@ controls:
       - tests/test_audit.py::test_read_only_verify_reports_removed_triggers_and_malformed_entries
       - tests/test_pipeline.py::test_events_are_reported_as_they_happen
       - tests/test_pipeline.py::test_a_recording_failure_stops_the_claim
+      - tests/test_audit.py::test_keyed_hashes_depend_on_the_key
+      - tests/test_audit.py::test_reads_and_writes_from_many_threads_stay_consistent
     evidence: []
     nist: [MEASURE 2.8, MANAGE 4.1]
     finos:
@@ -171,7 +174,9 @@ controls:
       mitigations: [MI-04, MI-21]
     gaps: >-
       Someone with write access to the file can rewrite the whole chain consistently; only a
-      chain head copied elsewhere catches that, and copying it out is manual. Entries do hold
+      chain head copied elsewhere catches that, and copying it out is manual. Without
+      HALL_MONITOR_AUDIT_KEY the hash key is a file beside the log, so someone with file access
+      has it too; production keeps it in a secrets manager. Entries do hold
       policy numbers, decision fields and tool-call arguments.
 
   - id: HM-07
