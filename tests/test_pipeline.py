@@ -368,3 +368,38 @@ def test_critic_change_to_the_amount_is_recorded_and_goes_to_a_person():
     assert "covered_amount" in record.changed_fields
     assert result.routing.route is Route.ADJUSTER
     assert any("coverage_check.covered_amount" in r for r in result.routing.reasons)
+
+
+# --- Events are reported as they happen -----------------------------------------------
+
+
+def test_events_are_reported_as_they_happen():
+    claim = CLAIMS[0]
+    events = []
+    client = fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)))
+    triage(
+        claim,
+        registry=REGISTRY,
+        gateway=GATEWAY,
+        wording=WORDING,
+        client=client,
+        on_event=lambda event, item: events.append(event),
+    )
+    # The policy lookup is reported between intake and the coverage check, not at the end.
+    assert events[:3] == ["claim_submitted", "agent_call", "tool_call"]
+    assert events[-1] == "triage_result" and events.count("triage_result") == 1
+
+
+def test_a_recording_failure_stops_the_claim():
+    claim = CLAIMS[0]
+    client = fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)))
+
+    def record(event, item):
+        if event == "critic_review":
+            raise RuntimeError("audit log unavailable")
+
+    result = triage(
+        claim, registry=REGISTRY, gateway=GATEWAY, wording=WORDING, client=client, on_event=record
+    )
+    assert result.routing.route is Route.ADJUSTER
+    assert "RuntimeError" in result.stopped_reason

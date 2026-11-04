@@ -1,6 +1,6 @@
 # ADR 0009: Remove identifiers no agent needs; keep medical details where coverage needs them
 
-- **Status:** Accepted (milestone 8)
+- **Status:** Accepted (milestone 8; data classes enforced since milestone 11)
 - **Controls:** [HM-10](../controls.md#hm-10), [HM-11](../controls.md#hm-11)
 
 ## Context
@@ -12,13 +12,18 @@ coverage decision, which depends on them.
 ## Decision
 
 - **Redact before any model sees the claim.** Dates of birth, emails, phone numbers, card,
-  passport and Social Security numbers are removed from the narrative and attachment text by
+  passport and Social Security numbers are removed from the claim text, attachment file names
+  and tool results by
   [`gateway/redaction.py`](../../hall_monitor/gateway/redaction.py); only counts by type are
   recorded. Patterns are deliberately narrow so an ordinary date is never removed as a phone
   number.
 - **Keep what decisions depend on.** Names, policy numbers, dates, amounts and medical details
-  stay. Each manifest declares the data classes the agent may see; that is a declaration for
-  review, not yet checked at run time.
+  stay, but only for agents approved to see them.
+- **Enforce data classes at run time.** Each manifest lists the classes the agent may see (pii,
+  health, financial). Each agent input and each tool declares the classes it carries: claims
+  history carries health, policy records pii and financial, and an input that says nothing is
+  taken to carry everything. Anything beyond the manifest is refused before the model or tool
+  is called.
 - **Minimise the recommender.** It receives structured fields only (`RecommendationInput`): no
   names, no claim text, no free-text reasoning that could carry medical details.
 - **No claim narrative in telemetry or the audit log.** Trace decorators capture metadata
@@ -34,9 +39,7 @@ coverage decision, which depends on them.
 ## Consequences
 
 - Pattern-based redaction will miss unusual formats; it is a layer, not a guarantee.
-- Attachment file names and tool results (claims history has short health summaries) are not
-  redacted.
-- The recommender's limit is real because its input schema enforces it. The other agents'
-  data classes are not enforced; doing that would mean filtering each agent's input by class.
+- Classes are declared by code, not detected from content, so a wrong declaration isn't caught.
+  The default (everything) keeps an undeclared input away from a restricted agent.
 - Health data still goes to the model provider for the agents that need it, which a production
   deployment must cover in its data processing agreement.

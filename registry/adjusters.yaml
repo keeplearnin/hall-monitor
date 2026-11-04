@@ -1,14 +1,22 @@
 # Human adjusters who may decide claims the routing rule sends to a person (fictional).
 # authority_limit_usd: the largest payout they may approve.
 # may_pay_flagged: whether they may approve a payment on a claim with a fraud flag.
+# public_key: their Ed25519 public key (base64); a decision counts only if signed with the
+#   matching private key (governance/signing.py).
+# demo_key: true marks a key derived from the adjuster ID so the demo runs. It is public by
+#   construction; a real adjuster's key comes from the firm's identity system.
 adjusters:
   - id: adj-101
     name: Jordan Avery
     role: Claims adjuster
     authority_limit_usd: 5000
     may_pay_flagged: false
+    public_key: ogDlClI9v6X9ZdhBofNVmhO5sE8mwmrx5QdLt/UswuE=
+    demo_key: true
   - id: adj-201
     name: Morgan Patel
     role: Senior claims adjuster
     authority_limit_usd: 25000
     may_pay_flagged: true
+    public_key: hA1xW7SZIqN/yrBmLY9Gl+AUMSCPLWQTD+HadZKq72M=
+    demo_key: true

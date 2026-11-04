@@ -2,6 +2,8 @@
 
 from types import SimpleNamespace
 
+from hall_monitor.governance.approval import AdjusterDecision
+from hall_monitor.governance.signing import demo_private_key
 from hall_monitor.models import (
     CoverageFinding,
     CriticReview,
@@ -47,3 +49,9 @@ class FakeMessages:
 
 def fake_client(outputs: dict[type, object] | None = None, stop_reason: str = "end_turn"):
     return SimpleNamespace(messages=FakeMessages(outputs or {}, stop_reason))
+
+
+def signed_decision(claim_id: str, **fields) -> AdjusterDecision:
+    """An adjuster decision signed with that adjuster's demo key, as the review CLI does."""
+    decision = AdjusterDecision(**fields)
+    return decision.signed(claim_id, demo_private_key(decision.adjuster_id))

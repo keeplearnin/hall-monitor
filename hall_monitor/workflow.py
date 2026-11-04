@@ -1,11 +1,13 @@
 """Claim workflow: triage, then either the automatic route or the adjuster approval gate.
 
 A LangGraph graph with a SQLite checkpointer. Every step is also written to the
-hash-chained audit log (governance/audit.py). When the routing rule sends a claim to a person,
-the graph stops at the review node (an interrupt) with the evidence pack, and its state is
-saved, so the claim can wait for an adjuster across process restarts. The adjuster's decision
-resumes it; a decision the rules reject stops it at review again with the reason. One thread
-per claim, keyed by claim ID.
+hash-chained audit log (governance/audit.py) as it happens, and the evidence pack is stored
+there under its hash. When the routing rule sends a claim to a person, the graph stops at the
+review node (an interrupt) with the evidence pack, and its state is saved, so the claim can
+wait for an adjuster across process restarts. Checkpoints aren't tamper-evident, so before any
+decision the review node checks the saved pack against the hash in the audit log. The
+adjuster's signed decision resumes the claim; a decision the rules reject stops it at review
+again with the reason. One thread per claim, keyed by claim ID.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from langgraph.types import Command, interrupt
 from hall_monitor.governance.approval import (
     AdjusterDecision,
     DecisionRejected,
+    audit_payload,
     build_evidence_pack,
     evidence_sha256,
     final_auto,
@@ -33,8 +36,9 @@ from hall_monitor.governance.approval import (
 from hall_monitor.governance.audit import (
     DEFAULT_AUDIT_DB,
     AuditLog,
+    EvidenceChanged,
+    TriageRecorder,
     canonical,
-    record_triage,
     sha256,
 )
 from hall_monitor.models import ClaimSubmission, Route, TriageResult
@@ -77,12 +81,11 @@ def build_graph(
             client=client,
             critic=critic,
             model_routing=model_routing,
+            on_event=TriageRecorder(audit, claim.claim_id),
         )
         pack = build_evidence_pack(result, claim)
-        record_triage(audit, claim, result)
-        audit.append(
-            claim.claim_id, "evidence_pack", "pipeline", {"evidence_sha256": evidence_sha256(pack)}
-        )
+        digest = audit.put_evidence(pack)
+        audit.append(claim.claim_id, "evidence_pack", "pipeline", {"evidence_sha256": digest})
         return {
             "result": result.model_dump(mode="json"),
             "evidence": pack,
@@ -95,9 +98,9 @@ def build_graph(
 
     def auto(state: ClaimState) -> ClaimState:
         result = TriageResult.model_validate(state["result"])
-        final = final_auto(result, state["evidence_sha256"]).model_dump(mode="json")
-        audit.append(result.claim_id, "final_decision", "auto", final)
-        return {"final": final}
+        final = final_auto(result, state["evidence_sha256"])
+        audit.append(result.claim_id, "final_decision", "auto", audit_payload(final))
+        return {"final": final.model_dump(mode="json")}
 
     def review(state: ClaimState) -> ClaimState:
         submitted = interrupt(
@@ -110,9 +113,10 @@ def build_graph(
         )
         result = TriageResult.model_validate(state["result"])
         try:
+            _check_evidence(audit, result.claim_id, state)
             decision = AdjusterDecision.model_validate(submitted)
             adjuster = validate_decision(decision, result, state["evidence_sha256"], adjusters)
-        except (DecisionRejected, ValueError) as exc:
+        except (DecisionRejected, EvidenceChanged, ValueError) as exc:
             audit.append(
                 result.claim_id,
                 "decision_rejected",
@@ -122,7 +126,10 @@ def build_graph(
             return {"rejected": str(exc)}
         final = final_from_adjuster(decision, adjuster, result, state["evidence_sha256"])
         audit.append(
-            result.claim_id, "final_decision", final.decided_by, final.model_dump(mode="json")
+            result.claim_id,
+            "final_decision",
+            final.decided_by,
+            audit_payload(final, decision.signature),
         )
         return {"final": final.model_dump(mode="json"), "rejected": None}
 
@@ -138,6 +145,19 @@ def build_graph(
     graph.add_edge("auto", END)
     graph.add_conditional_edges("review", after_review, {"review": "review", END: END})
     return graph
+
+
+def _check_evidence(audit: AuditLog, claim_id: str, state: ClaimState) -> None:
+    """The saved pack must be the one the audit log recorded at triage, and still stored
+    unchanged: a checkpoint edited after triage can't put different evidence in front of the
+    adjuster."""
+    logged = audit.evidence_hash(claim_id)
+    if logged is None or state["evidence_sha256"] != logged:
+        raise DecisionRejected("the saved evidence pack isn't the one recorded at triage")
+    if evidence_sha256(state["evidence"]) != logged:
+        raise DecisionRejected("the saved evidence pack was changed after triage")
+    if audit.get_evidence(logged) is None:
+        raise DecisionRejected("the evidence pack recorded at triage is no longer stored")
 
 
 @contextmanager

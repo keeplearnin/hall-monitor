@@ -17,9 +17,19 @@ from fastmcp import FastMCP
 
 from hall_monitor.data import DATA_DIR, load_policy_records
 from hall_monitor.models import PolicyRecord
+from hall_monitor.registry import DataClass
 
 POLICY_LOOKUP = "policy_lookup"
 CLAIMS_HISTORY = "claims_history"
+
+# What each tool's results carry. The gateway refuses a tool to an agent whose manifest doesn't
+# allow every class it returns.
+TOOL_DATA_CLASSES: dict[str, frozenset[DataClass]] = {
+    # Insured's name, trip dates and deposit amounts.
+    POLICY_LOOKUP: frozenset({DataClass.PII, DataClass.FINANCIAL}),
+    # Earlier claims: summaries can describe illness or injury.
+    CLAIMS_HISTORY: frozenset({DataClass.PII, DataClass.HEALTH, DataClass.FINANCIAL}),
+}
 
 
 def build_server(

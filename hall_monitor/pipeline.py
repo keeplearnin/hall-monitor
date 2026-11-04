@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 
 import anthropic
 from pydantic import BaseModel, ValidationError
@@ -66,17 +67,38 @@ class PipelineStopped(Exception):
     pass
 
 
+# Called with an event name and the item it records, as each thing happens (see triage).
+EventSink = Callable[[str, object], None]
+
+
+class _Recorded[T](list[T]):
+    """A list that reports each item as it is added, so the audit trail is written as it
+    happens and a run that dies part-way still leaves what it did."""
+
+    def __init__(self, event: str, on_event: EventSink | None):
+        super().__init__()
+        self._event, self._on_event = event, on_event
+
+    def append(self, item: T) -> None:
+        super().append(item)
+        if self._on_event is not None:
+            self._on_event(self._event, item)
+
+
 @dataclass
 class _Run:
     """Everything recorded so far, so a claim that stops part-way keeps its audit trail."""
 
-    calls: list[AgentCall] = field(default_factory=list)
+    on_event: EventSink | None = None
     extraction: IntakeExtraction | None = None
-    reviews: list[CriticReview] = field(default_factory=list)
-    history: list[RevisionRecord] = field(default_factory=list)
-    code_corrections: list[str] = field(default_factory=list)
-    tool_calls: list[ToolCall] = field(default_factory=list)
     revisions: int = 0
+
+    def __post_init__(self) -> None:
+        self.calls: list[AgentCall] = _Recorded("agent_call", self.on_event)
+        self.tool_calls: list[ToolCall] = _Recorded("tool_call", self.on_event)
+        self.reviews: list[CriticReview] = _Recorded("critic_review", self.on_event)
+        self.history: list[RevisionRecord] = _Recorded("revision", self.on_event)
+        self.code_corrections: list[str] = _Recorded("code_correction", self.on_event)
 
     def output[T](self, run: AgentRun[T]) -> T:
         self.calls.append(run.call)
@@ -144,15 +166,48 @@ def triage(
     client: anthropic.Anthropic | None = None,
     critic: bool = True,
     model_routing: bool = False,
+    on_event: EventSink | None = None,
 ) -> TriageResult:
-    """model_routing=False (the default) runs every agent on its main model."""
+    """model_routing=False (the default) runs every agent on its main model.
+
+    on_event, if given, is called as each thing happens: "claim_submitted" (a dict with the
+    original claim, the redaction counts and the injection signals), then "agent_call",
+    "tool_call", "critic_review", "revision" and "code_correction" in the order they occur, and
+    "triage_result" last. The workflow writes each to the audit log at once. If recording
+    fails, the claim doesn't proceed: a failure mid-run stops it for a person, and a failure
+    at either end raises.
+    """
+    result = _triage_with_stop(
+        claim, registry, wording, gateway, client, critic, model_routing, on_event
+    )
+    if on_event is not None:
+        on_event("triage_result", result)
+    return result
+
+
+def _triage_with_stop(
+    claim: ClaimSubmission,
+    registry: Registry,
+    wording: str,
+    gateway: ToolGateway | None,
+    client: anthropic.Anthropic | None,
+    critic: bool,
+    model_routing: bool,
+    on_event: EventSink | None,
+) -> TriageResult:
     client = client or anthropic.Anthropic()
     gateway = gateway or ToolGateway(registry)
-    run = _Run()
+    run = _Run(on_event)
     # Code checks before any model sees the claim: text aimed at the AI is flagged (and routes
     # the claim to a person), and identifiers no agent needs are removed.
     signals = detect_instructions(claim)
+    original = claim
     claim, redactions = redact_claim(claim)
+    if on_event is not None:
+        on_event(
+            "claim_submitted",
+            {"claim": original, "redactions": redactions, "injection_signals": signals},
+        )
     try:
         result = _triage(
             claim, run, registry, gateway, wording, client, critic, model_routing, signals

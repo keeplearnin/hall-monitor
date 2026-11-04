@@ -8,8 +8,10 @@
     uv run python -m hall_monitor.review decide claim_003 --adjuster adj-201 --accept \\
         --evidence-sha256 <hash from show>
 
-Deciding needs the evidence hash that `show` prints, so the record proves which evidence the
-adjuster reviewed. Only stored state is read, so no model calls are made.
+Deciding needs the evidence hash that `show` prints, and the decision is signed with the
+adjuster's Ed25519 key (`--key key.pem`), so the record shows who decided and on which
+evidence. Without --key, the fictional adjusters' demo keys are used, with a warning. Only
+stored state is read, so no model calls are made.
 """
 
 from __future__ import annotations
@@ -22,7 +24,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from hall_monitor.data import load_policy_wording
-from hall_monitor.governance.approval import AdjusterDecision
+from hall_monitor.governance.approval import AdjusterDecision, load_adjusters
+from hall_monitor.governance.signing import demo_private_key, load_private_key
 from hall_monitor.models import NextStep
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
@@ -49,9 +52,20 @@ def main(argv: list[str] | None = None) -> int:
     choice.add_argument("--next-step", choices=[s.value for s in NextStep])
     decide.add_argument("--payout", type=float, default=0.0)
     decide.add_argument("--reason", default="")
+    decide.add_argument("--key", type=Path, help="The adjuster's Ed25519 private key (PEM).")
     args = parser.parse_args(argv)
 
     load_dotenv()
+    key = None
+    if args.command == "decide":
+        if args.key is not None:
+            key = load_private_key(args.key)
+        elif getattr(load_adjusters().get(args.adjuster), "demo_key", False):
+            print(f"warning: signing with {args.adjuster}'s public demo key", file=sys.stderr)
+            key = demo_private_key(args.adjuster)
+        else:
+            print(f"--key is required to sign as {args.adjuster}", file=sys.stderr)
+            return 1
     registry = Registry.from_dir()
     with open_workflow(
         args.checkpoints,
@@ -85,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
             payout_usd=payout,
             reason=args.reason,
             evidence_sha256=args.evidence_sha256,
-        )
+        ).signed(args.claim_id, key)
         result = workflow.decide(args.claim_id, decision)
         _print(
             result

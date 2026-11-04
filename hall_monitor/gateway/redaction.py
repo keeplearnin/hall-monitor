@@ -2,9 +2,10 @@
 
 Removed: dates of birth, email addresses, phone numbers, full card numbers (checked with the
 Luhn checksum), the last digits after "card ending", passport numbers and US Social Security
-numbers. Kept, because the agents need them: names, policy numbers, incident and receipt
-dates, amounts and medical details (coverage depends on them; see the manifests' data
-classes). Patterns are deliberately narrow: an ordinary date must never be mistaken for a
+numbers, from the claim text, attachment file names and tool results. Kept, because the agents
+need them: names, policy numbers, incident and receipt dates, amounts and medical details
+(coverage depends on them; the manifests' data classes, enforced at run time, decide which
+agents see them). Patterns are deliberately narrow: an ordinary date must never be mistaken for a
 phone number, or the agents lose the evidence they decide on.
 
 The report counts what was removed by type, never the values.
@@ -83,6 +84,17 @@ def redact_text(text: str, counts: Counter[str] | None = None) -> str:
     return text
 
 
+def redact_value(value, counts: Counter[str] | None = None):
+    """Redact every string inside a JSON-like value (a tool result, say)."""
+    if isinstance(value, str):
+        return redact_text(value, counts)
+    if isinstance(value, dict):
+        return {k: redact_value(v, counts) for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact_value(v, counts) for v in value]
+    return value
+
+
 def redact_claim(claim: ClaimSubmission) -> tuple[ClaimSubmission, dict[str, int]]:
     """A copy of the claim with identifiers removed, and how many of each type were removed."""
     counts: Counter[str] = Counter()
@@ -90,7 +102,12 @@ def redact_claim(claim: ClaimSubmission) -> tuple[ClaimSubmission, dict[str, int
         update={
             "narrative": redact_text(claim.narrative, counts),
             "attachments": [
-                a.model_copy(update={"text": redact_text(a.text, counts)})
+                a.model_copy(
+                    update={
+                        "filename": redact_text(a.filename, counts),
+                        "text": redact_text(a.text, counts),
+                    }
+                )
                 for a in claim.attachments
             ],
         }

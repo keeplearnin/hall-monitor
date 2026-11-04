@@ -1,6 +1,6 @@
 # ADR 0008: A hash-chained SQLite audit log, anchored outside the database
 
-- **Status:** Accepted (milestone 6)
+- **Status:** Accepted (milestone 6; events written as they happen since milestone 11)
 - **Control:** [HM-06](../controls.md#hm-06)
 
 ## Context
@@ -12,12 +12,19 @@ application logs can be edited by anyone with access.
 
 [`governance/audit.py`](../../hall_monitor/governance/audit.py) keeps an append-only log in
 SQLite. Each entry's hash covers its own fields and the previous entry's hash; triggers refuse
-updates and deletes; `verify` reports any changed, missing or reordered entry. Entries hold IDs,
-hashes, decisions and costs, and no claim narrative or documents, to keep personal data out of a
-log that can't be edited. They do hold policy numbers, decision fields, tool-call arguments and
-the adjuster's name and written reason. Someone with write access to the file could rebuild the whole chain, so the
-chain head (`audit head`) is meant to be copied somewhere they can't change, and `verify` checks
-against that copy.
+updates and deletes; `verify` reports any changed, missing or reordered entry. Events are written
+as they happen: the pipeline reports each agent call, tool call, review, revision and
+correction to a recorder that appends it at once, so a run that dies part-way still leaves its
+trail, and a claim whose events can't be recorded doesn't proceed.
+
+Entries hold IDs, hashes, decisions and costs, and no claim narrative or documents, to keep
+personal data out of a log that can't be edited. The adjuster's written reason is kept as a
+hash, and their ID rather than their name; the full decision stays in the workflow's record.
+Entries do hold policy numbers, decision fields and tool-call arguments.
+
+Someone with write access to the file could rebuild the whole chain, so the chain head
+(`audit head`) is meant to be copied somewhere they can't change, and `verify` checks against
+that copy.
 
 ## Alternatives considered
 
@@ -30,8 +37,8 @@ against that copy.
 
 - Tampering is detectable, not prevented. That is stated plainly in the code and the docs.
 - The anchor is only as good as where it's kept, which is a deployment decision.
-- Triage events are written together when triage finishes, not as each step happens, so a crash
-  mid-triage leaves no partial trail (the stopped claim is still logged).
-- An adjuster's written reason can contain personal or medical detail and can't be erased. A
-  production version would store the reason elsewhere and log its hash.
+- A log outage stops claims rather than letting them through unrecorded.
+- Evidence packs are stored beside the log, by hash, where they can be erased without breaking
+  the chain ([ADR 0014](0014-signed-decisions-and-stored-evidence.md)).
+- Copying the chain head out is still manual.
 - SQLite suits one writer; production would move to Postgres with the same hashing.

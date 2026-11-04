@@ -1,8 +1,10 @@
 """The tool gateway: every tool call passes the hall-pass allow-list check and is recorded.
 
 Agents see only the tools their manifest allows, and every call is checked again here, so a
-model that asks for anything else is refused even if it was never offered the tool. Each call,
-allowed or refused, is appended to the claim's audit log with a hash of what came back.
+model that asks for anything else is refused even if it was never offered the tool. A tool is
+also refused to an agent not approved for every data class it returns, and identifiers no agent
+needs are removed from what it returns. Each call, allowed or refused, is appended to the
+claim's audit log with a hash of what the agent received.
 """
 
 from __future__ import annotations
@@ -14,9 +16,10 @@ import time
 
 from fastmcp import Client, FastMCP
 
+from hall_monitor.gateway.redaction import redact_value
 from hall_monitor.models import PolicyRecord, ToolCall
-from hall_monitor.registry import Registry, RegistryError
-from hall_monitor.tools.server import POLICY_LOOKUP, build_server
+from hall_monitor.registry import ALL_DATA_CLASSES, Registry, RegistryError
+from hall_monitor.tools.server import POLICY_LOOKUP, TOOL_DATA_CLASSES, build_server
 
 PIPELINE_ACTOR = "pipeline"
 # The pipeline's own code checks may use these tools; it is not an agent and has no manifest.
@@ -63,6 +66,7 @@ class ToolGateway:
                     raise RegistryError(f"pipeline may not call tool {tool!r}")
             else:
                 self.registry.check_tool(actor, tool)
+                self.registry.check_data(actor, TOOL_DATA_CLASSES.get(tool, ALL_DATA_CLASSES))
             asked = str(arguments.get("policy_number", "")).strip().upper()
             if scope_policy is not None and asked != scope_policy.strip().upper():
                 raise RegistryError(
@@ -83,6 +87,8 @@ class ToolGateway:
             return {"error": f"Refused: {exc}"}
 
         result = asyncio.run(self._call(tool, arguments))
+        if actor != PIPELINE_ACTOR:
+            result = redact_value(result)
         log.append(
             ToolCall(
                 actor=actor,
