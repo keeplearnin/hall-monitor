@@ -2,6 +2,7 @@
 
 import pytest
 
+from hall_monitor.amounts import source_text
 from hall_monitor.data import (
     DATA_DIR,
     iter_claims,
@@ -9,6 +10,7 @@ from hall_monitor.data import (
     load_policy_records,
     load_policy_wording,
 )
+from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.governance.routing import route_claim
 from hall_monitor.models import CoverageAssessment, Recommendation, RiskAssessment
 
@@ -45,7 +47,14 @@ def test_route_follows_routing_rule(claim):
     risk = RiskAssessment(**truth.risk.model_dump(), reasoning="")
     recommendation = Recommendation(next_step=truth.next_step, reasons=[])
     policy = POLICIES.get(truth.extraction.policy_number)
-    routing = route_claim(truth.extraction, coverage, risk, recommendation, policy=policy)
+    routing = route_claim(
+        truth.extraction,
+        coverage,
+        risk,
+        recommendation,
+        policy=policy,
+        claim_text=source_text(redact_claim(claim)[0]),
+    )
     assert routing.route == truth.route, routing.reasons
 
 

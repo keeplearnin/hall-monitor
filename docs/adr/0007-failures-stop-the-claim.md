@@ -11,7 +11,8 @@ A pipeline that guesses its way past a failure produces decisions nobody can exp
 ## Decision
 
 Every failure becomes a stopped result: an API error, a refusal (`AgentRefusedError`), output
-that fails validation, a refused hall pass, a policy that can't be found, a tool loop past
+that fails validation or isn't the type asked for, a turn that didn't finish (any stop reason
+but `end_turn`), a refused hall pass, a policy that can't be found, a tool loop past
 `MAX_TOOL_ROUNDS`, or any other unexpected error.
 Stopped claims go to a person with the reason (`route_stopped`) and are recorded in the audit
 log. The first version crashed on a refusal; a review caught it. A later claims audit found

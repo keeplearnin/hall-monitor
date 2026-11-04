@@ -147,3 +147,34 @@ the PR. The "cost unknown" fix only worked alongside an API failure; the docs st
 payout cap that no longer applies to non-USD claims; and no test showed a NaN from the model
 stopping the claim. The last one now has a pipeline test, which passed first time: the guard
 already worked, and the test now proves it.
+
+## Phase B1: agents that get it wrong
+
+**What:** `tests/test_agent_faults.py` bends each agent's answer in 22 ways a model could get it
+wrong (wrong claimant, another insured's policy, dates outside cover, another currency, invented
+or double-counted amounts, payouts above the claim or the threshold, a fraud flag labelled low,
+a wrong recommendation, a critic that is never satisfied), on each of the 16 claims the answer key
+routes automatically, and checks every one reaches a person. It also makes each agent in turn
+return nothing, the wrong type, an unfinished turn, an API failure or an unexpected error.
+
+**What the tests broke, fixed test-first:**
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| An extraction with invented or inflated amounts, paid in full by coverage, routed automatically | High | The routing rule traces each claimed item to its own occurrence in the claim documents, requires the total claimed to appear there, and checks the items add up to the total |
+| `run_agent` accepted any stop reason except refusal, tool use and max tokens, so `pause_turn` or a later stop reason passed a partial answer | Medium | Only `end_turn` counts |
+| An answer of the wrong type (a recommendation where an extraction was asked for) crashed the stop path instead of stopping the claim | Medium | `run_agent` refuses output that isn't the type asked for |
+
+**Known limits, pinned by tests:** a risk step that misses a fraud signal, and a coverage step
+that ignores a limit but pays no more than was claimed (and no more than $2,500), still route
+automatically. Code can't see either; they're logged as HM-04 gaps.
+
+**Pre-PR review** (the `governance-reviewer` agent on the branch's diff): 5 findings.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The first amount trace only asked whether a figure appeared anywhere: an item counted twice, a total line counted as an item, or a date or year taken as an amount still routed automatically | High | Each item now uses its own occurrence and the total must appear in the documents; three new faults cover these. A figure written in both the narrative and a receipt still counts twice, so the total check is what catches a double-counted item there (logged as an HM-04 gap) |
+| ADR 0001, HM-04 and the README claimed more than that first trace did | High | Reworded to what the code checks, with the remaining limit stated |
+| Routing tests traced amounts in the original text, the pipeline in the redacted text | Medium | The tests use the redacted text |
+| Eval scoring traced amounts differently from the routing rule | Low | Scoring uses the same rule on the same redacted text |
+| The incomplete-answer test only ever failed at intake; one fault also tripped a second reason | Low | The fake takes a stop reason per agent and the test runs at every agent. The payout-above-claim check is shown on its own by "coverage: pays more than claimed" |

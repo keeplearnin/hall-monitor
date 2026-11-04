@@ -3,14 +3,18 @@
 It checks the facts behind a decision, not just the labels the agents put on them: a claim
 the coverage step pays nothing on is a denial whatever the recommendation says, and a payout
 above the amount claimed is wrong whatever the coverage step says. Facts the agents could get
-wrong are checked against the policy record in code: the claimant must be the insured, the
-incident must fall inside the coverage period, and amounts must be in USD (the policy pays in
-USD and nothing here converts currency). Anything other than a clean, low-risk payment within
-bounds goes to an adjuster.
+wrong are checked in code against the policy record and the claim documents: the claimant must
+be the insured, the incident must fall inside the coverage period, every claimed amount must
+appear in the documents and the items must add up to the total, and amounts must be in USD (the
+policy pays in USD and nothing here converts currency). The amount check traces an agent's
+figures to what the claimant sent: each item to its own occurrence in the documents, and the
+total too. It doesn't verify the claimant's own figures. Anything other
+than a clean, low-risk payment within bounds goes to an adjuster.
 """
 
 from __future__ import annotations
 
+from hall_monitor.amounts import amount_in, untraced
 from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
 from hall_monitor.models import (
     CoverageAssessment,
@@ -37,7 +41,10 @@ def route_claim(
     critic_changed: list[str] | None = None,
     injection_signals: list[str] | None = None,
     policy: PolicyRecord | None = None,
+    claim_text: str | None = None,
 ) -> RoutingDecision:
+    """claim_text is everything the claimant sent (amounts.source_text); without it the amounts
+    can't be traced, and the claim goes to a person."""
     reasons = []
     if extraction.currency.strip().upper() != "USD":
         reasons.append(f"claim is in {extraction.currency}, not USD: amounts can't be compared")
@@ -50,6 +57,21 @@ def route_claim(
             reasons.append("no incident date to check against the coverage period")
         elif not policy.coverage_start <= extraction.incident_date <= policy.coverage_end:
             reasons.append("incident date is outside the coverage period")
+    if claim_text is None:
+        reasons.append("no claim text to check the claimed amounts against")
+    else:
+        missing = untraced([i.amount for i in extraction.claimed_items], claim_text)
+        if not amount_in(extraction.total_claimed, claim_text):
+            missing.append(extraction.total_claimed)
+        if missing:
+            listed = ", ".join(f"{a:,.2f}" for a in missing)
+            reasons.append(f"claimed amounts not in the claim documents: {listed}")
+    items_total = sum(i.amount for i in extraction.claimed_items)
+    if abs(items_total - extraction.total_claimed) > 0.005:
+        reasons.append(
+            f"claimed items ({items_total:,.2f}) don't add up to the "
+            f"{extraction.total_claimed:,.2f} claimed"
+        )
     if recommendation.next_step is not NextStep.PAY:
         reasons.append(f"recommended {recommendation.next_step.value.replace('_', ' ')}")
     if coverage.decision is CoverageDecision.NOT_COVERED:

@@ -93,7 +93,9 @@ controls:
       Against the policy record it checks in code that the claimant is the insured (names compared
       ignoring case, accents and punctuation), the incident
       falls inside the coverage period and the claim is in USD; a claim with no policy record,
-      no incident date or another currency goes to a person.
+      no incident date or another currency goes to a person. Against the claim documents it
+      checks that each claimed item matches its own occurrence of that figure, that the total claimed
+      appears in them, and that the items add up to the total.
     status: built
     code:
       - hall_monitor/governance/routing.py::route_claim
@@ -101,12 +103,22 @@ controls:
       - tests/test_pipeline.py::test_anything_but_a_clean_small_payment_goes_to_an_adjuster
       - tests/test_pipeline.py::test_facts_checked_against_the_policy_send_the_claim_to_a_person
       - tests/test_data.py::test_route_follows_routing_rule
+      - tests/test_agent_faults.py::test_a_wrong_answer_sends_the_claim_to_a_person
+      - tests/test_agent_faults.py::test_known_limit_a_missed_fraud_signal_routes_automatically
+      - tests/test_agent_faults.py::test_known_limit_an_overpayment_within_the_claim_routes_automatically
     evidence:
       - evals/results/hardened-critic/findings.md
     nist: [GOVERN 3.2, MAP 3.5, MANAGE 1.3]
     finos:
       risks: [RI-22, RI-24]
       mitigations: [MI-24]
+    gaps: >-
+      A wrong answer that agrees with every fact the rule checks still routes automatically: a
+      risk step that misses a fraud signal, or a coverage step that ignores a limit but pays no
+      more than was claimed and no more than $2,500. Tests pin both. The amount trace checks the
+      agents' figures against what the claimant sent, not the claimant's own figures, and a figure
+      written in both the narrative and a receipt counts twice, so wrong items whose total happens
+      to appear in the documents would pass it.
 
   - id: HM-05
     name: Adjuster approval gate
@@ -217,8 +229,9 @@ controls:
   - id: HM-08
     name: Failures stop the claim and go to a person
     what: >-
-      A refusal, API error, invalid output, refused hall pass, missing policy or any unexpected
-      error stops the claim, records why, keeps the cost of calls already made, and routes it to an adjuster.
+      A refusal, API error, invalid output (including output of the wrong type, or a turn that
+      ended any way but end_turn), refused hall pass, missing policy or any unexpected error stops
+      the claim, records why, keeps the cost of calls already made, and routes it to an adjuster.
     status: built
     code:
       - hall_monitor/pipeline.py::triage
@@ -227,6 +240,9 @@ controls:
       - tests/test_pipeline.py::test_api_error_stops_the_claim
       - tests/test_pipeline.py::test_unexpected_error_stops_the_claim
       - tests/test_pipeline.py::test_pipeline_stops_when_the_policy_cant_be_found
+      - tests/test_agent_faults.py::test_a_missing_or_failed_answer_stops_the_claim_for_a_person
+      - tests/test_agent_faults.py::test_an_answer_of_the_wrong_type_stops_the_claim_for_a_person
+      - tests/test_agent_faults.py::test_an_incomplete_answer_stops_the_claim_for_a_person
     evidence: []
     nist: [MANAGE 2.4, MANAGE 4.3]
     finos:

@@ -26,9 +26,10 @@ def outputs_from_truth(truth: GroundTruth) -> dict[type, object]:
 
 class FakeMessages:
     """Answers by output type. A list answers successive calls in order, repeating the last; a
-    function is called with the request and returns the answer."""
+    function is called with the request and returns the answer. stop_reason is one for every
+    call, or a dict by output type (end_turn for the rest)."""
 
-    def __init__(self, outputs: dict[type, object], stop_reason: str = "end_turn"):
+    def __init__(self, outputs: dict[type, object], stop_reason: str | dict = "end_turn"):
         self.outputs = outputs
         self.stop_reason = stop_reason
         self.calls: list[dict] = []
@@ -40,8 +41,11 @@ class FakeMessages:
             answer = answer.pop(0) if len(answer) > 1 else answer[0]
         if callable(answer):
             answer = answer(kwargs)
+        stop_reason = self.stop_reason
+        if isinstance(stop_reason, dict):
+            stop_reason = stop_reason.get(kwargs["output_format"], "end_turn")
         return SimpleNamespace(
-            stop_reason=self.stop_reason,
+            stop_reason=stop_reason,
             parsed_output=answer,
             usage=SimpleNamespace(input_tokens=1000, output_tokens=200),
         )
@@ -50,7 +54,7 @@ class FakeMessages:
         return [c["output_format"].__name__ for c in self.calls]
 
 
-def fake_client(outputs: dict[type, object] | None = None, stop_reason: str = "end_turn"):
+def fake_client(outputs: dict[type, object] | None = None, stop_reason: str | dict = "end_turn"):
     return SimpleNamespace(messages=FakeMessages(outputs or {}, stop_reason))
 
 

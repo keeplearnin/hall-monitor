@@ -162,7 +162,9 @@ def run_agent[T: BaseModel](
         raise AgentRefusedError(
             f"{agent_id} was still calling tools after {api_calls} rounds", call
         )
-    if response.stop_reason == "max_tokens" or response.parsed_output is None:
+    # Only a finished turn counts: max_tokens, pause_turn, a context-window stop or any stop
+    # reason added later can come with a partial answer.
+    if response.stop_reason != "end_turn" or not isinstance(response.parsed_output, output_format):
         raise AgentRefusedError(f"{agent_id} returned no complete output for {claim_id}", call)
     return AgentRun(output=response.parsed_output, call=call)
 

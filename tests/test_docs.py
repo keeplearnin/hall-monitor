@@ -60,5 +60,13 @@ def test_adr_has_status_and_known_controls(adr):
 def test_adr_0001_lists_every_routing_check():
     """The ADR that explains the routing rule must name each fact the code checks."""
     adr = (DOCS / "adr" / "0001-routing-decided-in-code.md").read_text()
-    for fact in ("insured", "coverage period", "USD", "no policy record", "incident date"):
+    for fact in (
+        "insured",
+        "coverage period",
+        "USD",
+        "no policy record",
+        "incident date",
+        "claim documents",
+        "add up",
+    ):
         assert fact in adr, fact
