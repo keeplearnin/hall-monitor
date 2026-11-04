@@ -38,8 +38,9 @@ flag."""
 
 
 class RecommendationInput(BaseModel):
-    """Data minimisation: structured fields only. No names, claim text or free-text reasoning,
-    which can carry medical details this agent's manifest doesn't allow (data classes)."""
+    """Data minimisation: structured fields only. No names, claim text or free-text reasoning.
+    The claim type and clause numbers can still show that a claim is medical, so this input is
+    declared as health data too."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -93,5 +94,7 @@ def run_recommendation(
         prompt_version=PROMPT_VERSION,
         claim_id=claim_id,
         economy=economy,
-        carries=frozenset({DataClass.FINANCIAL}),  # RecommendationInput: amounts and labels only
+        # Amounts and labels only, but the claim type (emergency_medical) and clause numbers
+        # (5.1, pre-existing conditions) can reveal a medical claim: that's health data.
+        carries=frozenset({DataClass.FINANCIAL, DataClass.HEALTH}),
     )

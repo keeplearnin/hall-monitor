@@ -25,7 +25,9 @@ coverage decision, which depends on them.
   taken to carry everything. Anything beyond the manifest is refused before the model or tool
   is called.
 - **Minimise the recommender.** It receives structured fields only (`RecommendationInput`): no
-  names, no claim text, no free-text reasoning that could carry medical details.
+  names, no claim text, no free-text reasoning that could carry medical details. Its claim type
+  (`emergency_medical`) and clause numbers (5.1, pre-existing conditions) can still reveal a
+  medical claim, so the input is declared, and the agent approved, as health data.
 - **No claim narrative in telemetry or the audit log.** Trace decorators capture metadata
   only, and the audit log holds IDs, hashes and decision fields.
 

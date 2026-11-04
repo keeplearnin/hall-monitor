@@ -11,6 +11,8 @@ agent's allow-list before any call reaches it.
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -30,6 +32,12 @@ TOOL_DATA_CLASSES: dict[str, frozenset[DataClass]] = {
     # Earlier claims: summaries can describe illness or injury.
     CLAIMS_HISTORY: frozenset({DataClass.PII, DataClass.HEALTH, DataClass.FINANCIAL}),
 }
+
+
+def name_key(name: str) -> str:
+    """A name for matching: case, accents, punctuation and spacing don't count."""
+    plain = "".join(c for c in unicodedata.normalize("NFKD", name) if not unicodedata.combining(c))
+    return " ".join(re.sub(r"[^\w\s]", " ", plain.casefold()).split())
 
 
 def build_server(
@@ -67,7 +75,10 @@ def build_server(
         record = policies.get(policy_number.strip().upper())
         if record is None:
             return {"found": False, "policy_number": policy_number, "claims": []}
-        claims = [c for c in history if c["insured_name"] == record.insured_name]
+        # Matched on the name ignoring case, accents and punctuation; nicknames and initials
+        # (Dan for Daniel) still don't match.
+        key = name_key(record.insured_name)
+        claims = [c for c in history if name_key(c["insured_name"]) == key]
         return {"found": True, "insured_name": record.insured_name, "claims": claims}
 
     return mcp

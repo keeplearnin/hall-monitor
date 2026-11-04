@@ -95,14 +95,16 @@ def test_recommender_sees_structured_fields_only():
     assert "<claim_summary>" in content
     assert "Aisha Bello" not in content and "Crohn" not in content and "reasoning" not in content
     assert set(RecommendationInput.model_fields) >= {"coverage_decision", "risk_flags"}
-    assert REGISTRY.get("recommendation").data_classes == ("financial",)
+    # Its claim type and clause numbers can reveal a medical claim, so it is declared (and
+    # approved) for health data, though it sees no medical text.
+    assert set(REGISTRY.get("recommendation").data_classes) == {"financial", "health"}
 
 
 def test_an_input_beyond_the_manifests_data_classes_is_refused_before_the_model():
     def parse(**kwargs):
         raise AssertionError("the model must not be called")
 
-    with pytest.raises(DataClassNotAllowedError, match="health, pii"):
+    with pytest.raises(DataClassNotAllowedError, match="may not see pii data"):
         run_agent(
             "recommendation",
             registry=REGISTRY,

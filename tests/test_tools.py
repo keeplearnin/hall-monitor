@@ -1,14 +1,17 @@
 """The MCP server, the tool gateway and the agents' tool-use loop (no network)."""
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
+from fastmcp import FastMCP
 
 from hall_monitor.agents import coverage_check
 from hall_monitor.agents.base import ToolAccess, run_agent
 from hall_monitor.models import CoverageFinding, ToolCall
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import PIPELINE_ACTOR, ToolGateway
+from hall_monitor.tools.server import build_server
 
 REGISTRY = Registry.from_dir()
 GATEWAY = ToolGateway(REGISTRY)
@@ -115,3 +118,62 @@ def test_tool_loop_runs_calls_through_the_gateway(tool, allowed):
     assert tool_result["type"] == "tool_result" and tool_result["tool_use_id"] == "tu_1"
     [call] = access.log
     assert call.tool == tool and call.allowed is allowed
+
+
+# --- Phase A3: failures, event loops, data classes, redaction, name matching ------------
+
+
+def _failing_server():
+    mcp = FastMCP("failing")
+
+    @mcp.tool(name="policy_lookup")
+    def policy_lookup(policy_number: str) -> dict:
+        raise RuntimeError("records service unavailable")
+
+    return mcp
+
+
+def test_a_tool_call_that_fails_after_it_was_allowed_is_still_recorded():
+    gateway = ToolGateway(REGISTRY, server=_failing_server())
+    log = []
+    with pytest.raises(Exception, match="unavailable"):
+        gateway.call("coverage_check", "policy_lookup", {"policy_number": "WTP-ESS-100231"}, log)
+    [call] = log
+    assert call.allowed and call.result_sha256 is None and "unavailable" in call.error
+
+
+def test_the_gateway_works_inside_a_running_event_loop():
+    async def inside_an_async_app():
+        gateway = ToolGateway(REGISTRY)
+        return gateway.call(
+            "coverage_check", "policy_lookup", {"policy_number": "WTP-ESS-100231"}, []
+        )
+
+    assert asyncio.run(inside_an_async_app())["found"] is True
+
+
+def test_agents_are_offered_only_tools_their_data_classes_allow():
+    no_health = REGISTRY.get("risk_fraud").model_copy(update={"data_classes": ("pii", "financial")})
+    gateway = ToolGateway(Registry([no_health]))
+    assert [d["name"] for d in gateway.definitions("risk_fraud")] == ["policy_lookup"]
+
+
+def test_identifiers_removed_from_a_tool_result_are_counted():
+    history = [
+        {
+            "insured_name": "Daniel Okafor",
+            "summary": "Call +1 415 555 0134 or email d.okafor@example.com.",
+        }
+    ]
+    gateway = ToolGateway(REGISTRY, server=build_server(history=history))
+    log = []
+    gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, log)
+    assert log[0].identifiers_redacted == {"email": 1, "phone": 1}
+
+
+@pytest.mark.parametrize("recorded", ["DANIEL OKAFOR", "Daniel  Okafor.", "Dániel Okafor"])
+def test_claims_history_matches_names_ignoring_case_spacing_accents_and_punctuation(recorded):
+    history = [{"insured_name": recorded, "summary": "Earlier baggage claim."}]
+    gateway = ToolGateway(REGISTRY, server=build_server(history=history))
+    result = gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, [])
+    assert len(result["claims"]) == 1
