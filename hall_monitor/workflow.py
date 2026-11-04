@@ -185,9 +185,16 @@ class ClaimWorkflow:
         return {"configurable": {"thread_id": claim_id}}
 
     def submit(self, claim: ClaimSubmission) -> dict:
-        """Triage a new claim. Returns its status (see status())."""
-        if self.app.get_state(self._config(claim.claim_id)).values:
+        """Triage a new claim. Returns its status (see status()).
+
+        A claim whose triage started but never finished (the process or a step crashed) is
+        started again; its earlier events stay in the audit log.
+        """
+        existing = self.app.get_state(self._config(claim.claim_id)).values
+        if existing and "result" in existing:
             raise ValueError(f"{claim.claim_id} is already in the workflow")
+        if existing:
+            self.saver.delete_thread(claim.claim_id)
         self.app.invoke({"claim": claim.model_dump(mode="json")}, self._config(claim.claim_id))
         return self.status(claim.claim_id)
 

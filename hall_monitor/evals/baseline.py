@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import threading
 from collections import Counter
@@ -28,16 +27,13 @@ from hall_monitor.data import (
     load_policy_wording,
 )
 from hall_monitor.evals import scoring
+from hall_monitor.evals.meta import git
 from hall_monitor.gateway.cost import call_cost
 from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
 from hall_monitor.models import AgentCall, ClaimSubmission, TriageResult
 from hall_monitor.pipeline import MAX_REVISIONS, triage
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
-
-
-def _git(*args: str) -> str:
-    return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
 
 
 def _pct(value: float | None) -> str:
@@ -286,8 +282,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     meta = {
         "run_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
-        "git_commit": _git("rev-parse", "HEAD"),
-        "git_dirty": bool(_git("status", "--porcelain", "--untracked-files=no")),
+        "git_commit": git("rev-parse", "HEAD"),
+        "git_dirty": bool(git("status", "--porcelain", "--untracked-files=no")),
         "claims": len(claims),
         "trials": args.trials,
         "critic": not args.no_critic,

@@ -11,7 +11,6 @@ adjuster, and changing the AI's recommendation needs a reason.
 from __future__ import annotations
 
 import hashlib
-import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,6 +19,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import BaseModel, ConfigDict, Field
 
 from hall_monitor.governance import signing
+from hall_monitor.governance.audit import evidence_body, sha256
 from hall_monitor.models import ClaimSubmission, NextStep, Route, TriageResult
 from hall_monitor.registry import ADJUSTERS_FILENAME, DEFAULT_REGISTRY_DIR
 
@@ -116,7 +116,8 @@ def build_evidence_pack(result: TriageResult, claim: ClaimSubmission) -> dict:
 
 
 def evidence_sha256(pack: dict) -> str:
-    return hashlib.sha256(json.dumps(pack, sort_keys=True).encode()).hexdigest()
+    """The pack's hash: the same one the audit log stores it under."""
+    return sha256(evidence_body(pack))
 
 
 def ai_payout(result: TriageResult) -> float | None:

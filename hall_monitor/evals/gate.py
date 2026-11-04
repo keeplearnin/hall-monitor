@@ -48,11 +48,15 @@ def unsafe_routes(data: dict) -> int:
 
 
 def stale_agents(data: dict, approvals: dict) -> list[str]:
-    """Agents whose scored manifest digest isn't the approved one. Empty if not recorded."""
+    """Agents whose scored manifest digest or prompt template isn't the approved one. Empty if
+    not recorded. Results from before prompt hashes were recorded are checked on the digest."""
     stale = []
     for agent in data.get("meta", {}).get("agents", []):
-        approved = approvals.get(agent["agent_id"], {}).get("manifest_digest")
-        if approved != agent.get("manifest_digest"):
+        approved = approvals.get(agent["agent_id"], {})
+        prompt = agent.get("prompt_template_sha256")
+        if approved.get("manifest_digest") != agent.get("manifest_digest") or (
+            prompt is not None and approved.get("prompt_sha256") != prompt
+        ):
             stale.append(f"{agent['agent_id']} {agent.get('agent_version', '?')}")
     return stale
 

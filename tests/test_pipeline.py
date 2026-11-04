@@ -1,5 +1,7 @@
 """Pipeline wiring and the routing rule, with the Claude client faked out (no network)."""
 
+from datetime import date
+
 import anthropic
 import httpx
 import pytest
@@ -8,6 +10,7 @@ from hall_monitor.agents.base import render_claim, render_feedback
 from hall_monitor.data import (
     iter_claims,
     load_ground_truth,
+    load_policy_records,
     load_policy_wording,
 )
 from hall_monitor.governance.routing import route_claim
@@ -97,6 +100,7 @@ def test_pipeline_stops_if_an_agent_loses_its_hall_pass():
 
 
 EXTRACTION = load_ground_truth("claim_001").extraction  # 1,992 claimed
+POLICY = load_policy_records()[EXTRACTION.policy_number]
 
 
 def _route(amount=100.0, flags=(), step=NextStep.PAY, level=RiskLevel.LOW, **kwargs):
@@ -106,7 +110,39 @@ def _route(amount=100.0, flags=(), step=NextStep.PAY, level=RiskLevel.LOW, **kwa
     )
     risk = RiskAssessment(level=level, flags=list(flags), reasoning="")
     recommendation = Recommendation(next_step=step, reasons=[])
-    return route_claim(EXTRACTION, coverage, risk, recommendation, **kwargs)
+    kwargs.setdefault("policy", POLICY)
+    extraction = kwargs.pop("extraction", EXTRACTION)
+    return route_claim(extraction, coverage, risk, recommendation, **kwargs)
+
+
+@pytest.mark.parametrize(
+    ("change", "reason"),
+    [
+        (
+            {"extraction": EXTRACTION.model_copy(update={"claimant_name": "Someone Else"})},
+            "insured",
+        ),
+        (
+            {"extraction": EXTRACTION.model_copy(update={"incident_date": date(2020, 1, 1)})},
+            "coverage period",
+        ),
+        ({"extraction": EXTRACTION.model_copy(update={"incident_date": None})}, "no incident date"),
+        ({"extraction": EXTRACTION.model_copy(update={"currency": "JPY"})}, "not USD"),
+        ({"policy": None}, "no policy record"),
+    ],
+    ids=["claimant-not-insured", "outside-cover", "no-date", "not-usd", "no-policy"],
+)
+def test_facts_checked_against_the_policy_send_the_claim_to_a_person(change, reason):
+    routing = _route(**change)
+    assert routing.route is Route.ADJUSTER
+    assert any(reason in r for r in routing.reasons)
+
+
+def test_claimant_name_match_ignores_case_and_punctuation():
+    name = EXTRACTION.claimant_name.upper().replace(" ", "  ") + "."
+    assert (
+        _route(extraction=EXTRACTION.model_copy(update={"claimant_name": name})).route is Route.AUTO
+    )
 
 
 def test_small_clean_payment_is_automatic():

@@ -209,3 +209,21 @@ def test_an_edited_checkpoint_cant_change_the_evidence(db, rehash):
         )
     assert status["state"] == "waiting_for_adjuster"
     assert "evidence pack" in status["previous_decision_rejected"]
+
+
+def test_a_claim_whose_triage_crashed_can_be_submitted_again(db, monkeypatch):
+    import hall_monitor.workflow as workflow_module
+
+    real = workflow_module.build_evidence_pack
+
+    def crash(*args):
+        raise RuntimeError("process died mid-triage")
+
+    monkeypatch.setattr(workflow_module, "build_evidence_pack", crash)
+    with pytest.raises(RuntimeError):
+        _submit(db, "claim_001")
+    with _open(db) as workflow:
+        assert workflow.status("claim_001")["state"] == "in_progress"
+
+    monkeypatch.setattr(workflow_module, "build_evidence_pack", real)
+    assert _submit(db, "claim_001")["state"] == "decided"

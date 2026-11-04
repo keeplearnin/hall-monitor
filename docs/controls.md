@@ -72,10 +72,10 @@ Agents read policy records and claims history only through MCP tools behind a ga
 
 **Routing to a person, decided in code** (built)
 
-A code rule, not a model, decides whether a person must decide. It checks the facts behind the agents' labels: denials, payouts above $2,500 or above the amount claimed, any fraud flag or non-low risk, critic changes, unresolved critic disagreement and injection signals.
+A code rule, not a model, decides whether a person must decide. It checks the facts behind the agents' labels: denials, payouts above $2,500 or above the amount claimed, any fraud flag or non-low risk, critic changes, unresolved critic disagreement and injection signals. Against the policy record it checks in code that the claimant is the insured, the incident falls inside the coverage period and the claim is in USD; a claim with no policy record, no incident date or another currency goes to a person.
 
 - **Code:** [`hall_monitor/governance/routing.py`](../hall_monitor/governance/routing.py) `route_claim`
-- **Tests:** [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_anything_but_a_clean_small_payment_goes_to_an_adjuster`; [`tests/test_data.py`](../tests/test_data.py) `test_route_follows_routing_rule`
+- **Tests:** [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_anything_but_a_clean_small_payment_goes_to_an_adjuster`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_facts_checked_against_the_policy_send_the_claim_to_a_person`; [`tests/test_data.py`](../tests/test_data.py) `test_route_follows_routing_rule`
 - **Evidence:** [`evals/results/hardened-critic/findings.md`](../evals/results/hardened-critic/findings.md)
 - **NIST AI RMF:** GOVERN 3.2 (Policies and procedures are in place to define and differentiate roles and responsibilities for human-AI configurations and oversight of AI systems); MAP 3.5 (Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function); MANAGE 1.3 (Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented)
 - **FINOS risks:** RI-22 Regulatory Compliance and Oversight; RI-24 Agent Action Authorization Bypass
@@ -99,10 +99,10 @@ Claims routed to a person pause in a LangGraph workflow with state saved in SQLi
 
 **Tamper-evident audit log** (built)
 
-Each claim's triage (agent calls, tool calls, critic reviews, revisions, corrections, result) and every adjuster decision are written, as they happen, to an append-only SQLite log in which each entry's hash covers the previous one. Triggers refuse edits and deletes, and verify reports any changed, missing or reordered entry, and any stored evidence pack that no longer matches its hash. Entries hold no claim narrative or documents, and keep a hash of the adjuster's written reason, not the text.
+Each claim's triage (agent calls, tool calls, critic reviews, revisions, corrections, result) and every adjuster decision are written, as they happen, to an append-only SQLite log in which each entry's hash covers the previous one. Triggers refuse edits and deletes, and verify reports any changed, missing or reordered entry, any stored evidence pack that no longer matches its hash, and (opened read-only, as the audit CLI does) any trigger someone removed. Entries hold no claim narrative or documents, and keep a hash of the adjuster's written reason, not the text.
 
 - **Code:** [`hall_monitor/governance/audit.py`](../hall_monitor/governance/audit.py) `AuditLog`; [`hall_monitor/audit.py`](../hall_monitor/audit.py) `main`
-- **Tests:** [`tests/test_audit.py`](../tests/test_audit.py) `test_a_changed_entry_is_detected`; [`tests/test_audit.py`](../tests/test_audit.py) `test_a_consistent_rewrite_is_caught_only_by_an_anchor`; [`tests/test_audit.py`](../tests/test_audit.py) `test_the_log_holds_no_claim_text`; [`tests/test_audit.py`](../tests/test_audit.py) `test_the_log_keeps_the_adjusters_reason_as_a_hash`; [`tests/test_audit.py`](../tests/test_audit.py) `test_evidence_is_stored_by_hash_and_checked_by_verify`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_events_are_reported_as_they_happen`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_a_recording_failure_stops_the_claim`
+- **Tests:** [`tests/test_audit.py`](../tests/test_audit.py) `test_a_changed_entry_is_detected`; [`tests/test_audit.py`](../tests/test_audit.py) `test_a_consistent_rewrite_is_caught_only_by_an_anchor`; [`tests/test_audit.py`](../tests/test_audit.py) `test_the_log_holds_no_claim_text`; [`tests/test_audit.py`](../tests/test_audit.py) `test_the_log_keeps_the_adjusters_reason_as_a_hash`; [`tests/test_audit.py`](../tests/test_audit.py) `test_evidence_is_stored_by_hash_and_checked_by_verify`; [`tests/test_audit.py`](../tests/test_audit.py) `test_read_only_verify_reports_removed_triggers_and_malformed_entries`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_events_are_reported_as_they_happen`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_a_recording_failure_stops_the_claim`
 - **NIST AI RMF:** MEASURE 2.8 (Risks associated with transparency and accountability – as identified in the map function – are examined and documented); MANAGE 4.1 (Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management)
 - **FINOS risks:** RI-17 Lack of Explainability; RI-22 Regulatory Compliance and Oversight
 - **FINOS mitigations:** MI-04 AI System Observability; MI-21 Agent Decision Audit and Explainability
@@ -245,10 +245,10 @@ Cost per claim, cache-aware and by agent, on every result and in the audit log; 
 
 **CI checks and the eval gate** (built)
 
-Every pull request runs lint, the offline tests, the approvals check, this register's checks, and the eval gate, which fails when a published score is below its threshold and flags results scored on an older agent version than the one approved, or that don't record their versions.
+Every pull request runs lint, the offline tests, the approvals check, this register's checks, and the eval gate, which fails when a published score is below its threshold and flags results scored on an older agent version or prompt than the one approved, or that don't record their versions.
 
 - **Code:** [`.github/workflows/ci.yml`](../.github/workflows/ci.yml); [`hall_monitor/evals/gate.py`](../hall_monitor/evals/gate.py) `run_gate`; [`evals/gate.yaml`](../evals/gate.yaml)
-- **Tests:** [`tests/test_gate.py`](../tests/test_gate.py) `test_a_score_below_threshold_fails`; [`tests/test_gate.py`](../tests/test_gate.py) `test_stale_results_are_flagged`; [`tests/test_gate.py`](../tests/test_gate.py) `test_results_without_agent_versions_count_as_stale`
+- **Tests:** [`tests/test_gate.py`](../tests/test_gate.py) `test_a_score_below_threshold_fails`; [`tests/test_gate.py`](../tests/test_gate.py) `test_stale_results_are_flagged`; [`tests/test_gate.py`](../tests/test_gate.py) `test_results_without_agent_versions_count_as_stale`; [`tests/test_gate.py`](../tests/test_gate.py) `test_a_changed_prompt_makes_a_result_stale`
 - **NIST AI RMF:** MEASURE 3.1 (Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts)
 - **FINOS risks:** RI-05 Foundation Model Versioning; RI-06 Non-Deterministic Behaviour
 - **FINOS mitigations:** MI-05 System Acceptance Testing; MI-10 AI Model Version Pinning

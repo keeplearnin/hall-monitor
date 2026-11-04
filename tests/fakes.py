@@ -25,7 +25,8 @@ def outputs_from_truth(truth: GroundTruth) -> dict[type, object]:
 
 
 class FakeMessages:
-    """Answers by output type. A list answers successive calls in order, repeating the last."""
+    """Answers by output type. A list answers successive calls in order, repeating the last; a
+    function is called with the request and returns the answer."""
 
     def __init__(self, outputs: dict[type, object], stop_reason: str = "end_turn"):
         self.outputs = outputs
@@ -37,6 +38,8 @@ class FakeMessages:
         answer = self.outputs.get(kwargs["output_format"])
         if isinstance(answer, list):
             answer = answer.pop(0) if len(answer) > 1 else answer[0]
+        if callable(answer):
+            answer = answer(kwargs)
         return SimpleNamespace(
             stop_reason=self.stop_reason,
             parsed_output=answer,

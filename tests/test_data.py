@@ -44,7 +44,8 @@ def test_route_follows_routing_rule(claim):
     coverage = CoverageAssessment(**truth.coverage.model_dump())
     risk = RiskAssessment(**truth.risk.model_dump(), reasoning="")
     recommendation = Recommendation(next_step=truth.next_step, reasons=[])
-    routing = route_claim(truth.extraction, coverage, risk, recommendation)
+    policy = POLICIES.get(truth.extraction.policy_number)
+    routing = route_claim(truth.extraction, coverage, risk, recommendation, policy=policy)
     assert routing.route == truth.route, routing.reasons
 
 

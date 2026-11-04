@@ -2,7 +2,12 @@
 
 import pytest
 
-from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.data import (
+    iter_claims,
+    load_ground_truth,
+    load_policy_records,
+    load_policy_wording,
+)
 from hall_monitor.evals.scoring import (
     clause_exists,
     failed_run,
@@ -37,7 +42,13 @@ def result_from_truth(claim_id: str) -> TriageResult:
         coverage=coverage,
         risk=risk,
         recommendation=recommendation,
-        routing=route_claim(truth.extraction, coverage, risk, recommendation),
+        routing=route_claim(
+            truth.extraction,
+            coverage,
+            risk,
+            recommendation,
+            policy=load_policy_records().get(truth.extraction.policy_number),
+        ),
         agent_calls=[],
     )
 

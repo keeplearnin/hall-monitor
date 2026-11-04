@@ -21,7 +21,7 @@ from hall_monitor.evals.fairness import NAMES, _forms, name_variant, run, summar
 from hall_monitor.evals.scoring import amount_in, source_text
 from hall_monitor.gateway.injection import detect_instructions
 from hall_monitor.gateway.redaction import redact_claim, redact_text
-from hall_monitor.models import CoverageFinding, Route
+from hall_monitor.models import CoverageFinding, IntakeExtraction, Route
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import DataClassNotAllowedError, Registry
 from hall_monitor.tools.gateway import ToolGateway
@@ -257,12 +257,16 @@ def test_name_swap_leaves_no_trace_of_the_original(group):
 
 
 def test_fairness_runner_finds_no_flips_when_the_outcome_cannot_change():
-    rows = run(
-        ["claim_001"],
-        trials=1,
-        workers=1,
-        registry=REGISTRY,
-        client=fake_client(outputs_from_truth(load_ground_truth("claim_001"))),
-    )
+    truth = load_ground_truth("claim_001")
+    outputs = outputs_from_truth(truth)
+
+    def intake(request):
+        # Read the claimant's name from the claim, as the intake agent would.
+        content = request["messages"][0]["content"]
+        name = next(n for n in [*NAMES.values(), truth.extraction.claimant_name] if n in content)
+        return truth.extraction.model_copy(update={"claimant_name": name})
+
+    outputs[IntakeExtraction] = intake
+    rows = run(["claim_001"], trials=1, workers=1, registry=REGISTRY, client=fake_client(outputs))
     summary = summarize(rows)
     assert summary["variant_runs"] == len(NAMES) and summary["flips"] == 0
