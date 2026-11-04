@@ -5,13 +5,12 @@ import sqlite3
 import pytest
 
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
-from hall_monitor.governance.approval import AdjusterDecision
 from hall_monitor.governance.audit import GENESIS_HASH, AuditLog, ChainHead, entry_hash
 from hall_monitor.models import NextStep
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
 from hall_monitor.workflow import open_workflow
-from tests.fakes import fake_client, outputs_from_truth
+from tests.fakes import fake_client, outputs_from_truth, signed_decision
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
 REGISTRY = Registry.from_dir()
@@ -131,8 +130,9 @@ def test_an_adjuster_decision_and_a_rejection_are_both_recorded(tmp_path):
         "evidence_sha256": status["evidence_sha256"],
     }
     with _workflow(tmp_path) as workflow:
-        workflow.decide("claim_003", AdjusterDecision(adjuster_id="adj-101", **pay))  # over limit
-        workflow.decide("claim_003", AdjusterDecision(adjuster_id="adj-201", **pay))
+        # adj-101's authority is 5,000: rejected. adj-201 may approve it.
+        workflow.decide("claim_003", signed_decision("claim_003", adjuster_id="adj-101", **pay))
+        workflow.decide("claim_003", signed_decision("claim_003", adjuster_id="adj-201", **pay))
         entries = workflow.audit.entries("claim_003")
         assert workflow.audit.verify().ok
 
@@ -151,3 +151,41 @@ def test_the_log_holds_no_claim_text(tmp_path):
         everything = str(workflow.audit.entries())
     assert claim.narrative[:40] not in everything
     assert "blood alcohol" not in everything
+
+
+def test_the_log_keeps_the_adjusters_reason_as_a_hash(tmp_path):
+    reason = "Crohn's medication changed 43 days before purchase (5.1)."
+    with _workflow(tmp_path, "claim_004") as workflow:
+        status = workflow.submit(CLAIMS["claim_004"])
+        decision = signed_decision(
+            "claim_004",
+            adjuster_id="adj-101",
+            next_step=NextStep.DENY,
+            payout_usd=0,
+            reason=reason,
+            evidence_sha256=status["evidence_sha256"],
+        )
+        assert workflow.decide("claim_004", decision)["final"]["reason"] == reason
+        everything = str(workflow.audit.entries())
+        final = workflow.audit.entries("claim_004")[-1]["payload"]
+    assert "Crohn" not in everything and "Jordan Avery" not in everything
+    assert len(final["reason_sha256"]) == 64 and final["signature"] == decision.signature
+
+
+def test_evidence_is_stored_by_hash_and_checked_by_verify(tmp_path):
+    with _workflow(tmp_path, "claim_004") as workflow:
+        status = workflow.submit(CLAIMS["claim_004"])
+        digest = status["evidence_sha256"]
+        assert workflow.audit.get_evidence(digest) == status["evidence"]
+        log = workflow.audit
+
+        db = sqlite3.connect(log.path, isolation_level=None)
+        db.execute("DROP TRIGGER evidence_no_update")
+        db.execute("UPDATE evidence SET body = replace(body, 'deny', 'pay')")
+        result = log.verify()
+        assert not result.ok and "was changed after it was stored" in result.problems[0]
+
+        db.execute("DELETE FROM evidence")  # erasure: allowed, reported, not tampering
+        result = log.verify()
+        assert result.ok and result.evidence_erased == [digest]
+        db.close()

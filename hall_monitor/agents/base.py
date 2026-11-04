@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from hall_monitor import tracing
 from hall_monitor.models import AgentCall, ClaimSubmission, PolicyRecord, ToolCall
-from hall_monitor.registry import Registry
+from hall_monitor.registry import ALL_DATA_CLASSES, DataClass, Registry
 
 if TYPE_CHECKING:
     from hall_monitor.tools.gateway import ToolGateway
@@ -68,6 +68,7 @@ def run_agent[T: BaseModel](
     tools: ToolAccess | None = None,
     economy: bool = False,
     prompt_template: str | None = None,
+    carries: frozenset[DataClass] = ALL_DATA_CLASSES,
 ) -> AgentRun[T]:
     """Call the model named on the agent's hall pass and return validated, typed output.
 
@@ -80,9 +81,14 @@ def run_agent[T: BaseModel](
     prompt_template is the system prompt before the policy wording was filled in (the same as
     system when nothing is filled in). Its hash must match the approved one, or the agent is
     refused, and it is recorded on the call so the audit trail ties back to the approval.
+
+    carries is the set of data classes in the input. Anything beyond the manifest's
+    data_classes is refused before the model is called; an input that doesn't say is taken to
+    carry every class.
     """
     template_sha256 = _sha256(prompt_template if prompt_template is not None else system)
     manifest = registry.require(agent_id, prompt_sha256=template_sha256)
+    registry.check_data(agent_id, carries)
     use_economy = economy and manifest.economy_model is not None
     model = manifest.economy_model if use_economy else manifest.model
     started = time.perf_counter()

@@ -1,10 +1,11 @@
 """The adjuster approval gate: what the adjuster sees, and the rules a decision must pass.
 
-The evidence pack is everything the AI found, in one record. Its SHA-256 is recorded with the
-decision, and the adjuster must quote it back, so the record proves which evidence they saw.
-Decisions are checked in code: the adjuster must be registered and within their authority, the
-payout must fit the claim, paying a flagged claim needs a senior adjuster, and changing the AI's
-recommendation needs a reason.
+The evidence pack is everything the AI found, in one record. It is stored under its SHA-256
+(governance/audit.py), the adjuster must quote that hash back, and their signature covers it, so
+the record shows which evidence the decision was made on. Decisions are checked in code: the
+adjuster must be registered, the decision signed with their key (governance/signing.py) and
+within their authority, the payout must fit the claim, paying a flagged claim needs a senior
+adjuster, and changing the AI's recommendation needs a reason.
 """
 
 from __future__ import annotations
@@ -15,8 +16,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import BaseModel, ConfigDict, Field
 
+from hall_monitor.governance import signing
 from hall_monitor.models import ClaimSubmission, NextStep, Route, TriageResult
 from hall_monitor.registry import ADJUSTERS_FILENAME, DEFAULT_REGISTRY_DIR
 
@@ -32,6 +35,8 @@ class Adjuster(BaseModel):
     role: str
     authority_limit_usd: float
     may_pay_flagged: bool
+    public_key: str
+    demo_key: bool = False
 
 
 def load_adjusters(path: Path = ADJUSTERS_FILE) -> dict[str, Adjuster]:
@@ -49,6 +54,11 @@ class AdjusterDecision(BaseModel):
     payout_usd: float = Field(ge=0)
     reason: str = ""
     evidence_sha256: str = Field(description="The hash of the evidence pack they reviewed.")
+    signature: str = Field("", description="The adjuster's Ed25519 signature (base64).")
+
+    def signed(self, claim_id: str, key: Ed25519PrivateKey) -> AdjusterDecision:
+        message = signing.decision_message(claim_id, self.model_dump(mode="json"))
+        return self.model_copy(update={"signature": signing.sign(message, key)})
 
 
 class FinalDecision(BaseModel):
@@ -123,6 +133,9 @@ def validate_decision(
     adjuster = adjusters.get(decision.adjuster_id)
     if adjuster is None:
         raise DecisionRejected(f"{decision.adjuster_id!r} is not a registered adjuster")
+    message = signing.decision_message(result.claim_id, decision.model_dump(mode="json"))
+    if not signing.verify(message, decision.signature, adjuster.public_key):
+        raise DecisionRejected(f"the decision isn't signed with {adjuster.id}'s key")
     if decision.evidence_sha256 != pack_sha256:
         raise DecisionRejected("evidence hash doesn't match the current evidence pack")
     claimed = result.extraction.total_claimed if result.extraction else None
@@ -175,6 +188,17 @@ def final_from_adjuster(
         evidence_sha256=pack_sha256,
         decided_at=datetime.now(UTC).isoformat(timespec="seconds"),
     )
+
+
+def audit_payload(final: FinalDecision, signature: str | None = None) -> dict:
+    """The final decision as the audit log keeps it: the adjuster's ID, not their name, and the
+    written reason's hash, not its text (it can hold medical detail, and the log can't be
+    erased). The full decision stays in the workflow's record."""
+    payload = final.model_dump(mode="json", exclude={"adjuster_name", "reason"})
+    payload["reason_sha256"] = hashlib.sha256(final.reason.encode()).hexdigest()
+    if signature is not None:
+        payload["signature"] = signature
+    return payload
 
 
 def final_auto(result: TriageResult, pack_sha256: str) -> FinalDecision:

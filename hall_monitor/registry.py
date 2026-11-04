@@ -105,6 +105,15 @@ class UnapprovedManifestError(RegistryError):
     pass
 
 
+class DataClassNotAllowedError(RegistryError):
+    pass
+
+
+# What an agent input carries when the caller doesn't say: everything, so an undeclared input
+# can only reach an agent approved for every data class.
+ALL_DATA_CLASSES = frozenset(DataClass)
+
+
 def load_approvals(path: Path = DEFAULT_REGISTRY_DIR / APPROVALS_FILENAME) -> dict[str, dict]:
     """Approved manifest digests and prompt hashes, per agent. Changes go through review."""
     return yaml.safe_load(path.read_text())["agents"]
@@ -175,6 +184,13 @@ class Registry:
                 f"agent {agent_id!r} prompt {prompt_sha256[:12]} is not the approved version"
             )
         return manifest
+
+    def check_data(self, agent_id: str, carries: frozenset[DataClass]) -> None:
+        """Refuse to send an agent data of a class its manifest doesn't allow."""
+        extra = carries - set(self.require(agent_id).data_classes)
+        if extra:
+            names = ", ".join(sorted(c.value for c in extra))
+            raise DataClassNotAllowedError(f"agent {agent_id!r} may not see {names} data")
 
     def check_tool(self, agent_id: str, tool: str) -> None:
         manifest = self.require(agent_id)

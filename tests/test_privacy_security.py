@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hall_monitor.agents import risk_fraud
+from hall_monitor.agents import recommendation, risk_fraud
 from hall_monitor.agents.base import ToolAccess, run_agent
 from hall_monitor.agents.recommendation import RecommendationInput
 from hall_monitor.data import (
@@ -23,8 +23,9 @@ from hall_monitor.gateway.injection import detect_instructions
 from hall_monitor.gateway.redaction import redact_claim, redact_text
 from hall_monitor.models import CoverageFinding, Route
 from hall_monitor.pipeline import triage
-from hall_monitor.registry import Registry
+from hall_monitor.registry import DataClassNotAllowedError, Registry
 from hall_monitor.tools.gateway import ToolGateway
+from hall_monitor.tools.server import build_server
 from tests.fakes import fake_client, outputs_from_truth
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
@@ -95,6 +96,52 @@ def test_recommender_sees_structured_fields_only():
     assert "Aisha Bello" not in content and "Crohn" not in content and "reasoning" not in content
     assert set(RecommendationInput.model_fields) >= {"coverage_decision", "risk_flags"}
     assert REGISTRY.get("recommendation").data_classes == ("financial",)
+
+
+def test_an_input_beyond_the_manifests_data_classes_is_refused_before_the_model():
+    def parse(**kwargs):
+        raise AssertionError("the model must not be called")
+
+    with pytest.raises(DataClassNotAllowedError, match="health, pii"):
+        run_agent(
+            "recommendation",
+            registry=REGISTRY,
+            client=SimpleNamespace(messages=SimpleNamespace(parse=parse)),
+            system=recommendation.SYSTEM_PROMPT,
+            content="the whole claim",  # carries every class unless the caller says otherwise
+            output_format=CoverageFinding,
+            prompt_version="v",
+            claim_id="claim_004",
+        )
+
+
+def test_a_tool_beyond_the_agents_data_classes_is_refused():
+    no_health = REGISTRY.get("risk_fraud").model_copy(update={"data_classes": ("pii", "financial")})
+    registry = Registry([no_health])  # unapproved copy: approval checks off for this test
+    log = []
+    gateway = ToolGateway(registry)
+    result = gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, log)
+    assert "may not see health" in result["error"]
+    assert not log[0].allowed
+
+
+def test_identifiers_are_redacted_from_tool_results_and_file_names():
+    history = [
+        {
+            "insured_name": "Daniel Okafor",
+            "reference": "CLM-1",
+            "summary": "Called from +1 415 555 0134; email d.okafor@example.com.",
+        }
+    ]
+    gateway = ToolGateway(REGISTRY, server=build_server(history=history))
+    result = gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, [])
+    summary = result["claims"][0]["summary"]
+    assert "example.com" not in summary and "555" not in summary
+
+    claim = CLAIMS["claim_001"]
+    attachment = claim.attachments[0].model_copy(update={"filename": "jo.smith@example.com.pdf"})
+    redacted, counts = redact_claim(claim.model_copy(update={"attachments": [attachment]}))
+    assert "example.com" not in redacted.attachments[0].filename and counts["email"] >= 1
 
 
 # --- Record scope ----------------------------------------------------------------------

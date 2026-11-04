@@ -39,6 +39,12 @@ CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log
 BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
 CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON audit_log
 BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
+CREATE TABLE IF NOT EXISTS evidence (
+    sha256 TEXT PRIMARY KEY,
+    body TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS evidence_no_update BEFORE UPDATE ON evidence
+BEGIN SELECT RAISE(ABORT, 'evidence is content-addressed and never changes'); END;
 """
 
 
@@ -80,6 +86,19 @@ class Verification:
     entries: int
     head: ChainHead | None
     problems: list[str] = field(default_factory=list)
+    # Evidence packs the log refers to that are no longer stored (erased, for example under a
+    # data-protection request). Not tampering: their hashes are still in the chain.
+    evidence_erased: list[str] = field(default_factory=list)
+
+
+class EvidenceChanged(RuntimeError):
+    pass
+
+
+def evidence_body(pack: dict) -> str:
+    """The stored form of an evidence pack; its SHA-256 is the pack's hash
+    (governance.approval.evidence_sha256)."""
+    return json.dumps(pack, sort_keys=True)
 
 
 class AuditLog:
@@ -115,6 +134,35 @@ class AuditLog:
                 self._db.execute("ROLLBACK")
                 raise
         return ChainHead(seq, digest)
+
+    def put_evidence(self, pack: dict) -> str:
+        """Store an evidence pack under its own hash and return the hash. The log entry that
+        refers to it carries the same hash, so a changed pack can't go unnoticed; deleting one
+        (erasure) is allowed and shows up in verify as erased, not as tampering."""
+        body = evidence_body(pack)
+        digest = sha256(body)
+        with self._lock:
+            self._db.execute("INSERT OR IGNORE INTO evidence VALUES (?, ?)", (digest, body))
+        return digest
+
+    def get_evidence(self, digest: str) -> dict | None:
+        """The stored pack, or None if it isn't stored. Raises EvidenceChanged if it no longer
+        matches its hash."""
+        row = self._db.execute("SELECT body FROM evidence WHERE sha256 = ?", (digest,)).fetchone()
+        if row is None:
+            return None
+        if sha256(row[0]) != digest:
+            raise EvidenceChanged(f"evidence pack {digest[:12]} was changed after it was stored")
+        return json.loads(row[0])
+
+    def evidence_hash(self, claim_id: str) -> str | None:
+        """The hash of the latest evidence pack recorded for a claim."""
+        row = self._db.execute(
+            "SELECT payload FROM audit_log WHERE claim_id = ? AND event = 'evidence_pack'"
+            " ORDER BY seq DESC LIMIT 1",
+            (claim_id,),
+        ).fetchone()
+        return json.loads(row[0])["evidence_sha256"] if row else None
 
     def head(self) -> ChainHead | None:
         row = self._db.execute(
@@ -161,62 +209,85 @@ class AuditLog:
                 f"the anchored head (entry {expect.seq}, {expect.entry_hash[:12]}) is not in the "
                 "chain: it was rewritten or truncated"
             )
+        erased = []
+        for seq, _, _, event, _, payload, _, _ in rows:
+            if event != "evidence_pack":
+                continue
+            digest = json.loads(payload)["evidence_sha256"]
+            try:
+                if self.get_evidence(digest) is None:
+                    erased.append(digest)
+            except EvidenceChanged as exc:
+                problems.append(f"entry {seq}: {exc}")
         head = ChainHead(rows[-1][0], rows[-1][7]) if rows else None
-        return Verification(ok=not problems, entries=len(rows), head=head, problems=problems)
+        return Verification(
+            ok=not problems,
+            entries=len(rows),
+            head=head,
+            problems=problems,
+            evidence_erased=erased,
+        )
 
 
-def record_triage(log: AuditLog, claim, result) -> None:
-    """Write a triaged claim's events. Within one triage, events are grouped by kind."""
-    cid = result.claim_id
-    log.append(
-        cid,
-        "claim_submitted",
-        f"channel:{claim.channel}",
-        {
+class TriageRecorder:
+    """Writes one claim's triage events to the log as they happen (pipeline.triage's on_event).
+
+    Payloads hold IDs, hashes, decision fields and costs, never claim text: critic issues and
+    the claim itself are hashed.
+    """
+
+    def __init__(self, log: AuditLog, claim_id: str):
+        self.log, self.claim_id = log, claim_id
+
+    def __call__(self, event: str, item) -> None:
+        actor, payload = getattr(self, f"_{event}")(item)
+        self.log.append(self.claim_id, event, actor, payload)
+
+    @staticmethod
+    def _claim_submitted(item: dict) -> tuple[str, dict]:
+        claim = item["claim"]
+        return f"channel:{claim.channel}", {
             "claim_sha256": sha256(claim.model_dump_json()),
             "submitted_at": claim.submitted_at.isoformat(),
             "attachments": len(claim.attachments),
-            "identifiers_redacted": result.redactions,
-            "injection_signals": result.injection_signals,
-        },
-    )
-    for call in result.agent_calls:
-        log.append(cid, "agent_call", call.agent_id, call.model_dump(mode="json"))
-    for tool in result.tool_calls:
-        log.append(cid, "tool_call", tool.actor, tool.model_dump(mode="json"))
-    for n, review in enumerate(result.critic_reviews, start=1):
-        log.append(
-            cid,
-            "critic_review",
-            "critic",
-            {
-                "review": n,
-                # Issue text can quote the claim, so only its hash is kept here.
-                "issues": [
-                    {"stage": i.stage.value, "problem_sha256": sha256(i.problem + i.evidence)}
-                    for i in review.issues
-                ],
+            "identifiers_redacted": item["redactions"],
+            "injection_signals": item["injection_signals"],
+        }
+
+    @staticmethod
+    def _agent_call(call) -> tuple[str, dict]:
+        return call.agent_id, call.model_dump(mode="json")
+
+    @staticmethod
+    def _tool_call(tool) -> tuple[str, dict]:
+        return tool.actor, tool.model_dump(mode="json")
+
+    @staticmethod
+    def _critic_review(review) -> tuple[str, dict]:
+        # Issue text can quote the claim, so only its hash is kept here.
+        return "critic", {
+            "issues": [
+                {"stage": i.stage.value, "problem_sha256": sha256(i.problem + i.evidence)}
+                for i in review.issues
+            ]
+        }
+
+    @staticmethod
+    def _revision(record) -> tuple[str, dict]:
+        return record.stage.value, {
+            "round": record.round,
+            "changed": {
+                f: [record.before.get(f), record.after.get(f)] for f in record.changed_fields
             },
-        )
-    for record in result.revision_history:
-        log.append(
-            cid,
-            "revision",
-            record.stage.value,
-            {
-                "round": record.round,
-                "changed": {
-                    f: [record.before.get(f), record.after.get(f)] for f in record.changed_fields
-                },
-            },
-        )
-    for correction in result.code_corrections:
-        log.append(cid, "code_correction", "pipeline", {"correction": correction})
-    log.append(
-        cid,
-        "triage_result",
-        "pipeline",
-        {
+        }
+
+    @staticmethod
+    def _code_correction(correction: str) -> tuple[str, dict]:
+        return "pipeline", {"correction": correction}
+
+    @staticmethod
+    def _triage_result(result) -> tuple[str, dict]:
+        return "pipeline", {
             "result_sha256": sha256(result.model_dump_json()),
             "route": result.routing.route.value,
             "routing_reasons": result.routing.reasons,
@@ -225,5 +296,4 @@ def record_triage(log: AuditLog, claim, result) -> None:
             "stopped_reason": result.stopped_reason,
             "cost_usd": result.cost_usd,
             "models": sorted({f"{c.agent_id}:{c.model}" for c in result.agent_calls}),
-        },
-    )
+        }

@@ -70,7 +70,8 @@ def test_every_nist_subcategory_is_mapped_or_explained():
 
 
 def _audit_events_in_code() -> set[str]:
-    """Event names passed as the second argument of an audit-log append, read from the AST."""
+    """Event names written to the audit log: literal appends (read from the AST) and the
+    triage recorder's events."""
     events = set()
     for file in (ROOT / "hall_monitor").rglob("*.py"):
         for node in ast.walk(ast.parse(file.read_text())):
@@ -83,6 +84,10 @@ def _audit_events_in_code() -> set[str]:
                 and isinstance(node.args[1].value, str)
             ):
                 events.add(node.args[1].value)
+    # Triage events are written by TriageRecorder, one _<event> method each.
+    from hall_monitor.governance.audit import TriageRecorder
+
+    events |= {n[1:] for n in vars(TriageRecorder) if n.startswith("_") and not n.startswith("__")}
     return events
 
 

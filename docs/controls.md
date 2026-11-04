@@ -85,28 +85,28 @@ A code rule, not a model, decides whether a person must decide. It checks the fa
 
 **Adjuster approval gate** (built)
 
-Claims routed to a person pause in a LangGraph workflow with state saved in SQLite. A decision must come from a registered adjuster ID within its authority, quote the hash of the evidence pack the claim was paused with, pay no more than was claimed, and give a reason for any override or denial; only senior adjusters may pay a flagged claim.
+Claims routed to a person pause in a LangGraph workflow with state saved in SQLite. A decision must be signed with the adjuster's Ed25519 key over the claim, its fields and the evidence hash; come from a registered adjuster within their authority; quote the hash of the evidence pack the claim was paused with, which must match the pack stored under that hash in the audit database; pay no more than was claimed, and give a reason for any override or denial; only senior adjusters may pay a flagged claim.
 
-- **Code:** [`hall_monitor/workflow.py`](../hall_monitor/workflow.py) `build_graph`; [`hall_monitor/governance/approval.py`](../hall_monitor/governance/approval.py) `validate_decision`; [`registry/adjusters.yaml`](../registry/adjusters.yaml)
-- **Tests:** [`tests/test_workflow.py`](../tests/test_workflow.py) `test_claim_waits_for_an_adjuster_across_a_restart`; [`tests/test_workflow.py`](../tests/test_workflow.py) `test_payout_above_authority_needs_a_senior_adjuster`; [`tests/test_workflow.py`](../tests/test_workflow.py) `test_decisions_that_break_the_rules_are_rejected`
+- **Code:** [`hall_monitor/workflow.py`](../hall_monitor/workflow.py) `build_graph`; [`hall_monitor/governance/approval.py`](../hall_monitor/governance/approval.py) `validate_decision`; [`hall_monitor/governance/signing.py`](../hall_monitor/governance/signing.py) `verify`; [`hall_monitor/workflow.py`](../hall_monitor/workflow.py) `_check_evidence`; [`registry/adjusters.yaml`](../registry/adjusters.yaml)
+- **Tests:** [`tests/test_workflow.py`](../tests/test_workflow.py) `test_claim_waits_for_an_adjuster_across_a_restart`; [`tests/test_workflow.py`](../tests/test_workflow.py) `test_payout_above_authority_needs_a_senior_adjuster`; [`tests/test_workflow.py`](../tests/test_workflow.py) `test_decisions_that_break_the_rules_are_rejected`; [`tests/test_workflow.py`](../tests/test_workflow.py) `test_a_decision_counts_only_with_the_adjusters_signature`; [`tests/test_workflow.py`](../tests/test_workflow.py) `test_an_edited_checkpoint_cant_change_the_evidence`
 - **Evidence:** [`evals/results/hardened-critic/override.json`](../evals/results/hardened-critic/override.json)
 - **NIST AI RMF:** GOVERN 3.2 (Policies and procedures are in place to define and differentiate roles and responsibilities for human-AI configurations and oversight of AI systems); MAP 3.5 (Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function); MANAGE 4.1 (Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management)
 - **FINOS risks:** RI-22 Regulatory Compliance and Oversight
 - **FINOS mitigations:** MI-24 Human-in-the-Loop Action Approval Gate
-- **Gaps:** Adjuster IDs are checked against the register but not authenticated. The audit log records the evidence pack's hash; the pack itself is in the checkpoint store, which isn't tamper-evident, and it lists document names rather than the documents. The override rate is simulated with an answer-key adjuster; no real adjusters yet.
+- **Gaps:** The fictional adjusters' keys are public demo keys; a deployment would issue keys from the firm's identity system. The evidence pack lists document names rather than the documents. Other checkpoint state isn't integrity-checked. The override rate is simulated with an answer-key adjuster; no real adjusters yet.
 
 ### HM-06
 
 **Tamper-evident audit log** (built)
 
-Each claim's triage (agent calls, tool calls, critic reviews, revisions, corrections, result) and every adjuster decision are written to an append-only SQLite log in which each entry's hash covers the previous one. Triggers refuse edits and deletes, and verify reports any changed, missing or reordered entry. Entries hold no claim narrative or documents.
+Each claim's triage (agent calls, tool calls, critic reviews, revisions, corrections, result) and every adjuster decision are written, as they happen, to an append-only SQLite log in which each entry's hash covers the previous one. Triggers refuse edits and deletes, and verify reports any changed, missing or reordered entry, and any stored evidence pack that no longer matches its hash. Entries hold no claim narrative or documents, and keep a hash of the adjuster's written reason, not the text.
 
 - **Code:** [`hall_monitor/governance/audit.py`](../hall_monitor/governance/audit.py) `AuditLog`; [`hall_monitor/audit.py`](../hall_monitor/audit.py) `main`
-- **Tests:** [`tests/test_audit.py`](../tests/test_audit.py) `test_a_changed_entry_is_detected`; [`tests/test_audit.py`](../tests/test_audit.py) `test_a_consistent_rewrite_is_caught_only_by_an_anchor`; [`tests/test_audit.py`](../tests/test_audit.py) `test_the_log_holds_no_claim_text`
+- **Tests:** [`tests/test_audit.py`](../tests/test_audit.py) `test_a_changed_entry_is_detected`; [`tests/test_audit.py`](../tests/test_audit.py) `test_a_consistent_rewrite_is_caught_only_by_an_anchor`; [`tests/test_audit.py`](../tests/test_audit.py) `test_the_log_holds_no_claim_text`; [`tests/test_audit.py`](../tests/test_audit.py) `test_the_log_keeps_the_adjusters_reason_as_a_hash`; [`tests/test_audit.py`](../tests/test_audit.py) `test_evidence_is_stored_by_hash_and_checked_by_verify`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_events_are_reported_as_they_happen`; [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_a_recording_failure_stops_the_claim`
 - **NIST AI RMF:** MEASURE 2.8 (Risks associated with transparency and accountability – as identified in the map function – are examined and documented); MANAGE 4.1 (Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management)
 - **FINOS risks:** RI-17 Lack of Explainability; RI-22 Regulatory Compliance and Oversight
 - **FINOS mitigations:** MI-04 AI System Observability; MI-21 Agent Decision Audit and Explainability
-- **Gaps:** Someone with write access to the file can rewrite the whole chain consistently; only a chain head copied elsewhere catches that. Triage events are written together after triage finishes, grouped by kind, not as each step happens. Entries do hold policy numbers, decision fields, tool-call arguments and the adjuster's name and written reason.
+- **Gaps:** Someone with write access to the file can rewrite the whole chain consistently; only a chain head copied elsewhere catches that, and copying it out is manual. Entries do hold policy numbers, decision fields and tool-call arguments.
 
 ### HM-07
 
@@ -151,14 +151,14 @@ Claim text and model output are escaped and fenced as untrusted. A code detector
 
 **Identifier redaction and data minimisation** (built)
 
-Dates of birth, emails, phone, card, passport and SSN numbers are removed from the claim narrative and attachment text before any model sees them. The recommender gets a structured summary with no names, claim text or reasoning, enforced by its input schema.
+Dates of birth, emails, phone, card, passport and SSN numbers are removed from the claim text, attachment file names and tool results before any model sees them. Each agent input and each tool declares the data classes it carries, and anything beyond the agent's manifest is refused before the model or tool is called. The recommender (financial only) gets a structured summary with no names, claim text or reasoning.
 
-- **Code:** [`hall_monitor/gateway/redaction.py`](../hall_monitor/gateway/redaction.py) `redact_claim`; [`hall_monitor/agents/recommendation.py`](../hall_monitor/agents/recommendation.py) `recommendation_input`
-- **Tests:** [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_no_identifier_reaches_any_model`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_redaction_never_removes_evidence_from_a_real_claim`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_recommender_sees_structured_fields_only`
+- **Code:** [`hall_monitor/gateway/redaction.py`](../hall_monitor/gateway/redaction.py) `redact_claim`; [`hall_monitor/agents/recommendation.py`](../hall_monitor/agents/recommendation.py) `recommendation_input`; [`hall_monitor/registry.py`](../hall_monitor/registry.py) `Registry`; [`hall_monitor/tools/server.py`](../hall_monitor/tools/server.py)
+- **Tests:** [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_no_identifier_reaches_any_model`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_redaction_never_removes_evidence_from_a_real_claim`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_recommender_sees_structured_fields_only`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_an_input_beyond_the_manifests_data_classes_is_refused_before_the_model`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_a_tool_beyond_the_agents_data_classes_is_refused`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_identifiers_are_redacted_from_tool_results_and_file_names`
 - **NIST AI RMF:** MEASURE 2.10 (Privacy risk of the AI system – as identified in the map function – is examined and documented)
 - **FINOS risks:** RI-01 Information Leaked To Hosted Model
 - **FINOS mitigations:** MI-01 AI Data Leakage Prevention and Detection; MI-06 Data Quality & Classification/Sensitivity; MI-12 Role-Based Access Control for AI Data
-- **Gaps:** Names and medical details still reach the agents that need them to decide. Attachment file names and tool results (claims history has short health summaries) aren't redacted. Manifests declare data classes, but nothing checks them at run time.
+- **Gaps:** Names and medical details still reach the agents that need them to decide. Data classes are declared per input by code, not detected from content, so a wrong declaration isn't caught. Pattern redaction misses unusual formats.
 
 ### HM-11
 

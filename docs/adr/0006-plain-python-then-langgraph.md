@@ -34,7 +34,7 @@ the hash of the evidence pack they were shown
 - Readers can audit the decision logic without learning a framework.
 - SQLite checkpoints are fine for one process; production would use Postgres.
 - An adjuster can only decide on the evidence pack the claim was paused with; a different hash
-  is refused. The audit log keeps the hash; the pack itself is in the checkpoint store, which
-  isn't tamper-evident.
-- Adjuster IDs are checked against `registry/adjusters.yaml`, not authenticated. A production
-  version would take the identity from the firm's sign-on.
+  is refused. Checkpoints aren't tamper-evident, so the review step also checks the saved pack
+  against the copy stored under its hash in the audit database
+  ([ADR 0014](0014-signed-decisions-and-stored-evidence.md)).
+- Decisions must be signed with the adjuster's key (ADR 0014).

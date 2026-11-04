@@ -51,6 +51,22 @@ than the code.
 | Published numbers come from agent versions no longer approved | Overstated | The README and one-pagers name the versions and commits the numbers were scored on |
 | Minor: HM-02's tests, "authority" in the decision record, SDK span capture, code-corrected policy numbers route automatically, owner and risk tier unused at run time | Mixed | HM-02's tests, the decision record wording and the span caveat corrected; owner and risk tier noted in HM-01's gaps. A policy number corrected from the claim's own text still routes automatically, by design: it is recorded as a code correction and comes from the customer's own document |
 
-**Not changed, and why:** audit events are still written after triage completes rather than as
-each step happens, and adjuster reasons are still stored as written. Both are listed as gaps
-(HM-06) and noted in ADR 0008 as production changes.
+**Not changed at the time, and why:** audit events were still written after triage completed,
+and adjuster reasons were stored as written. Both were listed as gaps (HM-06) and fixed in
+milestone 11, below.
+
+## Follow-up: milestone 11 hardening
+
+Fixes for the review 2 findings that were documented rather than fixed:
+
+| Finding (review 2) | Fix |
+|---|---|
+| Adjuster identity not verified | Decisions must be signed with the adjuster's Ed25519 key over the claim, the decision and the evidence hash ([ADR 0014](../adr/0014-signed-decisions-and-stored-evidence.md)) |
+| Evidence pack only in the checkpoint store | Stored in the audit database under its hash; the review step refuses a checkpoint pack that doesn't match; `verify` reports a changed or erased pack |
+| Personal data in the log (adjuster name and reason) | The log keeps the adjuster ID and a hash of the reason |
+| Events written after triage, grouped by kind | Written as they happen; a claim whose events can't be recorded doesn't proceed |
+| Data classes declared, not enforced | Enforced for every agent input and tool before the model or tool is called |
+| Redaction missed file names and tool results | Both are redacted |
+
+Still open: the demo adjusters' keys are public by design; branch protection is not switched on,
+so approvals aren't enforced by repository settings; the live evals haven't been rerun.

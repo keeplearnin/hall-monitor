@@ -13,7 +13,7 @@ from hall_monitor.models import (
     Recommendation,
     RiskAssessment,
 )
-from hall_monitor.registry import Registry
+from hall_monitor.registry import DataClass, Registry
 
 AGENT_ID = "recommendation"
 PROMPT_VERSION = "recommendation-v3"
@@ -93,4 +93,5 @@ def run_recommendation(
         prompt_version=PROMPT_VERSION,
         claim_id=claim_id,
         economy=economy,
+        carries=frozenset({DataClass.FINANCIAL}),  # RecommendationInput: amounts and labels only
     )

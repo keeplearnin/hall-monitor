@@ -53,6 +53,7 @@ def main(argv: list[str] | None = None) -> int:
                     if result.head
                     else None,
                     "problems": result.problems,
+                    "evidence_erased": result.evidence_erased,
                 },
                 indent=2,
             )

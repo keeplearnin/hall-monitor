@@ -4,12 +4,13 @@ import pytest
 
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.governance.approval import AdjusterDecision, build_evidence_pack, evidence_sha256
+from hall_monitor.governance.signing import demo_private_key
 from hall_monitor.models import NextStep
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
 from hall_monitor.workflow import open_workflow
-from tests.fakes import fake_client, outputs_from_truth
+from tests.fakes import fake_client, outputs_from_truth, signed_decision
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
 REGISTRY = Registry.from_dir()
@@ -38,7 +39,7 @@ def _decide(path, claim_id, **fields):
     with _open(path) as workflow:  # a fresh process: nothing but the saved checkpoint
         status = workflow.status(claim_id)
         fields.setdefault("evidence_sha256", status["evidence_sha256"])
-        return workflow.decide(claim_id, AdjusterDecision(**fields))
+        return workflow.decide(claim_id, signed_decision(claim_id, **fields))
 
 
 @pytest.fixture
@@ -151,3 +152,60 @@ def test_a_claim_can_only_be_submitted_once(db):
     _submit(db, "claim_001")
     with pytest.raises(ValueError, match="already"):
         _submit(db, "claim_001")
+
+
+# --- Signatures and evidence integrity ---------------------------------------------------
+
+DENY = {
+    "adjuster_id": "adj-101",
+    "next_step": NextStep.DENY,
+    "payout_usd": 0,
+    "reason": "Medication changed 43 days before purchase: pre-existing (5.1).",
+}
+
+
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda h: AdjusterDecision(**DENY, evidence_sha256=h),
+        lambda h: AdjusterDecision(**DENY, evidence_sha256=h).signed(
+            "claim_004", demo_private_key("adj-201")
+        ),
+        lambda h: AdjusterDecision(**DENY, evidence_sha256=h).signed(
+            "claim_003", demo_private_key("adj-101")
+        ),
+        lambda h: (
+            AdjusterDecision(**DENY, evidence_sha256=h)
+            .signed("claim_004", demo_private_key("adj-101"))
+            .model_copy(update={"reason": "Changed after it was signed, by someone else."})
+        ),
+    ],
+    ids=["unsigned", "someone-elses-key", "signed-for-another-claim", "changed-after-signing"],
+)
+def test_a_decision_counts_only_with_the_adjusters_signature(db, make):
+    _submit(db, "claim_004")
+    with _open(db) as workflow:
+        digest = workflow.status("claim_004")["evidence_sha256"]
+        status = workflow.decide("claim_004", make(digest))
+    assert status["state"] == "waiting_for_adjuster"
+    assert "isn't signed with adj-101's key" in status["previous_decision_rejected"]
+
+
+@pytest.mark.parametrize("rehash", [False, True], ids=["pack-edited", "pack-and-hash-edited"])
+def test_an_edited_checkpoint_cant_change_the_evidence(db, rehash):
+    _submit(db, "claim_004")
+    with _open(db) as workflow:
+        config = {"configurable": {"thread_id": "claim_004"}}
+        pack = workflow.status("claim_004")["evidence"]
+        pack["recommendation"]["next_step"] = "pay"  # someone with file access edits it
+        update = {"evidence": pack}
+        if rehash:
+            update["evidence_sha256"] = evidence_sha256(pack)
+        workflow.app.update_state(config, update)
+        digest = workflow.status("claim_004")["evidence_sha256"]
+        decision = AdjusterDecision(**DENY, evidence_sha256=digest)
+        status = workflow.decide(
+            "claim_004", decision.signed("claim_004", demo_private_key("adj-101"))
+        )
+    assert status["state"] == "waiting_for_adjuster"
+    assert "evidence pack" in status["previous_decision_rejected"]
