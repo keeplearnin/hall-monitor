@@ -66,6 +66,44 @@ def test_identifiers_are_redacted_and_evidence_is_kept():
         assert evidence in out
 
 
+@pytest.mark.parametrize(
+    "text, secret, kind",
+    [
+        ("Clinic tax ID: 12-3456789 on the invoice.", "3456789", "tin"),
+        ("EIN 98-7654321", "7654321", "tin"),
+        ("Provider TIN 123456789.", "123456789", "tin"),
+        ("Refund to account number 000123456789.", "123456789", "bank_account"),
+        ("Acct # 4455 6677 8899", "6677", "bank_account"),
+        ("bank account ending in 0042", "0042", "bank_account"),
+        ("Routing number: 021000021", "021000021", "bank_routing"),
+        ("ABA 011000015", "011000015", "bank_routing"),
+        ("Pay IBAN GB82 WEST 1234 5698 7654 32, thanks.", "5698", "iban"),
+        ("IBAN DE89370400440532013000", "0532013000", "iban"),
+    ],
+)
+def test_tax_ids_and_bank_details_are_redacted(text, secret, kind):
+    from collections import Counter
+
+    counts = Counter()
+    out = redact_text(text, counts)
+    assert secret not in out
+    assert counts[kind] == 1
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Receipt no. 4471-2290, total USD 1,150.00 on 2026-08-14.",
+        "Booking ref 12-34, flight BA0117, policy WTP-ESS-100231.",
+        "Account of events: the bag was lost on 14 August 2026.",
+        "GB82 is not an IBAN without its digits.",
+        "IBAN GB00 WEST 1234 5698 7654 32 fails its checksum.",
+    ],
+)
+def test_bank_and_tax_patterns_leave_ordinary_evidence_alone(text):
+    assert redact_text(text) == text
+
+
 @pytest.mark.parametrize("claim_id", sorted(CLAIMS))
 def test_redaction_never_removes_evidence_from_a_real_claim(claim_id):
     claim = CLAIMS[claim_id]
