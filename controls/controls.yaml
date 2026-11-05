@@ -34,7 +34,10 @@ controls:
     gaps: >-
       Anyone who can commit can regenerate approvals.yaml. Review of that change depends on
       repository settings: .github/CODEOWNERS names an owner, but main has no branch protection
-      yet, so it isn't enforced. The owner is checked against the list of people when the registry
+      yet, so it isn't enforced. Approvals pin each system-prompt template, not the output
+      schema the model is given, so a change to an output model (a new field constraint, say)
+      needs no new approval; the API passes pydantic patterns to the model as description
+      text, not as constraints, and they are checked only once the answer is back. The owner is checked against the list of people when the registry
       loads, and the kill switch (HM-19) records the owner ID given for each stop; risk tier is an inventory
       field that nothing reads at run time.
 
@@ -151,6 +154,7 @@ controls:
       - tests/test_workflow.py::test_the_adjuster_is_shown_the_stored_evidence_not_an_edited_checkpoint
       - tests/test_workflow.py::test_an_edited_checkpoint_result_cant_relax_the_approval_rules
       - tests/test_workflow.py::test_run_fresh_refuses_a_claim_that_finished_triage
+      - tests/test_workflow.py::test_a_claim_the_log_shows_triaged_cant_be_triaged_again_with_new_checkpoints
       - tests/test_approval_rules.py::test_paying_a_claim_the_ai_never_assessed_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_denying_more_than_your_authority_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_a_demo_key_signature_is_marked_in_the_record
@@ -170,7 +174,10 @@ controls:
       The evidence pack and the triage result the approval rules read are checked against the
       hashes the audit log recorded at triage; other checkpoint state isn't. A signed decision
       carries no nonce, so if a claim were ever triaged again with an identical pack, an earlier
-      signature for it would verify again (a finished claim can't be triaged again). The override rate is simulated with an
+      signature for it would verify again; the workflow refuses a second triage of any claim
+      the audit log shows finished, whatever the checkpoint file holds. A crash after the
+      evidence pack is logged but before the checkpoint is saved leaves that claim for a person
+      to handle; it can't be restarted. The override rate is simulated with an
       answer-key adjuster; no real adjusters yet.
 
   - id: HM-06
@@ -213,7 +220,8 @@ controls:
       has it too; production keeps it in a secrets manager. Entries do hold
       policy numbers, decision fields and tool-call arguments. The currency and policy number
       the model extracts are repeated in routing reasons and corrections, so both must be
-      code-shaped; tool-call arguments are still logged as the model wrote them.
+      code-shaped; tool-call arguments are still logged as the model wrote them. An unforeseen
+      error stops the claim with its type only, since its text can repeat those arguments.
 
   - id: HM-07
     name: Critic review with revision history

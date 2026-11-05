@@ -298,3 +298,32 @@ def test_an_edited_checkpoint_result_cant_relax_the_approval_rules(db, edit):
     )
     assert status["state"] == "waiting_for_adjuster"
     assert "triage result" in status["previous_decision_rejected"]
+
+
+def test_a_claim_the_log_shows_triaged_cant_be_triaged_again_with_new_checkpoints(db):
+    """The audit log, not the checkpoint file, decides whether a claim finished triage: a new
+    or deleted checkpoints file must not let a decided claim be paid again."""
+    _submit(db, "claim_001")
+    other = db.with_name("other-checkpoints.sqlite")  # same audit log, fresh checkpoints
+    with pytest.raises(ValueError, match="audit log"):
+        _submit(other, "claim_001")
+    with _open(db) as workflow:
+        finals = [e for e in workflow.audit.entries("claim_001") if e["event"] == "final_decision"]
+    assert len(finals) == 1
+
+
+def test_a_saved_result_that_no_longer_parses_is_a_recorded_rejection(db):
+    _submit(db, "claim_006")
+    with _open(db) as workflow:
+        config = {"configurable": {"thread_id": "claim_006"}}
+        result = workflow.app.get_state(config).values["result"]
+        result["risk"]["level"] = "not-a-level"
+        workflow.app.update_state(config, {"result": result})
+    status = _decide(
+        db, "claim_006", adjuster_id="adj-201", next_step=NextStep.PAY, payout_usd=100.0
+    )
+    assert status["state"] == "waiting_for_adjuster"
+    assert "triage result" in status["previous_decision_rejected"]
+    with _open(db) as workflow:
+        events = [e["event"] for e in workflow.audit.entries("claim_006")]
+    assert events[-1] == "decision_rejected"

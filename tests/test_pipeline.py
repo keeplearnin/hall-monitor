@@ -491,3 +491,21 @@ def test_a_nan_amount_from_the_model_stops_the_claim_for_a_person():
         claim, registry=REGISTRY, gateway=GATEWAY, wording=WORDING, client=fake_client(outputs)
     )
     assert result.routing.route is Route.ADJUSTER and result.stopped_reason
+
+
+def test_an_unexpected_error_doesnt_repeat_its_message_in_the_stop_reason():
+    """An exception's text can carry model-written arguments (a tool error echoes them), and
+    the stop reason reaches the audit log and the evidence pack."""
+    claim = CLAIMS[0]
+    client = fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)))
+
+    def fail(**kwargs):
+        raise RuntimeError("input_value='Jane Doe lives at 1 Elm St'")
+
+    client.messages.parse = fail
+    result = triage(claim, registry=REGISTRY, gateway=GATEWAY, wording=WORDING, client=client)
+
+    assert result.routing.route is Route.ADJUSTER
+    assert "RuntimeError" in result.stopped_reason
+    assert "Jane" not in result.stopped_reason
+    assert "Jane" not in " ".join(result.routing.reasons + result.recommendation.reasons)

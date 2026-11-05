@@ -214,4 +214,13 @@ test-first, 2 plausible and logged.
 | Rejections in the log named the adjuster, and a malformed submission's pydantic message repeated submitted text | Medium | Rejections name adjusters by ID; a malformed submission is summarised by error type; an unregistered ID isn't repeated |
 | The model's currency and policy number were free text and reached routing reasons and corrections in the log | Medium | Both must be code-shaped (`^[A-Z]{3}$`; letters, digits and dashes); an extraction that isn't stops the claim. Tool-call arguments are still logged as written (HM-06 gap) |
 | Langfuse records an exception's message on a span, so a failed model output's text could reach traces when tracing is on | Low-Medium, plausible | Logged; not yet fixed |
-| A signed decision has no nonce, so it could verify again after a re-triage with an identical pack | Low, plausible | Logged in HM-05 gaps; finding 1's fix means a finished claim can't be re-triaged |
+| A signed decision has no nonce, so it could verify again after a re-triage with an identical pack | Low, plausible | Logged in HM-05 gaps; with the fixes below a finished claim can't be re-triaged |
+
+**Pre-PR review of those fixes:** 4 findings, all confirmed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| `submit` judged "finished" from the checkpoint alone, so a new or deleted checkpoints file let a decided claim be triaged and paid again; the docs said a finished claim couldn't be | High | `submit` refuses any claim whose evidence pack is in the audit log. A crash after that entry but before the checkpoint is saved now needs a person (HM-05 gap) |
+| An unforeseen error's text went into `stop_reason`; a tool error repeats the model's tool arguments, so they reached the routing reasons and the evidence pack | Medium | The stop reason carries the error type only |
+| A saved result edited until it no longer parsed crashed the review step instead of being a recorded rejection | Medium | Parsed inside the check; logged as a rejection |
+| Approvals don't pin output schemas, and the API sends pydantic patterns to the model as description text, so the new currency and policy-number patterns changed what the model sees without a new approval; answers like `usd` now stop the claim | Low | Logged in HM-01 gaps; pinning output schemas in approvals is left for its own change |

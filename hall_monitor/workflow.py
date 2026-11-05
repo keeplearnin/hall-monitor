@@ -117,15 +117,21 @@ def build_graph(
                 "previous_decision_rejected": state.get("rejected"),
             }
         )
-        result = TriageResult.model_validate(state["result"])
+        claim_id = state["claim"]["claim_id"]
         try:
-            _check_evidence(audit, result.claim_id, state, result)
+            try:
+                result = TriageResult.model_validate(state["result"])
+            except ValidationError:  # edited until it no longer parses
+                raise DecisionRejected(
+                    "the saved triage result isn't the one recorded at triage"
+                ) from None
+            _check_evidence(audit, claim_id, state, result)
             decision = AdjusterDecision.model_validate(submitted)
             adjuster = validate_decision(decision, result, state["evidence_sha256"], adjusters)
         except (DecisionRejected, EvidenceChanged, ValueError) as exc:
             reason = _rejection(exc)
             audit.append(
-                result.claim_id,
+                claim_id,
                 "decision_rejected",
                 f"adjuster:{submitted['adjuster_id']}"
                 if _known(submitted, adjusters)
@@ -223,6 +229,13 @@ class ClaimWorkflow:
         existing = self.app.get_state(self._config(claim.claim_id)).values
         if existing and "result" in existing:
             raise ValueError(f"{claim.claim_id} is already in the workflow")
+        if self.audit.evidence_hash(claim.claim_id) is not None:
+            # The log, not the checkpoint file, says whether triage finished: new or deleted
+            # checkpoints must not let a decided claim be triaged, and paid, again.
+            raise ValueError(
+                f"the audit log shows {claim.claim_id} already finished triage; resume it from "
+                "its checkpoints, or have a person handle it"
+            )
         if existing and not restart:
             raise ValueError(
                 f"{claim.claim_id}'s triage started but didn't finish; if it isn't still "

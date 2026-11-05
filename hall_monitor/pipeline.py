@@ -227,7 +227,9 @@ def _triage_with_stop(
     except PipelineStopped as exc:
         reason = str(exc)
     except Exception as exc:  # anything unforeseen (a tool server error, say) goes to a person
-        reason = f"unexpected {type(exc).__name__}: {exc}"
+        # The type only: an unforeseen error's text can repeat model-written tool arguments,
+        # and the reason reaches the audit log and the evidence pack.
+        reason = f"unexpected {type(exc).__name__}"
     try:
         cost = _cost(run)
     except UnpricedModelError as exc:  # the claim still goes to a person; its cost is unknown
