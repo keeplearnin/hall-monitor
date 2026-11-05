@@ -237,6 +237,16 @@ class AuditLog:
         return _evidence_ref(row[0]) if row else None
 
     @_locked
+    def result_hash(self, claim_id: str) -> str | None:
+        """The hash of the latest triage result recorded for a claim."""
+        row = self._db.execute(
+            "SELECT payload FROM audit_log WHERE claim_id = ? AND event = 'triage_result'"
+            " ORDER BY seq DESC LIMIT 1",
+            (claim_id,),
+        ).fetchone()
+        return json.loads(row[0]).get("result_sha256") if row else None
+
+    @_locked
     def head(self) -> ChainHead | None:
         row = self._db.execute(
             "SELECT seq, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"

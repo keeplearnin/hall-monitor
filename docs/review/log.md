@@ -200,3 +200,27 @@ general-purpose agent because the session started outside the repo): 6 findings,
 | A stop list that isn't UTF-8 raised an error the gateway didn't catch, so the refused tool call wasn't recorded | Medium | Caught as an unreadable stop list; a test checks the refused call is recorded |
 | A hand-edited stop's agent name was repeated in the refusal, which reaches the audit log | Low | The agent must be an agent ID, and the message names the stop only |
 | YAML keeps the last of two equal keys, so `stops: []` added at the end hid every stop on the host; "records who stopped it" overstated a self-declared ID | Low | Duplicate keys refuse every agent; the docs say the owner ID is the one given, not authenticated |
+
+## Review 5: whole repository after the kill switch (Phase B)
+
+**Reviewer:** the `governance-reviewer` instructions, run as a general-purpose agent on the whole
+repository at the kill-switch branch. 6 findings; 4 confirmed with offline scripts and fixed
+test-first, 2 plausible and logged.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| `run --fresh` deleted the claim's saved state before resubmitting, so a decided claim could be paid twice and a waiting one re-triaged until it routed automatically | High | `--fresh` now passes `restart=True`, which restarts only a triage that never finished |
+| The approval rules read the saved triage result, which nothing checked: an edited checkpoint could clear a fraud flag and let a junior adjuster pay; ADR 0014 said the decision's inputs were checked | Medium | The result is checked against the `result_sha256` logged at triage; ADR 0014 corrected |
+| Rejections in the log named the adjuster, and a malformed submission's pydantic message repeated submitted text | Medium | Rejections name adjusters by ID; a malformed submission is summarised by error type; an unregistered ID isn't repeated |
+| The model's currency and policy number were free text and reached routing reasons and corrections in the log | Medium | Both must be code-shaped (`^[A-Z]{3}$`; letters, digits and dashes); an extraction that isn't stops the claim. Tool-call arguments are still logged as written (HM-06 gap) |
+| Langfuse records an exception's message on a span, so a failed model output's text could reach traces when tracing is on | Low-Medium, plausible | Logged; not yet fixed |
+| A signed decision has no nonce, so it could verify again after a re-triage with an identical pack | Low, plausible | Logged in HM-05 gaps; with the fixes below a finished claim can't be re-triaged |
+
+**Pre-PR review of those fixes:** 4 findings, all confirmed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| `submit` judged "finished" from the checkpoint alone, so a new or deleted checkpoints file let a decided claim be triaged and paid again; the docs said a finished claim couldn't be | High | `submit` refuses any claim whose evidence pack is in the audit log. A crash after that entry but before the checkpoint is saved now needs a person (HM-05 gap) |
+| An unforeseen error's text went into `stop_reason`; a tool error repeats the model's tool arguments, so they reached the routing reasons and the evidence pack | Medium | The stop reason carries the error type only |
+| A saved result edited until it no longer parsed crashed the review step instead of being a recorded rejection | Medium | Parsed inside the check; logged as a rejection |
+| Approvals don't pin output schemas, and the API sends pydantic patterns to the model as description text, so the new currency and policy-number patterns changed what the model sees without a new approval; answers like `usd` now stop the claim | Low | Logged in HM-01 gaps; pinning output schemas in approvals is left for its own change |

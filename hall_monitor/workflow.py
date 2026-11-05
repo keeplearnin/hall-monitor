@@ -21,6 +21,7 @@ import anthropic
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
+from pydantic import ValidationError
 
 from hall_monitor.governance.approval import (
     AdjusterDecision,
@@ -116,19 +117,28 @@ def build_graph(
                 "previous_decision_rejected": state.get("rejected"),
             }
         )
-        result = TriageResult.model_validate(state["result"])
+        claim_id = state["claim"]["claim_id"]
         try:
-            _check_evidence(audit, result.claim_id, state)
+            try:
+                result = TriageResult.model_validate(state["result"])
+            except ValidationError:  # edited until it no longer parses
+                raise DecisionRejected(
+                    "the saved triage result isn't the one recorded at triage"
+                ) from None
+            _check_evidence(audit, claim_id, state, result)
             decision = AdjusterDecision.model_validate(submitted)
             adjuster = validate_decision(decision, result, state["evidence_sha256"], adjusters)
         except (DecisionRejected, EvidenceChanged, ValueError) as exc:
+            reason = _rejection(exc)
             audit.append(
-                result.claim_id,
+                claim_id,
                 "decision_rejected",
-                f"adjuster:{submitted.get('adjuster_id') if isinstance(submitted, dict) else '?'}",
-                {"rejected_because": str(exc), "submitted_sha256": sha256(canonical(submitted))},
+                f"adjuster:{submitted['adjuster_id']}"
+                if _known(submitted, adjusters)
+                else "adjuster:?",
+                {"rejected_because": reason, "submitted_sha256": sha256(canonical(submitted))},
             )
-            return {"rejected": str(exc)}
+            return {"rejected": reason}
         final = final_from_adjuster(decision, adjuster, result, state["evidence_sha256"])
         audit.append(
             result.claim_id,
@@ -152,10 +162,30 @@ def build_graph(
     return graph
 
 
-def _check_evidence(audit: AuditLog, claim_id: str, state: ClaimState) -> None:
+def _known(submitted, adjusters) -> bool:
+    """Whether the submission names a registered adjuster, so the log may name them by ID."""
+    return isinstance(submitted, dict) and submitted.get("adjuster_id") in adjusters
+
+
+def _rejection(exc: Exception) -> str:
+    """Why a decision was rejected, safe for the log: our own messages carry IDs and amounts
+    only, and a malformed submission is summarised by error type, because pydantic's message
+    repeats the submitted values (and an unknown field's name is submitted text too)."""
+    if isinstance(exc, ValidationError):
+        kinds = ", ".join(sorted({e["type"] for e in exc.errors()}))
+        return f"the decision isn't valid ({kinds})"
+    return str(exc)
+
+
+def _check_evidence(
+    audit: AuditLog, claim_id: str, state: ClaimState, result: TriageResult
+) -> None:
     """The saved pack must be the one the audit log recorded at triage, and still stored
     unchanged: a checkpoint edited after triage can't put different evidence in front of the
-    adjuster."""
+    adjuster. The saved result must be the one recorded too, because the approval rules
+    (authority, senior adjuster, payout bounds) read it: an edit can't relax them."""
+    if sha256(result.model_dump_json()) != audit.result_hash(claim_id):
+        raise DecisionRejected("the saved triage result isn't the one recorded at triage")
     logged = audit.evidence_hash(claim_id)
     if logged is None or state["evidence_sha256"] != logged:
         raise DecisionRejected("the saved evidence pack isn't the one recorded at triage")
@@ -199,6 +229,13 @@ class ClaimWorkflow:
         existing = self.app.get_state(self._config(claim.claim_id)).values
         if existing and "result" in existing:
             raise ValueError(f"{claim.claim_id} is already in the workflow")
+        if self.audit.evidence_hash(claim.claim_id) is not None:
+            # The log, not the checkpoint file, says whether triage finished: new or deleted
+            # checkpoints must not let a decided claim be triaged, and paid, again.
+            raise ValueError(
+                f"the audit log shows {claim.claim_id} already finished triage; resume it from "
+                "its checkpoints, or have a person handle it"
+            )
         if existing and not restart:
             raise ValueError(
                 f"{claim.claim_id}'s triage started but didn't finish; if it isn't still "
@@ -228,10 +265,13 @@ class ClaimWorkflow:
             # checkpoint's copy, and say if the checkpoint no longer matches it.
             logged = self.audit.evidence_hash(claim_id)
             try:
-                _check_evidence(self.audit, claim_id, values)
+                result = TriageResult.model_validate(values["result"])
+                _check_evidence(self.audit, claim_id, values, result)
                 problem = None
             except (DecisionRejected, EvidenceChanged) as exc:
                 problem = str(exc)
+            except ValueError:  # the saved result no longer parses: edited, so not trusted
+                problem = "the saved triage result isn't the one recorded at triage"
             try:
                 stored = self.audit.get_evidence(logged) if logged else None
             except EvidenceChanged:

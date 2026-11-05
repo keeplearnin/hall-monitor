@@ -5,8 +5,10 @@ import sqlite3
 import threading
 
 import pytest
+from langgraph.types import Command
 
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.governance.approval import AdjusterDecision
 from hall_monitor.governance.audit import GENESIS_HASH, AuditLog, ChainHead, entry_hash
 from hall_monitor.models import NextStep
 from hall_monitor.registry import Registry
@@ -264,3 +266,43 @@ def test_verify_checks_an_anchor_at_sequence_zero(log):
 
     path = str(log.path)
     assert main(["--db", path, "verify", "--expect-seq", "0", "--expect-hash", "x" * 64]) == 3
+
+
+# --- From the whole-repo review (Phase B) -------------------------------------------------
+
+
+def test_a_rejected_decision_logs_no_names_or_submitted_text(tmp_path):
+    """Rejections reach the log as `rejected_because`, so they name adjusters by ID only and
+    never repeat what was submitted."""
+    marker = "Ana Ruiz passport X1234567"
+    with _workflow(tmp_path, "claim_003") as workflow:
+        status = workflow.submit(CLAIMS["claim_003"])
+        digest = status["evidence_sha256"]
+        over_authority = signed_decision(
+            "claim_003",
+            adjuster_id="adj-101",
+            next_step=NextStep.PAY,
+            payout_usd=6480.0,
+            reason="x" * 30,
+            evidence_sha256=digest,
+        )
+        workflow.decide("claim_003", over_authority)
+        unregistered = AdjusterDecision(
+            adjuster_id=marker,
+            next_step=NextStep.PAY,
+            payout_usd=10.0,
+            reason="x" * 30,
+            evidence_sha256=digest,
+        )
+        workflow.decide("claim_003", unregistered)
+        config = {"configurable": {"thread_id": "claim_003"}}
+        workflow.app.invoke(
+            Command(resume={"adjuster_id": "adj-101", "notes": marker}), config
+        )  # a malformed submission: pydantic would echo the value
+        rejections = [
+            e for e in workflow.audit.entries("claim_003") if e["event"] == "decision_rejected"
+        ]
+        everything = str(workflow.audit.entries())
+    assert len(rejections) == 3
+    assert "Jordan Avery" not in everything
+    assert "Ana Ruiz" not in everything and "X1234567" not in everything

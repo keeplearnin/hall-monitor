@@ -58,3 +58,29 @@ def test_claim_text_is_fenced_as_data():
     assert rendered.startswith("<claim_submission>")
     assert rendered.endswith("</claim_submission>")
     assert all(f'filename="{a.filename}"' in rendered for a in CLAIM.attachments)
+
+
+# --- From the whole-repo review (Phase B) -------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("currency", "Patient Ana Ruiz blood alcohol 0.12"),
+        ("currency", "usd"),
+        ("currency", "US Dollars"),
+        ("policy_number", "Ana Ruiz, WTP-ESS-100231"),
+        ("policy_number", "WTP ESS 100231"),
+    ],
+)
+def test_codes_the_log_repeats_must_be_codes(field, value):
+    """Currency and policy number reach routing reasons, corrections and rejections, so the
+    model can't put free text there."""
+    from pydantic import ValidationError
+
+    from hall_monitor.data import load_ground_truth
+    from hall_monitor.models import IntakeExtraction
+
+    good = load_ground_truth("claim_001").extraction.model_dump()
+    with pytest.raises(ValidationError):
+        IntakeExtraction.model_validate(good | {field: value})

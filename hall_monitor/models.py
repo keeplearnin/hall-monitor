@@ -84,7 +84,9 @@ class IntakeExtraction(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     claimant_name: str
-    policy_number: str | None
+    # Repeated in corrections, routing reasons and rejections, so it must be code-shaped: no
+    # spaces, no free text from the model.
+    policy_number: str | None = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9-]{0,31}$")
     claim_type: ClaimType
     incident_date: date | None = Field(
         description="Date the insured event happened (illness, injury, bag delay or loss), "
@@ -96,7 +98,7 @@ class IntakeExtraction(BaseModel):
     )
     claimed_items: list[ClaimedItem]
     total_claimed: float = Field(allow_inf_nan=False)
-    currency: str = Field(description="ISO 4217 code, e.g. USD.")
+    currency: str = Field(pattern=r"^[A-Z]{3}$", description="ISO 4217 code, e.g. USD.")
     supporting_documents: list[str] = Field(description="Filenames of attachments provided.")
 
 
