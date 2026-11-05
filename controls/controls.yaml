@@ -149,6 +149,8 @@ controls:
       - tests/test_workflow.py::test_a_decision_counts_only_with_the_adjusters_signature
       - tests/test_workflow.py::test_an_edited_checkpoint_cant_change_the_evidence
       - tests/test_workflow.py::test_the_adjuster_is_shown_the_stored_evidence_not_an_edited_checkpoint
+      - tests/test_workflow.py::test_an_edited_checkpoint_result_cant_relax_the_approval_rules
+      - tests/test_workflow.py::test_run_fresh_refuses_a_claim_that_finished_triage
       - tests/test_approval_rules.py::test_paying_a_claim_the_ai_never_assessed_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_denying_more_than_your_authority_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_a_demo_key_signature_is_marked_in_the_record
@@ -165,7 +167,10 @@ controls:
       adjuster's authority: nothing converts currency or bounds it by the claim.
       The fictional adjusters' keys are public demo keys (decisions signed with them are marked);
       a deployment would issue keys from the firm's identity system. The evidence pack lists document names rather than the documents.
-      Other checkpoint state isn't integrity-checked. The override rate is simulated with an
+      The evidence pack and the triage result the approval rules read are checked against the
+      hashes the audit log recorded at triage; other checkpoint state isn't. A signed decision
+      carries no nonce, so if a claim were ever triaged again with an identical pack, an earlier
+      signature for it would verify again (a finished claim can't be triaged again). The override rate is simulated with an
       answer-key adjuster; no real adjusters yet.
 
   - id: HM-06
@@ -188,6 +193,8 @@ controls:
       - tests/test_audit.py::test_a_consistent_rewrite_is_caught_only_by_an_anchor
       - tests/test_audit.py::test_the_log_holds_no_claim_text
       - tests/test_audit.py::test_the_log_keeps_the_adjusters_reason_as_a_hash
+      - tests/test_audit.py::test_a_rejected_decision_logs_no_names_or_submitted_text
+      - tests/test_intake.py::test_codes_the_log_repeats_must_be_codes
       - tests/test_audit.py::test_evidence_is_stored_by_hash_and_checked_by_verify
       - tests/test_audit.py::test_read_only_verify_reports_removed_triggers_and_malformed_entries
       - tests/test_pipeline.py::test_events_are_reported_as_they_happen
@@ -204,7 +211,9 @@ controls:
       chain head copied elsewhere catches that, and copying it out is manual. Without
       HALL_MONITOR_AUDIT_KEY the hash key is a file beside the log, so someone with file access
       has it too; production keeps it in a secrets manager. Entries do hold
-      policy numbers, decision fields and tool-call arguments.
+      policy numbers, decision fields and tool-call arguments. The currency and policy number
+      the model extracts are repeated in routing reasons and corrections, so both must be
+      code-shaped; tool-call arguments are still logged as the model wrote them.
 
   - id: HM-07
     name: Critic review with revision history

@@ -143,7 +143,7 @@ def validate_decision(
     """Return the adjuster if the decision may stand; otherwise raise DecisionRejected."""
     adjuster = adjusters.get(decision.adjuster_id)
     if adjuster is None:
-        raise DecisionRejected(f"{decision.adjuster_id!r} is not a registered adjuster")
+        raise DecisionRejected("the decision names an adjuster who isn't registered")
     message = signing.decision_message(result.claim_id, decision.model_dump(mode="json"))
     if not signing.verify(message, decision.signature, adjuster.public_key):
         raise DecisionRejected(f"the decision isn't signed with {adjuster.id}'s key")
@@ -164,7 +164,7 @@ def validate_decision(
     if decision.next_step is NextStep.DENY and claimed is not None:
         if claimed > adjuster.authority_limit_usd:
             raise DecisionRejected(
-                f"denying {claimed:,.2f} exceeds {adjuster.name}'s authority of "
+                f"denying {claimed:,.2f} exceeds {adjuster.id}'s authority of "
                 f"{adjuster.authority_limit_usd:,.0f}; a senior adjuster must decide"
             )
     if decision.next_step is NextStep.PAY:
@@ -174,7 +174,7 @@ def validate_decision(
             raise DecisionRejected(f"payout exceeds the {claimed:,.2f} claimed")
         if decision.payout_usd > adjuster.authority_limit_usd:
             raise DecisionRejected(
-                f"payout exceeds {adjuster.name}'s authority of "
+                f"payout exceeds {adjuster.id}'s authority of "
                 f"{adjuster.authority_limit_usd:,.0f}; a senior adjuster must decide"
             )
         if result.risk is None and not senior:

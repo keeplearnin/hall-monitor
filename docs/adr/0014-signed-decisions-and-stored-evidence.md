@@ -41,4 +41,6 @@ could show the adjuster different evidence, or change it afterwards.
   HSM, or signing behind sign-on).
 - Losing an adjuster's key means re-issuing it and updating the register, which is a reviewed
   change.
-- Other checkpoint state is still not integrity-checked; the decision's inputs are.
+- The decision's inputs are integrity-checked: the evidence pack and, since the Phase B
+  review, the triage result the approval rules read, both against the hashes logged at
+  triage. Other checkpoint state is not.

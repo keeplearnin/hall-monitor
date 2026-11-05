@@ -36,7 +36,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Use approved economy models for small claims (off by default; not yet evaluated).",
     )
     parser.add_argument(
-        "--fresh", action="store_true", help="Discard this claim's saved workflow and start again."
+        "--fresh",
+        action="store_true",
+        help="Restart this claim's triage if it started but didn't finish. A claim that "
+        "finished triage (decided, or waiting for an adjuster) is never restarted.",
     )
     parser.add_argument(
         "--triage-only", action="store_true", help="Print the pipeline result; no workflow."
@@ -67,9 +70,7 @@ def main(argv: list[str] | None = None) -> int:
             critic=not args.no_critic,
             model_routing=args.model_routing,
         ) as workflow:
-            if args.fresh:
-                workflow.saver.delete_thread(claim.claim_id)
-            status = workflow.submit(claim)
+            status = workflow.submit(claim, restart=args.fresh)
     finally:
         tracing.flush()
 

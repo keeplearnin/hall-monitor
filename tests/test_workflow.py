@@ -103,7 +103,7 @@ def test_paying_a_flagged_claim_needs_a_senior_adjuster(db):
 @pytest.mark.parametrize(
     ("fields", "message"),
     [
-        ({"adjuster_id": "adj-999"}, "not a registered adjuster"),
+        ({"adjuster_id": "adj-999"}, "isn't registered"),
         ({"evidence_sha256": "0" * 64}, "evidence hash"),
         ({"next_step": NextStep.PAY, "payout_usd": 50.0}, "reason"),  # override, no reason
         ({"next_step": NextStep.PAY, "payout_usd": 99_999.0, "reason": "x" * 30}, "exceeds"),
@@ -244,3 +244,57 @@ def test_the_adjuster_is_shown_the_stored_evidence_not_an_edited_checkpoint(db):
         status = workflow.status("claim_004")
     assert status["evidence"] == stored
     assert "changed after triage" in status["evidence_problem"]
+
+
+# --- From the whole-repo review (Phase B) -------------------------------------------------
+
+
+def _run_fresh(db, claim_id, monkeypatch):
+    """`run --fresh` as a user runs it, but on the fake client and this test's databases."""
+    import hall_monitor.run as run_module
+    from hall_monitor.data import DATA_DIR
+
+    real = run_module.open_workflow
+
+    def fake_open(checkpoints, **kwargs):
+        client = fake_client(outputs_from_truth(load_ground_truth(claim_id)))
+        return real(checkpoints, audit_db=db.with_name("audit.sqlite"), client=client, **kwargs)
+
+    monkeypatch.setattr(run_module, "open_workflow", fake_open)
+    claim_file = DATA_DIR / "claims" / f"{claim_id}.json"
+    return run_module.main(["--claim", str(claim_file), "--checkpoints", str(db), "--fresh"])
+
+
+@pytest.mark.parametrize("claim_id", ["claim_001", "claim_004"], ids=["decided", "waiting"])
+def test_run_fresh_refuses_a_claim_that_finished_triage(db, monkeypatch, claim_id):
+    """--fresh restarts a crashed triage only: a decided claim must not be paid twice, and a
+    claim waiting for an adjuster must not be re-run until it routes automatically."""
+    _submit(db, claim_id)
+    with pytest.raises(ValueError, match="already"):
+        _run_fresh(db, claim_id, monkeypatch)
+    with _open(db) as workflow:
+        triaged = [e for e in workflow.audit.entries(claim_id) if e["event"] == "triage_result"]
+    assert len(triaged) == 1
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda r: r["risk"].update(flags=[], level="low"),
+        lambda r: r["extraction"].update(total_claimed=1.0),
+    ],
+    ids=["fraud-flag-cleared", "amount-lowered"],
+)
+def test_an_edited_checkpoint_result_cant_relax_the_approval_rules(db, edit):
+    """The approval rules read the saved triage result, so it must be the one the log recorded."""
+    _submit(db, "claim_006")  # pay 100, duplicate receipt flagged: needs a senior adjuster
+    with _open(db) as workflow:
+        config = {"configurable": {"thread_id": "claim_006"}}
+        result = workflow.app.get_state(config).values["result"]
+        edit(result)
+        workflow.app.update_state(config, {"result": result})
+    status = _decide(
+        db, "claim_006", adjuster_id="adj-101", next_step=NextStep.PAY, payout_usd=100.0
+    )
+    assert status["state"] == "waiting_for_adjuster"
+    assert "triage result" in status["previous_decision_rejected"]
