@@ -79,6 +79,18 @@ def test_identifiers_are_redacted_and_evidence_is_kept():
         ("ABA 011000015", "011000015", "bank_routing"),
         ("Pay IBAN GB82 WEST 1234 5698 7654 32, thanks.", "5698", "iban"),
         ("IBAN DE89370400440532013000", "0532013000", "iban"),
+        ("EIN 12 3456789", "3456789", "tin"),
+        ("Tax ID: 12 3456789", "3456789", "tin"),
+        ("routing # 021000021", "021000021", "bank_routing"),
+        ("routing number is 021000021", "021000021", "bank_routing"),
+        ("Routing 021-000-021", "000-021", "bank_routing"),
+        ("A/C no. 12345678", "12345678", "bank_account"),
+        ("acc. no 12345678", "12345678", "bank_account"),
+        ("Account No. is 12345678", "12345678", "bank_account"),
+        ("IBAN BE68 5390 0754 7034 EUR", "0754", "iban"),
+        ("Send to BE68539007547034 BANK", "539007547034", "iban"),
+        ("iban gb82 west 1234 5698 7654 32", "5698", "iban"),
+        ("IBAN GB82-WEST-1234-5698-7654-32", "5698", "iban"),
     ],
 )
 def test_tax_ids_and_bank_details_are_redacted(text, secret, kind):
@@ -98,10 +110,31 @@ def test_tax_ids_and_bank_details_are_redacted(text, secret, kind):
         "Account of events: the bag was lost on 14 August 2026.",
         "GB82 is not an IBAN without its digits.",
         "IBAN GB00 WEST 1234 5698 7654 32 fails its checksum.",
+        "Invoice 26-0012345 from the clinic.",
+        "Claim CLM-26-0001234 was filed.",
+        "Hotel phone 03-1234567.",
+        "My account 1150.00 was charged.",
+        "Credited to my account 2026-08-14.",
+        "On my account 2026 trip was cancelled.",
     ],
 )
 def test_bank_and_tax_patterns_leave_ordinary_evidence_alone(text):
     assert redact_text(text) == text
+
+
+def test_an_account_ending_keeps_the_amount_after_it():
+    out = redact_text("Paid from account ending 0042 1150 USD.")
+    assert "0042" not in out and "1150 USD" in out
+
+
+@pytest.mark.parametrize("label", ["TIN", "EIN", "account number", "routing", "IBAN", "Acct #"])
+def test_redaction_stays_fast_on_long_runs_of_space(label):
+    """Attachments are OCR text: a label followed by a long blank run must not hang triage."""
+    import time
+
+    started = time.perf_counter()
+    redact_text(label + " " * 5000 + "x" + ("\n" + label + ":" + " " * 2000) * 3)
+    assert time.perf_counter() - started < 0.2
 
 
 @pytest.mark.parametrize("claim_id", sorted(CLAIMS))

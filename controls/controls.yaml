@@ -292,8 +292,8 @@ controls:
   - id: HM-10
     name: Identifier redaction and data minimisation
     what: >-
-      Dates of birth, emails, phone, card, passport and SSN numbers, tax IDs, bank account and
-      routing numbers and IBANs are removed from the claim text, attachment file names and tool
+      Dates of birth, emails, phone, card, passport and SSN numbers, IBANs, and tax IDs, bank
+      account and routing numbers labelled as such are removed from the claim text, attachment file names and tool
       results before any model sees them. Each agent input
       and each tool declares the data classes it carries, and anything beyond the agent's manifest
       is refused before the model or tool is called, and agents aren't offered tools they'd be
@@ -315,16 +315,19 @@ controls:
       - tests/test_privacy_security.py::test_identifiers_are_redacted_from_tool_results_and_file_names
       - tests/test_privacy_security.py::test_tax_ids_and_bank_details_are_redacted
       - tests/test_privacy_security.py::test_bank_and_tax_patterns_leave_ordinary_evidence_alone
+      - tests/test_privacy_security.py::test_redaction_stays_fast_on_long_runs_of_space
     evidence: []
     nist: [MEASURE 2.10]
     finos:
       risks: [RI-01]
       mitigations: [MI-01, MI-06, MI-12]
     gaps: >-
-      Names and medical details still reach the agents that need them to decide. Bank account
-      and routing numbers are caught only when labelled as such (an unlabelled run of digits
-      could be a receipt or booking number), and tax IDs only in the EIN format or when labelled;
-      a bare nine-digit tax ID is missed. IBANs must pass their checksum. Data classes are
+      Names and medical details still reach the agents that need them to decide. Tax IDs, bank
+      account and routing numbers are caught only after a label ("TIN", "tax ID", "account
+      number", "acct #", "A/C no.", "routing"): an unlabelled number, or "account" with no
+      "number", "no." or "#", is missed, because an unlabelled run of digits could be an amount,
+      a date, an invoice or a booking number. IBANs must pass their checksum and use spaces or
+      dashes, or none; lower case is caught only after "IBAN". Data classes are
       declared per input by code, not detected from content, so a wrong declaration isn't caught.
       Pattern redaction misses unusual formats.
 

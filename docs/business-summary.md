@@ -38,7 +38,7 @@ hasn't been decided yet goes to a person. Turning it
 back on needs an approval, like any other change.
 
 Before any AI sees a claim's text, software removes identifiers it doesn't need (dates of birth, card,
-passport, phone, tax ID and bank account numbers, emails) and flags any text that tries to instruct the AI.
+passport and phone numbers, labelled tax ID and bank account numbers, emails) and flags any text that tries to instruct the AI.
 
 The AI never decides on its own. A rule written in ordinary software (not AI) sends a claim to a
 human adjuster if any of these apply:
