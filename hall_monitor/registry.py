@@ -15,7 +15,7 @@ from enum import StrEnum
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
 
@@ -232,18 +232,24 @@ class Registry:
             return
         try:
             stops = load_stops(self._stops_path).stops
-        except (OSError, yaml.YAMLError, ValidationError, AttributeError, TypeError) as exc:
+        except (OSError, ValueError, yaml.YAMLError, AttributeError, TypeError) as exc:
             raise StopListError(
                 f"{STOPS_FILENAME} can't be read ({type(exc).__name__}); every agent is refused"
             ) from None
         for stop in stops:
+            # IDs and file names only in these messages: they reach the audit log.
             if stop.agent not in self._manifests:
-                raise StopListError(
-                    f"{stop.id} names unknown agent {stop.agent!r}; every agent is refused"
-                )
+                raise StopListError(f"{stop.id} names an unknown agent; every agent is refused")
             if self._owners is not None and stop.stopped_by not in self._owners:
                 raise StopListError(
                     f"{stop.id} is by someone not in {OWNERS_FILENAME}; every agent is refused"
+                )
+        made = {(s.agent, s.id) for s in stops}
+        for agent, cleared in self._cleared.items():
+            if any((agent, stop_id) not in made for stop_id in cleared):
+                raise StopListError(
+                    f"approvals clear a stop for {agent!r} that {STOPS_FILENAME} doesn't hold; "
+                    "every agent is refused"
                 )
         live = [
             s for s in stops if s.agent == agent_id and s.id not in self._cleared.get(agent_id, ())

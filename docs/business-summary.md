@@ -33,7 +33,8 @@ controls, which aren't switched on yet. The AI can see policy records and claims
 history only through an approved, logged channel, and only for the claim in front of it.
 
 Each AI step's owner is a named person who can stop it with one command, without waiting for
-an approval; the stop applies to its very next step, and the claim goes to a person. Turning it
+an approval. The stop applies from its very next step, and any claim that used its work and
+hasn't been decided yet goes to a person. Turning it
 back on needs an approval, like any other change.
 
 Before any AI sees a claim's text, software removes identifiers it doesn't need (dates of birth, card,

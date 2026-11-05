@@ -144,7 +144,8 @@ def test_clearing_another_agents_stop_does_not_restart_this_one(registry_dir):
     approvals["agents"]["critic"]["cleared_stops"] = ["stop-0001"]
     approvals_file.write_text(yaml.safe_dump(approvals))
 
-    with pytest.raises(AgentStoppedError):
+    # Clearing a stop the agent doesn't have is a broken approval, so every agent is refused.
+    with pytest.raises(StopListError):
         Registry.from_dir(registry_dir).require("intake")
 
 
@@ -208,7 +209,7 @@ def test_a_stop_for_an_unknown_agent_refuses_every_agent(registry_dir):
     """A typo in the agent's name must not leave the intended agent running unnoticed."""
     registry = Registry.from_dir(registry_dir)
     _stop(registry_dir, agent="intak")
-    with pytest.raises(StopListError, match="intak"):
+    with pytest.raises(StopListError, match="unknown agent"):
         registry.require("critic")
 
 
@@ -345,3 +346,134 @@ def test_a_stop_during_an_agents_tool_rounds_halts_its_next_model_request(regist
         )
     assert len(calls) == 1
     assert [c.allowed for c in access.log] == [False]
+
+
+# --- From the pre-PR review ----------------------------------------------------------
+
+
+def test_a_stop_after_an_agent_answers_still_sends_the_claim_to_a_person(registry_dir):
+    """The claim must not be paid on the answer of an agent stopped after it gave it."""
+    registry = Registry.from_dir(registry_dir)
+    claim = next(c for c in iter_claims() if c.claim_id == "claim_001")
+    client = fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)))
+    answer = client.messages.parse
+
+    def parse(**kwargs):
+        response = answer(**kwargs)
+        if len(client.messages.calls) == 1:
+            _stop(registry_dir)  # intake has answered; its owner stops it now
+        return response
+
+    client.messages.parse = parse
+    result = triage(
+        claim,
+        registry=registry,
+        gateway=ToolGateway(registry),
+        wording=load_policy_wording(),
+        client=client,
+    )
+
+    assert result.routing.route is Route.ADJUSTER
+    assert "stopped" in result.stopped_reason and "intake" in result.stopped_reason
+
+
+def test_the_unstopped_claim_routes_automatically(registry_dir):
+    """Control for the test above: without the stop, claim_001 is paid automatically."""
+    registry = Registry.from_dir(registry_dir)
+    claim = next(c for c in iter_claims() if c.claim_id == "claim_001")
+    client = fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)))
+    result = triage(
+        claim,
+        registry=registry,
+        gateway=ToolGateway(registry),
+        wording=load_policy_wording(),
+        client=client,
+    )
+    assert result.routing.route is Route.AUTO
+
+
+def test_a_cleared_stop_that_does_not_exist_refuses_every_agent(registry_dir):
+    """Otherwise a stop could be cleared before it is made, and the stop would do nothing."""
+    approvals_file = registry_dir / APPROVALS_FILENAME
+    approvals = yaml.safe_load(approvals_file.read_text())
+    approvals["agents"]["intake"]["cleared_stops"] = ["stop-0001"]
+    approvals_file.write_text(yaml.safe_dump(approvals))
+    registry = Registry.from_dir(registry_dir)
+    with pytest.raises(StopListError):
+        registry.require("critic")
+    _stop(registry_dir, agent="critic")  # stop-0001 exists now, but for another agent
+    with pytest.raises(StopListError):
+        registry.require("coverage_check")
+
+
+def test_a_stop_list_that_is_not_text_refuses_every_agent(registry_dir):
+    registry = Registry.from_dir(registry_dir)
+    (registry_dir / STOPS_FILENAME).write_bytes(b"stops: []\n# caf\xe9\n")
+    with pytest.raises(StopListError):
+        registry.require("critic")
+
+
+def test_a_tool_call_refused_for_a_bad_stop_list_is_still_recorded(registry_dir):
+    registry = Registry.from_dir(registry_dir)
+    (registry_dir / STOPS_FILENAME).write_bytes(b"\xe9")
+    log = []
+    result = ToolGateway(registry).call("coverage_check", "policy_lookup", {}, log)
+    assert "Refused" in result["error"]
+    assert [c.allowed for c in log] == [False]
+
+
+def test_an_unknown_agent_in_a_stop_is_not_repeated_in_the_refusal(registry_dir):
+    registry = Registry.from_dir(registry_dir)
+    _write_stops(registry_dir, [_entry(agent="Jane Doe passport X123")])
+    with pytest.raises(StopListError) as refused:
+        registry.require("critic")
+    assert "Jane" not in str(refused.value)
+
+
+def test_duplicate_keys_in_the_stop_list_refuse_every_agent(registry_dir):
+    """YAML keeps the last of two equal keys, so `stops: []` appended would hide a stop."""
+    _stop(registry_dir)
+    path = registry_dir / STOPS_FILENAME
+    path.write_text(path.read_text() + "stops: []\n")
+    with pytest.raises(StopListError):
+        Registry.from_dir(registry_dir).require("intake")
+
+
+def test_duplicate_keys_fail_the_append_only_check(tmp_path):
+    from hall_monitor.kill_switch import main
+
+    base = tmp_path / "base.yaml"
+    base.write_text(yaml.safe_dump({"stops": [_entry()]}))
+    head = tmp_path / "head.yaml"
+    head.write_text(base.read_text() + "stops: []\n")
+    assert main(["check-append-only", str(base), str(head)]) == 1
+
+
+def test_code_the_kill_switch_relies_on_has_a_code_owner():
+    """Otherwise one PR could delete a stop and disable the check that catches it."""
+    from hall_monitor.governance.controls import ROOT
+
+    rules = []
+    for line in (ROOT / ".github" / "CODEOWNERS").read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            pattern, *owners = line.split()
+            rules.append((pattern, owners))
+
+    def owners_of(path):
+        found = []
+        for pattern, owners in rules:  # the last matching rule wins
+            if path == pattern.strip("/") or path.startswith(pattern.strip("/") + "/"):
+                found = owners
+        return found
+
+    for path in (
+        ".github/workflows/ci.yml",
+        ".github/CODEOWNERS",
+        "hall_monitor/kill_switch.py",
+        "hall_monitor/registry.py",
+        "hall_monitor/pipeline.py",
+        "registry/approvals.yaml",
+        "registry/owners.yaml",
+    ):
+        assert owners_of(path), path
+    assert owners_of("registry/stops.yaml") == []

@@ -178,3 +178,25 @@ automatically. Code can't see either; they're logged as HM-04 gaps.
 | Routing tests traced amounts in the original text, the pipeline in the redacted text | Medium | The tests use the redacted text |
 | Eval scoring traced amounts differently from the routing rule | Low | Scoring uses the same rule on the same redacted text |
 | The incomplete-answer test only ever failed at intake; one fault also tripped a second reason | Low | The fake takes a stop reason per agent and the test runs at every agent. The payout-above-claim check is shown on its own by "coverage: pays more than claimed" |
+
+## Kill switch (HM-19)
+
+**What:** each agent's owner is a named person; an owner stops an agent by appending to
+`registry/stops.yaml`, with no approval, and the registry reads that file on every check.
+Restarting needs the stop cleared in `registry/approvals.yaml`. [ADR 0015](../adr/0015-kill-switch.md).
+
+**Found while building it, fixed test-first:** a refused tool call goes back to the model as an
+error, so a stop made during an agent's tool rounds didn't halt its next model request (the test
+saw 7 more). `run_agent` now checks again before each later round.
+
+**Pre-PR review** (the `governance-reviewer` instructions on the branch's diff, run as a
+general-purpose agent because the session started outside the repo): 6 findings, all confirmed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A claim in progress could be paid automatically on the answer of an agent stopped after it gave it; the docs said the claim goes to a person | High | The pipeline checks every agent the result rests on just before routing. The workflow's automatic finish right after isn't checked again (HM-19 gaps) |
+| The CI workflow and the kill-switch code had no code owner, so one pull request could delete a stop and disable the check, even with branch protection on | High | CODEOWNERS covers `/hall_monitor/` and `/.github/`; a test checks those paths have an owner and the stop list has none |
+| An approval could clear a stop before it was made, so the stop then did nothing | Medium | Clearing a stop the list doesn't hold, for that agent, refuses every agent |
+| A stop list that isn't UTF-8 raised an error the gateway didn't catch, so the refused tool call wasn't recorded | Medium | Caught as an unreadable stop list; a test checks the refused call is recorded |
+| A hand-edited stop's agent name was repeated in the refusal, which reaches the audit log | Low | The agent must be an agent ID, and the message names the stop only |
+| YAML keeps the last of two equal keys, so `stops: []` added at the end hid every stop on the host; "records who stopped it" overstated a self-declared ID | Low | Duplicate keys refuse every agent; the docs say the owner ID is the one given, not authenticated |

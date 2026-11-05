@@ -387,6 +387,10 @@ def _triage(
             economy=economy["recommendation"],
         )
     )
+    # Every agent this result rests on must still be allowed to run: a stop made after an agent
+    # answered must not let the claim go through on that answer.
+    for agent_id in dict.fromkeys(call.agent_id for call in run.calls):
+        registry.require(agent_id)
     routing = route_claim(
         run.extraction,
         coverage,

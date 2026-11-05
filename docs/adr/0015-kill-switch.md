@@ -26,15 +26,20 @@ was accountable or could be asked to act.
   call and tool call goes through it. `run_agent` checks again before each later tool round,
   because a refused tool call alone goes back to the model as an error. A stopped agent stops
   the claim and sends it to a person, like any refusal ([ADR 0007](0007-failures-stop-the-claim.md)).
-- **Doubt stops everything.** A missing or unreadable stop list, a stop naming an unknown agent
-  (a typo would otherwise leave the intended agent running) or a person not on the owners list
-  refuses every agent until it is fixed.
+  Just before routing, the pipeline checks again every agent the result rests on, so a claim
+  is never paid on the answer of an agent stopped after it gave it.
+- **Doubt stops everything.** A missing or unreadable stop list, one with a key twice (YAML
+  would keep the last, so `stops: []` added at the end would hide every stop), a stop naming an
+  unknown agent (a typo would otherwise leave the intended agent running) or a person not on the
+  owners list, or an approval clearing a stop the list doesn't hold (it could be cleared before
+  it was made), refuses every agent until it is fixed.
 - **Restarting is an approval.** An agent stays stopped until its entry in
   [`registry/approvals.yaml`](../../registry/approvals.yaml) lists the stop under
   `cleared_stops` (`python -m hall_monitor.approvals --resume STOP_ID`). That is a change to the
   approvals file, reviewed like any other ([ADR 0003](0003-approvals-pin-hashes.md)).
 - **Stops are never deleted.** CI fails a pull request that removes or edits an entry, so
-  deleting a stop isn't a way round the review.
+  deleting a stop isn't a way round the review. CODEOWNERS covers the code and the CI workflow
+  as well as the approvals, so the same pull request can't quietly switch the check off.
 - **The reason stays in the file.** Refusals, and so the audit log, carry the stop ID and the
   owner ID only; the free-text reason may be personal.
 
@@ -47,7 +52,7 @@ was accountable or could be asked to act.
 - **Delete the stop to restart.** Rejected: it would make restarting as easy as stopping.
 - **Let only the agent's own owner stop it.** Rejected for now: a wrong stop fails safe, and in
   an incident the owner may not be the one who sees it first. Any listed owner can stop any
-  agent, and the stop records who did.
+  agent, and the stop records the owner ID they gave. Nothing authenticates that ID.
 - **A feature-flag service.** Right for production: owners could stop an agent without
   touching the repository. Out of scope here; the registry reads a path, so pointing it at a
   synced file or swapping the loader is a small change.
@@ -56,7 +61,9 @@ was accountable or could be asked to act.
 
 - Stopping takes one command and no approval; restarting takes a reviewed pull request.
 - Every agent check reads a small YAML file. That is cheap at this scale.
-- A call already in flight finishes; the stop applies from the next model or tool call.
+- A call already in flight finishes; the stop applies from the next model or tool call, and
+  from the routing check for claims already under way. The workflow's automatic finish just
+  after routing isn't checked again.
 - The file only works as a kill switch if the running process reads the same file. On a laptop
   it does; a deployment needs the file (or its replacement) in a store owners can write to at
   once.

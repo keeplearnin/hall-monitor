@@ -37,11 +37,29 @@ HEADER = (
 )
 
 
+class _UniqueKeyLoader(yaml.SafeLoader):
+    """Refuses a mapping with a key twice: YAML would keep the last, and `stops: []` added at
+    the end of the file would hide every stop above it."""
+
+    def construct_mapping(self, node, deep=False):
+        keys = [self.construct_object(k, deep=deep) for k, _ in node.value]
+        duplicates = sorted({str(k) for k in keys if keys.count(k) > 1})
+        if duplicates:
+            raise yaml.constructor.ConstructorError(
+                None, None, f"duplicate key: {', '.join(duplicates)}", node.start_mark
+            )
+        return super().construct_mapping(node, deep=deep)
+
+
+def load_yaml(path: Path):
+    return yaml.load(path.read_text(encoding="utf-8"), Loader=_UniqueKeyLoader)
+
+
 class Stop(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     id: str = Field(pattern=STOP_ID_PATTERN)
-    agent: str = Field(min_length=1)
+    agent: str = Field(pattern=r"^[a-z][a-z0-9_]*$", description="Agent ID.")
     stopped_by: str = Field(min_length=1, description="Owner ID from registry/owners.yaml.")
     stopped_at: datetime
     reason: str = Field(min_length=1, description="Kept in this file only, never in the log.")
@@ -67,11 +85,11 @@ class AppendOnlyError(ValueError):
 
 def load_stops(path: Path) -> StopList:
     """Parse the stop list. Any problem raises, so the caller can refuse every agent."""
-    return StopList.model_validate(yaml.safe_load(path.read_text()))
+    return StopList.model_validate(load_yaml(path))
 
 
 def _raw(path: Path) -> list[dict]:
-    return (yaml.safe_load(path.read_text()) or {}).get("stops") or []
+    return (load_yaml(path) or {}).get("stops") or []
 
 
 def next_stop_id(path: Path) -> str:
@@ -145,10 +163,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{added.id}: {added.agent} stopped from its next call")
         return 0
     try:
-        check_append_only(
-            yaml.safe_load(args.base.read_text()), yaml.safe_load(args.head.read_text())
-        )
-    except AppendOnlyError as exc:
+        check_append_only(load_yaml(args.base), load_yaml(args.head))
+    except (AppendOnlyError, yaml.YAMLError) as exc:
         print(exc, file=sys.stderr)
         return 1
     print("stops.yaml: append-only")
