@@ -12,8 +12,8 @@ controls:
   - id: HM-01
     name: Agent registry and approvals
     what: >-
-      Every agent has a typed manifest naming its owner, risk tier, status, model, tools and data
-      classes. Unregistered, inactive or unapproved agents are refused at run time: the manifest
+      Every agent has a typed manifest naming its owner (a person listed in registry/owners.yaml,
+      never a team), risk tier, status, model, tools and data classes. Unregistered, inactive or unapproved agents are refused at run time: the manifest
       digest and the system-prompt template hash must match registry/approvals.yaml, and the
       template hash is recorded on every call. CI fails on an unapproved change.
     status: built
@@ -34,8 +34,9 @@ controls:
     gaps: >-
       Anyone who can commit can regenerate approvals.yaml. Review of that change depends on
       repository settings: .github/CODEOWNERS names an owner, but main has no branch protection
-      yet, so it isn't enforced. Owner and risk tier are inventory fields; nothing reads them at
-      run time.
+      yet, so it isn't enforced. The owner is checked against the list of people when the registry
+      loads, and the kill switch (HM-19) records the owner ID given for each stop; risk tier is an inventory
+      field that nothing reads at run time.
 
   - id: HM-02
     name: Pinned models, no silent fallback
@@ -473,6 +474,62 @@ controls:
       risks: [RI-19]
       mitigations: [MI-06]
     gaps: Data quality is documented, not monitored; there is no drift detection.
+
+  - id: HM-19
+    name: Kill switch
+    what: >-
+      An agent's owner can stop it by adding an entry to registry/stops.yaml (python -m
+      hall_monitor.kill_switch stop), which changes no manifest or approval and has no code owner.
+      The registry reads the stop list on every check, so a running process refuses the agent on
+      its next model call, including the next tool round of a call already under way, and on its
+      next tool call; a stopped agent stops the claim and sends it to a person. Every agent a
+      claim's result rests on is checked again just before routing, so a claim that used the
+      answer of an agent stopped after it gave it also goes to a person. The stop list fails
+      closed: if it is missing, unreadable or has a key twice, names an unknown agent or a person
+      not in registry/owners.yaml, or approvals clear a stop it doesn't hold, every agent is
+      refused. Restarting needs the stop cleared in registry/approvals.yaml (python -m
+      hall_monitor.approvals --resume), a reviewed approval.
+      CI fails a pull request that removes or edits a stop. Refusals carry the stop and owner IDs,
+      never the reason.
+    status: built
+    code:
+      - hall_monitor/kill_switch.py::add_stop
+      - hall_monitor/kill_switch.py::check_append_only
+      - hall_monitor/registry.py::Registry
+      - hall_monitor/agents/base.py::run_agent
+      - registry/stops.yaml
+      - registry/owners.yaml
+      - .github/workflows/ci.yml
+    tests:
+      - tests/test_kill_switch.py::test_a_stop_takes_effect_on_the_next_call
+      - tests/test_kill_switch.py::test_a_stop_needs_no_approval
+      - tests/test_kill_switch.py::test_a_stop_during_an_agents_tool_rounds_halts_its_next_model_request
+      - tests/test_kill_switch.py::test_a_stopped_agent_stops_the_claim_and_sends_it_to_a_person
+      - tests/test_kill_switch.py::test_a_stop_after_an_agent_answers_still_sends_the_claim_to_a_person
+      - tests/test_kill_switch.py::test_a_cleared_stop_that_does_not_exist_refuses_every_agent
+      - tests/test_kill_switch.py::test_code_the_kill_switch_relies_on_has_a_code_owner
+      - tests/test_kill_switch.py::test_clearing_the_stop_in_a_reviewed_approval_restarts_it
+      - tests/test_kill_switch.py::test_an_unreadable_stop_list_refuses_every_agent
+      - tests/test_kill_switch.py::test_removing_or_editing_a_stop_fails_the_check
+      - tests/test_kill_switch.py::test_every_agent_is_owned_by_a_named_person
+    evidence: []
+    nist: [MANAGE 2.4, GOVERN 2.1]
+    finos:
+      risks: [RI-14, RI-18]
+      mitigations: []
+    gaps: >-
+      The stop list is a file beside the code: a stop reaches a running process only if that
+      process reads the same file, so a deployment needs it in a store the owner can write to at
+      once. Any listed owner can stop any agent, not only its own owner; that is deliberate,
+      because a wrong stop fails safe. The owner ID on a stop is the one the person gave; nothing
+      authenticates it. A model or tool call already in flight finishes, and the workflow's
+      automatic finish, just after routing, isn't checked again. Clearing a stop takes effect
+      when the registry is next loaded. Append-only is checked only on pull requests. CODEOWNERS
+      covers the code, the CI workflow and the approvals, so a pull request that deleted a stop
+      and disabled the check would need the owner's review, but only once branch protection is
+      on, and it isn't: until then a direct push to main, and always an edit on the host, could
+      delete a stop and restart the agent unreviewed. Stops are not written to the audit log as
+      events; a stopped agent shows there only as the stopped claim's reason.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:

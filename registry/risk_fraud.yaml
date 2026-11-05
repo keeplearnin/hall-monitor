@@ -1,7 +1,7 @@
 id: risk_fraud
 name: Risk and fraud flags
-version: 0.3.0
-owner: claims-ai-platform
+version: 0.4.0
+owner: own-302
 purpose: Flag inconsistencies such as misaligned dates, duplicate receipts or claims soon after policy start, and assign a risk level.
 risk_tier: high
 status: active
