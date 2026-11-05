@@ -1,0 +1,6 @@
+# Agent stops: the kill switch (hall_monitor/kill_switch.py).
+# Add an entry to stop an agent; it takes effect on the agent's next call and needs no
+# approval. Never remove or edit an entry (CI checks this file is append-only). To restart
+# the agent, clear the stop in a reviewed approval:
+#   uv run python -m hall_monitor.approvals --resume STOP_ID
+stops: []

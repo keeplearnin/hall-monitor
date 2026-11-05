@@ -32,6 +32,18 @@ jobs:
       - name: Tests
         run: uv run pytest -q
 
+      # Kill switch: a pull request may add stops but never remove or edit one, so deleting a
+      # stop can't restart an agent without the reviewed approval that clears it.
+      - name: Stops are append-only
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          if git cat-file -e FETCH_HEAD:registry/stops.yaml 2>/dev/null; then
+            git show FETCH_HEAD:registry/stops.yaml > "$RUNNER_TEMP/base-stops.yaml"
+            uv run python -m hall_monitor.kill_switch check-append-only \
+              "$RUNNER_TEMP/base-stops.yaml" registry/stops.yaml
+          fi
+
       # Published eval results must meet evals/gate.yaml. No model calls.
       - name: Eval gate
         run: uv run python -m hall_monitor.evals.gate

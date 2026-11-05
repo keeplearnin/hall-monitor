@@ -99,6 +99,10 @@ def run_agent[T: BaseModel](
     system_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
 
     for _ in range(MAX_TOOL_ROUNDS + 1):
+        if api_calls:
+            # Checked again before each later round, so a stop made mid-claim halts the agent
+            # here; a refused tool call alone would go back to the model as an error.
+            registry.require(agent_id, prompt_sha256=template_sha256)
         response = client.messages.parse(
             model=model,
             max_tokens=16000,

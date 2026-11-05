@@ -1,0 +1,10 @@
+# People who own agents (fictional). Each manifest's owner is one of these IDs: a person, never a
+# team. The owner is accountable for the agent and can stop it at once (registry/stops.yaml).
+# Stops and the audit log record the ID only.
+owners:
+  - id: own-301
+    name: Riley Okafor
+    role: Head of claims automation
+  - id: own-302
+    name: Sam Lindqvist
+    role: Fraud analytics lead

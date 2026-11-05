@@ -4,3 +4,6 @@
 /hall_monitor/agents/     @keeplearnin
 /controls/                @keeplearnin
 /evals/gate.yaml          @keeplearnin
+# Stopping an agent needs no review: no code owner for the stop list. Restarting one is a change
+# to approvals.yaml, which the /registry/ rule above covers.
+/registry/stops.yaml

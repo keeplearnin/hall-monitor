@@ -26,6 +26,7 @@ Every hall-monitor control, mapped to the NIST AI Risk Management Framework 1.0 
 | [HM-16](#hm-16) | Cost per claim and economy model routing | built | MEASURE 3.1, MANAGE 3.1 |  | MI-09 |
 | [HM-17](#hm-17) | CI checks and the eval gate | built | MEASURE 3.1 | RI-05, RI-06 | MI-05, MI-10 |
 | [HM-18](#hm-18) | Synthetic data and documented limits | built | MAP 1.1, MAP 2.1, MEASURE 1.1, MEASURE 2.5 | RI-19 | MI-06 |
+| [HM-19](#hm-19) | Kill switch | built | MANAGE 2.4, GOVERN 2.1 | RI-14, RI-18 |  |
 
 ## Controls
 
@@ -33,14 +34,14 @@ Every hall-monitor control, mapped to the NIST AI Risk Management Framework 1.0 
 
 **Agent registry and approvals** (built)
 
-Every agent has a typed manifest naming its owner, risk tier, status, model, tools and data classes. Unregistered, inactive or unapproved agents are refused at run time: the manifest digest and the system-prompt template hash must match registry/approvals.yaml, and the template hash is recorded on every call. CI fails on an unapproved change.
+Every agent has a typed manifest naming its owner (a person listed in registry/owners.yaml, never a team), risk tier, status, model, tools and data classes. Unregistered, inactive or unapproved agents are refused at run time: the manifest digest and the system-prompt template hash must match registry/approvals.yaml, and the template hash is recorded on every call. CI fails on an unapproved change.
 
 - **Code:** [`hall_monitor/registry.py`](../hall_monitor/registry.py) `Registry`; [`hall_monitor/approvals.py`](../hall_monitor/approvals.py) `current_approvals`; [`registry/approvals.yaml`](../registry/approvals.yaml)
 - **Tests:** [`tests/test_registry.py`](../tests/test_registry.py) `test_unregistered_agent_is_refused`; [`tests/test_registry.py`](../tests/test_registry.py) `test_unapproved_manifest_is_refused`; [`tests/test_registry.py`](../tests/test_registry.py) `test_approvals_match_the_current_manifests_and_prompts`; [`tests/test_registry.py`](../tests/test_registry.py) `test_unapproved_prompt_is_refused_at_run_time`
 - **NIST AI RMF:** GOVERN 1.6 (Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities); GOVERN 2.1 (Roles and responsibilities and lines of communication related to mapping, measuring, and managing AI risks are documented and are clear to individuals and teams throughout the organization); MAP 1.1 (Intended purposes, potentially beneficial uses, context-specific laws, norms and expectations, and prospective settings in which the AI system will be deployed are understood and documented); MANAGE 2.4 (Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use)
 - **FINOS risks:** RI-05 Foundation Model Versioning; RI-18 Model Overreach / Expanded Use
 - **FINOS mitigations:** MI-10 AI Model Version Pinning
-- **Gaps:** Anyone who can commit can regenerate approvals.yaml. Review of that change depends on repository settings: .github/CODEOWNERS names an owner, but main has no branch protection yet, so it isn't enforced. Owner and risk tier are inventory fields; nothing reads them at run time.
+- **Gaps:** Anyone who can commit can regenerate approvals.yaml. Review of that change depends on repository settings: .github/CODEOWNERS names an owner, but main has no branch protection yet, so it isn't enforced. The owner is checked against the list of people when the registry loads, and the kill switch (HM-19) records who stopped an agent; risk tier is an inventory field that nothing reads at run time.
 
 ### HM-02
 
@@ -269,6 +270,19 @@ All data is synthetic, with answer keys whose changes are dated and justified. E
 - **FINOS mitigations:** MI-06 Data Quality & Classification/Sensitivity
 - **Gaps:** Data quality is documented, not monitored; there is no drift detection.
 
+### HM-19
+
+**Kill switch** (built)
+
+An agent's owner can stop it by adding an entry to registry/stops.yaml (python -m hall_monitor.kill_switch stop), which changes no manifest or approval and has no code owner. The registry reads the stop list on every check, so a running process refuses the agent on its next model call, including the next tool round of a call already under way, and on its next tool call; a stopped agent stops the claim and sends it to a person. The stop list fails closed: if it is missing or unreadable, or names an unknown agent or a person not in registry/owners.yaml, every agent is refused. Restarting needs the stop cleared in registry/approvals.yaml (python -m hall_monitor.approvals --resume), a reviewed approval. CI fails a pull request that removes or edits a stop. Refusals carry the stop and owner IDs, never the reason.
+
+- **Code:** [`hall_monitor/kill_switch.py`](../hall_monitor/kill_switch.py) `add_stop`; [`hall_monitor/kill_switch.py`](../hall_monitor/kill_switch.py) `check_append_only`; [`hall_monitor/registry.py`](../hall_monitor/registry.py) `Registry`; [`hall_monitor/agents/base.py`](../hall_monitor/agents/base.py) `run_agent`; [`registry/stops.yaml`](../registry/stops.yaml); [`registry/owners.yaml`](../registry/owners.yaml); [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+- **Tests:** [`tests/test_kill_switch.py`](../tests/test_kill_switch.py) `test_a_stop_takes_effect_on_the_next_call`; [`tests/test_kill_switch.py`](../tests/test_kill_switch.py) `test_a_stop_needs_no_approval`; [`tests/test_kill_switch.py`](../tests/test_kill_switch.py) `test_a_stop_during_an_agents_tool_rounds_halts_its_next_model_request`; [`tests/test_kill_switch.py`](../tests/test_kill_switch.py) `test_a_stopped_agent_stops_the_claim_and_sends_it_to_a_person`; [`tests/test_kill_switch.py`](../tests/test_kill_switch.py) `test_clearing_the_stop_in_a_reviewed_approval_restarts_it`; [`tests/test_kill_switch.py`](../tests/test_kill_switch.py) `test_an_unreadable_stop_list_refuses_every_agent`; [`tests/test_kill_switch.py`](../tests/test_kill_switch.py) `test_removing_or_editing_a_stop_fails_the_check`; [`tests/test_kill_switch.py`](../tests/test_kill_switch.py) `test_every_agent_is_owned_by_a_named_person`
+- **NIST AI RMF:** MANAGE 2.4 (Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use); GOVERN 2.1 (Roles and responsibilities and lines of communication related to mapping, measuring, and managing AI risks are documented and are clear to individuals and teams throughout the organization)
+- **FINOS risks:** RI-14 Inadequate System Alignment; RI-18 Model Overreach / Expanded Use
+- **FINOS mitigations:** 
+- **Gaps:** The stop list is a file beside the code: a stop reaches a running process only if that process reads the same file, so a deployment needs it in a store the owner can write to at once. Any listed owner can stop any agent, not only its own owner; that is deliberate, because a wrong stop fails safe. A model or tool call already in flight finishes. Clearing a stop takes effect when the registry is next loaded. Append-only is checked only on pull requests, and both that check and review of the restart depend on branch protection, which isn't on: a direct push to main, or an edit on the host, could delete a stop and restart the agent unreviewed. Stops are not written to the audit log as events; a stopped agent shows there only as the stopped claim's reason.
+
 ## NIST AI RMF coverage
 
 | Subcategory | Controls |
@@ -277,7 +291,7 @@ All data is synthetic, with answer keys whose changes are dated and justified. E
 | **GOVERN 1.4** The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities. | [HM-03](#hm-03) |
 | **GOVERN 1.5** Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and organizational roles and responsibilities clearly defined, including determining the frequency of periodic review. | Not covered: CI checks every change, but nothing schedules periodic review of the risk process or its outcomes. |
 | **GOVERN 1.6** Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities. | [HM-01](#hm-01) |
-| **GOVERN 2.1** Roles and responsibilities and lines of communication related to mapping, measuring, and managing AI risks are documented and are clear to individuals and teams throughout the organization. | [HM-01](#hm-01) |
+| **GOVERN 2.1** Roles and responsibilities and lines of communication related to mapping, measuring, and managing AI risks are documented and are clear to individuals and teams throughout the organization. | [HM-01](#hm-01), [HM-19](#hm-19) |
 | **GOVERN 3.2** Policies and procedures are in place to define and differentiate roles and responsibilities for human-AI configurations and oversight of AI systems. | [HM-04](#hm-04), [HM-05](#hm-05) |
 | **GOVERN 4.1** Organizational policies and practices are in place to foster a critical thinking and safety-first mindset in the design, development, deployment, and uses of AI systems to minimize potential negative impacts. | Not covered: Organisational culture and practices are outside a codebase. |
 | **GOVERN 6.1** Policies and procedures are in place that address AI risks associated with third-party entities, including risks of infringement of a third-party's intellectual property or other rights. | Not covered: Third-party policies, including intellectual-property risk from the model provider, aren't addressed; the model is pinned, not assessed. |
@@ -296,7 +310,7 @@ All data is synthetic, with answer keys whose changes are dated and justified. E
 | **MEASURE 2.11** Fairness and bias – as identified in the map function – are evaluated and results are documented. | [HM-14](#hm-14) |
 | **MEASURE 3.1** Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts. | [HM-16](#hm-16), [HM-17](#hm-17) |
 | **MANAGE 1.3** Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented. Risk response options can include mitigating, transferring, avoiding, or accepting. | [HM-03](#hm-03), [HM-04](#hm-04), [HM-07](#hm-07), [HM-09](#hm-09) |
-| **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08) |
+| **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08), [HM-19](#hm-19) |
 | **MANAGE 3.1** AI risks and benefits from third-party resources are regularly monitored, and risk controls are applied and documented. | [HM-02](#hm-02), [HM-16](#hm-16) |
 | **MANAGE 4.1** Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management. | [HM-05](#hm-05), [HM-06](#hm-06) |
 | **MANAGE 4.3** Incidents and errors are communicated to relevant AI actors, including affected communities. Processes for tracking, responding to, and recovering from incidents and errors are followed and documented. | [HM-08](#hm-08) |
@@ -314,10 +328,10 @@ All data is synthetic, with answer keys whose changes are dated and justified. E
 | RI-08 | Tampering With the Foundational Model | Not covered: Tampering with the foundation model is the provider's control; the repo only pins the model. |
 | RI-09 | Data Poisoning | Not covered: There is no training or fine-tuning, so no training data to poison. |
 | RI-10 | Prompt Injection | [HM-09](#hm-09), [HM-15](#hm-15) |
-| RI-14 | Inadequate System Alignment | [HM-07](#hm-07), [HM-09](#hm-09) |
+| RI-14 | Inadequate System Alignment | [HM-07](#hm-07), [HM-09](#hm-09), [HM-19](#hm-19) |
 | RI-16 | Bias and Discrimination | [HM-14](#hm-14) |
 | RI-17 | Lack of Explainability | [HM-06](#hm-06), [HM-13](#hm-13) |
-| RI-18 | Model Overreach / Expanded Use | [HM-01](#hm-01) |
+| RI-18 | Model Overreach / Expanded Use | [HM-01](#hm-01), [HM-19](#hm-19) |
 | RI-19 | Data Quality and Drift | [HM-18](#hm-18) |
 | RI-20 | Reputational Risk | Not covered: Reputational risk is a business judgement; publishing results, failures included, is the only part this repo touches. |
 | RI-22 | Regulatory Compliance and Oversight | [HM-04](#hm-04), [HM-05](#hm-05), [HM-06](#hm-06) |

@@ -21,6 +21,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0012](0012-deterministic-scoring.md) | Results are scored by code against answer keys, not by an LLM judge | HM-12, HM-13 |
 | [0013](0013-published-results-and-gate.md) | Publish every result, including failures, and gate merges on them | HM-17, HM-18 |
 | [0014](0014-signed-decisions-and-stored-evidence.md) | Adjuster decisions are signed, and evidence is stored by its hash | HM-05, HM-06 |
+| [0015](0015-kill-switch.md) | Stopping an agent needs no approval; restarting it does | HM-19 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".

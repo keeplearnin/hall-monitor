@@ -2,8 +2,8 @@
 
 A hall pass is a typed manifest in ``registry/<agent_id>.yaml`` naming the agent's
 owner, risk tier, model and the tools it may call. The registry refuses any agent
-without one, any agent whose manifest isn't active, and any tool the manifest
-doesn't list.
+without one, any agent whose manifest isn't active, any agent its owner has stopped
+(``registry/stops.yaml``, read on every call), and any tool the manifest doesn't list.
 """
 
 from __future__ import annotations
@@ -15,14 +15,19 @@ from enum import StrEnum
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+
+from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
 
 DEFAULT_REGISTRY_DIR = Path(__file__).resolve().parents[1] / "registry"
 SCHEMA_FILENAME = "agent_manifest.schema.json"
 APPROVALS_FILENAME = "approvals.yaml"
 ADJUSTERS_FILENAME = "adjusters.yaml"
+OWNERS_FILENAME = "owners.yaml"
 # Files in registry/ that are not agent manifests.
-NON_MANIFEST_FILES = frozenset({APPROVALS_FILENAME, ADJUSTERS_FILENAME})
+NON_MANIFEST_FILES = frozenset(
+    {APPROVALS_FILENAME, ADJUSTERS_FILENAME, OWNERS_FILENAME, STOPS_FILENAME}
+)
 
 
 class RiskTier(StrEnum):
@@ -53,7 +58,9 @@ class AgentManifest(BaseModel):
     id: str = Field(pattern=r"^[a-z][a-z0-9_]*$", description="Stable agent identifier.")
     name: str
     version: str = Field(pattern=r"^\d+\.\d+\.\d+$", description="Semantic version.")
-    owner: str = Field(min_length=1, description="Accountable person or team.")
+    owner: str = Field(
+        min_length=1, description="Accountable person: an ID from registry/owners.yaml."
+    )
     purpose: str = Field(min_length=1)
     risk_tier: RiskTier
     status: AgentStatus
@@ -109,6 +116,14 @@ class DataClassNotAllowedError(RegistryError):
     pass
 
 
+class AgentStoppedError(RegistryError):
+    pass
+
+
+class StopListError(RegistryError):
+    """The stop list can't be trusted, so every agent is refused until it is fixed."""
+
+
 # What an agent input carries when the caller doesn't say: everything, so an undeclared input
 # can only reach an agent approved for every data class.
 ALL_DATA_CLASSES = frozenset(DataClass)
@@ -119,24 +134,46 @@ def load_approvals(path: Path = DEFAULT_REGISTRY_DIR / APPROVALS_FILENAME) -> di
     return yaml.safe_load(path.read_text())["agents"]
 
 
+def load_owners(path: Path = DEFAULT_REGISTRY_DIR / OWNERS_FILENAME) -> list[dict]:
+    """The people who may own an agent. An owner is a person, never a team."""
+    return yaml.safe_load(path.read_text())["owners"]
+
+
 class Registry:
     def __init__(
         self,
         manifests: Iterable[AgentManifest],
         approved_digests: dict[str, str] | None = None,
         approved_prompts: dict[str, str] | None = None,
+        *,
+        stops_path: Path | None = None,
+        cleared_stops: dict[str, frozenset[str]] | None = None,
+        owners: frozenset[str] | None = None,
     ):
         """approved_digests=None skips the approval check; from_dir always enforces it.
 
         approved_prompts maps agent IDs to the approved system-prompt template hash; when given,
         an agent run with any other prompt is refused.
+
+        stops_path is the stop list, read again on every check so a stop needs no restart;
+        None skips it (from_dir always sets it). cleared_stops maps agent IDs to the stops a
+        reviewed approval has cleared. owners, when given, are the people every manifest's
+        owner and every stop's author must be.
         """
         self._approved = approved_digests
         self._approved_prompts = approved_prompts
+        self._stops_path = stops_path
+        self._cleared = cleared_stops or {}
+        self._owners = owners
         self._manifests: dict[str, AgentManifest] = {}
         for manifest in manifests:
             if manifest.id in self._manifests:
                 raise ValueError(f"duplicate agent id in registry: {manifest.id}")
+            if owners is not None and manifest.owner not in owners:
+                raise ValueError(
+                    f"agent {manifest.id!r}: owner {manifest.owner!r} is not a person listed "
+                    f"in {OWNERS_FILENAME}"
+                )
             self._manifests[manifest.id] = manifest
 
     @classmethod
@@ -154,6 +191,9 @@ class Registry:
             manifests,
             {a: v["manifest_digest"] for a, v in approvals.items()},
             {a: v["prompt_sha256"] for a, v in approvals.items() if "prompt_sha256" in v},
+            stops_path=path / STOPS_FILENAME,
+            cleared_stops={a: frozenset(v.get("cleared_stops", ())) for a, v in approvals.items()},
+            owners=frozenset(p["id"] for p in load_owners(path / OWNERS_FILENAME)),
         )
 
     def get(self, agent_id: str) -> AgentManifest:
@@ -171,6 +211,7 @@ class Registry:
         manifest = self.get(agent_id)
         if manifest.status is not AgentStatus.ACTIVE:
             raise AgentNotActiveError(f"agent {agent_id!r} is {manifest.status}, not active")
+        self._check_stops(agent_id)
         if self._approved is not None and self._approved.get(agent_id) != manifest.digest():
             raise UnapprovedManifestError(
                 f"agent {agent_id!r} manifest {manifest.digest()[:12]} is not the approved version"
@@ -184,6 +225,34 @@ class Registry:
                 f"agent {agent_id!r} prompt {prompt_sha256[:12]} is not the approved version"
             )
         return manifest
+
+    def _check_stops(self, agent_id: str) -> None:
+        """Refuse an agent with an uncleared stop. Read on every call; any doubt refuses all."""
+        if self._stops_path is None:
+            return
+        try:
+            stops = load_stops(self._stops_path).stops
+        except (OSError, yaml.YAMLError, ValidationError, AttributeError, TypeError) as exc:
+            raise StopListError(
+                f"{STOPS_FILENAME} can't be read ({type(exc).__name__}); every agent is refused"
+            ) from None
+        for stop in stops:
+            if stop.agent not in self._manifests:
+                raise StopListError(
+                    f"{stop.id} names unknown agent {stop.agent!r}; every agent is refused"
+                )
+            if self._owners is not None and stop.stopped_by not in self._owners:
+                raise StopListError(
+                    f"{stop.id} is by someone not in {OWNERS_FILENAME}; every agent is refused"
+                )
+        live = [
+            s for s in stops if s.agent == agent_id and s.id not in self._cleared.get(agent_id, ())
+        ]
+        if live:
+            # IDs only: the reason may be personal and this message reaches the audit log.
+            raise AgentStoppedError(
+                f"agent {agent_id!r} is stopped ({live[-1].id} by {live[-1].stopped_by})"
+            )
 
     def check_data(self, agent_id: str, carries: frozenset[DataClass]) -> None:
         """Refuse to send an agent data of a class its manifest doesn't allow."""
