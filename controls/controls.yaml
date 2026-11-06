@@ -37,7 +37,10 @@ controls:
       yet, so it isn't enforced. Approvals pin each system-prompt template, not the output
       schema the model is given, so a change to an output model (a new field constraint, say)
       needs no new approval; the API passes pydantic patterns to the model as description
-      text, not as constraints, and they are checked only once the answer is back. The owner is checked against the list of people when the registry
+      text, not as constraints, and they are checked only once the answer is back. Nor do they
+      pin how the claim and earlier answers are rendered into the request (render_claim,
+      escape): a change there, such as escaping ampersands in review 6, changes what the model
+      receives without a new approval or making published results stale. The owner is checked against the list of people when the registry
       loads, and the kill switch (HM-19) records the owner ID given for each stop; risk tier is an inventory
       field that nothing reads at run time.
 
@@ -274,9 +277,11 @@ controls:
       written as entities doesn't render like an escaped tag). A code detector flags text aimed
       at the AI (override instructions, fake markup, claimed approval, requests to skip review,
       internal tool names) in the narrative, attachments, file names, attachment kinds and the
-      channel, after decoding entities, full-width forms and invisible characters, and sends the
-      claim to a person. The channel and attachment kinds must be codes (lowercase letters and
-      underscores), so they can't carry free text into prompts or the audit log.
+      channel, and sends the claim to a person. It searches the text as written and again after
+      decoding entities and compatibility forms (full-width brackets) and dropping characters
+      that render as nothing, so decoding only adds matches. The channel and attachment kind
+      must be one of a fixed list of values, so they carry no free text into prompts or the
+      audit log.
     status: built, results pending
     code:
       - hall_monitor/agents/base.py::escape
@@ -288,6 +293,8 @@ controls:
       - tests/test_privacy_security.py::test_channel_and_kind_must_be_codes
       - tests/test_privacy_security.py::test_instructions_in_the_channel_or_kind_are_flagged
       - tests/test_privacy_security.py::test_encoded_markup_is_flagged_and_renders_differently
+      - tests/test_privacy_security.py::test_decoding_never_hides_a_signal
+      - tests/test_privacy_security.py::test_channel_and_kind_are_known_values
     evidence:
       - "pending: uv run python -m hall_monitor.evals.adversarial"
     nist: [MEASURE 2.7, MANAGE 1.3]
@@ -296,8 +303,9 @@ controls:
       mitigations: [MI-03, MI-17, MI-19]
     gaps: >-
       Pattern detection misses wording it wasn't written for; the adversarial suite measures
-      that. A claim whose channel or attachment kind isn't a code is refused when it is loaded,
-      before triage, so it leaves no audit entry. The coverage step's cited clauses are free
+      that. Entities encoded twice (&amp;lt;) are decoded once only. A claim whose channel or
+      attachment kind isn't a known value is refused when it is loaded, before triage, with the
+      fields named but not their values, so it leaves no audit entry. The coverage step's cited clauses are free
       text the recommender receives unchecked, so a clause written with a name or condition in it
       would reach a model not approved for personal data.
 

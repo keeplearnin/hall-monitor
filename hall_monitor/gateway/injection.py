@@ -61,19 +61,30 @@ SIGNALS: dict[str, re.Pattern[str]] = {
 
 def detect_instructions(claim: ClaimSubmission) -> list[str]:
     """Names of the signals found anywhere in the claim, in a stable order."""
+    codes = [claim.channel, *(a.kind for a in claim.attachments)]
     texts = [claim.narrative, *(a.text for a in claim.attachments)]
     texts += [a.filename for a in claim.attachments]
-    texts += [
-        code.replace("_", " ") for code in (claim.channel, *(a.kind for a in claim.attachments))
-    ]
-    joined = _normalise("\n".join(texts))
-    return [name for name, pattern in SIGNALS.items() if pattern.search(joined)]
+    texts += codes + [code.replace("_", " ") for code in codes]  # tool names keep underscores
+    raw = "\n".join(texts)
+    # The raw text and the decoded text are both searched: decoding reveals markup written as
+    # entities, but it also turns &#10; into a newline, which would end a phrase early.
+    decoded = _normalise(raw)
+    return [name for name, p in SIGNALS.items() if p.search(raw) or p.search(decoded)]
 
 
-_INVISIBLE = dict.fromkeys(map(ord, "\u00ad\u200b\u200c\u200d\u2060\ufeff"))
+def _invisible(char: str) -> bool:
+    """Characters that render as nothing: format characters (zero-width spaces and joiners,
+    direction marks, tag characters), the combining grapheme joiner and variation selectors."""
+    return (
+        unicodedata.category(char) == "Cf"
+        or char == "\u034f"
+        or "\ufe00" <= char <= "\ufe0f"
+        or "\U000e0100" <= char <= "\U000e01ef"
+    )
 
 
 def _normalise(text: str) -> str:
     """What the text says once decoded: HTML entities (&lt;system&gt;), full-width and other
     compatibility forms (＜system＞) and invisible characters inside words don't hide a match."""
-    return unicodedata.normalize("NFKC", html.unescape(text)).translate(_INVISIBLE)
+    decoded = unicodedata.normalize("NFKC", html.unescape(text))
+    return "".join(c for c in decoded if not _invisible(c))

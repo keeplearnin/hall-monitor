@@ -254,3 +254,14 @@ attachment kinds and encoded markup.
 | An attachment's `kind` was scanned but not redacted, so an email or phone number there reached the model | Low | `kind` must be a code too |
 | Markup written as HTML entities, full-width brackets or with a zero-width space slipped past the detector, and `&lt;system&gt;` rendered exactly like an escaped real tag | Low-Medium, plausible | The detector decodes entities, compatibility forms and invisible characters first; `escape` escapes `&` |
 | The coverage step's cited clauses are free model text the recommender receives unchecked | Low, plausible | Logged in HM-09 gaps; checking clause shape would change the coverage output schema, which needs a new approval |
+
+**Pre-PR review of those fixes:** 6 findings, all confirmed; fixed or logged.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Decoding before matching turned `&#10;` and `&#46;` into the newline and full stop the patterns stop at, so injections the old detector caught passed | High (regression) | The raw and the decoded text are both searched; a test checks decoding only adds matches |
+| Codes were read with underscores as spaces, so internal tool names (`policy_lookup`) in a kind or channel weren't flagged | Medium | Codes are searched as written and with spaces |
+| A 40-character code could still spell a name or an instruction (`from_jane_doe`, `approve_full_amount`), so the docs' "no free text" was false | Medium | Channel and kind must be known values |
+| Only six invisible characters were dropped; direction marks, invisible operators and tag characters still split words | Low | Every format character, the grapheme joiner and variation selectors are dropped |
+| Escaping `&` changes what the model receives for 5 of the 36 claims, with no approval change and published results not marked stale | Low | Logged in HM-01 gaps: approvals don't pin how requests are rendered |
+| A claim file with a bad channel or kind failed with a traceback that echoed the submitted value | Low | `run` names the fields and error types only |
