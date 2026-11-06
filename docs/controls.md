@@ -27,6 +27,7 @@ Every hall-monitor control, mapped to the NIST AI Risk Management Framework 1.0 
 | [HM-17](#hm-17) | CI checks and the eval gate | built | MEASURE 3.1 | RI-05, RI-06 | MI-05, MI-10 |
 | [HM-18](#hm-18) | Synthetic data and documented limits | built | MAP 1.1, MAP 2.1, MEASURE 1.1, MEASURE 2.5 | RI-19 | MI-06 |
 | [HM-19](#hm-19) | Kill switch | built | MANAGE 2.4, GOVERN 2.1 | RI-14, RI-18 |  |
+| [HM-20](#hm-20) | Read-only control panel | built | GOVERN 1.6, MANAGE 4.1 | RI-22 | MI-04, MI-21 |
 
 ## Controls
 
@@ -283,6 +284,19 @@ An agent's owner can stop it by adding an entry to registry/stops.yaml (python -
 - **FINOS mitigations:** 
 - **Gaps:** The stop list is a file beside the code: a stop reaches a running process only if that process reads the same file, so a deployment needs it in a store the owner can write to at once. Any listed owner can stop any agent, not only its own owner; that is deliberate, because a wrong stop fails safe. The owner ID on a stop is the one the person gave; nothing authenticates it. A model or tool call already in flight finishes, and the workflow's automatic finish, just after routing, isn't checked again. Clearing a stop takes effect when the registry is next loaded. Append-only is checked only on pull requests. CODEOWNERS covers the code, the CI workflow and the approvals, so a pull request that deleted a stop and disabled the check would need the owner's review, but only once branch protection is on, and it isn't: until then a direct push to main, and always an edit on the host, could delete a stop and restart the agent unreviewed. Stops are not written to the audit log as events; a stopped agent shows there only as the stopped claim's reason. The stop lock is a file lock (POSIX), so it serialises owners on one machine, not on a shared network store, and replacing the file needs write access to its directory.
 
+### HM-20
+
+**Read-only control panel** (built)
+
+A web panel (python -m hall_monitor.panel serve) and a JSON read API over the governance core: an overview per workflow (cases, the share sent to a person, overrides, stopped cases, refused decisions, cost) with what needs attention first, the agent inventory, each agent's manifest, approval, stops and eval results, the review queue, each case's full audit trace, audit-chain verification against an anchored head, the eval gate and this register. Each view asks the code that enforces the control: an agent's state is Registry.require's answer with its current prompt, the audit view is AuditLog.verify, the eval view is the CI gate's result. It can't change anything: every route is GET, the audit log is opened read-only, the checkpoints (which hold claim text) are never opened, and reading every page leaves every file byte for byte as it was. Stopping, deciding and approving stay in the kill switch, the review CLI and reviewed registry changes. It shows nothing personal: stop reasons, evidence packs, adjusters' reasons and decision signatures are left out. Pages carry a policy that allows no scripts and nothing from other origins, every value is escaped, and the server answers only requests addressed to this machine. `snapshot` saves every page and its JSON as static files; `demo` builds demo data by running the synthetic claims through the real workflow with a scripted model, and every demo page says so.
+
+- **Code:** [`hall_monitor/panel/views.py`](../hall_monitor/panel/views.py) `agents`; [`hall_monitor/panel/views.py`](../hall_monitor/panel/views.py) `case_trace`; [`hall_monitor/panel/views.py`](../hall_monitor/panel/views.py) `audit_integrity`; [`hall_monitor/panel/app.py`](../hall_monitor/panel/app.py) `create_app`; [`hall_monitor/panel/__main__.py`](../hall_monitor/panel/__main__.py) `snapshot`; [`hall_monitor/panel/demo.py`](../hall_monitor/panel/demo.py) `build`
+- **Tests:** [`tests/test_panel.py`](../tests/test_panel.py) `test_every_route_only_reads`; [`tests/test_panel.py`](../tests/test_panel.py) `test_reading_every_page_leaves_every_file_as_it_was`; [`tests/test_panel.py`](../tests/test_panel.py) `test_the_panel_opens_the_audit_log_read_only_and_never_the_checkpoints`; [`tests/test_panel.py`](../tests/test_panel.py) `test_no_page_shows_claim_text_stop_reasons_adjuster_reasons_or_signatures`; [`tests/test_panel.py`](../tests/test_panel.py) `test_values_from_the_log_are_escaped`; [`tests/test_panel.py`](../tests/test_panel.py) `test_requests_for_another_host_are_refused`; [`tests/test_panel.py`](../tests/test_panel.py) `test_serve_refuses_to_listen_beyond_this_machine`; [`tests/test_panel.py`](../tests/test_panel.py) `test_an_agent_state_is_the_registry_s_own_answer`; [`tests/test_panel.py`](../tests/test_panel.py) `test_an_unreadable_stop_list_shows_every_agent_refused`; [`tests/test_panel.py`](../tests/test_panel.py) `test_audit_integrity_checks_an_anchored_head`; [`tests/test_panel.py`](../tests/test_panel.py) `test_the_eval_view_is_the_gate_s_result`; [`tests/test_panel.py`](../tests/test_panel.py) `test_the_eval_view_judges_results_against_the_panel_s_own_approvals`
+- **NIST AI RMF:** GOVERN 1.6 (Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities); MANAGE 4.1 (Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management)
+- **FINOS risks:** RI-22 Regulatory Compliance and Oversight
+- **FINOS mitigations:** MI-04 AI System Observability; MI-21 Agent Decision Audit and Explainability
+- **Gaps:** No sign-in and no roles yet: it serves this machine only, so anyone who can reach it there sees everything, and the four roles in the design (viewer, reviewer, owner, approver) aren't built. It is read-only by design for this phase; stopping an agent and signing a decision from the panel are the next phase and aren't built. It reads the SQLite audit log and the registry files on one machine, so it shows only what that machine's runs wrote; there is no shared store. The overview covers travel claims only: the HR leave workflow is designed and has no code, so the panel says so rather than showing numbers. It can't anchor audit heads itself: verifying against an anchor needs a head someone copied out. The demo's model is scripted from the answer key, so its routing, cost and override numbers show the controls working, not how well the agents perform. Case pages show routing reasons and the stopped-claim reason as the code wrote them; those name agent, stop and owner IDs, never claim content.
+
 ## NIST AI RMF coverage
 
 | Subcategory | Controls |
@@ -290,7 +304,7 @@ An agent's owner can stop it by adding an entry to registry/stops.yaml (python -
 | **GOVERN 1.1** Legal and regulatory requirements involving AI are understood, managed, and documented. | Not covered: Legal and regulatory requirements for claims handling aren't analysed; this is a reference implementation, not legal advice. |
 | **GOVERN 1.4** The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities. | [HM-03](#hm-03) |
 | **GOVERN 1.5** Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and organizational roles and responsibilities clearly defined, including determining the frequency of periodic review. | Not covered: CI checks every change, but nothing schedules periodic review of the risk process or its outcomes. |
-| **GOVERN 1.6** Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities. | [HM-01](#hm-01) |
+| **GOVERN 1.6** Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities. | [HM-01](#hm-01), [HM-20](#hm-20) |
 | **GOVERN 2.1** Roles and responsibilities and lines of communication related to mapping, measuring, and managing AI risks are documented and are clear to individuals and teams throughout the organization. | [HM-01](#hm-01), [HM-19](#hm-19) |
 | **GOVERN 3.2** Policies and procedures are in place to define and differentiate roles and responsibilities for human-AI configurations and oversight of AI systems. | [HM-04](#hm-04), [HM-05](#hm-05) |
 | **GOVERN 4.1** Organizational policies and practices are in place to foster a critical thinking and safety-first mindset in the design, development, deployment, and uses of AI systems to minimize potential negative impacts. | Not covered: Organisational culture and practices are outside a codebase. |
@@ -312,7 +326,7 @@ An agent's owner can stop it by adding an entry to registry/stops.yaml (python -
 | **MANAGE 1.3** Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented. Risk response options can include mitigating, transferring, avoiding, or accepting. | [HM-03](#hm-03), [HM-04](#hm-04), [HM-07](#hm-07), [HM-09](#hm-09) |
 | **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08), [HM-19](#hm-19) |
 | **MANAGE 3.1** AI risks and benefits from third-party resources are regularly monitored, and risk controls are applied and documented. | [HM-02](#hm-02), [HM-16](#hm-16) |
-| **MANAGE 4.1** Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management. | [HM-05](#hm-05), [HM-06](#hm-06) |
+| **MANAGE 4.1** Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management. | [HM-05](#hm-05), [HM-06](#hm-06), [HM-20](#hm-20) |
 | **MANAGE 4.3** Incidents and errors are communicated to relevant AI actors, including affected communities. Processes for tracking, responding to, and recovering from incidents and errors are followed and documented. | [HM-08](#hm-08) |
 
 ## FINOS AIGF risks
@@ -334,7 +348,7 @@ An agent's owner can stop it by adding an entry to registry/stops.yaml (python -
 | RI-18 | Model Overreach / Expanded Use | [HM-01](#hm-01), [HM-19](#hm-19) |
 | RI-19 | Data Quality and Drift | [HM-18](#hm-18) |
 | RI-20 | Reputational Risk | Not covered: Reputational risk is a business judgement; publishing results, failures included, is the only part this repo touches. |
-| RI-22 | Regulatory Compliance and Oversight | [HM-04](#hm-04), [HM-05](#hm-05), [HM-06](#hm-06) |
+| RI-22 | Regulatory Compliance and Oversight | [HM-04](#hm-04), [HM-05](#hm-05), [HM-06](#hm-06), [HM-20](#hm-20) |
 | RI-23 | Intellectual Property (IP) and Copyright | Not covered: Intellectual property in model output isn't assessed. |
 | RI-24 | Agent Action Authorization Bypass | [HM-03](#hm-03), [HM-04](#hm-04), [HM-15](#hm-15) |
 | RI-25 | Tool Chain Manipulation and Injection | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15) |
@@ -351,7 +365,7 @@ An agent's owner can stop it by adding an entry to registry/stops.yaml (python -
 | MI-01 | AI Data Leakage Prevention and Detection | [HM-10](#hm-10), [HM-11](#hm-11) |
 | MI-02 | Data Filtering From External Knowledge Bases | Not covered: There is no external knowledge base or retrieval; the policy wording is fixed reference text. |
 | MI-03 | User/App/Model Firewalling/Filtering | [HM-09](#hm-09) |
-| MI-04 | AI System Observability | [HM-06](#hm-06), [HM-11](#hm-11) |
+| MI-04 | AI System Observability | [HM-06](#hm-06), [HM-11](#hm-11), [HM-20](#hm-20) |
 | MI-05 | System Acceptance Testing | [HM-12](#hm-12), [HM-14](#hm-14), [HM-15](#hm-15), [HM-17](#hm-17) |
 | MI-06 | Data Quality & Classification/Sensitivity | [HM-10](#hm-10), [HM-18](#hm-18) |
 | MI-07 | Legal and Contractual Frameworks for AI Systems | Not covered: Legal and contractual terms with the model provider are out of scope. |
@@ -368,7 +382,7 @@ An agent's owner can stop it by adding an entry to registry/stops.yaml (python -
 | MI-18 | Agent Authority Least Privilege Framework | [HM-03](#hm-03) |
 | MI-19 | Tool Chain Validation and Sanitization | [HM-03](#hm-03), [HM-09](#hm-09) |
 | MI-20 | MCP Server Security Governance | [HM-03](#hm-03) |
-| MI-21 | Agent Decision Audit and Explainability | [HM-06](#hm-06), [HM-07](#hm-07), [HM-13](#hm-13) |
+| MI-21 | Agent Decision Audit and Explainability | [HM-06](#hm-06), [HM-07](#hm-07), [HM-13](#hm-13), [HM-20](#hm-20) |
 | MI-22 | Multi-Agent Isolation and Segmentation | Not covered: Agents run in one process; they're separated by allow-lists and claim scope, not isolation. |
 | MI-23 | Agentic System Credential Protection Framework | Not covered: Agents hold no credentials (see RI-29), so there is nothing for them to protect. |
 | MI-24 | Human-in-the-Loop Action Approval Gate | [HM-04](#hm-04), [HM-05](#hm-05), [HM-08](#hm-08) |

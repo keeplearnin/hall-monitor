@@ -624,6 +624,65 @@ controls:
       file lock (POSIX), so it serialises owners on one machine, not on a shared network store, and
       replacing the file needs write access to its directory.
 
+  - id: HM-20
+    name: Read-only control panel
+    what: >-
+      A web panel (python -m hall_monitor.panel serve) and a JSON read API over the governance
+      core: an overview per workflow (cases, the share sent to a person, overrides, stopped cases,
+      refused decisions, cost) with what needs attention first, the agent inventory, each agent's
+      manifest, approval, stops and eval results, the review queue, each case's full audit
+      trace, audit-chain verification against an anchored head, the eval gate and this register.
+      Each view asks the code that enforces the control: an agent's state is Registry.require's
+      answer with its current prompt, the audit view is AuditLog.verify, the eval view is the CI
+      gate's result. It can't change anything: every route is GET, the audit log is opened
+      read-only, the checkpoints (which hold claim text) are never opened, and reading every
+      page leaves every file byte for byte as it was. Stopping, deciding and approving stay in
+      the kill switch, the review CLI and reviewed registry changes. It shows nothing personal:
+      stop reasons, evidence packs, adjusters' reasons and decision signatures are left out.
+      Pages carry a policy that allows no scripts and nothing from other origins, every value is
+      escaped, and the server answers only requests addressed to this machine. `snapshot` saves
+      every page and its JSON as static files; `demo` builds demo data by running the synthetic
+      claims through the real workflow with a scripted model, and every demo page says so.
+    status: built
+    code:
+      - hall_monitor/panel/views.py::agents
+      - hall_monitor/panel/views.py::case_trace
+      - hall_monitor/panel/views.py::audit_integrity
+      - hall_monitor/panel/app.py::create_app
+      - hall_monitor/panel/__main__.py::snapshot
+      - hall_monitor/panel/demo.py::build
+    tests:
+      - tests/test_panel.py::test_every_route_only_reads
+      - tests/test_panel.py::test_reading_every_page_leaves_every_file_as_it_was
+      - tests/test_panel.py::test_the_panel_opens_the_audit_log_read_only_and_never_the_checkpoints
+      - tests/test_panel.py::test_no_page_shows_claim_text_stop_reasons_adjuster_reasons_or_signatures
+      - tests/test_panel.py::test_values_from_the_log_are_escaped
+      - tests/test_panel.py::test_requests_for_another_host_are_refused
+      - tests/test_panel.py::test_serve_refuses_to_listen_beyond_this_machine
+      - tests/test_panel.py::test_an_agent_state_is_the_registry_s_own_answer
+      - tests/test_panel.py::test_an_unreadable_stop_list_shows_every_agent_refused
+      - tests/test_panel.py::test_audit_integrity_checks_an_anchored_head
+      - tests/test_panel.py::test_the_eval_view_is_the_gate_s_result
+      - tests/test_panel.py::test_the_eval_view_judges_results_against_the_panel_s_own_approvals
+    evidence: []
+    nist: [GOVERN 1.6, MANAGE 4.1]
+    finos:
+      risks: [RI-22]
+      mitigations: [MI-04, MI-21]
+    gaps: >-
+      No sign-in and no roles yet: it serves this machine only, so anyone who can reach it there
+      sees everything, and the four roles in the design (viewer, reviewer, owner, approver) aren't
+      built. It is read-only by design for this phase; stopping an agent and signing a decision
+      from the panel are the next phase and aren't built. It reads the SQLite audit log and the
+      registry files on one machine, so it shows only what that machine's runs wrote; there is
+      no shared store. The overview covers travel claims only: the HR leave workflow is designed
+      and has no code, so the panel says so rather than showing numbers. It can't anchor audit
+      heads itself: verifying against an anchor needs a head someone copied out. The demo's model is
+      scripted from the answer key, so its routing, cost and override numbers show the controls
+      working, not how well the agents perform. Case pages show routing reasons and the
+      stopped-claim reason as the code wrote them; those name agent, stop and owner IDs, never
+      claim content.
+
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
   - ref: GOVERN 1.1
