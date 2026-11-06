@@ -241,3 +241,18 @@ confirmed.
 | IBANs followed by a word, in lower case, or split by dashes were missed | Medium | A failed checksum retries shorter prefixes; dashes allowed; any case after "IBAN" |
 | Common labels were missed ("EIN 12 3456789", "routing # ...", "A/C no.", "Account No. is ...") | Medium | Caught; what is still missed is listed in HM-10's gaps |
 | Counts by type follow pattern order; HM-10, the controls doc and the business summary dropped "labelled" | Low | Docstring says so; the docs say "labelled" |
+
+## Review 6: approval gate and audit log
+
+The approval-gate and audit-log findings from review 6 (the four-reviewer review of the whole
+repository after HM-10).
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Two runs of the same claim at once (a redelivered message, a double click) both paid it, and two adjusters deciding at once both had decisions recorded | High | `final_decision` is once-only per claim, checked inside the append's `BEGIN IMMEDIATE`; the second run or decision fails, and a second adjuster's attempt is recorded as a rejection |
+| Restoring the checkpoints file from a backup let a decided claim be decided and paid again | High | `decide` refuses a claim the log shows decided, and `status` reports it decided from the log |
+| Appending a `triage_result` and an `evidence_pack` to the log made the review trust them, so a junior adjuster could pay a fraud-flagged claim and `verify` stayed OK | Medium | The review checks the first pack logged and the result logged before it; a second pack makes the claim undecidable |
+| A rejection logged an unkeyed hash of the whole submission, reason included, so a guessed reason could be confirmed | Medium | Logged as a keyed hash |
+| The final decision's signature covers the reason, so with the public key it confirms a guessed reason | Medium | Logged in the HM-06 gaps and ADR 0014; not yet fixed (it needs a change to what is signed) |
+| `waiting()` crashed on a new checkpoints file | Low | Creates LangGraph's tables first |
+| The audit CLI crashed on a file with no `audit_log` table, exiting 1 ("no log") rather than 3 ("tampered") | Low | Reports it as not a readable log, exit 3 |

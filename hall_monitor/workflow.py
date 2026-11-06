@@ -36,6 +36,7 @@ from hall_monitor.governance.approval import (
 )
 from hall_monitor.governance.audit import (
     DEFAULT_AUDIT_DB,
+    AlreadyRecorded,
     AuditLog,
     EvidenceChanged,
     TriageRecorder,
@@ -100,12 +101,16 @@ def build_graph(
     def auto(state: ClaimState) -> ClaimState:
         result = TriageResult.model_validate(state["result"])
         final = final_auto(result, state["evidence_sha256"])
-        audit.append(
-            result.claim_id,
-            "final_decision",
-            "auto",
-            audit_payload(final, audit.keyed_hash(final.reason)),
-        )
+        try:
+            audit.append(
+                result.claim_id,
+                "final_decision",
+                "auto",
+                audit_payload(final, audit.keyed_hash(final.reason)),
+                once=True,
+            )
+        except AlreadyRecorded:
+            raise ValueError(_already_decided(result.claim_id)) from None
         return {"final": final.model_dump(mode="json")}
 
     def review(state: ClaimState) -> ClaimState:
@@ -136,16 +141,31 @@ def build_graph(
                 f"adjuster:{submitted['adjuster_id']}"
                 if _known(submitted, adjusters)
                 else "adjuster:?",
-                {"rejected_because": reason, "submitted_sha256": sha256(canonical(submitted))},
+                # Keyed: an unkeyed hash of the submission would confirm a guessed reason.
+                {
+                    "rejected_because": reason,
+                    "submitted_hmac": audit.keyed_hash(canonical(submitted)),
+                },
             )
             return {"rejected": reason}
         final = final_from_adjuster(decision, adjuster, result, state["evidence_sha256"])
-        audit.append(
-            result.claim_id,
-            "final_decision",
-            final.decided_by,
-            audit_payload(final, audit.keyed_hash(final.reason), decision.signature),
-        )
+        try:
+            audit.append(
+                result.claim_id,
+                "final_decision",
+                final.decided_by,
+                audit_payload(final, audit.keyed_hash(final.reason), decision.signature),
+                once=True,
+            )
+        except AlreadyRecorded:
+            # Another adjuster decided first: record the refusal, and leave theirs standing.
+            audit.append(
+                claim_id,
+                "decision_rejected",
+                final.decided_by,
+                {"rejected_because": "the claim was already decided"},
+            )
+            raise ValueError(_already_decided(claim_id)) from None
         return {"final": final.model_dump(mode="json"), "rejected": None}
 
     def after_review(state: ClaimState) -> str:
@@ -160,6 +180,10 @@ def build_graph(
     graph.add_edge("auto", END)
     graph.add_conditional_edges("review", after_review, {"review": "review", END: END})
     return graph
+
+
+def _already_decided(claim_id: str) -> str:
+    return f"the audit log shows {claim_id} was already decided; this decision wasn't recorded"
 
 
 def _known(submitted, adjusters) -> bool:
@@ -229,7 +253,7 @@ class ClaimWorkflow:
         existing = self.app.get_state(self._config(claim.claim_id)).values
         if existing and "result" in existing:
             raise ValueError(f"{claim.claim_id} is already in the workflow")
-        if self.audit.evidence_hash(claim.claim_id) is not None:
+        if self.audit.has(claim.claim_id, "evidence_pack"):
             # The log, not the checkpoint file, says whether triage finished: new or deleted
             # checkpoints must not let a decided claim be triaged, and paid, again.
             raise ValueError(
@@ -248,6 +272,10 @@ class ClaimWorkflow:
 
     def decide(self, claim_id: str, decision: AdjusterDecision) -> dict:
         """Resume a claim waiting for an adjuster. Returns its status."""
+        if self.audit.has(claim_id, "final_decision"):
+            # The log, not the checkpoint, says whether it was decided: a checkpoints file
+            # restored from a backup must not let a claim be decided, and paid, again.
+            raise ValueError(_already_decided(claim_id))
         if self.status(claim_id)["state"] != "waiting_for_adjuster":
             raise ValueError(f"{claim_id} is not waiting for an adjuster")
         self.app.invoke(Command(resume=decision.model_dump(mode="json")), self._config(claim_id))
@@ -260,10 +288,17 @@ class ClaimWorkflow:
             return {"claim_id": claim_id, "state": "unknown"}
         if "final" in values:
             return {"claim_id": claim_id, "state": "decided", "final": values["final"]}
+        if (logged_final := self.audit.final_decision(claim_id)) is not None:
+            # Decided, but not in this checkpoint (restored from a backup, or decided by
+            # another process): the log's record of the decision, which holds no reason text.
+            return {"claim_id": claim_id, "state": "decided", "final": logged_final}
         if "review" in snapshot.next:
             # Show the pack stored under the hash the audit log recorded at triage, not the
             # checkpoint's copy, and say if the checkpoint no longer matches it.
-            logged = self.audit.evidence_hash(claim_id)
+            try:
+                logged = self.audit.evidence_hash(claim_id)
+            except EvidenceChanged:
+                logged = None
             try:
                 result = TriageResult.model_validate(values["result"])
                 _check_evidence(self.audit, claim_id, values, result)
@@ -289,6 +324,7 @@ class ClaimWorkflow:
 
     def waiting(self) -> list[str]:
         """Claims waiting for an adjuster."""
+        self.saver.setup()  # LangGraph creates its tables on first use; a new file has none
         # One row per claim, not one per saved checkpoint version.
         rows = self.saver.conn.execute("SELECT DISTINCT thread_id FROM checkpoints").fetchall()
         return sorted(t for (t,) in rows if self.status(t)["state"] == "waiting_for_adjuster")

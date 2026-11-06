@@ -306,3 +306,15 @@ def test_a_rejected_decision_logs_no_names_or_submitted_text(tmp_path):
     assert len(rejections) == 3
     assert "Jordan Avery" not in everything
     assert "Ana Ruiz" not in everything and "X1234567" not in everything
+
+
+def test_the_cli_reports_a_dropped_table_as_tampering(tmp_path, capsys):
+    """A log whose table was dropped is tampered with (exit 3), not missing (exit 1)."""
+    import sqlite3
+
+    from hall_monitor import audit as audit_cli
+
+    path = tmp_path / "audit.sqlite"
+    sqlite3.connect(path).execute("CREATE TABLE other (x)").connection.commit()
+    assert audit_cli.main(["--db", str(path), "verify"]) == 3
+    assert "audit_log" in capsys.readouterr().out
