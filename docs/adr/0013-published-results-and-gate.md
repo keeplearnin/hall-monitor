@@ -12,8 +12,10 @@ evidence a reader can reproduce, including what went wrong.
 
 - All claims, policies and people are synthetic and fictional, and the limits of that are
   written down ([data README](../../data/synthetic/README.md)).
-- Every eval run is committed with its raw results and a findings note, including bad runs and
-  answer-key corrections.
+- Every published eval run is committed with its scored results and a findings note, including
+  bad runs and answer-key corrections. The per-call raw results (`raw_results.jsonl`) are
+  git-ignored, and the live-eval workflow uploads a run's results for a person to choose what
+  to publish, so a run that isn't chosen isn't committed.
 - Every pull request runs the eval gate (`evals.gate`, thresholds in
   [`evals/gate.yaml`](../../evals/gate.yaml)): accuracy, hallucination, unsafe routes and critic
   catch rate. Results scored on agent versions that are no longer approved are flagged as stale.

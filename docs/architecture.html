@@ -261,9 +261,9 @@
         <h2>Design decisions</h2>
         <ul class="decisions">
           <li><b>Routing checks facts, not labels.</b><span>A $0 payout is a denial whatever the recommendation says; a payout above the claim, any risk above low, a critic change or a sign of injection goes to a person.</span></li>
-          <li><b>Approved permits and prompts.</b><span>approvals.yaml pins each manifest digest and prompt-template hash. Both are checked at run time and the template hash is recorded on every call; CI fails on an unapproved change.</span></li>
+          <li><b>Approved permits and prompts.</b><span>approvals.yaml pins each manifest digest and prompt-template hash. Both are checked at run time and the template hash is recorded on every call; CI fails on an unapproved change. The policy wording, tool descriptions and reviewer-feedback text aren't pinned.</span></li>
           <li><b>Records only through the gateway, only for this claim.</b><span>The allow-list and the claim's policy number are enforced on every call; refusals are logged.</span></li>
-          <li><b>Minimum data per agent.</b><span>Identifiers are removed from claim text before any model; the recommender sees a structured summary only, and each agent input and tool is checked against the manifest's data classes at run time.</span></li>
+          <li><b>Minimum data per agent.</b><span>Identifiers are removed from claim text before any model; the recommender sees a structured summary only. Each tool, and the recommender's input, is checked against the manifest's data classes at run time; the other agents' inputs declare nothing and count as every class, which their manifests allow.</span></li>
           <li><b>Injection: defence in depth.</b><span>Claim text is escaped and fenced, a code detector routes suspicious claims to a person, and lookups can't leave the claim's scope.</span></li>
           <li><b>A record that shows tampering.</b><span>Hash-chained and append-only. Copy the chain head elsewhere: that's what catches a full rewrite.</span></li>
           <li><b>Cheaper models only when measured.</b><span>Economy routing is approved per manifest but off until evaluated. The critic never economises.</span></li>
@@ -279,10 +279,12 @@
             <thead><tr><th>Control</th><th>Where</th><th>Status</th><th>Register</th></tr></thead>
             <tbody>
               <tr><td>Agent registry with approved manifests and prompts</td><td class="where">registry.py, approvals.yaml</td><td><span class="chip built">built</span></td><td>HM-01, 02</td></tr>
+              <tr><td>Kill switch: an owner stops an agent with no approval; restarting needs one</td><td class="where">kill_switch.py, stops.yaml</td><td><span class="chip built">built</span></td><td>HM-19</td></tr>
               <tr><td>Tool allow-list and claim scope, every call audited</td><td class="where">tools/gateway.py</td><td><span class="chip built">built</span></td><td>HM-03</td></tr>
               <tr><td>Routing to a person on facts, failures, critic changes and injection signs</td><td class="where">routing.py</td><td><span class="chip built">built</span></td><td>HM-04, 08</td></tr>
               <tr><td>Critic review with revision history</td><td class="where">critic.py, pipeline.py</td><td><span class="chip built">built</span></td><td>HM-07</td></tr>
               <tr><td>Approval gate with saved checkpoints and authority limits</td><td class="where">workflow.py, approval.py</td><td><span class="chip built">built</span></td><td>HM-05</td></tr>
+              <tr><td>Prompt-injection defences: escaped, fenced claim text and a code detector</td><td class="where">agents/base.py, gateway/injection.py</td><td><span class="chip built">built</span></td><td>HM-09</td></tr>
               <tr><td>Hash-chained audit log</td><td class="where">governance/audit.py</td><td><span class="chip built">built</span></td><td>HM-06</td></tr>
               <tr><td>Identifier redaction and data minimisation</td><td class="where">gateway/redaction.py</td><td><span class="chip built">built</span></td><td>HM-10, 11</td></tr>
               <tr><td>Cost per claim, prompt caching; economy routing (off)</td><td class="where">gateway/cost.py</td><td><span class="chip built">built</span></td><td>HM-16</td></tr>

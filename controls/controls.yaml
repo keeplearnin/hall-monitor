@@ -39,15 +39,17 @@ controls:
       yet, so it isn't enforced. Approvals pin each system-prompt template (the untrusted-claim
       notice included since review 6), but not the policy wording filled into it: an edit to
       the wording file changes what the coverage and critic agents are sent without a new
-      approval. A model answer that fails validation inside the SDK's parse call is billed but
-      raises before its usage is read, so that request is missing from the agent's record and
-      its cost. Nor do they pin the output
+      approval. Nor do they pin the output
       schema the model is given, so a change to an output model (a new field constraint, say)
       needs no new approval; the API passes pydantic patterns to the model as description
       text, not as constraints, and they are checked only once the answer is back. Nor do they
       pin how the claim and earlier answers are rendered into the request (render_claim,
       escape): a change there, such as escaping ampersands in review 6, changes what the model
-      receives without a new approval or making published results stale. The owner is checked against the list of people when the registry
+      receives without a new approval or making published results stale. Nor do they pin the
+      tool definitions the model is offered (the MCP tools' descriptions in tools/server.py,
+      sent through ToolGateway.definitions) or the reviewer-feedback instructions written by
+      render_feedback: an edit to either changes what the model reads without a new approval.
+      The owner is checked against the list of people when the registry
       loads, and the kill switch (HM-19) records the owner ID given for each stop; risk tier is an inventory
       field that nothing reads at run time.
 
@@ -111,9 +113,12 @@ controls:
       checks that each claimed item matches its own occurrence of that figure, that the total claimed
       appears in them, and that the items add up to the total. Only figures the documents mark as
       US dollars count ($, US$ or USD on the same line beside them, with no other currency code
-      or symbol and no minus sign next to them), and never part of a date, a time or a
+      or symbol and no minus sign or dash next to them), and never part of a date, a time or a
       reference, so a year read as the claim, or a claim in euros or Canadian dollars the
-      intake labels USD, goes to a person.
+      intake labels USD, goes to a person. Another currency counts beside the mark or after the
+      figure: any three-capital code but USD, and the dollar and peso currencies' codes and
+      prefixes in any case (HK $450, NZ $450, (CAD) $450, cad: $450, Cdn $450, $450 cad), with
+      spaces, a colon or brackets between.
     status: built
     code:
       - hall_monitor/governance/routing.py::route_claim
@@ -140,9 +145,9 @@ controls:
       written in both the narrative and a receipt counts twice, so wrong items whose total happens
       to appear in the documents as dollars would pass it. The currency comes from the claimant's
       own marks: a bare "$" the claimant uses for another currency, with no code or prefix beside
-      it (C$, CAD $, $450 CAD), is taken as USD, and a currency named elsewhere in the document
-      (a header saying "all amounts in CAD") isn't read. A refund written as ($20.00) traces as
-      $20.
+      it, is taken as USD; so is one beside a code or prefix not in the list; and a currency
+      named elsewhere in the document (a header saying "all amounts in CAD") isn't read. A
+      refund written as ($20.00) traces as $20.
 
   - id: HM-05
     name: Adjuster approval gate
@@ -159,10 +164,13 @@ controls:
       The adjuster is shown the stored pack, with a warning if the checkpoint no longer matches
       it. A decision signed with a public demo key is marked as such in the record. A claim gets
       one evidence pack and one final decision: the audit log refuses a second of either inside
-      the same write transaction, so two runs or two adjusters at once, or a checkpoints file
-      restored from a backup, can't triage, decide or pay it again. The log, not the
+      the same write transaction, so a second run, two adjusters at once, or a checkpoints file
+      restored from a backup can't have its result recorded or decide or pay the claim again. The log, not the
       checkpoint, says whether and how a claim was decided: a decision in the checkpoint that
-      the log doesn't hold, or that differs from it, is reported as a problem.
+      the log doesn't hold, or that differs from it, is reported as a problem. A claim whose
+      evidence pack the log holds but whose checkpoint has no result is reported as needing a
+      person. The review CLI refuses an invalid decision (a negative payout or NaN, say)
+      with a message naming the fields.
     status: built
     code:
       - hall_monitor/workflow.py::build_graph
@@ -186,6 +194,8 @@ controls:
       - tests/test_workflow.py::test_entries_appended_to_the_log_cant_relax_the_approval_rules
       - tests/test_workflow.py::test_a_checkpoint_decision_the_log_doesnt_hold_isnt_reported_decided
       - tests/test_workflow.py::test_two_runs_of_a_claim_for_review_leave_it_decidable
+      - tests/test_workflow.py::test_a_claim_whose_pack_was_logged_but_not_saved_needs_a_person
+      - tests/test_workflow.py::test_cli_refuses_an_impossible_payout_without_a_traceback
       - tests/test_approval_rules.py::test_paying_a_claim_the_ai_never_assessed_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_denying_more_than_your_authority_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_a_demo_key_signature_is_marked_in_the_record
@@ -212,8 +222,15 @@ controls:
       signature for it would verify again; the workflow refuses a second triage of any claim
       the audit log shows finished, whatever the checkpoint file holds. A crash after the
       evidence pack is logged but before the checkpoint is saved leaves that claim for a person
-      to handle; it can't be restarted. The override rate is simulated with an
-      answer-key adjuster; no real adjusters yet.
+      to handle: its status says needs_a_person, and the workflow can't restart or decide it.
+      An adjuster's request_information or investigate is recorded as the claim's final
+      decision, so the workflow has no path to triage it again with new documents or decide it
+      again; a follow-up has to be handled outside it. The run and review CLIs take
+      --checkpoints but always open the default audit log (var/audit.sqlite); no option or
+      environment variable selects another (only open_workflow's audit_db argument does, in
+      code). Since the log decides a claim's state, checkpoint files used side by side share
+      one log, and a claim the log shows triaged can't be triaged from another checkpoints
+      file. The override rate is simulated with an answer-key adjuster; no real adjusters yet.
 
   - id: HM-06
     name: Tamper-evident audit log
@@ -246,7 +263,9 @@ controls:
       - tests/test_kill_switch.py::test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted
 
       - tests/test_audit.py::test_the_cli_reports_a_dropped_table_as_tampering
+      - tests/test_audit.py::test_the_cli_reports_an_unparseable_entry_as_tampering
       - tests/test_workflow.py::test_a_rejection_logs_the_submission_as_a_keyed_hash
+      - tests/test_privacy_security.py::test_a_claim_id_must_be_a_code
     evidence: []
     nist: [MEASURE 2.8, MANAGE 4.1]
     finos:
@@ -257,15 +276,18 @@ controls:
       chain head copied elsewhere catches that, and copying it out is manual. Without
       HALL_MONITOR_AUDIT_KEY the hash key is a file beside the log, so someone with file access
       has it too; production keeps it in a secrets manager. Entries do hold
-      policy numbers, decision fields and tool-call arguments. The currency and policy number
+      policy numbers, decision fields and tool-call arguments. The claim ID is on every entry,
+      so it must be a code (letters, digits, _ and -, up to 64). The currency and policy number
       the model extracts are repeated in routing reasons and corrections, so both must be
       code-shaped; tool-call arguments are still logged as the model wrote them. An unforeseen
       error stops the claim with its type only, since its text can repeat those arguments. The
       final decision entry keeps the adjuster's Ed25519 signature, which covers the reason, so
       anyone with the log and the public key can confirm a guessed reason: the keyed hash
-      doesn't protect a signed reason yet. The audit CLI reports a file with no readable log as
-      tampered with (exit 3), not missing (exit 1), and a log another process holds locked as
-      busy (exit 4).
+      doesn't protect a signed reason yet. The audit CLI reports a file with no readable log, or
+      an entry it can't parse, as tampered with (exit 3), not missing (exit 1), and a log
+      another process holds locked as busy (exit 4). A model answer that fails validation
+      inside the SDK's parse call is billed but raises before its usage is read, so that
+      request is missing from the agent's record and its cost.
 
   - id: HM-07
     name: Critic review with revision history
@@ -320,9 +342,10 @@ controls:
       internal tool names) in the narrative, attachments, file names, attachment kinds and the
       channel, and sends the claim to a person. It searches the text as written and again after
       decoding entities and compatibility forms (full-width brackets) and dropping characters
-      that render as nothing, so decoding only adds matches. The channel and attachment kind
-      must be one of a fixed list of values, so they carry no free text into prompts or the
-      audit log.
+      that render as nothing, so decoding only adds matches. It scans both the claim as sent and
+      the redacted claim the agents read, because redaction can join words into a phrase. The
+      channel and attachment kind must be one of a fixed list of values, and the claim ID must
+      be a code, so they carry no free text into prompts or the audit log.
     status: built, results pending
     code:
       - hall_monitor/agents/base.py::escape
@@ -336,6 +359,8 @@ controls:
       - tests/test_privacy_security.py::test_encoded_markup_is_flagged_and_renders_differently
       - tests/test_privacy_security.py::test_decoding_never_hides_a_signal
       - tests/test_privacy_security.py::test_channel_and_kind_are_known_values
+      - tests/test_privacy_security.py::test_a_claim_id_must_be_a_code
+      - tests/test_privacy_security.py::test_redaction_cant_reveal_a_signal_the_detector_missed
     evidence:
       - "pending: uv run python -m hall_monitor.evals.adversarial"
     nist: [MEASURE 2.7, MANAGE 1.3]
@@ -402,12 +427,15 @@ controls:
     name: Telemetry without claim content
     what: >-
       Langfuse traces carry IDs, versions, hashes and token counts only: trace decorators don't
-      capture function inputs or outputs.
+      capture function inputs or outputs. A traced function that raises marks its span as an
+      error with the exception's type only; the message, which can repeat the model's output,
+      never reaches Langfuse.
     status: built
     code:
       - hall_monitor/tracing.py::observe
     tests:
       - tests/test_controls.py::test_traces_never_capture_inputs_or_outputs
+      - tests/test_controls.py::test_an_exception_never_carries_its_text_into_a_trace
     evidence: []
     nist: [MEASURE 2.10]
     finos:
@@ -525,7 +553,11 @@ controls:
     finos:
       risks: []
       mitigations: [MI-09]
-    gaps: No spend alerting; economy routing is unmeasured and off.
+    gaps: >-
+      No spend alerting; economy routing is unmeasured and off by default. With it on, the
+      recommender's economy choice is made from the extraction before any critic correction. A
+      correction that would change that choice (a new total, or a currency other than USD)
+      sends the claim to a person anyway.
 
   - id: HM-17
     name: CI checks and the eval gate
@@ -557,7 +589,11 @@ controls:
       from the summary each run wrote. The live-eval workflow runs only from main, but that guard
       is in the workflow file, which a branch can edit in its own copy: the API key must be a
       secret of the live-eval environment limited to main, a repository setting this repo can't
-      check.
+      check. The gate reads the agent digests a result file records about itself and doesn't
+      check them against the commit it was scored at, so a hand-edited results file can pass;
+      code-owner review of evals/ is the check, once branch protection is on. The workflows pin
+      third-party actions by version tag, not commit SHA, and live-eval passes the API key to
+      a step in the same job as those actions.
 
   - id: HM-18
     name: Synthetic data and documented limits
@@ -592,7 +628,8 @@ controls:
       not in registry/owners.yaml, or approvals clear a stop it doesn't hold, every agent is
       refused. Restarting needs the stop cleared in registry/approvals.yaml (python -m
       hall_monitor.approvals --resume), a reviewed approval.
-      CI fails a pull request that removes or edits a stop. Refusals carry the stop and owner IDs,
+      CI fails a pull request that removes or edits a stop, or leaves a stop list that isn't
+      one (the check says so). Refusals carry the stop and owner IDs,
       never the reason. Stops are written under a lock and replaced in one step, so two owners
       stopping agents at once both take effect; a symlinked stop list is written through the
       link. The stop command reads only the manifest file names, the owners and the stop list
@@ -627,6 +664,7 @@ controls:
       - tests/test_kill_switch.py::test_no_agent_may_take_the_pipelines_id
       - tests/test_kill_switch.py::test_tests_run_agents_from_a_registry_with_no_stops
       - tests/test_kill_switch.py::test_the_shipped_stop_list_is_valid_whatever_it_holds
+      - tests/test_kill_switch.py::test_a_malformed_stop_list_fails_the_check_with_a_message
     evidence: []
     nist: [MANAGE 2.4, GOVERN 2.1]
     finos:

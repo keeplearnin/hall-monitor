@@ -6,8 +6,10 @@
 
 Writes registry/approvals.yaml. Run it only as part of a reviewed change: the diff to that file
 is the approval. The registry refuses any manifest whose digest isn't in it, and a test fails
-if a prompt changes without a new prompt version and a new approval. Stops already cleared are
-kept; --resume clears one more, so restarting a stopped agent is reviewed like any approval.
+if a manifest or prompt changes and this file isn't regenerated. A prompt change also needs a
+new PROMPT_VERSION (and a manifest change a new version): that is a review rule, not checked by
+a test. Stops already cleared are kept; --resume clears one more, so restarting a stopped agent
+is reviewed like any approval.
 """
 
 from __future__ import annotations

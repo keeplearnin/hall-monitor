@@ -1,9 +1,10 @@
 """Langfuse tracing. Off unless LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are set.
 
 Spans carry IDs, versions, hashes and token counts only. Function arguments and return values
-are never captured, because they hold claim text, medical details and policy records. The
-Anthropic SDK's own spans default to metadata only; don't set
-ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE=content.
+are never captured, because they hold claim text, medical details and policy records. A traced
+function that raises marks its span as an error with the exception's type only: the message can
+repeat the model's output, so it never reaches Langfuse. The Anthropic SDK's own spans default
+to metadata only; don't set ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE=content.
 """
 
 from __future__ import annotations
