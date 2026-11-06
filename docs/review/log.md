@@ -241,3 +241,23 @@ confirmed.
 | IBANs followed by a word, in lower case, or split by dashes were missed | Medium | A failed checksum retries shorter prefixes; dashes allowed; any case after "IBAN" |
 | Common labels were missed ("EIN 12 3456789", "routing # ...", "A/C no.", "Account No. is ...") | Medium | Caught; what is still missed is listed in HM-10's gaps |
 | Counts by type follow pattern order; HM-10, the controls doc and the business summary dropped "labelled" | Low | Docstring says so; the docs say "labelled" |
+
+## Review 6: whole repository after HM-10 (amount trace)
+
+**What:** four reviewers (change control, workflow and audit, runtime data controls, docs)
+read the whole repository at `redact-tin-bank`. Their findings are fixed in groups, one PR
+each; this entry starts with the amount trace.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The amount trace matched bare figures, so a year from a date (2026 in 2026-08-14), taken as the only item, the total and the payout, traced and was paid automatically on all 16 automatic test claims; ADR 0001 said a figure from a date went to a person | High | Routing counts only figures marked as dollars ($, US$, USD), never part of a date, time or reference; a fault test bends every automatic claim this way |
+| The currency was the intake's label and nothing checked it against the documents, so a claim written in euros and labelled USD was paid 1:1 | Medium | Fixed by the same rule: euro figures don't trace. A bare "$" meant as another currency still counts (HM-04 gap) |
+
+**Pre-PR review of that fix:** 4 findings, 3 confirmed and 1 plausible, all fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A "$" or "USD" counted even with another currency code beside it: "CAD $450.00", "$450.00 CAD" and "EUR 450 USD" claims were still paid 1:1 on all 16 automatic claims | High | A figure with another three-letter code, €, £ or ¥ beside it, or a minus sign before it, doesn't trace; fault tests write every automatic claim as EUR, "CAD $" and "$ CAD" |
+| The marker could sit on another line, so a bare year at a line end traced when the next line started "USD" | Medium | One space or tab at most between the marker and the figure |
+| The scoring comment said its amount check followed the routing rule, but scoring accepts any currency | Low | Comment says what each check asks |
+| A discount line "-$20.00" traced as $20 | Low, plausible | A minus sign before the marker stops it; "($20.00)" still traces (HM-04 gap), because the claims put ordinary amounts in brackets |
