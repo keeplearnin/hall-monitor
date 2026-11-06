@@ -350,6 +350,14 @@ class ClaimWorkflow:
                 "routing_reasons": values["result"]["routing"]["reasons"],
                 "previous_decision_rejected": values.get("rejected"),
             }
+        if "result" not in values and self.audit.has(claim_id, "evidence_pack"):
+            # Triage finished and was logged, but the checkpoint never got the result (a crash
+            # in between): it can't be resumed or restarted, so a person must handle it.
+            return {
+                "claim_id": claim_id,
+                "state": "needs_a_person",
+                "problem": "the audit log shows triage finished but the checkpoint has no result",
+            }
         return {"claim_id": claim_id, "state": "in_progress"}
 
     def _matches(self, checkpoint_final: dict, logged: dict) -> bool:
