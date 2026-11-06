@@ -27,7 +27,7 @@
       "short_service"
     ],
     "notice_due": "2026-11-09",
-    "why": "355 days of service, under 52 weeks."
+    "why": "51 weeks on the payroll, hired on a Sunday."
   },
   {
     "request_id": "lr_003",
@@ -40,7 +40,7 @@
     "decided_by": "leave_specialist",
     "reasons": [],
     "notice_due": "2026-11-09",
-    "why": "Exactly 52 weeks of service counts."
+    "why": "Hired on a Saturday: that day's week counts, making 52."
   },
   {
     "request_id": "lr_004",
@@ -124,7 +124,9 @@
   {
     "request_id": "lr_009",
     "eligible": true,
-    "failed_checks": [],
+    "failed_checks": [
+      "entitlement"
+    ],
     "unknown_checks": [],
     "remaining_weeks": 2.0,
     "requested_weeks": 3.0,
@@ -141,13 +143,13 @@
     "eligible": true,
     "failed_checks": [],
     "unknown_checks": [],
-    "remaining_weeks": 10.86,
+    "remaining_weeks": 11.0,
     "requested_weeks": 6.0,
     "route": "specialist_sign_off",
     "decided_by": "leave_specialist",
     "reasons": [],
     "notice_due": "2026-11-09",
-    "why": "Only 8 days of an older leave fall in the rolling year."
+    "why": "Only 5 workdays of an older leave fall in the rolling year."
   },
   {
     "request_id": "lr_011",
@@ -234,17 +236,15 @@
     "route": "hr_review",
     "decided_by": "leave_specialist",
     "reasons": [
-      "parents_same_employer"
+      "spouses_same_employer"
     ],
     "notice_due": "2026-11-09",
-    "why": "Both parents work here: their bonding leave is shared."
+    "why": "Both parents work here: their bonding leave may be shared."
   },
   {
     "request_id": "lr_017",
     "eligible": true,
-    "failed_checks": [
-      "reason"
-    ],
+    "failed_checks": [],
     "unknown_checks": [],
     "remaining_weeks": 12.0,
     "requested_weeks": 6.0,
@@ -254,7 +254,7 @@
       "bonding_window"
     ],
     "notice_due": "2026-11-09",
-    "why": "Bonding leave ending more than 12 months after the birth."
+    "why": "Bonding leave starting inside the 12 months after the birth but ending after them: the part inside qualifies, a person decides the rest."
   },
   {
     "request_id": "lr_018",
@@ -318,7 +318,7 @@
       "short_service"
     ],
     "notice_due": "2026-11-09",
-    "why": "Service before an 11-year break isn't counted: 182 days."
+    "why": "Service before an 11-year break isn't counted: 27 weeks."
   },
   {
     "request_id": "lr_022",
@@ -331,7 +331,7 @@
     "decided_by": "leave_specialist",
     "reasons": [],
     "notice_due": "2026-11-09",
-    "why": "Service before a 4-year break counts: 939 days."
+    "why": "Service before a 4-year break counts: 136 weeks."
   },
   {
     "request_id": "lr_023",
@@ -379,5 +379,37 @@
     ],
     "notice_due": "2026-11-09",
     "why": "Adult child: a person checks whether they can care for themselves."
+  },
+  {
+    "request_id": "lr_026",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [
+      "entitlement"
+    ],
+    "remaining_weeks": null,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "caregiver_history"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Earlier caregiver leave in a period that has ended: a person checks whether this is the same servicemember and injury."
+  },
+  {
+    "request_id": "lr_027",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "state_law"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Works at an Ohio office but lives in New York: a state law may apply."
   }
 ]

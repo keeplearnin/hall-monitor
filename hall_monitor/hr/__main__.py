@@ -17,8 +17,19 @@ from hall_monitor.hr.routing import route_leave
 
 
 def decide(request, employees, company) -> dict:
-    """The assessment and route for one request, as plain data."""
-    employee = employees[request.employee_id]
+    """The assessment and route for one request, as plain data. A request for an employee the
+    records don't hold goes to a person, as any missing fact does."""
+    employee = employees.get(request.employee_id)
+    if employee is None:
+        return {
+            "assessment": None,
+            "route": {
+                "route": "hr_review",
+                "decided_by": "leave_specialist",
+                "reasons": ["facts_missing"],
+                "explained": ["no employee record for this request"],
+            },
+        }
     assessment = assess(request, employee, company)
     route = route_leave(assessment, request, employee, company)
     return {"assessment": assessment.model_dump(mode="json"), "route": route.model_dump()}
@@ -27,6 +38,8 @@ def decide(request, employees, company) -> dict:
 def as_answered(decided: dict) -> dict:
     """The fields an answer key holds, from a decision."""
     a, r = decided["assessment"], decided["route"]
+    if a is None:
+        return {"route": r["route"], "decided_by": r["decided_by"], "reasons": r["reasons"]}
     return {
         "eligible": a["eligible"],
         "failed_checks": sorted(c["id"] for c in a["checks"] if c["passed"] is False),
@@ -43,7 +56,7 @@ def as_answered(decided: dict) -> dict:
 def mismatches(answer: LeaveAnswer, decided: dict) -> dict:
     expected = answer.model_dump(mode="json", exclude={"request_id", "why"})
     got = as_answered(decided)
-    return {k: {"expected": v, "got": got[k]} for k, v in expected.items() if got[k] != v}
+    return {k: {"expected": v, "got": got.get(k)} for k, v in expected.items() if got.get(k) != v}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -62,6 +75,10 @@ def main(argv: list[str] | None = None) -> int:
     wrong = 0
     for request in requests:
         decided = decide(request, employees, company)
+        if request.id not in answers:
+            wrong += 1
+            print(f"DIFF {request.id}  no answer key")
+            continue
         diff = mismatches(answers[request.id], decided)
         wrong += bool(diff)
         route = decided["route"]

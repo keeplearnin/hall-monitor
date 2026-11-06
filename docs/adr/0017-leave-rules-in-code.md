@@ -19,20 +19,33 @@ not collect.
   ordinary code (`hall_monitor/hr/`) with no model, so agents added later can explain the result
   but can't change it, as with the claims routing rule ([ADR 0001](0001-routing-decided-in-code.md)).
 - **Three answers, not two.** Each check passes, fails, or can't be decided from the records
-  (a missing hours ledger, an unclear reason, an adult child whose condition a person must
-  check), with the facts it used. Nothing unknown is guessed: it goes to a person, as a failed
-  claim does ([ADR 0007](0007-failures-stop-the-claim.md)).
+  (a missing hours week, coverage year, distance or employer record, an unclear reason, an
+  adult child whose condition a person must check, earlier caregiver leave for a servicemember
+  the records don't name), with the facts it used. A missing fact is never filled in with zero
+  or "far": that would show an HR manager a reason to find someone ineligible that the records
+  don't support. It goes to a person, as a failed claim does
+  ([ADR 0007](0007-failures-stop-the-claim.md)), and the routing rule routes on each check's
+  answer, so a check that didn't pass reaches a person whatever its reason code.
+- **Leave in workweeks.** Leave already taken and leave asked for are counted in workdays of the
+  employee's normal workweek, so a Monday-to-Friday week is one workweek and a single day a fifth
+  of one (825.205(b)); service counts every week on the payroll (825.110(b)(3)).
 - **Code decides who decides.** The routing rule sends every failure, unknown and flag to HR
-  review and names the least senior role that may decide it, from the design's sign-off table.
-  Even a clean request is only a draft for a leave specialist to sign: the design asked HR
-  whether any approval may skip a person, and until they answer, none does.
-- **Answer keys on the boundaries.** 25 synthetic requests sit on each edge (364 against 363
-  days, 1,250 against 1,249 hours, 50 against 49 employees, a site at exactly 75 miles, a leave
-  that partly falls outside the rolling year), each worked out by hand, and each rule is tested
-  on both sides of its boundary. (When the rules were written, each was broken by hand once to
-  check that a test fails; that check isn't automated.)
-- **Minimal records.** The records hold no names and nothing medical; pending discipline is a
-  yes or no. A request carries a reason category, never a condition.
+  review and names the least senior role that may decide it, from the sign-off table in the
+  design for HR review (a Claude Doc outside this repo; the roles for six flags are this code's
+  choice). Even a clean request is only a draft for a leave specialist to sign: the design asked
+  HR whether any approval may skip a person, and until they answer, none does. Nothing enforces
+  the role until there is a sign-off step.
+- **Answer keys on the boundaries.** 27 synthetic requests sit on the edges (hired on a
+  Saturday against the next day, 1,250 against 1,249 hours, 50 against 49 employees, a site at
+  exactly 75 miles, a leave that partly falls outside the rolling year), each worked out by
+  hand, and the main rules are tested on both sides of their boundary. (When the rules were
+  first written, each was broken by hand once to check that a test fails; that check isn't
+  automated.)
+- **Coarse records.** The records hold no names and no diagnosis; pending discipline is a yes or
+  no, and a child's age is only under 18 or not. They do hold health information, kept as coarse
+  as the rules allow: the reason category, whether an adult child can't care for themselves, and
+  signs of an accommodation need. A test fixes the list of fields, so adding one is a reviewed
+  change.
 
 ## Alternatives considered
 
@@ -58,5 +71,6 @@ not collect.
 ## Evidence
 
 `tests/test_hr_leave.py`: every request matches its answer key, every routing reason appears in
-an answer key, each rule is tested on both sides of its boundary, every flag on a clean request
-sends it to HR review, and only HR managers and directors may deny or extend.
+an answer key, the rules are tested on their boundaries, a missing fact is never a failure,
+flags on a clean request send it to HR review, and only HR managers and directors may deny or
+extend. A first review found 18 problems, all fixed (docs/review/log.md, Review 8).

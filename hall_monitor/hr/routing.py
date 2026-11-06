@@ -4,10 +4,12 @@ Only one kind of request goes to the light path: an eligible employee, a clear q
 reason, within the remaining entitlement, with no flag raised. Even that is a draft for a leave
 specialist to sign, never an approval without a person (the design's question 1, answered
 conservatively until HR says otherwise). Everything else goes to HR review, and the rule names
-the least senior role that may decide it, from the design's sign-off table: a leave specialist
-may approve within the entitlement or ask for more; only an HR manager may deny or find an
-employee ineligible; only an HR director may extend leave past the entitlement or decide a case
-with a retaliation risk.
+the least senior role that may decide it. From the sign-off table in the design for HR review
+(a Claude Doc, not in this repo): a leave specialist may approve within the entitlement or ask
+for more; denying or finding an employee ineligible needs an HR manager or above; extending
+past the entitlement or deciding a case with a retaliation risk needs an HR director. The roles
+for the other flags are this module's choice. Nothing enforces the role yet: there is no
+sign-off step for this workflow, so `decided_by` is what that step will have to check.
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ from enum import IntEnum
 
 from pydantic import BaseModel, ConfigDict
 
-from hall_monitor.hr.eligibility import BONDING, Assessment
+from hall_monitor.hr.eligibility import BONDING, Assessment, bonding_expires
 from hall_monitor.hr.models import Company, Employee, LeaveReason, LeaveRequest, Relationship
 
 
@@ -30,8 +32,9 @@ class Role(IntEnum):
         return self.name.lower()
 
 
-# States with their own family or medical leave law, to route on. Not a legal list: a person
-# checks which law applies. (Design: state laws are out of scope for version 1.)
+# States with their own family or medical leave law, to route on, checked against where the
+# employee works and where they live. Not a legal list: a person checks which law applies.
+# (Design: state laws are out of scope for version 1.)
 STATE_LEAVE_LAW_STATES = frozenset("CA CO CT DC DE HI MA MD ME MN NJ NY OR RI VT WA".split())
 
 # Every reason the rule gives: what it means, and the least senior role that may decide it.
@@ -63,13 +66,16 @@ REASONS: dict[str, tuple[str, Role]] = {
     ),
     "state_law": ("a state leave law may apply", Role.LEAVE_SPECIALIST),
     "key_employee": ("a key employee: reinstatement may be refused", Role.LEAVE_SPECIALIST),
-    "parents_same_employer": (
-        "both parents work here, so their leave for this reason is shared",
+    "spouses_same_employer": (
+        "the employee's spouse works here too, so leave for this reason may be shared",
+        Role.LEAVE_SPECIALIST,
+    ),
+    "caregiver_history": (
+        "earlier military caregiver leave: a person checks whether it was for the same "
+        "servicemember and injury",
         Role.LEAVE_SPECIALIST,
     ),
 }
-
-SHARED_BY_SPOUSES = BONDING | {LeaveReason.CARE_FOR_FAMILY_MEMBER}  # 825.120(a)(3), 825.127(f)
 
 
 class LeaveRoute(BaseModel):
@@ -84,12 +90,11 @@ class LeaveRoute(BaseModel):
 def route_leave(
     assessment: Assessment, request: LeaveRequest, employee: Employee, company: Company
 ) -> LeaveRoute:
-    codes = {c.code for c in assessment.checks if c.passed is not True and c.code}
-    requested = assessment.requested_weeks
-    if (requested is not None and requested > assessment.remaining_weeks + 1e-9) or (
-        assessment.remaining_weeks <= 0
-    ):
-        codes.add("past_entitlement")
+    # Route on the answer, not the code: a check that didn't pass always reaches a person.
+    codes = {c.code or "facts_missing" for c in assessment.checks if c.passed is not True}
+    expires = bonding_expires(request)
+    if request.reason in BONDING and expires is not None and request.end >= expires:
+        codes.add("bonding_window")  # the part after the 12 months doesn't qualify
     if request.intermittent:
         codes.add("intermittent")
     if employee.pending_adverse_action:
@@ -97,18 +102,24 @@ def route_leave(
     if request.possible_accommodation:
         codes.add("possible_accommodation")
     site = next((s for s in company.worksites if s.id == employee.worksite_id), None)
-    if site is None or site.state in STATE_LEAVE_LAW_STATES:
-        codes.add("state_law" if site else "facts_missing")
+    if site is None:
+        codes.add("facts_missing")
+    elif {site.state, employee.home_state} & STATE_LEAVE_LAW_STATES:
+        codes.add("state_law")  # where they work or where they live
     if employee.key_employee:
         codes.add("key_employee")
+    # Spouses at one employer may be limited to a combined entitlement for bonding and for care
+    # of a parent (825.120(a)(3), 825.121(a)(3)), and to 26 weeks for military caregiver leave
+    # (825.127(f)).
     if employee.spouse_employee_id and (
         request.reason in BONDING
+        or request.reason is LeaveReason.MILITARY_CAREGIVER
         or (
-            request.reason in SHARED_BY_SPOUSES
+            request.reason is LeaveReason.CARE_FOR_FAMILY_MEMBER
             and request.family_relationship is Relationship.PARENT
         )
     ):
-        codes.add("parents_same_employer")
+        codes.add("spouses_same_employer")
     reasons = sorted(codes)
     role = max((REASONS[c][1] for c in reasons), default=Role.LEAVE_SPECIALIST)
     return LeaveRoute(

@@ -4,8 +4,10 @@ Our reading of the federal rules (29 CFR Part 825, DOL Fact Sheet #28), not lega
 yet reviewed by HR or an employment lawyer: state leave laws and company policy aren't modelled.
 A model never decides any of this; an agent may explain the result but can't change it.
 
-Each check passes, fails, or can't be decided from the records (passed=None); the routing rule
-(hr/routing.py) sends every failure and every unknown to a person.
+Each check passes, fails, or can't be decided from the records (passed=None). A missing fact is
+never filled in: a missing coverage year, distance, hours week or caregiver history is "can't
+decide", not a failure. The routing rule (hr/routing.py) sends every failure and every unknown
+to a person.
 """
 
 from __future__ import annotations
@@ -21,11 +23,10 @@ from hall_monitor.hr.models import (
     LeaveReason,
     LeaveRequest,
     LeaveYearMethod,
-    PastLeave,
     Relationship,
 )
 
-SERVICE_DAYS = 364  # 12 months of employment is 52 weeks (29 CFR 825.110(b)(3))
+SERVICE_WEEKS = 52  # 12 months of employment is 52 weeks; any week on the payroll counts
 LONG_BREAK_YEARS = 7  # service before a break this long need not count (825.110(b)(1))
 HOURS_OF_SERVICE = 1250  # in the 12 months before leave starts (825.110(c))
 SITE_EMPLOYEES, SITE_MILES = 50, 75  # within 75 surface miles of the worksite (825.110(e), 825.111)
@@ -37,6 +38,7 @@ NOTICE_BUSINESS_DAYS = 5  # eligibility notice after learning of the need for le
 COVERED_CARE = {Relationship.SPOUSE, Relationship.CHILD, Relationship.PARENT}
 COVERED_CAREGIVER = COVERED_CARE | {Relationship.NEXT_OF_KIN}
 BONDING = {LeaveReason.BIRTH_BONDING, LeaveReason.PLACEMENT_BONDING}
+ONE_DAY = timedelta(days=1)
 
 
 class Check(BaseModel):
@@ -60,8 +62,8 @@ class Assessment(BaseModel):
     eligible: bool | None  # the employee: employer, service, hours, worksite
     checks: list[Check]
     entitlement_weeks: float
-    used_weeks: float
-    remaining_weeks: float
+    used_weeks: float | None  # None when the records can't say
+    remaining_weeks: float | None
     requested_weeks: float | None  # None for intermittent or reduced-schedule leave
     notice_due: date
 
@@ -74,128 +76,151 @@ def years_after(day: date, years: int) -> date:
         return day.replace(year=day.year + years, day=28)
 
 
-def _overlap_days(start: date, end: date, window_start: date, window_end: date) -> int:
-    """Days of [start, end] (inclusive) inside [window_start, window_end)."""
-    first, last = max(start, window_start), min(end, window_end - timedelta(days=1))
-    return max(0, (last - first).days + 1)
+def _days(first: date, last: date):
+    """Every date from first to last inclusive."""
+    for n in range((last - first).days + 1):
+        yield first + timedelta(days=n)
+
+
+def _check(id_: str, passed: bool | None, rule: str, cite: str, facts: dict, code: str) -> Check:
+    return Check(
+        id=id_, passed=passed, rule=rule, cite=cite, facts=facts, code=None if passed else code
+    )
+
+
+def _unknown(id_: str, rule: str, cite: str, facts: dict) -> Check:
+    return Check(id=id_, passed=None, rule=rule, cite=cite, facts=facts, code="facts_missing")
 
 
 # --- The employee ----------------------------------------------------------------------------
 
 
-def check_employer(employer: Employer, notice: date) -> Check:
-    weeks = {
-        year: employer.weeks_with_50_or_more_employees.get(year, 0)
-        for year in (notice.year - 1, notice.year)
-    }
-    covered = employer.public_agency or any(w >= COVERED_WEEKS for w in weeks.values())
-    return Check(
-        id="employer",
-        passed=covered,
-        rule="a public agency, or 50 or more employees in 20 or more workweeks this or last "
-        "calendar year",
-        cite="29 CFR 825.104",
-        facts={"public_agency": employer.public_agency, "weeks_with_50_or_more": weeks},
-        code=None if covered else "employer_not_covered",
-    )
+def check_employer(employer: Employer | None, notice: date) -> Check:
+    """Coverage is judged on the calendar year of the notice and the year before (an
+    assumption: data/synthetic/hr/README.md)."""
+    rule = "a public agency, or 50 or more employees in 20 or more workweeks this or last year"
+    cite = "29 CFR 825.104"
+    if employer is None:
+        return _unknown("employer", rule, cite, {"employer": None})
+    years = (notice.year - 1, notice.year)
+    weeks = {y: employer.weeks_with_50_or_more_employees.get(y) for y in years}
+    if employer.public_agency or any(w is not None and w >= COVERED_WEEKS for w in weeks.values()):
+        covered = True
+    elif None in weeks.values():
+        return _unknown("employer", rule, cite, {"weeks_with_50_or_more": weeks})
+    else:
+        covered = False
+    facts = {"public_agency": employer.public_agency, "weeks_with_50_or_more": weeks}
+    return _check("employer", covered, rule, cite, facts, "employer_not_covered")
+
+
+def _sunday(day: date) -> date:
+    return day - timedelta(days=(day.weekday() + 1) % 7)
+
+
+def _payroll_weeks(period, start: date) -> set[date]:
+    """The weeks (Sunday to Saturday, by their Sunday) with a day of this period before start."""
+    last = (start if period.end is None else min(period.end, start)) - ONE_DAY
+    if last < period.start:
+        return set()
+    return set(_days_step(_sunday(period.start), _sunday(last)))
+
+
+def _days_step(first: date, last: date):
+    day = first
+    while day <= last:
+        yield day
+        day += timedelta(days=7)
 
 
 def check_service(employee: Employee, start: date) -> Check:
+    """Any week the employee was on the payroll for any part of counts (825.110(b)(3))."""
     periods = sorted(employee.employment, key=lambda p: p.start)
-    counted, excluded = list(periods), 0
+    counted, excluded = list(periods), set()
     if not employee.count_service_before_long_break:
         for i in range(len(periods) - 1, 0, -1):
             ended = periods[i - 1].end
             if ended is not None and periods[i].start >= years_after(ended, LONG_BREAK_YEARS):
-                excluded = sum(_service_days(p, start) for p in periods[:i])
+                excluded = set().union(*(_payroll_weeks(p, start) for p in periods[:i]))
                 counted = periods[i:]
                 break
-    days = sum(_service_days(p, start) for p in counted)
-    return Check(
-        id="service",
-        passed=days >= SERVICE_DAYS,
-        rule=f"12 months (52 weeks, {SERVICE_DAYS} days) of employment before leave starts, "
-        f"not counting service before a break of {LONG_BREAK_YEARS} years or more",
-        cite="29 CFR 825.110(b)",
-        facts={"days_counted": days, "days_before_a_long_break": excluded},
-        code=None if days >= SERVICE_DAYS else "short_service",
+    weeks = len(set().union(*(_payroll_weeks(p, start) for p in counted)))
+    facts = {"weeks_counted": weeks, "weeks_before_a_long_break": len(excluded)}
+    return _check(
+        "service",
+        weeks >= SERVICE_WEEKS,
+        f"{SERVICE_WEEKS} weeks of employment before leave starts (any week on the payroll "
+        f"counts), not counting service before a break of {LONG_BREAK_YEARS} years or more",
+        "29 CFR 825.110(b)",
+        facts,
+        "short_service",
     )
 
 
-def _service_days(period, start: date) -> int:
-    end = start if period.end is None else min(period.end, start)
-    return max(0, (end - period.start).days)
-
-
-def _saturdays(first: date, last: date) -> int:
-    """Saturdays from first to last inclusive, both Saturdays."""
-    return 0 if last < first else (last - first).days // 7 + 1
+def _employed_on(employee: Employee, day: date) -> bool:
+    return any(p.start <= day and (p.end is None or day < p.end) for p in employee.employment)
 
 
 def check_hours(employee: Employee, start: date) -> Check:
-    window_start = years_after(start, -1)
+    """Hours worked in the weeks ending (Saturday) inside the 12 months before leave starts. A
+    week the employee was on the payroll that the ledger doesn't cover can't be counted as zero:
+    the employer has to show the hours weren't worked (825.110(c)(3))."""
     rule = f"{HOURS_OF_SERVICE:,} hours worked in the 12 months before leave starts"
+    cite = "29 CFR 825.110(c)"
     if employee.hours_ledger is None:
-        return Check(
-            id="hours",
-            passed=None,
-            rule=rule,
-            cite="29 CFR 825.110(c)",
-            facts={"hours_ledger": None},
-            code="facts_missing",
-        )
-    # Weeks ending (Saturday) inside [window_start, start).
+        return _unknown("hours", rule, cite, {"hours_ledger": None})
+    window_start = years_after(start, -1)
     first = window_start + timedelta(days=(5 - window_start.weekday()) % 7)
-    day_before = start - timedelta(days=1)
-    last = day_before - timedelta(days=(day_before.weekday() - 5) % 7)
-    hours = sum(
-        entry.hours_per_week
-        * _saturdays(max(entry.weeks_ending_from, first), min(entry.weeks_ending_to, last))
-        for entry in employee.hours_ledger
-    )
-    return Check(
-        id="hours",
-        passed=hours >= HOURS_OF_SERVICE,
-        rule=rule,
-        cite="29 CFR 825.110(c)",
-        facts={"hours": hours, "weeks_ending_from": first, "weeks_ending_to": last},
-        code=None if hours >= HOURS_OF_SERVICE else "low_hours",
-    )
+    last = (start - ONE_DAY) - timedelta(days=((start - ONE_DAY).weekday() - 5) % 7)
+    weeks = list(_days_step(first, last))
+    ledger = {}
+    for entry in employee.hours_ledger:
+        for saturday in _days_step(entry.weeks_ending_from, entry.weeks_ending_to):
+            ledger[saturday] = entry.hours_per_week
+    hours = sum(ledger.get(w, 0) for w in weeks)
+    missing = [
+        w
+        for w in weeks
+        if w not in ledger
+        and any(_employed_on(employee, d) for d in _days(w - timedelta(days=6), w) if d < start)
+    ]
+    facts = {"hours": hours, "weeks_ending_from": first, "weeks_ending_to": last}
+    if hours < HOURS_OF_SERVICE and missing:
+        return _unknown("hours", rule, cite, facts | {"weeks_missing": len(missing)})
+    return _check("hours", hours >= HOURS_OF_SERVICE, rule, cite, facts, "low_hours")
 
 
 def check_worksite(employee: Employee, company: Company) -> Check:
     rule = f"{SITE_EMPLOYEES} employees within {SITE_MILES} surface miles of the worksite"
+    cite = "29 CFR 825.110(e), 825.111"
     sites = {s.id: s for s in company.worksites if s.employer_id == employee.employer_id}
-    if employee.worksite_id not in sites:
-        return Check(
-            id="worksite",
-            passed=None,
-            rule=rule,
-            cite="29 CFR 825.110(e), 825.111",
-            facts={"worksite_id": employee.worksite_id, "found": False},
-            code="facts_missing",
-        )
+    home = employee.worksite_id
+    if home not in sites:
+        return _unknown("worksite", rule, cite, {"worksite_id": home, "found": False})
     miles = {}
     for a, b, d in company.surface_miles:
         miles[(a, b)] = miles[(b, a)] = d
-    home = employee.worksite_id
+    unmeasured = sorted(s for s in sites if s != home and (home, s) not in miles)
     near = [s for s in sites if s == home or miles.get((home, s), SITE_MILES + 1) <= SITE_MILES]
     count = sum(sites[s].headcount for s in near)
-    return Check(
-        id="worksite",
-        passed=count >= SITE_EMPLOYEES,
-        rule=rule,
-        cite="29 CFR 825.110(e), 825.111",
-        facts={"worksite_id": home, "sites_within_75_miles": sorted(near), "employees": count},
-        code=None if count >= SITE_EMPLOYEES else "small_worksite",
-    )
+    facts = {"worksite_id": home, "sites_within_75_miles": sorted(near), "employees": count}
+    if count < SITE_EMPLOYEES and unmeasured:
+        return _unknown("worksite", rule, cite, facts | {"sites_without_a_distance": unmeasured})
+    return _check("worksite", count >= SITE_EMPLOYEES, rule, cite, facts, "small_worksite")
 
 
 # --- The request -----------------------------------------------------------------------------
 
 
+def bonding_expires(request: LeaveRequest) -> date | None:
+    """The first day bonding leave no longer qualifies: 12 months after the birth or placement
+    (825.120(a)(2), 825.121(a)(2))."""
+    return years_after(request.event_date, 1) if request.event_date else None
+
+
 def check_reason(request: LeaveRequest) -> Check:
     passed, code = _reason(request)
+    expires = bonding_expires(request)
     return Check(
         id="reason",
         passed=passed,
@@ -206,7 +231,7 @@ def check_reason(request: LeaveRequest) -> Check:
         facts={
             "reason": request.reason.value,
             "relationship": request.family_relationship,
-            "event_date": request.event_date,
+            "starts_inside_the_bonding_year": None if expires is None else request.start < expires,
         },
         code=code,
     )
@@ -221,11 +246,12 @@ def _reason(request: LeaveRequest) -> tuple[bool | None, str | None]:
     if reason in BONDING:
         if request.event_date is None:
             return None, "reason_unclear"
-        # Bonding leave must end within 12 months of the birth or placement (825.120(a)(2)).
-        if request.end >= years_after(request.event_date, 1):
-            return False, "bonding_window"
-        return True, None
-    if relation is None:
+        # Leave starting after the 12 months doesn't qualify; leave running past them qualifies
+        # up to their end, and the routing rule sends the rest to a person.
+        return (
+            (False, "bonding_window") if request.start >= bonding_expires(request) else (True, None)
+        )
+    if relation is None or relation is Relationship.OTHER:
         return None, "reason_unclear"
     if reason is LeaveReason.MILITARY_CAREGIVER:
         return (
@@ -236,9 +262,9 @@ def _reason(request: LeaveRequest) -> tuple[bool | None, str | None]:
     if reason is LeaveReason.CARE_FOR_FAMILY_MEMBER and relation is Relationship.CHILD:
         # A child of 18 or over counts only if unable to care for themselves because of a
         # disability (825.122(d)); a person checks that.
-        if request.family_member_age is None:
+        if request.family_member_under_18 is None:
             return None, "reason_unclear"
-        if request.family_member_age >= 18:
+        if not request.family_member_under_18:
             if request.incapable_of_self_care is None:
                 return None, "adult_child"
             if not request.incapable_of_self_care:
@@ -246,15 +272,31 @@ def _reason(request: LeaveRequest) -> tuple[bool | None, str | None]:
     return True, None
 
 
-def requested_weeks(request: LeaveRequest) -> float | None:
-    """Workweeks of continuous full-time leave. Intermittent leave is counted as it is taken."""
+# --- Entitlement -----------------------------------------------------------------------------
+
+
+def _workweeks(days: int, employee: Employee) -> float:
+    return round(days / len(employee.workdays), 2)
+
+
+def _leave_days(employee: Employee, before: date, reason: LeaveReason | None = None) -> list[date]:
+    """Workdays of FMLA leave already taken before `before`, in order."""
+    return sorted(
+        d
+        for p in employee.fmla_leave_taken
+        if reason is None or p.reason is reason
+        for d in _days(p.start, min(p.end, before - ONE_DAY))
+        if d.weekday() in employee.workdays
+    )
+
+
+def requested_weeks(request: LeaveRequest, employee: Employee) -> float | None:
+    """Workweeks of continuous leave: its workdays over the normal workweek. Intermittent leave
+    is counted as it is taken."""
     if request.intermittent:
         return None
-    return round(((request.end - request.start).days + 1) / 7, 2)
-
-
-def _used_days(taken: tuple[PastLeave, ...], window_start: date, window_end: date) -> int:
-    return sum(_overlap_days(p.start, p.end, window_start, window_end) for p in taken)
+    days = sum(1 for d in _days(request.start, request.end) if d.weekday() in employee.workdays)
+    return _workweeks(days, employee)
 
 
 def leave_year_start(employer: Employer, employee: Employee, start: date) -> date:
@@ -264,64 +306,94 @@ def leave_year_start(employer: Employer, employee: Employee, start: date) -> dat
         return date(start.year, 1, 1)
     if method is LeaveYearMethod.FIXED_YEAR:
         month, day = (int(x) for x in employer.leave_year.starts.split("-"))
-        begins = date(start.year, month, min(day, 28) if month == 2 else day)
+        begins = date(start.year, month, day)
         return begins if begins <= start else years_after(begins, -1)
     if method is LeaveYearMethod.ROLLING_BACKWARD:
         return years_after(start, -1)
-    # Forward from first leave: a period starts with the first FMLA leave, and the next starts
-    # with the first leave after that period ends; the request itself may start one.
-    starts = sorted(p.start for p in employee.fmla_leave_taken if p.start < start)
-    if not starts:
+    # Forward from first leave: a period starts on the first day of FMLA leave, and the next
+    # starts on the first day of leave after that period ends, which may be inside a leave that
+    # ran past it, or the request itself.
+    begins = None
+    for day in _leave_days(employee, start):
+        if begins is None or day >= years_after(begins, 1):
+            begins = day
+    if begins is None or start >= years_after(begins, 1):
         return start
-    begins = starts[0]
-    while years_after(begins, 1) <= start:
-        later = [s for s in starts if s >= years_after(begins, 1)]
-        if not later:
-            return start
-        begins = later[0]
     return begins
 
 
-def entitlement(request: LeaveRequest, employee: Employee, employer: Employer) -> tuple[int, float]:
-    """(weeks of entitlement, weeks already used) when the requested leave starts."""
-    taken = employee.fmla_leave_taken
+def entitlement(
+    request: LeaveRequest, employee: Employee, employer: Employer | None
+) -> tuple[int, float | None]:
+    """(weeks of entitlement, workweeks already used) when the requested leave starts. Used is
+    None when the records can't say."""
     if request.reason is LeaveReason.MILITARY_CAREGIVER:
         # One 12-month period measured forward from the first day of caregiver leave, whatever
-        # the employer's method; all FMLA leave in it counts towards the 26 weeks.
-        caregiver = sorted(
-            p.start
-            for p in taken
-            if p.reason is LeaveReason.MILITARY_CAREGIVER
-            and p.start <= request.start < years_after(p.start, 1)
-        )
-        begins = caregiver[0] if caregiver else request.start
-        return CAREGIVER_WEEKS, round(_used_days(taken, begins, request.start) / 7, 2)
+        # the employer's method; all FMLA leave in it counts towards the 26 weeks. The 26 weeks
+        # are per servicemember and per injury, which the records don't say: earlier caregiver
+        # leave in a period that has ended needs a person.
+        caregiver = _leave_days(employee, request.start, LeaveReason.MILITARY_CAREGIVER)
+        if not caregiver:
+            return CAREGIVER_WEEKS, 0.0
+        if request.start >= years_after(caregiver[0], 1):
+            return CAREGIVER_WEEKS, None
+        used = [d for d in _leave_days(employee, request.start) if d >= caregiver[0]]
+        return CAREGIVER_WEEKS, _workweeks(len(used), employee)
+    if employer is None:
+        return ENTITLEMENT_WEEKS, None
     begins = leave_year_start(employer, employee, request.start)
-    return ENTITLEMENT_WEEKS, round(_used_days(taken, begins, request.start) / 7, 2)
+    used = [d for d in _leave_days(employee, request.start) if d >= begins]
+    return ENTITLEMENT_WEEKS, _workweeks(len(used), employee)
+
+
+def check_entitlement(
+    request: LeaveRequest, employee: Employee, employer: Employer | None
+) -> tuple[Check, int, float | None, float | None]:
+    weeks, used = entitlement(request, employee, employer)
+    asked = requested_weeks(request, employee)
+    remaining = None if used is None else round(weeks - used, 2)
+    facts = {"entitlement_weeks": weeks, "used_weeks": used, "requested_weeks": asked}
+    rule = (
+        f"the leave fits in the weeks left: {ENTITLEMENT_WEEKS} in the leave year, or "
+        f"{CAREGIVER_WEEKS} in one 12-month period for military caregiver leave"
+    )
+    cite = "29 CFR 825.200, 825.127"
+    if remaining is None:
+        code = "caregiver_history" if request.reason is LeaveReason.MILITARY_CAREGIVER else None
+        check = _unknown("entitlement", rule, cite, facts)
+        return check.model_copy(update={"code": code or "facts_missing"}), weeks, used, None
+    fits = remaining > 0 if asked is None else asked <= remaining + 1e-9
+    return (
+        _check("entitlement", fits, rule, cite, facts, "past_entitlement"),
+        weeks,
+        used,
+        remaining,
+    )
 
 
 def notice_due(notice: date) -> date:
     """Five business days after notice. Weekends are skipped; holidays aren't modelled."""
     day, left = notice, NOTICE_BUSINESS_DAYS
     while left:
-        day += timedelta(days=1)
+        day += ONE_DAY
         if day.weekday() < 5:
             left -= 1
     return day
 
 
 def assess(request: LeaveRequest, employee: Employee, company: Company) -> Assessment:
-    employer = next(e for e in company.employers if e.id == employee.employer_id)
+    employer = next((e for e in company.employers if e.id == employee.employer_id), None)
+    entitled, weeks, used, remaining = check_entitlement(request, employee, employer)
     checks = [
         check_employer(employer, request.notice_date),
         check_service(employee, request.start),
         check_hours(employee, request.start),
         check_worksite(employee, company),
         check_reason(request),
+        entitled,
     ]
-    person = [c.passed for c in checks if c.id != "reason"]
+    person = [c.passed for c in checks if c.id in ("employer", "service", "hours", "worksite")]
     eligible = False if False in person else None if None in person else True
-    weeks, used = entitlement(request, employee, employer)
     return Assessment(
         request_id=request.id,
         employee_id=employee.id,
@@ -329,7 +401,7 @@ def assess(request: LeaveRequest, employee: Employee, company: Company) -> Asses
         checks=checks,
         entitlement_weeks=weeks,
         used_weeks=used,
-        remaining_weeks=round(weeks - used, 2),
-        requested_weeks=requested_weeks(request),
+        remaining_weeks=remaining,
+        requested_weeks=requested_weeks(request, employee),
         notice_due=notice_due(request.notice_date),
     )

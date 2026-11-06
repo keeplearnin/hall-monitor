@@ -8,7 +8,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -22,7 +22,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -36,7 +36,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -50,7 +50,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -64,7 +64,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -78,7 +78,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -92,7 +92,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -106,7 +106,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -120,7 +120,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -134,7 +134,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -148,7 +148,7 @@
     "intermittent": true,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -162,7 +162,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -176,7 +176,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": true
@@ -190,7 +190,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -204,7 +204,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -218,7 +218,7 @@
     "intermittent": false,
     "reason": "birth_bonding",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": "2026-11-20",
     "possible_accommodation": false
@@ -232,7 +232,7 @@
     "intermittent": false,
     "reason": "birth_bonding",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": "2025-12-15",
     "possible_accommodation": false
@@ -246,7 +246,7 @@
     "intermittent": false,
     "reason": "care_for_family_member",
     "family_relationship": "parent_in_law",
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -260,7 +260,7 @@
     "intermittent": false,
     "reason": "unclear",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -274,7 +274,7 @@
     "intermittent": false,
     "reason": "military_caregiver",
     "family_relationship": "spouse",
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -288,7 +288,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -302,7 +302,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -316,7 +316,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -330,7 +330,7 @@
     "intermittent": false,
     "reason": "own_serious_health_condition",
     "family_relationship": null,
-    "family_member_age": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
@@ -344,7 +344,35 @@
     "intermittent": false,
     "reason": "care_for_family_member",
     "family_relationship": "child",
-    "family_member_age": 24,
+    "family_member_under_18": false,
+    "incapable_of_self_care": null,
+    "event_date": null,
+    "possible_accommodation": false
+  },
+  {
+    "id": "lr_026",
+    "employee_id": "e126",
+    "notice_date": "2026-11-02",
+    "start": "2026-11-30",
+    "end": "2026-12-27",
+    "intermittent": false,
+    "reason": "military_caregiver",
+    "family_relationship": "spouse",
+    "family_member_under_18": null,
+    "incapable_of_self_care": null,
+    "event_date": null,
+    "possible_accommodation": false
+  },
+  {
+    "id": "lr_027",
+    "employee_id": "e127",
+    "notice_date": "2026-11-02",
+    "start": "2026-11-30",
+    "end": "2026-12-27",
+    "intermittent": false,
+    "reason": "own_serious_health_condition",
+    "family_relationship": null,
+    "family_member_under_18": null,
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false

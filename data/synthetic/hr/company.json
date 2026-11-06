@@ -84,13 +84,43 @@
     ],
     [
       "ws-hq",
-      "ws-lab",
-      12
+      "ws-bil",
+      1580
+    ],
+    [
+      "ws-hq",
+      "ws-lau",
+      1565
+    ],
+    [
+      "ws-hq",
+      "ws-har",
+      1530
+    ],
+    [
+      "ws-hq",
+      "ws-fre",
+      2290
     ],
     [
       "ws-spr",
-      "ws-lab",
-      31
+      "ws-bil",
+      1595
+    ],
+    [
+      "ws-spr",
+      "ws-lau",
+      1580
+    ],
+    [
+      "ws-spr",
+      "ws-har",
+      1545
+    ],
+    [
+      "ws-spr",
+      "ws-fre",
+      2305
     ],
     [
       "ws-bil",
@@ -103,9 +133,24 @@
       75
     ],
     [
+      "ws-bil",
+      "ws-fre",
+      1070
+    ],
+    [
       "ws-lau",
       "ws-har",
       91
+    ],
+    [
+      "ws-lau",
+      "ws-fre",
+      1060
+    ],
+    [
+      "ws-har",
+      "ws-fre",
+      1140
     ]
   ]
 }

@@ -1,9 +1,11 @@
 """Records for the HR leave example: the employer, its worksites, employees and leave requests.
 
-All synthetic (data/synthetic/hr/). The records hold what the eligibility rules need and nothing
-else: no names, no diagnosis, no medical certificate, and only a yes or no for pending
-discipline, a complaint or a termination. A request carries the reason category the intake
-step would extract, never the condition itself.
+All synthetic (data/synthetic/hr/). The records hold what the eligibility and routing rules
+read: no names, no diagnosis, no medical certificate, and only a yes or no for pending
+discipline, a complaint or a termination. Some fields are still health information and are
+kept as coarse as the rules allow: the reason category (an own serious health condition is
+one), whether an adult child can't care for themselves because of a disability, and whether
+there are signs of an accommodation need. A request never carries the condition itself.
 """
 
 from __future__ import annotations
@@ -30,12 +32,16 @@ class LeaveYear(BaseModel):
 
     method: LeaveYearMethod
     # Month and day the fixed year starts, for fixed_year only (07-01 for a July fiscal year).
+    # One date for the whole employer: a year from each employee's hire date isn't supported.
     starts: str | None = Field(default=None, pattern=r"^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
 
     @model_validator(mode="after")
     def _starts_only_for_a_fixed_year(self) -> LeaveYear:
         if (self.method is LeaveYearMethod.FIXED_YEAR) != (self.starts is not None):
             raise ValueError("starts is required for fixed_year and only for it")
+        if self.starts is not None:
+            month, day = (int(x) for x in self.starts.split("-"))
+            date(2001, month, day)  # a date every year has: no 29 February, no 31 April
         return self
 
 
@@ -65,8 +71,8 @@ class Company(BaseModel):
 
     employers: tuple[Employer, ...]
     worksites: tuple[Worksite, ...]
-    # Surface miles over public roads between two sites. A pair not listed is more than 75 miles
-    # apart (data/synthetic/hr/README.md).
+    # Surface miles over public roads between two of one employer's sites. Every pair is listed;
+    # a missing pair can't be decided (data/synthetic/hr/README.md).
     surface_miles: tuple[tuple[str, str, float], ...]
 
 
@@ -119,6 +125,8 @@ class Relationship(StrEnum):
     CHILD = "child"
     PARENT = "parent"
     NEXT_OF_KIN = "next_of_kin"  # of a covered servicemember, for military caregiver leave only
+    # Anyone else, including someone who stood in place of a parent (in loco parentis), which
+    # can qualify (29 CFR 825.122(c)-(d)), so a person decides it.
     PARENT_IN_LAW = "parent_in_law"
     SIBLING = "sibling"
     OTHER = "other"
@@ -154,13 +162,26 @@ class Employee(BaseModel):
     # for military service or a written agreement: 29 CFR 825.110(b)).
     count_service_before_long_break: bool = False
     hours_ledger: tuple[HoursEntry, ...] | None  # None: no record of hours worked
+    # The normal workweek, as weekday numbers (Monday 0): leave is counted in its workdays, so a
+    # week of leave is a workweek and a single day is a fraction of one (29 CFR 825.205(b)).
+    workdays: tuple[int, ...] = Field(default=(0, 1, 2, 3, 4), min_length=1)
     fmla_leave_taken: tuple[PastLeave, ...] = ()
-    key_employee: bool = False  # among the highest-paid 10% nearby (29 CFR 825.217)
+    # A salaried employee among the highest-paid 10% within 75 miles (29 CFR 825.217).
+    key_employee: bool = False
     spouse_employee_id: str | None = None
     # Discipline, a complaint, an investigation or a termination is pending: yes or no only.
     pending_adverse_action: bool = False
 
     @model_validator(mode="after")
+    def _periods_counted_once(self) -> Employee:
+        if not set(self.workdays) <= set(range(7)) or len(set(self.workdays)) != len(self.workdays):
+            raise ValueError("workdays are distinct weekday numbers, Monday 0 to Sunday 6")
+        periods = sorted(self.employment, key=lambda p: p.start)
+        for before, after in zip(periods, periods[1:], strict=False):
+            if before.end is None or after.start < before.end:
+                raise ValueError("employment periods overlap, so some service would count twice")
+        return self._weeks_counted_once()
+
     def _weeks_counted_once(self) -> Employee:
         entries = sorted(self.hours_ledger or (), key=lambda e: e.weeks_ending_from)
         for before, after in zip(entries, entries[1:], strict=False):
@@ -182,7 +203,7 @@ class LeaveRequest(BaseModel):
     intermittent: bool = False  # intermittent or a reduced schedule
     reason: LeaveReason
     family_relationship: Relationship | None = None
-    family_member_age: int | None = Field(default=None, ge=0, le=130)
+    family_member_under_18: bool | None = None  # for care of a child; no age is kept
     incapable_of_self_care: bool | None = None  # an adult child, because of a disability
     event_date: date | None = None  # the birth or placement, for bonding leave
     possible_accommodation: bool = False  # signs of an ADA or PWFA accommodation need
@@ -203,7 +224,7 @@ class LeaveAnswer(BaseModel):
     eligible: bool | None
     failed_checks: list[str]
     unknown_checks: list[str]
-    remaining_weeks: float
+    remaining_weeks: float | None
     requested_weeks: float | None
     route: str
     decided_by: str

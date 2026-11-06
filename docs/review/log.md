@@ -465,3 +465,32 @@ docs, comments and `.github/CODEOWNERS` only.
 | A case's route came from the last triage result, not the one its evidence pack records, so a run that lost the race could hide a claim from the queue | Low, plausible | The route is from the result the pack records, as the workflow reads it |
 | The reason-template test was a hand-written list with injection codes that don't exist | Low | A test builds reasons from the real routing rule, refusals and cost error |
 | The review log and a docstring still described the first fixes as complete | Low | Corrected |
+
+## Review 8: the HR leave rules (HM-21)
+
+**Reviewer:** the governance-reviewer agent, on the hr-leave-rules branch before its pull
+request. It checked the rules against its reading of 29 CFR Part 825 (not the text itself), and
+recomputed 18 answer keys by hand. 18 findings: 11 confirmed in the code, 7 where the code's
+behaviour was shown but the legal premise is the reviewer's reading. All fixed, test-first, or
+logged in HM-21's gaps.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Leave was counted as calendar days over 7, so a Monday-to-Friday week was 0.71 weeks and a single day a seventh: a request over the entitlement went to specialist sign-off with no flag | High | Leave taken and asked for is counted in workdays of the employee's normal workweek (825.205(b)) |
+| Forward-from-first-leave used only leave start dates, so a leave running past a period's end counted nowhere, and a request over the entitlement went to sign-off | High | Periods follow each day of leave: the next period starts on the first leave day after the last one ends |
+| Any military caregiver request more than 12 months after earlier caregiver leave got a fresh 26 weeks, though the 26 are per servicemember and injury, which the records don't say | High | That entitlement can't be decided and goes to a person (`caregiver_history`) |
+| "The records hold no names and nothing medical" was false: the reason category, an adult child's disability and the accommodation flag are health information, and the test only denied seven field names | High | The docs say what health information is held and how coarsely; a test fixes the exact list of fields |
+| An employee with no employer record, a request for an unknown employee, a request with no answer key, and a fixed year starting 31 April crashed the run | Medium | Each goes to a person or is refused when the records load |
+| Overlapping employment periods counted twice | Medium | Refused when the records load |
+| Missing facts were filled in: a missing coverage year was 0 weeks, a missing distance was far, a week missing from the ledger was 0 hours, so an HR manager was shown a reason for ineligibility the records don't support | Medium | Each is "can't decide"; every pair of sites must have a distance; a payroll week the ledger doesn't cover is unknown (825.110(c)(3)) |
+| The spouse flag missed military caregiver leave (825.127(f)) | Medium | Flagged; the code is now `spouses_same_employer`, worded for spouses |
+| The state-law flag ignored where the employee lives | Medium | Worksite or home state |
+| The bonding window was all or nothing, though leave inside the 12 months qualifies up to their end | Medium | The reason fails only if the leave starts after them; leave running past them goes to an HR manager |
+| Service was counted in days, though any week on the payroll counts (825.110(b)(3)) | Medium | Counted in payroll weeks; the boundary requests moved to a Saturday and a Sunday hire |
+| The ADR and register said every rule was tested on both sides of its boundary, and every flag on a clean request | Medium | Boundary tests added for the entitlement, the forward period's end, the caregiver period, the fixed year's first day and the coverage year; the docs say what is tested |
+| The role table was presented as the design's, but the design isn't in the repo, six roles are the code's choice, a role is a minimum not an exclusive, and nothing enforces it yet | Medium | The docs say all three; HM-21's gaps say more leave than is left goes to a director though a manager could deny the excess |
+| Data minimisation claims were false: `home_state` was unused, `family_member_age` was exact, and the check facts carried a child's birth date | Low | `home_state` is used for the state flag; age is under 18 or not; the facts say only whether leave starts inside the bonding year |
+| An anniversary year from each employee's hire date can't be represented | Low | Logged in HM-21's gaps |
+| Coverage is judged on the notice year, which wasn't stated | Low, plausible | Stated as an assumption |
+| Leave that becomes FMLA leave once the employee reaches 12 months during it (825.110(d)) isn't split out | Low, plausible | Logged in HM-21's gaps |
+| Routing relied on each check setting a code; the spouse wording was for parents only; the key-employee comment omitted "salaried"; "other" relationships (someone in place of a parent) failed instead of going to a person | Low | Routing is on each check's answer; wording fixed; "other" can't be decided |
