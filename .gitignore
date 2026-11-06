@@ -10,3 +10,5 @@ build/
 .DS_Store
 evals/results/*/raw_results.jsonl
 var/
+registry/.stops.yaml.lock
+registry/.stops.yaml.partial

@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
 
+RESERVED_AGENT_ID = "pipeline"  # the tool gateway's PIPELINE_ACTOR
 DEFAULT_REGISTRY_DIR = Path(__file__).resolve().parents[1] / "registry"
 SCHEMA_FILENAME = "agent_manifest.schema.json"
 APPROVALS_FILENAME = "approvals.yaml"
@@ -169,6 +170,9 @@ class Registry:
         for manifest in manifests:
             if manifest.id in self._manifests:
                 raise ValueError(f"duplicate agent id in registry: {manifest.id}")
+            if manifest.id == RESERVED_AGENT_ID:
+                # The tool gateway treats this actor as the pipeline and skips agent checks.
+                raise ValueError(f"agent id {manifest.id!r} is reserved for the pipeline")
             if owners is not None and manifest.owner not in owners:
                 raise ValueError(
                     f"agent {manifest.id!r}: owner {manifest.owner!r} is not a person listed "

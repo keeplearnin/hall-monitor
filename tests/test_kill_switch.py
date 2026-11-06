@@ -24,7 +24,7 @@ from hall_monitor.registry import (
     load_owners,
 )
 from hall_monitor.tools.gateway import ToolGateway
-from tests.fakes import fake_client, outputs_from_truth
+from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth
 
 OWNER = "own-301"  # owns intake in the shipped registry
 
@@ -32,7 +32,7 @@ OWNER = "own-301"  # owns intake in the shipped registry
 @pytest.fixture
 def registry_dir(tmp_path):
     path = tmp_path / "registry"
-    shutil.copytree(DEFAULT_REGISTRY_DIR, path)
+    shutil.copytree(TEST_REGISTRY_DIR, path)
     return path
 
 
@@ -49,7 +49,7 @@ def _write_stops(path, stops):
 
 def test_every_agent_is_owned_by_a_named_person():
     people = {p["id"] for p in load_owners()}
-    for manifest in Registry.from_dir():
+    for manifest in Registry.from_dir(TEST_REGISTRY_DIR):
         assert manifest.owner in people, manifest.id
 
 
@@ -63,8 +63,34 @@ def test_a_team_as_owner_is_refused(registry_dir):
 # --- Stopping ------------------------------------------------------------------------
 
 
-def test_the_shipped_registry_has_no_stops():
-    assert yaml.safe_load((DEFAULT_REGISTRY_DIR / STOPS_FILENAME).read_text()) == {"stops": []}
+def test_the_shipped_stop_list_is_valid_whatever_it_holds():
+    """Stops are live state, so the shipped list may hold some: it must load, and each agent is
+    either running or stopped, never refused because the list itself is broken."""
+    registry = Registry.from_dir(DEFAULT_REGISTRY_DIR)
+    for manifest in registry:
+        try:
+            registry.require(manifest.id)
+        except AgentStoppedError:
+            pass
+
+
+def test_tests_run_agents_from_a_registry_with_no_stops():
+    """A stop in the shipped registry mustn't fail every later PR's tests: tests load the
+    registry from a copy with an empty stop list."""
+    from pathlib import Path
+
+    shipped = [
+        "Registry.from_dir" + "()",
+        "from_dir(" + "DEFAULT_REGISTRY_DIR",
+        "copytree(" + "DEFAULT_REGISTRY_DIR",
+    ]
+    allowed = {"test_the_shipped_stop_list_is_valid_whatever_it_holds"}  # reads it on purpose
+    for module in Path(__file__).parent.glob("test_*.py"):
+        for test in module.read_text().split("\ndef ")[1:]:
+            if test.split("(")[0] in allowed:
+                continue
+            for pattern in shipped:
+                assert pattern not in test, f"{module.name}::{test.split('(')[0]}"
 
 
 def test_a_stop_takes_effect_on_the_next_call(registry_dir):
@@ -477,3 +503,96 @@ def test_code_the_kill_switch_relies_on_has_a_code_owner():
     ):
         assert owners_of(path), path
     assert owners_of("registry/stops.yaml") == []
+
+
+# --- From review 6 ---------------------------------------------------------------------
+
+
+def test_two_stops_at_once_are_both_kept(registry_dir, monkeypatch):
+    """Two owners stopping agents at the same moment: neither stop is lost."""
+    import threading
+    import time
+
+    import hall_monitor.kill_switch as kill_switch
+
+    real = kill_switch._raw
+    first = threading.Event()
+
+    def slow_read(path):
+        entries = real(path)
+        if not first.is_set():
+            first.set()
+            time.sleep(0.3)  # the other owner's stop lands while this one is being written
+        return entries
+
+    monkeypatch.setattr(kill_switch, "_raw", slow_read)
+    stops = registry_dir / STOPS_FILENAME
+    one = threading.Thread(
+        target=add_stop, args=(stops,), kwargs={"agent": "intake", "by": OWNER, "reason": "a"}
+    )
+    one.start()
+    first.wait(5)
+    add_stop(stops, agent="risk_fraud", by="own-302", reason="b")
+    one.join()
+
+    registry = Registry.from_dir(registry_dir)
+    for agent in ("intake", "risk_fraud"):
+        with pytest.raises(AgentStoppedError):
+            registry.require(agent)
+    ids = [s["id"] for s in yaml.safe_load(stops.read_text())["stops"]]
+    assert len(ids) == len(set(ids)) == 2
+
+
+def test_an_agent_can_be_stopped_while_other_registry_files_are_broken(registry_dir):
+    """During an incident a half-edited approvals file mustn't block the kill switch."""
+    from hall_monitor.kill_switch import main
+
+    (registry_dir / APPROVALS_FILENAME).unlink()
+    assert (
+        main(
+            [
+                "stop",
+                "intake",
+                "--by",
+                OWNER,
+                "--reason",
+                "incident",
+                "--stops",
+                str(registry_dir / STOPS_FILENAME),
+            ]
+        )
+        == 0
+    )
+    assert (
+        yaml.safe_load((registry_dir / STOPS_FILENAME).read_text())["stops"][0]["agent"] == "intake"
+    )
+
+
+def test_no_agent_may_take_the_pipelines_id(registry_dir):
+    """The tool gateway treats the actor "pipeline" as the pipeline itself and skips the agent
+    checks, so an agent with that ID would skip them too."""
+    source = registry_dir / "intake.yaml"
+    raw = yaml.safe_load(source.read_text())
+    raw["id"] = "pipeline"
+    (registry_dir / "pipeline.yaml").write_text(yaml.safe_dump(raw))
+    with pytest.raises(ValueError, match="pipeline"):
+        Registry.from_dir(registry_dir)
+
+
+def test_a_stop_reaches_a_symlinked_stop_list(registry_dir, tmp_path):
+    """A deployment may link registry/stops.yaml to a shared store: the stop must land there,
+    keep the link, and keep the file's permissions."""
+    shared = tmp_path / "shared" / STOPS_FILENAME
+    shared.parent.mkdir()
+    shutil.copy(registry_dir / STOPS_FILENAME, shared)
+    shared.chmod(0o640)
+    link = registry_dir / STOPS_FILENAME
+    link.unlink()
+    link.symlink_to(shared)
+
+    _stop(registry_dir)
+
+    assert link.is_symlink()
+    assert (shared.stat().st_mode & 0o777) == 0o640
+    with pytest.raises(AgentStoppedError):
+        Registry.from_dir(registry_dir).require("intake")
