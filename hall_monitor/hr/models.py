@@ -133,7 +133,8 @@ class Relationship(StrEnum):
 
 
 class PastLeave(BaseModel):
-    """FMLA leave already taken, full days, start and end inclusive."""
+    """FMLA leave already taken, full days, start and end inclusive. Its reason category is
+    health information when it is the employee's own condition."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -180,6 +181,10 @@ class Employee(BaseModel):
         for before, after in zip(periods, periods[1:], strict=False):
             if before.end is None or after.start < before.end:
                 raise ValueError("employment periods overlap, so some service would count twice")
+        taken = sorted(self.fmla_leave_taken, key=lambda p: p.start)
+        for before, after in zip(taken, taken[1:], strict=False):
+            if after.start <= before.end:  # leave ends are inclusive
+                raise ValueError("leave already taken overlaps, so some days would count twice")
         return self._weeks_counted_once()
 
     def _weeks_counted_once(self) -> Employee:

@@ -487,10 +487,28 @@ logged in HM-21's gaps.
 | The state-law flag ignored where the employee lives | Medium | Worksite or home state |
 | The bonding window was all or nothing, though leave inside the 12 months qualifies up to their end | Medium | The reason fails only if the leave starts after them; leave running past them goes to an HR manager |
 | Service was counted in days, though any week on the payroll counts (825.110(b)(3)) | Medium | Counted in payroll weeks; the boundary requests moved to a Saturday and a Sunday hire |
-| The ADR and register said every rule was tested on both sides of its boundary, and every flag on a clean request | Medium | Boundary tests added for the entitlement, the forward period's end, the caregiver period, the fixed year's first day and the coverage year; the docs say what is tested |
+| The ADR and register said every rule was tested on both sides of its boundary, and every flag on a clean request | Medium | Boundary tests added for the entitlement, the caregiver period and the coverage year, and on one side for the forward period's end and the fixed year's first day (the other sides came with the re-review); the docs say what is tested |
 | The role table was presented as the design's, but the design isn't in the repo, six roles are the code's choice, a role is a minimum not an exclusive, and nothing enforces it yet | Medium | The docs say all three; HM-21's gaps say more leave than is left goes to a director though a manager could deny the excess |
 | Data minimisation claims were false: `home_state` was unused, `family_member_age` was exact, and the check facts carried a child's birth date | Low | `home_state` is used for the state flag; age is under 18 or not; the facts say only whether leave starts inside the bonding year |
 | An anniversary year from each employee's hire date can't be represented | Low | Logged in HM-21's gaps |
 | Coverage is judged on the notice year, which wasn't stated | Low, plausible | Stated as an assumption |
 | Leave that becomes FMLA leave once the employee reaches 12 months during it (825.110(d)) isn't split out | Low, plausible | Logged in HM-21's gaps |
 | Routing relied on each check setting a code; the spouse wording was for parents only; the key-employee comment omitted "salaried"; "other" relationships (someone in place of a parent) failed instead of going to a person | Low | Routing is on each check's answer; wording fixed; "other" can't be decided |
+
+**Re-review of those fixes:** 10 findings, 7 confirmed and 3 where the legal premise is the
+reviewer's reading; all fixed. Reverting each review 8 fix in turn, 21 of 23 were caught by a
+test; the 2 that weren't now are.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| While a military caregiver period was open, other leave was checked only against the employer's leave year, so 22 weeks of caregiver leave still left a full 12 for other reasons and a request over the combined 26 went to sign-off | High | Other leave is held to the 26 less all leave in the open period as well (825.200(f)) |
+| Caregiver days counted against the 12 weeks for other reasons, sending a request that fits to an HR director | Medium | The 12 count leave for other reasons only |
+| Counting requested leave in calendar days could be reverted unnoticed: every test request ran Monday to Sunday | Medium | A Monday-to-Friday request against 0.8 weeks left |
+| Birth bonding starting before the birth passed as bonding | Medium | It can't be decided: before a birth it is prenatal care or a health condition; leave before a placement still qualifies |
+| A missing home state was taken as "not a state with its own law", and a missing worksite skipped the home state | Low | Every record has a home state; a missing one can't be decided, and both are checked |
+| Overlapping leave already taken counted twice | Low | Refused when the records load |
+| A period ending, or a leave starting, on a Sunday wasn't tested | Low | Tested |
+| The field-list test missed the records nested in an employee's, and leave already taken wasn't listed as health information | Low | Nested records' fields are fixed too; the docs list it |
+| The docs said a child's age is only under 18 or not, though bonding requests carry the birth date; "18 problems, all fixed" though two were logged; boundary tests on both sides that were on one; an "11-year break" that is almost 11 | Low | Corrected |
+| An unknown leave-year method was treated as forward-from-first-leave | Low | It can't be decided |
+| Bonding from 29 February ended a day early (plausible) | Low | It runs to the end of 28 February |

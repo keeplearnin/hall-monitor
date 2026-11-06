@@ -3,6 +3,7 @@
     "id": "e101",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -26,6 +27,7 @@
     "id": "e102",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2025-12-14",
@@ -49,6 +51,7 @@
     "id": "e103",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2025-12-13",
@@ -72,6 +75,7 @@
     "id": "e104",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -105,6 +109,7 @@
     "id": "e105",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -138,6 +143,7 @@
     "id": "e106",
     "employer_id": "larkspur",
     "worksite_id": "ws-lau",
+    "home_state": "MT",
     "employment": [
       {
         "start": "2019-03-04",
@@ -161,6 +167,7 @@
     "id": "e107",
     "employer_id": "larkspur",
     "worksite_id": "ws-bil",
+    "home_state": "MT",
     "employment": [
       {
         "start": "2019-03-04",
@@ -184,6 +191,7 @@
     "id": "e108",
     "employer_id": "larkspur_labs",
     "worksite_id": "ws-lab",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -207,6 +215,7 @@
     "id": "e109",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -236,6 +245,7 @@
     "id": "e110",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -265,6 +275,7 @@
     "id": "e111",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -288,6 +299,7 @@
     "id": "e112",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -311,6 +323,7 @@
     "id": "e113",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -334,6 +347,7 @@
     "id": "e114",
     "employer_id": "larkspur",
     "worksite_id": "ws-fre",
+    "home_state": "CA",
     "employment": [
       {
         "start": "2019-03-04",
@@ -357,6 +371,7 @@
     "id": "e115",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -380,6 +395,7 @@
     "id": "e116",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -403,6 +419,7 @@
     "id": "e117",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -426,6 +443,7 @@
     "id": "e118",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -449,6 +467,7 @@
     "id": "e119",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -472,6 +491,7 @@
     "id": "e120",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -495,6 +515,7 @@
     "id": "e121",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2010-03-01",
@@ -522,6 +543,7 @@
     "id": "e122",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2020-03-02",
@@ -549,6 +571,7 @@
     "id": "e123",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -566,6 +589,7 @@
     "id": "e124",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "MT",
     "employment": [
       {
         "start": "2019-03-04",
@@ -583,13 +607,13 @@
     "key_employee": false,
     "spouse_employee_id": null,
     "pending_adverse_action": false,
-    "count_service_before_long_break": false,
-    "home_state": "MT"
+    "count_service_before_long_break": false
   },
   {
     "id": "e125",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -613,6 +637,7 @@
     "id": "e126",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "OH",
     "employment": [
       {
         "start": "2019-03-04",
@@ -642,6 +667,7 @@
     "id": "e127",
     "employer_id": "larkspur",
     "worksite_id": "ws-hq",
+    "home_state": "NY",
     "employment": [
       {
         "start": "2019-03-04",
@@ -659,7 +685,30 @@
     "key_employee": false,
     "spouse_employee_id": null,
     "pending_adverse_action": false,
-    "count_service_before_long_break": false,
-    "home_state": "NY"
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e128",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
   }
 ]

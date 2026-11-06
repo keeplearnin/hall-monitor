@@ -376,5 +376,19 @@
     "incapable_of_self_care": null,
     "event_date": null,
     "possible_accommodation": false
+  },
+  {
+    "id": "lr_028",
+    "employee_id": "e128",
+    "notice_date": "2026-11-02",
+    "start": "2026-11-30",
+    "end": "2026-12-27",
+    "intermittent": false,
+    "reason": "birth_bonding",
+    "family_relationship": null,
+    "family_member_under_18": null,
+    "incapable_of_self_care": null,
+    "event_date": "2027-01-15",
+    "possible_accommodation": false
   }
 ]

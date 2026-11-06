@@ -67,7 +67,7 @@ def test_every_routing_reason_is_in_an_answer_key():
 
 def test_the_cli_scores_every_request(capsys):
     assert hr_cli.main([]) == 0
-    assert "27 of 27 match the answer key." in capsys.readouterr().out
+    assert "28 of 28 match the answer key." in capsys.readouterr().out
     assert hr_cli.main(["--request", "lr_009"]) == 0
 
 
@@ -528,9 +528,10 @@ def test_a_check_that_didn_t_pass_reaches_a_person_even_without_a_code(monkeypat
 
 # --- What the records hold -------------------------------------------------------------------
 
-# Every field the records carry. A new one fails this test, so adding personal or health data is
-# a reviewed change. Health information among them, kept coarse: the reason category,
-# incapable_of_self_care (a disability) and possible_accommodation.
+# Every field the records carry, nested ones too. A new one fails this test, so adding personal
+# or health data is a reviewed change. Health information among them, kept coarse: the reason
+# category (of a request and of leave already taken), incapable_of_self_care (a disability) and
+# possible_accommodation; bonding requests carry the date of the birth or placement.
 EMPLOYEE_FIELDS = {
     "id",
     "employer_id",
@@ -562,8 +563,18 @@ REQUEST_FIELDS = {
 
 
 def test_the_records_carry_only_the_fields_the_rules_read():
+    from hall_monitor.hr.models import EmploymentPeriod, HoursEntry, PastLeave
+
     assert set(Employee.model_fields) == EMPLOYEE_FIELDS
     assert set(LeaveRequest.model_fields) == REQUEST_FIELDS
+    # And the records inside an employee's.
+    assert set(EmploymentPeriod.model_fields) == {"start", "end"}
+    assert set(HoursEntry.model_fields) == {
+        "weeks_ending_from",
+        "weeks_ending_to",
+        "hours_per_week",
+    }
+    assert set(PastLeave.model_fields) == {"start", "end", "reason"}
 
 
 def test_the_check_facts_carry_no_dates_of_birth_or_placement():
@@ -581,3 +592,110 @@ def test_the_hr_rules_call_no_model():
             for a in (n.names if isinstance(n, ast.Import) else [n])
         }
         assert not any(str(m).startswith(("anthropic", "hall_monitor.agents")) for m in imported)
+
+
+# --- Re-review of review 8 -------------------------------------------------------------------
+
+
+def test_other_leave_in_an_open_caregiver_period_counts_towards_the_26():
+    """22 workweeks of caregiver leave leave 4 of the 26, whatever the employer's leave year
+    says about the other 12 (825.127(e))."""
+    taken = [_leave(date(2026, 6, 1), date(2026, 10, 30), "military_caregiver")]
+    employer = _employer(leave_year={"method": "calendar_year", "starts": None})
+    request = _request(start=date(2027, 1, 4), end=date(2027, 2, 14), notice_date=date(2027, 1, 4))
+    weeks, used = entitlement(request, _employee(fmla_leave_taken=taken), employer)
+    assert weeks - used == 4  # the 12 weeks are untouched, but only 4 of the 26 are left
+
+
+def test_caregiver_days_don_t_count_against_the_12_weeks_for_other_reasons():
+    taken = [
+        _leave(date(2026, 3, 2), date(2026, 7, 19), "military_caregiver"),  # 20 workweeks
+    ]
+    employee = _employee(fmla_leave_taken=taken)
+    request = _request(start=date(2026, 11, 30), end=date(2026, 12, 27))  # 4 weeks
+    assessed = assess(request, employee, COMPANY)
+    assert assessed.remaining_weeks == 6  # min(12 - 0, 26 - 20)
+    assert next(c for c in assessed.checks if c.id == "entitlement").passed is True
+
+
+def test_a_monday_to_friday_request_is_counted_in_workweeks():
+    """56 workdays used leaves 0.8 weeks; a Monday-to-Friday week is 1 workweek, not 5/7."""
+    taken = [
+        _leave(date(2026, 6, 1), date(2026, 8, 14)),
+        _leave(date(2026, 8, 17), date(2026, 8, 17)),
+    ]
+    employee = _employee(fmla_leave_taken=taken)
+    request = _request(end=date(2026, 12, 4))
+    route = route_leave(assess(request, employee, COMPANY), request, employee, COMPANY)
+    assert route.reasons == ["past_entitlement"]
+
+
+def test_birth_bonding_before_the_birth_can_t_be_decided_but_placement_can_start_before():
+    before = check_reason(_request(reason="birth_bonding", event_date=date(2027, 1, 15)))
+    assert (before.passed, before.code) == (None, "before_birth")
+    placement = check_reason(_request(reason="placement_bonding", event_date=date(2027, 1, 15)))
+    assert placement.passed is True
+
+
+def test_bonding_from_29_february_runs_to_the_end_of_28_february():
+    request = _request(
+        reason="birth_bonding",
+        event_date=date(2028, 2, 29),
+        start=date(2029, 2, 26),
+        end=date(2029, 2, 28),
+        notice_date=date(2029, 2, 1),
+    )
+    assert eligibility.bonding_expires(request) == date(2029, 3, 1)
+
+
+def test_a_missing_home_state_can_t_be_decided():
+    employee = _employee(home_state=None)
+    route = route_leave(assess(_request(), employee, COMPANY), _request(), employee, COMPANY)
+    assert route.reasons == ["facts_missing"]
+    lost = _employee(worksite_id="ws-nowhere", home_state="CA")
+    route = route_leave(assess(_request(), lost, COMPANY), _request(), lost, COMPANY)
+    assert {"facts_missing", "state_law"} <= set(route.reasons)
+
+
+def test_overlapping_leave_already_taken_is_refused():
+    twice = [
+        _leave(date(2026, 6, 1), date(2026, 7, 12)),
+        _leave(date(2026, 6, 1), date(2026, 7, 12)),
+    ]
+    with pytest.raises(ValueError, match="overlap"):
+        _employee(fmla_leave_taken=twice)
+
+
+def test_a_period_ending_on_a_sunday_and_a_leave_starting_on_one_add_no_week():
+    ended = _employee(
+        employment=[
+            {"start": date(2024, 1, 7), "end": date(2024, 1, 14)},  # Sunday to Sunday, exclusive
+            {"start": date(2025, 12, 7), "end": None},
+        ]
+    )
+    assert check_service(ended, date(2026, 11, 29)).facts["weeks_counted"] == 1 + 51
+
+
+@pytest.mark.parametrize(
+    ("first_day", "used"),
+    [(date(2025, 12, 1), 4), (date(2025, 11, 28), 0)],
+    ids=["period still open", "period ended the Friday before"],
+)
+def test_the_forward_period_on_both_sides_of_its_end(first_day, used):
+    taken = [_leave(first_day, first_day + timedelta(days=25))]
+    employer = _employer(leave_year={"method": "forward_from_first_leave", "starts": None})
+    assert entitlement(_request(), _employee(fmla_leave_taken=taken), employer) == (12, used)
+
+
+@pytest.mark.parametrize(("starts", "used"), [("11-30", 0), ("12-01", 4)])
+def test_the_fixed_year_on_both_sides_of_its_first_day(starts, used):
+    taken = [_leave(date(2026, 11, 2), date(2026, 11, 27))]
+    employer = _employer(leave_year={"method": "fixed_year", "starts": starts})
+    assert entitlement(_request(), _employee(fmla_leave_taken=taken), employer) == (12, used)
+
+
+def test_an_unknown_leave_year_method_can_t_be_decided():
+    employer = _employer().model_copy(
+        update={"leave_year": _employer().leave_year.model_copy(update={"method": "lunar"})}
+    )
+    assert entitlement(_request(), _employee(), employer) == (12, None)

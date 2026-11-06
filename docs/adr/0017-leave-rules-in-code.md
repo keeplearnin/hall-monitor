@@ -35,17 +35,19 @@ not collect.
   choice). Even a clean request is only a draft for a leave specialist to sign: the design asked
   HR whether any approval may skip a person, and until they answer, none does. Nothing enforces
   the role until there is a sign-off step.
-- **Answer keys on the boundaries.** 27 synthetic requests sit on the edges (hired on a
+- **Answer keys on the boundaries.** 28 synthetic requests sit on the edges (hired on a
   Saturday against the next day, 1,250 against 1,249 hours, 50 against 49 employees, a site at
   exactly 75 miles, a leave that partly falls outside the rolling year), each worked out by
-  hand, and the main rules are tested on both sides of their boundary. (When the rules were
+  hand, and most rules are tested on both sides of their boundary. (When the rules were
   first written, each was broken by hand once to check that a test fails; that check isn't
   automated.)
 - **Coarse records.** The records hold no names and no diagnosis; pending discipline is a yes or
-  no, and a child's age is only under 18 or not. They do hold health information, kept as coarse
-  as the rules allow: the reason category, whether an adult child can't care for themselves, and
-  signs of an accommodation need. A test fixes the list of fields, so adding one is a reviewed
-  change.
+  no, and the age of a child being cared for is only under 18 or not. They do hold health
+  information, kept as coarse as the rules allow: the reason category of a request and of leave
+  already taken, whether an adult child can't care for themselves, and signs of an
+  accommodation need; and bonding requests carry the date of the birth or placement, which the
+  12-month window needs. A test fixes the list of fields of every record, so adding one is a
+  reviewed change.
 
 ## Alternatives considered
 
@@ -73,4 +75,5 @@ not collect.
 `tests/test_hr_leave.py`: every request matches its answer key, every routing reason appears in
 an answer key, the rules are tested on their boundaries, a missing fact is never a failure,
 flags on a clean request send it to HR review, and only HR managers and directors may deny or
-extend. A first review found 18 problems, all fixed (docs/review/log.md, Review 8).
+extend. A first review found 18 problems, all fixed or logged as gaps, and a review of those
+fixes 10 more, all fixed (docs/review/log.md, Review 8).

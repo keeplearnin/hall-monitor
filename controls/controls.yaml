@@ -795,10 +795,14 @@ controls:
       the worksite (the employer's own sites, inclusive), a qualifying reason, and whether the
       leave fits in the weeks left, counted in workdays of the employee's normal workweek, under
       each of the four leave-year methods (26 weeks for military caregiver leave, in one period
-      measured forward from its first workday). Each check passes, fails or can't be decided, with
+      measured forward from its first workday; while that period is open, other leave is held to
+      the 12 weeks for other reasons and to the 26 less all leave in the period, whichever is
+      less). Each check passes, fails or can't be decided, with
       the facts it was decided on, and a missing fact is never filled in: a missing coverage year,
-      distance, hours week or employer record, or earlier caregiver leave whose servicemember the
-      records don't name, is "can't decide", not a failure. A code rule then sends every check
+      distance, hours week, home state or employer record, an unknown leave-year method, or
+      earlier caregiver leave whose servicemember the records don't name, is "can't decide", not
+      a failure. Birth bonding leave starting before the birth can't be decided either: before a
+      birth it is prenatal care or a health condition, not bonding. A code rule then sends every check
       that didn't pass and every flag (intermittent leave, retaliation risk, a possible
       accommodation, a state with its own leave law where the employee works or lives, a key
       employee, a spouse at the same employer where leave may be shared, bonding leave running
@@ -807,9 +811,11 @@ controls:
       entitlement or deciding a case with a retaliation risk needs an HR director. Even a clean
       request is a draft for a leave specialist to sign, never an approval without a person. The
       records hold no names and no diagnosis; the health information they do hold is coarse (the
-      reason category, whether an adult child can't care for themselves, signs of an
-      accommodation need), and a test fixes the list of fields so a new one is a reviewed change.
-      27 synthetic requests sit on the boundaries, each with an answer key worked out by hand.
+      reason category of a request and of leave already taken, whether an adult child can't care
+      for themselves, signs of an accommodation need), and bonding requests carry the date of the
+      birth or placement. A test fixes the list of fields of every record, nested ones included,
+      so a new one is a reviewed change. 28 synthetic requests sit on the boundaries, each with
+      an answer key worked out by hand.
     status: partial
     code:
       - hall_monitor/hr/eligibility.py::assess
@@ -827,6 +833,9 @@ controls:
       - tests/test_hr_leave.py::test_weeks_used_by_leave_year_method
       - tests/test_hr_leave.py::test_the_entitlement_boundary
       - tests/test_hr_leave.py::test_earlier_caregiver_leave_in_an_ended_period_can_t_be_decided
+      - tests/test_hr_leave.py::test_other_leave_in_an_open_caregiver_period_counts_towards_the_26
+      - tests/test_hr_leave.py::test_a_monday_to_friday_request_is_counted_in_workweeks
+      - tests/test_hr_leave.py::test_birth_bonding_before_the_birth_can_t_be_decided_but_placement_can_start_before
       - tests/test_hr_leave.py::test_any_flag_on_a_clean_request_sends_it_to_hr_review
       - tests/test_hr_leave.py::test_a_check_that_didn_t_pass_reaches_a_person_even_without_a_code
       - tests/test_hr_leave.py::test_only_hr_managers_and_directors_may_deny_or_extend
@@ -850,8 +859,7 @@ controls:
       data/synthetic/hr/README.md. State and local leave laws, company policy, paid leave and
       short-term disability aren't modelled: a state list only routes a request to a person, and
       isn't a legal list. Rolling-backward entitlement is measured once, at the leave's start, not
-      again as older leave falls out of the window during a long leave; other FMLA leave inside a
-      military caregiver period isn't capped at 12 weeks on its own; a normal workweek is a fixed
+      again as older leave falls out of the window during a long leave; a normal workweek is a fixed
       set of weekdays, so variable schedules and overtime aren't modelled; hours count whole weeks
       ending inside the 12 months; the notice deadline skips weekends, not holidays; eligibility
       is judged at the leave's start, so leave that becomes FMLA leave once the employee reaches

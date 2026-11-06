@@ -318,7 +318,7 @@
       "short_service"
     ],
     "notice_due": "2026-11-09",
-    "why": "Service before an 11-year break isn't counted: 27 weeks."
+    "why": "Service before a break of almost 11 years isn't counted: 27 weeks."
   },
   {
     "request_id": "lr_022",
@@ -411,5 +411,22 @@
     ],
     "notice_due": "2026-11-09",
     "why": "Works at an Ohio office but lives in New York: a state law may apply."
+  },
+  {
+    "request_id": "lr_028",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [
+      "reason"
+    ],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "before_birth"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Birth bonding leave starting before the birth: a person decides what it is."
   }
 ]

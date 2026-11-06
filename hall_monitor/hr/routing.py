@@ -70,6 +70,11 @@ REASONS: dict[str, tuple[str, Role]] = {
         "the employee's spouse works here too, so leave for this reason may be shared",
         Role.LEAVE_SPECIALIST,
     ),
+    "before_birth": (
+        "birth bonding leave starting before the birth: a person decides whether it is "
+        "prenatal care, a health condition or bonding",
+        Role.LEAVE_SPECIALIST,
+    ),
     "caregiver_history": (
         "earlier military caregiver leave: a person checks whether it was for the same "
         "servicemember and injury",
@@ -101,11 +106,12 @@ def route_leave(
         codes.add("retaliation_risk")
     if request.possible_accommodation:
         codes.add("possible_accommodation")
+    # Where they work or where they live: a state not on record can't be ruled out.
     site = next((s for s in company.worksites if s.id == employee.worksite_id), None)
-    if site is None:
+    if site is None or employee.home_state is None:
         codes.add("facts_missing")
-    elif {site.state, employee.home_state} & STATE_LEAVE_LAW_STATES:
-        codes.add("state_law")  # where they work or where they live
+    if {site.state if site else None, employee.home_state} & STATE_LEAVE_LAW_STATES:
+        codes.add("state_law")
     if employee.key_employee:
         codes.add("key_employee")
     # Spouses at one employer may be limited to a combined entitlement for bonding and for care

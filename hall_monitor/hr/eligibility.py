@@ -214,8 +214,13 @@ def check_worksite(employee: Employee, company: Company) -> Check:
 
 def bonding_expires(request: LeaveRequest) -> date | None:
     """The first day bonding leave no longer qualifies: 12 months after the birth or placement
-    (825.120(a)(2), 825.121(a)(2))."""
-    return years_after(request.event_date, 1) if request.event_date else None
+    (825.120(a)(2), 825.121(a)(2)). From 29 February that is 1 March, not 28 February."""
+    event = request.event_date
+    if event is None:
+        return None
+    if (event.month, event.day) == (2, 29):
+        return date(event.year + 1, 3, 1)
+    return years_after(event, 1)
 
 
 def check_reason(request: LeaveRequest) -> Check:
@@ -246,6 +251,10 @@ def _reason(request: LeaveRequest) -> tuple[bool | None, str | None]:
     if reason in BONDING:
         if request.event_date is None:
             return None, "reason_unclear"
+        # Before a birth, leave is prenatal care or a health condition, not bonding
+        # (825.120(a)(4)-(5)); leave before a placement can qualify (825.121(a)(1)).
+        if reason is LeaveReason.BIRTH_BONDING and request.start < request.event_date:
+            return None, "before_birth"
         # Leave starting after the 12 months doesn't qualify; leave running past them qualifies
         # up to their end, and the routing rule sends the rest to a person.
         return (
@@ -299,22 +308,25 @@ def requested_weeks(request: LeaveRequest, employee: Employee) -> float | None:
     return _workweeks(days, employee)
 
 
-def leave_year_start(employer: Employer, employee: Employee, start: date) -> date:
-    """Where the 12-month period that holds `start` begins, by the employer's method."""
+def leave_year_start(employer: Employer, employee: Employee, start: date) -> date | None:
+    """Where the 12-month period that holds `start` begins, by the employer's method; None for
+    a method the rules don't know. Caregiver leave has its own period and isn't counted here."""
     method = employer.leave_year.method
-    if method is LeaveYearMethod.CALENDAR_YEAR:
+    if method == LeaveYearMethod.CALENDAR_YEAR:
         return date(start.year, 1, 1)
-    if method is LeaveYearMethod.FIXED_YEAR:
+    if method == LeaveYearMethod.FIXED_YEAR:
         month, day = (int(x) for x in employer.leave_year.starts.split("-"))
         begins = date(start.year, month, day)
         return begins if begins <= start else years_after(begins, -1)
-    if method is LeaveYearMethod.ROLLING_BACKWARD:
+    if method == LeaveYearMethod.ROLLING_BACKWARD:
         return years_after(start, -1)
+    if method != LeaveYearMethod.FORWARD_FROM_FIRST_LEAVE:
+        return None
     # Forward from first leave: a period starts on the first day of FMLA leave, and the next
     # starts on the first day of leave after that period ends, which may be inside a leave that
     # ran past it, or the request itself.
     begins = None
-    for day in _leave_days(employee, start):
+    for day in _other_leave_days(employee, start):
         if begins is None or day >= years_after(begins, 1):
             begins = day
     if begins is None or start >= years_after(begins, 1):
@@ -322,28 +334,58 @@ def leave_year_start(employer: Employer, employee: Employee, start: date) -> dat
     return begins
 
 
+def _other_leave_days(employee: Employee, before: date) -> list[date]:
+    """Workdays of FMLA leave taken for reasons other than military caregiving."""
+    caregiver = set(_leave_days(employee, before, LeaveReason.MILITARY_CAREGIVER))
+    return [d for d in _leave_days(employee, before) if d not in caregiver]
+
+
+def caregiver_period(employee: Employee, before: date) -> date | None:
+    """The first workday of the latest military caregiver period: one starts with the first day
+    of caregiver leave, and caregiver leave after it ends starts another (for another
+    servicemember or injury, which the records don't say)."""
+    begins = None
+    for day in _leave_days(employee, before, LeaveReason.MILITARY_CAREGIVER):
+        if begins is None or day >= years_after(begins, 1):
+            begins = day
+    return begins
+
+
 def entitlement(
     request: LeaveRequest, employee: Employee, employer: Employer | None
 ) -> tuple[int, float | None]:
-    """(weeks of entitlement, workweeks already used) when the requested leave starts. Used is
-    None when the records can't say."""
+    """(weeks of entitlement, workweeks already used against it) when the requested leave
+    starts. Used is None when the records can't say.
+
+    Military caregiver leave: 26 weeks in one 12-month period measured forward from its first
+    day, whatever the employer's method, with all FMLA leave in the period counting (825.127(e)).
+    Other leave: 12 weeks in the employer's leave year, counting leave for other reasons only;
+    and while a caregiver period is open, also no more than the 26 weeks less all FMLA leave in
+    it (825.200(f)). The report is against whichever limit leaves less.
+    """
+    period = caregiver_period(employee, request.start)
+    in_period = period is not None and request.start < years_after(period, 1)
+    all_in_period = (
+        [d for d in _leave_days(employee, request.start) if d >= period] if in_period else []
+    )
     if request.reason is LeaveReason.MILITARY_CAREGIVER:
-        # One 12-month period measured forward from the first day of caregiver leave, whatever
-        # the employer's method; all FMLA leave in it counts towards the 26 weeks. The 26 weeks
-        # are per servicemember and per injury, which the records don't say: earlier caregiver
-        # leave in a period that has ended needs a person.
-        caregiver = _leave_days(employee, request.start, LeaveReason.MILITARY_CAREGIVER)
-        if not caregiver:
+        if period is None:
             return CAREGIVER_WEEKS, 0.0
-        if request.start >= years_after(caregiver[0], 1):
+        if not in_period:
+            # The 26 weeks are per servicemember and per injury: a person checks whether this
+            # request starts a new period.
             return CAREGIVER_WEEKS, None
-        used = [d for d in _leave_days(employee, request.start) if d >= caregiver[0]]
-        return CAREGIVER_WEEKS, _workweeks(len(used), employee)
-    if employer is None:
+        return CAREGIVER_WEEKS, _workweeks(len(all_in_period), employee)
+    begins = None if employer is None else leave_year_start(employer, employee, request.start)
+    if begins is None:
         return ENTITLEMENT_WEEKS, None
-    begins = leave_year_start(employer, employee, request.start)
-    used = [d for d in _leave_days(employee, request.start) if d >= begins]
-    return ENTITLEMENT_WEEKS, _workweeks(len(used), employee)
+    other = [d for d in _other_leave_days(employee, request.start) if d >= begins]
+    used = _workweeks(len(other), employee)
+    if in_period:
+        # Report against the 12 weeks, raised so that what is left is the smaller of the two.
+        left_of_26 = CAREGIVER_WEEKS - _workweeks(len(all_in_period), employee)
+        used = max(used, round(ENTITLEMENT_WEEKS - left_of_26, 2))
+    return ENTITLEMENT_WEEKS, used
 
 
 def check_entitlement(
