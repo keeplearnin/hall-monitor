@@ -20,9 +20,15 @@ checked against the policy record: the claim goes to a person if the claimant is
 (names compared ignoring case, accents and punctuation), the incident date is missing or outside
 the coverage period, there is no policy record, or the claim isn't in USD. The amounts are traced
 too: each claimed item must match its own occurrence of that figure in the claim documents, the
-total claimed must appear in them as well, and the items must add up to the total. An item
-invented, inflated, counted twice or copied from a total line, a date or a year then goes to a
-person even when coverage pays it in full, because the new total isn't in the documents. A claim the pipeline couldn't finish always goes to a person
+total claimed must appear in them as well, and the items must add up to the total. Only a
+figure the documents mark as US dollars counts ($, US$ or USD beside it on the same line, with no
+other currency code or symbol next to it), and never part of a date, a time or a reference. An item invented, inflated, counted twice or copied from a total line
+then goes to a person even when coverage pays it in full, because the new total isn't in the
+documents. A year or a time read as the whole claim goes to a person because it isn't written
+as dollars, and so does a claim written as EUR 450, CAD $450 or $450 CAD that the intake labels
+USD. A bare "$" meant as another currency still counts as USD (HM-04 gap). (The first version of the trace
+matched bare figures, and a review found that a year from a date, taken as the only item, the
+total and the payout, traced and was paid automatically on all 16 automatic test claims.) A claim the pipeline couldn't finish always goes to a person
 (`route_stopped`).
 
 The rule checks the facts behind a decision, not only the labels. A review found the first
