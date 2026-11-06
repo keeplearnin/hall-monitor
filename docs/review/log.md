@@ -242,6 +242,118 @@ confirmed.
 | Common labels were missed ("EIN 12 3456789", "routing # ...", "A/C no.", "Account No. is ...") | Medium | Caught; what is still missed is listed in HM-10's gaps |
 | Counts by type follow pattern order; HM-10, the controls doc and the business summary dropped "labelled" | Low | Docstring says so; the docs say "labelled" |
 
+## Review 6: whole repository after HM-10 (amount trace)
+
+**What:** four reviewers (change control, workflow and audit, runtime data controls, docs)
+read the whole repository at `redact-tin-bank`. Their findings are fixed in groups, one PR
+each; this entry starts with the amount trace.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The amount trace matched bare figures, so a year from a date (2026 in 2026-08-14), taken as the only item, the total and the payout, traced and was paid automatically on all 16 automatic test claims; ADR 0001 said a figure from a date went to a person | High | Routing counts only figures marked as dollars ($, US$, USD), never part of a date, time or reference; a fault test bends every automatic claim this way |
+| The currency was the intake's label and nothing checked it against the documents, so a claim written in euros and labelled USD was paid 1:1 | Medium | Fixed by the same rule: euro figures don't trace. A bare "$" meant as another currency still counts (HM-04 gap) |
+
+**Pre-PR review of that fix:** 4 findings, 3 confirmed and 1 plausible, all fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A "$" or "USD" counted even with another currency code beside it: "CAD $450.00", "$450.00 CAD" and "EUR 450 USD" claims were still paid 1:1 on all 16 automatic claims | High | A figure with another three-letter code, €, £ or ¥ beside it, or a minus sign before it, doesn't trace; fault tests write every automatic claim as EUR, "CAD $" and "$ CAD" |
+| The marker could sit on another line, so a bare year at a line end traced when the next line started "USD" | Medium | One space or tab at most between the marker and the figure |
+| The scoring comment said its amount check followed the routing rule, but scoring accepts any currency | Low | Comment says what each check asks |
+| A discount line "-$20.00" traced as $20 | Low, plausible | A minus sign before the marker stops it; "($20.00)" still traces (HM-04 gap), because the claims put ordinary amounts in brackets |
+
+## Review 6: approval gate and audit log
+
+The approval-gate and audit-log findings from review 6 (the four-reviewer review of the whole
+repository after HM-10).
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Two runs of the same claim at once (a redelivered message, a double click) both paid it, and two adjusters deciding at once both had decisions recorded | High | `evidence_pack` and `final_decision` are once-only per claim, checked inside the append's `BEGIN IMMEDIATE`; the second run or decision fails with a message, and a second adjuster's attempt is recorded as a rejection |
+| Restoring the checkpoints file from a backup let a decided claim be decided and paid again | High | `decide` refuses a claim the log shows decided, and `status` reports it decided from the log |
+| Appending a `triage_result` and an `evidence_pack` to the log made the review trust them, so a junior adjuster could pay a fraud-flagged claim and `verify` stayed OK | Medium | The pack's entry names the result it was built from, and the review checks those; a second pack appended by hand makes the claim undecidable, and the adjuster is shown the pack stored at triage |
+| A rejection logged an unkeyed hash of the whole submission, reason included, so a guessed reason could be confirmed | Medium | Logged as a keyed hash |
+| The final decision's signature covers the reason, so with the public key it confirms a guessed reason | Medium | Logged in the HM-06 gaps and ADR 0014; not yet fixed (it needs a change to what is signed) |
+| `waiting()` crashed on a new checkpoints file | Low | Creates LangGraph's tables first |
+| The audit CLI crashed on a file with no `audit_log` table, exiting 1 ("no log") rather than 3 ("tampered") | Low | Reports it as not a readable log, exit 3 |
+
+**Pre-PR review of those fixes:** 4 findings and 1 smaller one, all confirmed and fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| `status` trusted a `final` in the checkpoint before the log, so an edited checkpoint took a waiting claim out of the queue and showed a payout nobody approved | Medium | The log decides; a checkpoint decision it doesn't hold, or that differs from it, is reported as a problem |
+| Two runs of a claim going to an adjuster both recorded a pack, leaving it undecidable with a message that read as tampering | Medium | The pack is once-only too, and its entry names the result it was built from |
+| With two packs recorded, the adjuster was shown the checkpoint's copy | Low | Shown the pack stored at triage |
+| The audit CLI called a log another process held locked "tampered" (exit 3) | Low | Busy is exit 4 |
+| A lost race in `review decide` or `run` ended in a traceback | Low | One-line message, exit 1 |
+
+## Review 6: fields beside the claim text
+
+The prompt-injection and redaction findings from review 6 that concern the claim's channel,
+attachment kinds and encoded markup.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| `channel` wasn't scanned for injection or redacted, yet went into every prompt; an override instruction or an email there reached the model and the claim routed automatically | Medium | `channel` must be a code (`^[a-z][a-z_]{0,39}$`) and is scanned |
+| `channel` went raw into the audit log's actor, so free text from the claimant reached a log that can't be erased | Low | Fixed by the same rule |
+| An attachment's `kind` was scanned but not redacted, so an email or phone number there reached the model | Low | `kind` must be a code too |
+| Markup written as HTML entities, full-width brackets or with a zero-width space slipped past the detector, and `&lt;system&gt;` rendered exactly like an escaped real tag | Low-Medium, plausible | The detector decodes entities, compatibility forms and invisible characters first; `escape` escapes `&` |
+| The coverage step's cited clauses are free model text the recommender receives unchecked | Low, plausible | Logged in HM-09 gaps; checking clause shape would change the coverage output schema, which needs a new approval |
+
+**Pre-PR review of those fixes:** 6 findings, all confirmed; fixed or logged.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Decoding before matching turned `&#10;` and `&#46;` into the newline and full stop the patterns stop at, so injections the old detector caught passed | High (regression) | The raw and the decoded text are both searched; a test checks decoding only adds matches |
+| Codes were read with underscores as spaces, so internal tool names (`policy_lookup`) in a kind or channel weren't flagged | Medium | Codes are searched as written and with spaces |
+| A 40-character code could still spell a name or an instruction (`from_jane_doe`, `approve_full_amount`), so the docs' "no free text" was false | Medium | Channel and kind must be known values |
+| Only six invisible characters were dropped; direction marks, invisible operators and tag characters still split words | Low | Every format character, the grapheme joiner and variation selectors are dropped |
+| Escaping `&` changes what the model receives for 5 of the 36 claims, with no approval change and published results not marked stale | Low | Logged in HM-01 gaps: approvals don't pin how requests are rendered |
+| A claim file with a bad channel or kind failed with a traceback that echoed the submitted value | Low | `run` names the fields and error types only |
+
+## Review 6: kill switch and live evals
+
+The change-control findings from review 6 that concern operating the kill switch and the
+live-eval workflow.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Once a stop was committed, CI failed for good: 443 tests failed while the stop was live and 17 after the reviewed restart, because tests ran agents from the shipped registry, asserted it had no stops and reused `stop-0001` | Medium-High | Tests run agents from a copy of the registry with no stops; a test checks no test loads the shipped one |
+| Two owners running `kill_switch stop` at once could lose a stop without an error, or corrupt the file | Medium | Stops are added under a file lock and the file is replaced in one step |
+| `live-eval.yml` ran any dispatched branch with the real API key | Medium | The job runs only from main in the `live-eval` environment; the key must move to that environment, limited to main, which is a repository setting (HM-17 gap) |
+| An agent with the ID `pipeline` skipped every gateway check | Low | The registry refuses that ID |
+| The stop command failed if any other registry file couldn't be read | Low | It reads only the manifests' names and the owners |
+
+**Pre-PR review of those fixes:** 5 findings, 2 confirmed and 3 plausible; all fixed or logged.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Replacing the stop list broke a symlink to a shared store, so the stop stayed local and other hosts kept running the agent; permissions were reset too | Medium | The path is resolved first and the file's mode kept; a test stops an agent through a symlink |
+| One test still copied the shipped registry, so stopping `intake` failed it | Medium | Fixed, and the guard now forbids copying or loading the shipped registry in any test but the one that checks it; stopping every agent at once leaves the suite green |
+| `fcntl` was imported at module level, so the registry wouldn't load on Windows | Low, plausible | Imported where the lock is taken |
+| The replace wasn't synced first, and needs write access to the directory | Low, plausible | Synced before the replace; the directory access is logged in HM-19 gaps |
+| Each test run left a registry copy in the temp directory | Low | Removed at exit |
+
+## Review 6: approvals and the record of interrupted agents
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The approved prompt hash for `coverage_check` and `critic` didn't cover the untrusted-claim notice, which they filled in at run time, so an edit to it reached the model with no new approval | Medium | The notice is in the hashed template (coverage-check-v4, critic-v3; the text sent is unchanged) |
+| The policy wording filled into those prompts isn't covered by any approval | Low | Logged in HM-01 gaps; covering it would be a new kind of approval |
+| A stop or an API error between an agent's tool rounds dropped the record of the requests it had already sent, so the audit trail missed them and the cost read low | Medium | The interrupted agent's requests are kept on the error and recorded |
+
+**Pre-PR review of those fixes:** 7 findings, 5 confirmed and 2 plausible; fixed or logged.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The new helper was inserted between `@tracing.observe(name="triage")` and `triage`, so claims got no triage span | Medium | Moved; a test checks the decorator wraps `triage` |
+| A billed answer that fails validation inside the SDK's parse call raises before its usage is read, so it is still missing from the record and the cost | Medium | Logged in HM-01 gaps; capturing it means validating outside the SDK call |
+| README's list of current prompt versions was stale | Low | Updated |
+| ADR 0003 and the one-pagers said any prompt change needs approval; the policy wording doesn't | Low | Say the template is approved and the wording isn't |
+| The test didn't check the interrupted call is logged once and costed | Low | It does now |
+| An error object raised twice could carry an earlier claim's partial record | Low, plausible | Always set |
+| A brace in the notice would break `.format` | Low, plausible | A test checks it has none |
+
 ## Review 6: docs against code
 
 **Reviewer:** a review of the README, one-pagers, ADRs and controls register against the code.

@@ -20,8 +20,9 @@ trail, and a claim whose events can't be recorded doesn't proceed.
 Entries hold IDs, hashes, decisions and costs, and no claim narrative or documents, to keep
 personal data out of a log that can't be edited. The adjuster's written reason and critic issues
 are kept as keyed hashes (HMAC-SHA256, key from `HALL_MONITOR_AUDIT_KEY` or a file beside the
-log), so they can be matched but not confirmed by guessing; the adjuster's ID is kept rather than
-their name; the full decision stays in the workflow's record.
+log), so the hash can be matched but not confirmed by guessing; the adjuster's ID is kept rather
+than their name; the full decision stays in the workflow's record. The decision's signature, also
+logged, covers the reason, so with the public key it can still confirm a guess (HM-06 gap).
 Entries do hold policy numbers, decision fields and tool-call arguments.
 
 Someone with write access to the file could rebuild the whole chain, so the chain head

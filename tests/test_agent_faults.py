@@ -8,6 +8,7 @@ missing answer, an API failure. Faults that code can't see (a wrong answer consi
 fact code can check) are pinned at the end as known limits, so adding a control flips them.
 """
 
+import re
 from datetime import timedelta
 
 import anthropic
@@ -37,9 +38,9 @@ from hall_monitor.models import (
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
-from tests.fakes import fake_client, outputs_from_truth
+from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth
 
-REGISTRY = Registry.from_dir()
+REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
 GATEWAY = ToolGateway(REGISTRY)
 WORDING = load_policy_wording()
 POLICIES = load_policy_records()
@@ -76,6 +77,13 @@ def _add_items(outputs: dict, *amounts: float) -> None:
     total = round(sum(i.amount for i in items), 2)
     _update(outputs, IntakeExtraction, claimed_items=items, total_claimed=total)
     _pay(outputs, total)
+
+
+def _only_item(outputs: dict, amount: float) -> None:
+    """Intake takes one figure as the whole claim; the total and the payout follow."""
+    item = ClaimedItem(description="claimed", amount=amount)
+    _update(outputs, IntakeExtraction, claimed_items=[item], total_claimed=amount)
+    _pay(outputs, amount)
 
 
 def _inflate(outputs: dict, factor: float) -> None:
@@ -132,6 +140,10 @@ FAULTS = {
     ),
     "intake: an item counted twice": (
         lambda o: _add_items(o, _intake(o).claimed_items[0].amount),
+        "not in the claim documents",
+    ),
+    "intake: the year of a date taken as the whole claim": (
+        lambda o: _only_item(o, float(_intake(o).incident_date.year)),
         "not in the claim documents",
     ),
     "intake: the total line counted as an item": (
@@ -220,6 +232,34 @@ def test_a_wrong_answer_sends_the_claim_to_a_person(claim, fault):
 
     assert result.routing.route is Route.ADJUSTER
     assert any(expected_reason in r for r in result.routing.reasons), result.routing.reasons
+
+
+def _rewritten(claim, rewrite):
+    attachments = [a.model_copy(update={"text": rewrite(a.text)}) for a in claim.attachments]
+    narrative = rewrite(claim.narrative)
+    return claim.model_copy(update={"narrative": narrative, "attachments": attachments})
+
+
+# The same claim in another currency, each way a document might write it.
+CURRENCIES = {
+    "EUR 1.00": lambda t: t.replace("USD", "EUR").replace("$", "EUR "),
+    "CAD $1.00": lambda t: (
+        t.replace("USD", "CAD $").replace("$", "CAD $").replace("CAD CAD $", "CAD $")
+    ),
+    "$1.00 CAD": lambda t: re.sub(r"(?:USD |\$)([\d,]+\.\d\d)", r"$\1 CAD", t),
+}
+
+
+@pytest.mark.parametrize("currency", list(CURRENCIES))
+@pytest.mark.parametrize("claim", AUTO_CLAIMS, ids=lambda c: c.claim_id)
+def test_a_claim_in_another_currency_labelled_usd_goes_to_a_person(claim, currency):
+    """The currency label is the model's; the trace only counts figures the documents show in
+    US dollars, so a claim in another currency the intake calls USD isn't paid 1:1."""
+    claim = _rewritten(claim, CURRENCIES[currency])
+    result = _run(claim, outputs_from_truth(load_ground_truth(claim.claim_id)))
+
+    assert result.routing.route is Route.ADJUSTER
+    assert any("not in the claim documents" in r for r in result.routing.reasons)
 
 
 def _missing(kwargs):

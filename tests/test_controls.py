@@ -126,3 +126,11 @@ def test_traces_never_capture_inputs_or_outputs(monkeypatch):
 
     assert probe("medical details") == "medical details"
     assert seen["capture_input"] is False and seen["capture_output"] is False
+
+
+def test_the_triage_span_wraps_triage():
+    """A helper placed between the decorator and triage would take its span (review 6)."""
+    from hall_monitor import pipeline
+
+    assert pipeline.triage.__wrapped__.__name__ == "triage"
+    assert not hasattr(pipeline._keep_partial, "__wrapped__")

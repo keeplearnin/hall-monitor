@@ -1,6 +1,6 @@
 id: coverage_check
 name: Coverage check
-version: 0.6.0
+version: 0.7.0
 owner: own-301
 purpose: Compare the claim with the policy wording and identify applicable clauses, exclusions and limits.
 risk_tier: high

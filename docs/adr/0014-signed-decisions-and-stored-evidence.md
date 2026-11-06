@@ -45,4 +45,10 @@ could show the adjuster different evidence, or change it afterwards.
   change.
 - The decision's inputs are integrity-checked: the evidence pack and, since the Phase B
   review, the triage result the approval rules read, both against the hashes logged at
-  triage. Other checkpoint state is not.
+  triage. Other checkpoint state is not. Since review 6 these are the first pack logged and
+  the result logged before it: entries appended later can't relax the rules, and a second
+  pack makes the claim undecidable.
+- A claim gets one final decision. The log refuses a second inside the write transaction, so
+  concurrent runs or adjusters, or a restored checkpoints file, can't decide it again.
+- The signature kept in the log covers the reason, so it can confirm a guessed reason even
+  though the reason itself is stored as a keyed hash (HM-06 gap).

@@ -21,7 +21,7 @@ show, claim by claim, what the AI was allowed to do and who decided.
 |---|---|---|
 | AI decides something it shouldn't | A fixed software rule sends any denial, payout over $2,500, fraud sign, decision the checking AI changed or still disputes, suspicious text or failure to a person | 0 of 204 test runs let a claim through that needed a person |
 | Wrong amount paid | A second AI checks the first and sends errors back; corrections that change a decision go to a person | Caught 84 of 84 planted errors, 1 false alarm in 34 (on an earlier version) |
-| Unapproved AI in use | Each AI step needs an approved permit; any change to its model, tools or instructions is refused at run time until re-approved | Automated tests on every change |
+| Unapproved AI in use | Each AI step needs an approved permit; any change to its model, tools or instructions is refused at run time until re-approved (the policy wording it reads is not yet covered) | Automated tests on every change |
 | AI misbehaving in use | Each AI step has a named owner who can stop it at once, without an approval; turning it back on needs one | Automated tests; relies on repository controls not yet switched on |
 | Personal and health data exposed | Identifiers removed from claim text before the AI sees it; the recommendation step sees structured fields only; no claim narrative in logs | Automated tests; not yet in a scored live run |
 | Manipulated claims | Claim text treated as evidence, never instructions; suspicious text sent to a person; AI can look up only that claim's records (earlier claims are matched by name, so namesakes share them) | 10 attack tests built; not yet run live |

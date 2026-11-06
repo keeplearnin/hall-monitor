@@ -8,8 +8,9 @@ be the insured, the incident must fall inside the coverage period, every claimed
 appear in the documents and the items must add up to the total, and amounts must be in USD (the
 policy pays in USD and nothing here converts currency). The amount check traces an agent's
 figures to what the claimant sent: each item to its own occurrence in the documents, and the
-total too. It doesn't verify the claimant's own figures. Anything other
-than a clean, low-risk payment within bounds goes to an adjuster.
+total too, counting only figures the documents mark as dollars, so the USD check rests on the
+documents and not just the intake's label. It doesn't verify the claimant's own figures.
+Anything other than a clean, low-risk payment within bounds goes to an adjuster.
 """
 
 from __future__ import annotations
@@ -60,12 +61,12 @@ def route_claim(
     if claim_text is None:
         reasons.append("no claim text to check the claimed amounts against")
     else:
-        missing = untraced([i.amount for i in extraction.claimed_items], claim_text)
-        if not amount_in(extraction.total_claimed, claim_text):
+        missing = untraced([i.amount for i in extraction.claimed_items], claim_text, usd=True)
+        if not amount_in(extraction.total_claimed, claim_text, usd=True):
             missing.append(extraction.total_claimed)
         if missing:
             listed = ", ".join(f"{a:,.2f}" for a in missing)
-            reasons.append(f"claimed amounts not in the claim documents: {listed}")
+            reasons.append(f"claimed amounts not in the claim documents in USD: {listed}")
     items_total = sum(i.amount for i in extraction.claimed_items)
     if abs(items_total - extraction.total_claimed) > 0.005:
         reasons.append(

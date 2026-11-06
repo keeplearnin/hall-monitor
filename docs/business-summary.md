@@ -28,7 +28,7 @@ A customer's travel-insurance claim goes through five AI steps:
 
 Every AI step needs a **hall pass**: an approved permit that names its owner, its risk level, the AI
 model it may use and the records it may look up. A changed permit, or changed instructions, is
-refused until a new approval is committed. Who may commit that approval is set by repository
+refused until a new approval is committed (the policy wording the AI reads isn't covered yet). Who may commit that approval is set by repository
 controls, which aren't switched on yet. The AI can see policy records and claims
 history only through an approved, logged channel, and only for the claim in front of it. Claims
 history is matched by the insured's name, so two customers with the same name would share it.
