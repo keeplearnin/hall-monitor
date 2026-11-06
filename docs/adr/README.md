@@ -19,7 +19,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0010](0010-injection-defence-in-code.md) | Prompt-injection defence in layers, with the last layer in code | HM-09 |
 | [0011](0011-economy-routing-off-until-evaluated.md) | Cheaper-model routing is built but off until it is evaluated | HM-16 |
 | [0012](0012-deterministic-scoring.md) | Results are scored by code against answer keys, not by an LLM judge | HM-12, HM-13 |
-| [0013](0013-published-results-and-gate.md) | Publish every result, including failures, and gate merges on them | HM-17, HM-18 |
+| [0013](0013-published-results-and-gate.md) | Publish every result, including failures, and check every pull request against them | HM-17, HM-18 |
 | [0014](0014-signed-decisions-and-stored-evidence.md) | Adjuster decisions are signed, and evidence is stored by its hash | HM-05, HM-06 |
 | [0015](0015-kill-switch.md) | Stopping an agent needs no approval; restarting it does | HM-19 |
 
