@@ -132,3 +132,22 @@ def test_unapproved_prompt_is_refused_at_run_time():
             prompt_version=intake.PROMPT_VERSION,
             claim_id="claim_001",
         )
+
+
+def test_the_approved_prompt_covers_the_untrusted_claim_notice():
+    """Everything in an agent's system prompt but the policy wording is in the hashed
+    template, so an edit to the notice needs a new approval."""
+    from hall_monitor.agents.base import UNTRUSTED_CLAIM_NOTICE
+    from hall_monitor.approvals import AGENT_MODULES
+
+    for agent_id, module in AGENT_MODULES.items():
+        assert "{untrusted}" not in module.SYSTEM_PROMPT, agent_id
+        if agent_id != "recommendation":  # sees no claim text
+            assert UNTRUSTED_CLAIM_NOTICE in module.SYSTEM_PROMPT, agent_id
+
+
+def test_the_untrusted_claim_notice_has_no_braces():
+    """It is put into templates that later go through str.format."""
+    from hall_monitor.agents.base import UNTRUSTED_CLAIM_NOTICE
+
+    assert "{" not in UNTRUSTED_CLAIM_NOTICE and "}" not in UNTRUSTED_CLAIM_NOTICE

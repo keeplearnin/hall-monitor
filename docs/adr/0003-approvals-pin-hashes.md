@@ -12,7 +12,8 @@ tool or a reworded prompt can change behaviour as much as new code.
 
 Every agent has a typed manifest in [`registry/`](../../registry/) naming its owner, risk tier,
 model, tools and the data classes it may see. [`registry/approvals.yaml`](../../registry/approvals.yaml)
-records, per agent, the SHA-256 of its manifest and of its system prompt. A change to that
+records, per agent, the SHA-256 of its manifest and of its system-prompt template (everything
+but the policy wording filled into it at run time). A change to that
 file is the approval, so it is reviewed as one; who approved it is the pull request's reviewer.
 `Registry.require` in [`registry.py`](../../hall_monitor/registry.py) refuses to run an agent
 that is unregistered, inactive, or whose manifest digest doesn't match its approval, and
@@ -30,8 +31,10 @@ still not checked at run time, which is now fixed.
 
 ## Consequences
 
-- Any change to an agent's model, tools, data classes or prompt fails until the approval is
-  updated in a reviewed pull request. That is deliberate friction.
+- Any change to an agent's model, tools, data classes or prompt template fails until the
+  approval is updated in a reviewed pull request. That is deliberate friction. The policy
+  wording the coverage and critic agents are given isn't covered: editing it needs no new
+  approval (HM-01 gap).
 - Eval results record the digests they were scored on, so the gate can tell when published
   results no longer describe the approved agents ([ADR 0013](0013-published-results-and-gate.md)).
 - Approvals are a file in Git, so who may approve is enforced by repository settings, not by

@@ -2,15 +2,15 @@
 # a change to this file is an approval and should be reviewed as one.
 agents:
   coverage_check:
-    manifest_digest: 1f29a9e04ccd4ab6bd5382c83b4b32ad55bb284166d7fd85d9a7c0be0cab6833
-    prompt_sha256: 7a3f6a0c3c53046b2b18123dc6ae7556d975aeba7882bc2d07080450e0fa304b
-    prompt_version: coverage-check-v3
-    version: 0.6.0
+    manifest_digest: ffda7c111cd8691cb4771afcee56ab6296db7358fe97cd9973f8d744f4210a49
+    prompt_sha256: 052f87be4e5db172969e809aa98209fccf4d98b8ae892504eecc8952d12cd971
+    prompt_version: coverage-check-v4
+    version: 0.7.0
   critic:
-    manifest_digest: 9278a5c33fd45086dd945f94c44f029b823149cd6d57c13f469437b2bade0568
-    prompt_sha256: 1bec59189b4c6535a772a4615805da4c52278f9c5a021acd750dea7a59b5825a
-    prompt_version: critic-v2
-    version: 0.3.0
+    manifest_digest: 6859a11a3a939289afceebfa49f7a199c0ccfcb6a7d9bfda345c11fbb4757ca9
+    prompt_sha256: b830a44dd9680bd9af2142a1cd324414e2efff8fa6a9451865ef0db88d7da486
+    prompt_version: critic-v3
+    version: 0.4.0
   intake:
     manifest_digest: b992b23705e78c72875348b075d6a244d11d07838a7cb62d9ef864636d334708
     prompt_sha256: a1f3e7edeeebb404eb8bd0ddaf61052278701c1622cfd286e1c5bd59bc2332a0

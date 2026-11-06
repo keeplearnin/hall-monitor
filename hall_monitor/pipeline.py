@@ -152,6 +152,13 @@ def _economy(registry: Registry, agent_id: str, extraction: IntakeExtraction, on
     )
 
 
+def _keep_partial(run: _Run, exc: Exception) -> None:
+    """An agent interrupted after sending requests (a stop or an error between tool rounds)
+    carries a record of them; keep it, so the audit trail and the cost include them."""
+    if (call := getattr(exc, "partial_call", None)) is not None:
+        run.calls.append(call)
+
+
 def _feedback(
     problems: dict[ReviewedStage, list[str]], stage: ReviewedStage, previous: BaseModel
 ) -> str | None:
@@ -221,12 +228,15 @@ def _triage_with_stop(
         run.calls.append(exc.call)
         reason = f"agent refused or returned no usable output: {exc}"
     except (anthropic.APIError, ValidationError) as exc:
+        _keep_partial(run, exc)
         reason = f"{type(exc).__name__} from the model call"
     except RegistryError as exc:
+        _keep_partial(run, exc)
         reason = f"hall pass refused: {exc}"
     except PipelineStopped as exc:
         reason = str(exc)
     except Exception as exc:  # anything unforeseen (a tool server error, say) goes to a person
+        _keep_partial(run, exc)
         # The type only: an unforeseen error's text can repeat model-written tool arguments,
         # and the reason reaches the audit log and the evidence pack.
         reason = f"unexpected {type(exc).__name__}"

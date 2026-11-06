@@ -98,66 +98,77 @@ def run_agent[T: BaseModel](
     input_tokens = output_tokens = api_calls = cache_writes = cache_reads = 0
     system_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
 
-    for _ in range(MAX_TOOL_ROUNDS + 1):
-        if api_calls:
-            # Checked again before each later round, so a stop made mid-claim halts the agent
-            # here; a refused tool call alone would go back to the model as an error.
-            registry.require(agent_id, prompt_sha256=template_sha256)
-        response = client.messages.parse(
+    def record(stop_reason: str | None) -> AgentCall:
+        return AgentCall(
+            agent_id=manifest.id,
+            agent_version=manifest.version,
             model=model,
-            max_tokens=16000,
-            system=system_blocks,
-            messages=messages,
-            output_format=output_format,
-            **({"tools": definitions} if definitions else {}),
+            manifest_digest=manifest.digest(),
+            prompt_version=prompt_version,
+            prompt_template_sha256=template_sha256,
+            system_prompt_sha256=_sha256(system),
+            input_sha256=_sha256(content),
+            request_ids=request_ids,
+            stop_reason=stop_reason,
+            api_calls=api_calls,
+            model_tier="economy" if use_economy else "standard",
+            input_tokens=input_tokens,
+            cache_creation_input_tokens=cache_writes,
+            cache_read_input_tokens=cache_reads,
+            output_tokens=output_tokens,
+            seconds=round(time.perf_counter() - started, 2),
         )
-        api_calls += 1
-        input_tokens += response.usage.input_tokens
-        output_tokens += response.usage.output_tokens
-        cache_writes += getattr(response.usage, "cache_creation_input_tokens", 0) or 0
-        cache_reads += getattr(response.usage, "cache_read_input_tokens", 0) or 0
-        if request_id := getattr(response, "_request_id", None):
-            request_ids.append(request_id)
-        if response.stop_reason != "tool_use" or tools is None:
-            break
-        results = [
-            {
-                "type": "tool_result",
-                "tool_use_id": block.id,
-                "content": json.dumps(
-                    tools.gateway.call(
-                        agent_id, block.name, dict(block.input), tools.log, tools.scope_policy
-                    )
-                ),
-            }
-            for block in response.content
-            if block.type == "tool_use"
-        ]
-        messages = [
-            *messages,
-            {"role": "assistant", "content": response.content},
-            {"role": "user", "content": results},
-        ]
 
-    call = AgentCall(
-        agent_id=manifest.id,
-        agent_version=manifest.version,
-        model=model,
-        manifest_digest=manifest.digest(),
-        prompt_version=prompt_version,
-        prompt_template_sha256=template_sha256,
-        system_prompt_sha256=_sha256(system),
-        input_sha256=_sha256(content),
-        request_ids=request_ids,
-        stop_reason=response.stop_reason,
-        api_calls=api_calls,
-        model_tier="economy" if use_economy else "standard",
-        input_tokens=input_tokens,
-        cache_creation_input_tokens=cache_writes,
-        cache_read_input_tokens=cache_reads,
-        output_tokens=output_tokens,
-        seconds=round(time.perf_counter() - started, 2),
-    )
+    response = None
+    try:
+        for _ in range(MAX_TOOL_ROUNDS + 1):
+            if api_calls:
+                # Checked again before each later round, so a stop made mid-claim halts the agent
+                # here; a refused tool call alone would go back to the model as an error.
+                registry.require(agent_id, prompt_sha256=template_sha256)
+            response = client.messages.parse(
+                model=model,
+                max_tokens=16000,
+                system=system_blocks,
+                messages=messages,
+                output_format=output_format,
+                **({"tools": definitions} if definitions else {}),
+            )
+            api_calls += 1
+            input_tokens += response.usage.input_tokens
+            output_tokens += response.usage.output_tokens
+            cache_writes += getattr(response.usage, "cache_creation_input_tokens", 0) or 0
+            cache_reads += getattr(response.usage, "cache_read_input_tokens", 0) or 0
+            if request_id := getattr(response, "_request_id", None):
+                request_ids.append(request_id)
+            if response.stop_reason != "tool_use" or tools is None:
+                break
+            results = [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": json.dumps(
+                        tools.gateway.call(
+                            agent_id, block.name, dict(block.input), tools.log, tools.scope_policy
+                        )
+                    ),
+                }
+                for block in response.content
+                if block.type == "tool_use"
+            ]
+            messages = [
+                *messages,
+                {"role": "assistant", "content": response.content},
+                {"role": "user", "content": results},
+            ]
+    except Exception as exc:
+        # Requests already sent are kept on the error, so a claim stopped part-way (a stop or
+        # an API error between tool rounds) still records them and their cost. Always set, so
+        # an error object raised again can't carry an earlier claim's record.
+        exc.partial_call = record(None) if api_calls else None  # type: ignore[attr-defined]
+        raise
+
+    call = record(response.stop_reason)
     tracing.update_span(metadata={"claim_id": claim_id, **call.model_dump(exclude={"seconds"})})
 
     if response.stop_reason == "refusal":
