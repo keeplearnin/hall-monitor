@@ -316,3 +316,39 @@ def test_infrastructure_stops_are_told_apart_from_model_behaviour(reason, infras
 )
 def test_each_amount_needs_its_own_occurrence(amounts, text, missing):
     assert untraced(amounts, text) == missing
+
+
+@pytest.mark.parametrize(
+    ("amount", "text"),
+    [
+        (2026.0, "Flight cancelled on 2026-08-14."),
+        (14.0, "Flight cancelled on 2026-08-14."),
+        (8.0, "Flight cancelled on 2026/08/14."),
+        (45.0, "Receipt printed 21:45."),
+        (20.0, "Arrived 14:20 local time."),
+    ],
+)
+def test_parts_of_dates_and_times_are_not_amounts(amount, text):
+    assert not amount_in(amount, text)
+
+
+@pytest.mark.parametrize(
+    ("amount", "text", "found"),
+    [
+        (1000.0, "Total: $1,000", True),
+        (1000.0, "Total: US$1,000.00", True),
+        (1000.0, "Total USD 1,000.00", True),
+        (1000.0, "Total 1000 USD", True),
+        (1000.0, "Total: 1,000.00", False),
+        (1000.0, "Total: EUR 1,000.00", False),
+        (1000.0, "Total: 1,000.00 EUR", False),
+        (1000.0, "Total: C$1,000.00", False),
+        (1000.0, "Total: AUD 1,000.00", False),
+        (2026.0, "Flight BA2026 on 14 August 2026 ($310.00).", False),
+    ],
+)
+def test_the_routing_trace_only_counts_dollar_amounts(amount, text, found):
+    """Routing pays in USD, so it traces only figures the documents mark as dollars: a bare
+    number (a year, a booking reference) or another currency's figure doesn't count."""
+    assert amount_in(amount, text, usd=True) is found
+    assert (untraced([amount], text, usd=True) == []) is found

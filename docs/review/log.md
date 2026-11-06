@@ -241,3 +241,14 @@ confirmed.
 | IBANs followed by a word, in lower case, or split by dashes were missed | Medium | A failed checksum retries shorter prefixes; dashes allowed; any case after "IBAN" |
 | Common labels were missed ("EIN 12 3456789", "routing # ...", "A/C no.", "Account No. is ...") | Medium | Caught; what is still missed is listed in HM-10's gaps |
 | Counts by type follow pattern order; HM-10, the controls doc and the business summary dropped "labelled" | Low | Docstring says so; the docs say "labelled" |
+
+## Review 6: whole repository after HM-10 (amount trace)
+
+**What:** four reviewers (change control, workflow and audit, runtime data controls, docs)
+read the whole repository at `redact-tin-bank`. Their findings are fixed in groups, one PR
+each; this entry starts with the amount trace.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The amount trace matched bare figures, so a year from a date (2026 in 2026-08-14), taken as the only item, the total and the payout, traced and was paid automatically on all 16 automatic test claims; ADR 0001 said a figure from a date went to a person | High | Routing counts only figures marked as dollars ($, US$, USD), never part of a date, time or reference; a fault test bends every automatic claim this way |
+| The currency was the intake's label and nothing checked it against the documents, so a claim written in euros and labelled USD was paid 1:1 | Medium | Fixed by the same rule: euro figures don't trace. A bare "$" meant as another dollar currency still counts (HM-04 gap) |

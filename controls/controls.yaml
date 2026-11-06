@@ -99,7 +99,9 @@ controls:
       falls inside the coverage period and the claim is in USD; a claim with no policy record,
       no incident date or another currency goes to a person. Against the claim documents it
       checks that each claimed item matches its own occurrence of that figure, that the total claimed
-      appears in them, and that the items add up to the total.
+      appears in them, and that the items add up to the total. Only figures the documents mark as
+      dollars count ($, US$ or USD next to them), and never part of a date, a time or a reference,
+      so a year read as the claim, or a euro claim the intake labels USD, goes to a person.
     status: built
     code:
       - hall_monitor/governance/routing.py::route_claim
@@ -108,6 +110,8 @@ controls:
       - tests/test_pipeline.py::test_facts_checked_against_the_policy_send_the_claim_to_a_person
       - tests/test_data.py::test_route_follows_routing_rule
       - tests/test_agent_faults.py::test_a_wrong_answer_sends_the_claim_to_a_person
+      - tests/test_agent_faults.py::test_a_claim_in_another_currency_labelled_usd_goes_to_a_person
+      - tests/test_scoring.py::test_the_routing_trace_only_counts_dollar_amounts
       - tests/test_agent_faults.py::test_known_limit_a_missed_fraud_signal_routes_automatically
       - tests/test_agent_faults.py::test_known_limit_an_overpayment_within_the_claim_routes_automatically
     evidence:
@@ -122,7 +126,9 @@ controls:
       more than was claimed and no more than $2,500. Tests pin both. The amount trace checks the
       agents' figures against what the claimant sent, not the claimant's own figures, and a figure
       written in both the narrative and a receipt counts twice, so wrong items whose total happens
-      to appear in the documents would pass it.
+      to appear in the documents as dollars would pass it. The currency comes from the claimant's
+      own marks: a "$" the claimant uses for another dollar currency, written without a prefix
+      such as C$ or A$, is taken as USD.
 
   - id: HM-05
     name: Adjuster approval gate
