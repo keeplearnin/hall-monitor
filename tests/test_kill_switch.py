@@ -477,3 +477,61 @@ def test_code_the_kill_switch_relies_on_has_a_code_owner():
     ):
         assert owners_of(path), path
     assert owners_of("registry/stops.yaml") == []
+
+
+def _tool_round(request_id):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        stop_reason="tool_use",
+        content=[
+            SimpleNamespace(
+                type="tool_use", id="t1", name="policy_lookup", input={"policy_number": "x"}
+            )
+        ],
+        parsed_output=None,
+        _request_id=request_id,
+        usage=SimpleNamespace(input_tokens=50000, output_tokens=2000),
+    )
+
+
+@pytest.mark.parametrize("interruption", ["stop", "api_error"])
+def test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted(
+    registry_dir, interruption
+):
+    """A stop, or an API error, between an agent's tool rounds stops the claim; the model
+    requests it already made are still recorded, with their cost."""
+    import anthropic
+    import httpx
+
+    from hall_monitor.models import CoverageFinding
+
+    registry = Registry.from_dir(registry_dir)
+    claim = next(c for c in iter_claims() if c.claim_id == "claim_001")
+    client = fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)))
+    answer = client.messages.parse
+    rounds = []
+
+    def parse(**kwargs):
+        if kwargs["output_format"] is CoverageFinding:
+            rounds.append(1)
+            if len(rounds) == 1:
+                if interruption == "stop":
+                    _stop(registry_dir, agent="coverage_check")
+                return _tool_round("req_coverage_round1")
+            request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+            raise anthropic.APIConnectionError(request=request)
+        return answer(**kwargs)
+
+    client.messages.parse = parse
+    result = triage(
+        claim,
+        registry=registry,
+        gateway=ToolGateway(registry),
+        wording=load_policy_wording(),
+        client=client,
+    )
+    assert result.stopped_reason
+    coverage = [c for c in result.agent_calls if c.agent_id == "coverage_check"]
+    assert coverage and coverage[0].request_ids == ["req_coverage_round1"]
+    assert coverage[0].input_tokens == 50000
