@@ -95,6 +95,10 @@ class Verification:
     evidence_erased: list[str] = field(default_factory=list)
 
 
+class AlreadyRecorded(RuntimeError):
+    """An event that may happen once per claim (a final decision) is already in the log."""
+
+
 class EvidenceChanged(RuntimeError):
     pass
 
@@ -157,7 +161,8 @@ class AuditLog:
 
     Free text that may hold personal data (an adjuster's reason, a critic's issue) is stored as
     a keyed hash (HMAC-SHA256), so it can be matched by someone holding the key but not
-    confirmed by guessing the text and hashing it.
+    confirmed by guessing the text and hashing it. (A final decision's signature, which covers
+    the reason, is logged too and can confirm a guess with the public key: HM-06 gap.)
     """
 
     def __init__(self, path: Path = DEFAULT_AUDIT_DB, *, read_only: bool = False):
@@ -184,11 +189,18 @@ class AuditLog:
     def close(self) -> None:
         self._db.close()
 
-    def append(self, claim_id: str, event: str, actor: str, payload: dict) -> ChainHead:
+    def append(
+        self, claim_id: str, event: str, actor: str, payload: dict, *, once: bool = False
+    ) -> ChainHead:
+        """Add an entry. With once, refuse (AlreadyRecorded) if the claim already has this
+        event, checked inside the same write transaction, so two processes deciding the same
+        claim at the same moment can't both record a decision."""
         body = canonical(payload)
         with self._lock:
             self._db.execute("BEGIN IMMEDIATE")
             try:
+                if once and self._first(claim_id, event) is not None:
+                    raise AlreadyRecorded(f"{claim_id} already has a {event} in the audit log")
                 row = self._db.execute(
                     "SELECT seq, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"
                 ).fetchone()
@@ -226,23 +238,58 @@ class AuditLog:
             raise EvidenceChanged(f"evidence pack {digest[:12]} was changed after it was stored")
         return json.loads(row[0])
 
-    @_locked
-    def evidence_hash(self, claim_id: str) -> str | None:
-        """The hash of the latest evidence pack recorded for a claim."""
-        row = self._db.execute(
-            "SELECT payload FROM audit_log WHERE claim_id = ? AND event = 'evidence_pack'"
-            " ORDER BY seq DESC LIMIT 1",
-            (claim_id,),
+    def _first(self, claim_id: str, event: str) -> tuple[int, str] | None:
+        return self._db.execute(
+            "SELECT seq, payload FROM audit_log WHERE claim_id = ? AND event = ?"
+            " ORDER BY seq LIMIT 1",
+            (claim_id, event),
         ).fetchone()
-        return _evidence_ref(row[0]) if row else None
+
+    @_locked
+    def has(self, claim_id: str, event: str) -> bool:
+        return self._first(claim_id, event) is not None
+
+    @_locked
+    def final_decision(self, claim_id: str) -> dict | None:
+        """The final decision the log recorded for a claim (there is at most one)."""
+        row = self._first(claim_id, "final_decision")
+        return json.loads(row[1]) if row else None
+
+    def _evidence_entry(self, claim_id: str) -> tuple[int, str] | None:
+        rows = self._db.execute(
+            "SELECT seq, payload FROM audit_log WHERE claim_id = ? AND event = 'evidence_pack'"
+            " ORDER BY seq LIMIT 2",
+            (claim_id,),
+        ).fetchall()
+        if len(rows) > 1:
+            # Triage records at most one pack per claim (the append is once-only), so a second
+            # was appended by something else: trust neither.
+            raise EvidenceChanged(f"more than one evidence pack is recorded for {claim_id}")
+        return rows[0] if rows else None
+
+    @_locked
+    def evidence_hash(self, claim_id: str, *, strict: bool = True) -> str | None:
+        """The hash of the evidence pack recorded at the claim's triage. Raises EvidenceChanged
+        if more than one is recorded: an entry appended later can't replace it. strict=False
+        returns the first one regardless, for showing an adjuster what triage stored."""
+        if not strict:
+            row = self._first(claim_id, "evidence_pack")
+            return _evidence_ref(row[1]) if row else None
+        row = self._evidence_entry(claim_id)
+        return _evidence_ref(row[1]) if row else None
 
     @_locked
     def result_hash(self, claim_id: str) -> str | None:
-        """The hash of the latest triage result recorded for a claim."""
+        """The hash of the triage result the claim's evidence pack was built from: recorded in
+        the pack's entry, or, in a log written before it was, the latest result logged before
+        the pack (a restarted triage records another). Never one appended after."""
+        pack = self._evidence_entry(claim_id)
+        if pack is not None and (recorded := json.loads(pack[1]).get("result_sha256")):
+            return recorded
         row = self._db.execute(
             "SELECT payload FROM audit_log WHERE claim_id = ? AND event = 'triage_result'"
-            " ORDER BY seq DESC LIMIT 1",
-            (claim_id,),
+            " AND seq < ? ORDER BY seq DESC LIMIT 1",
+            (claim_id, pack[0] if pack else 2**63 - 1),
         ).fetchone()
         return json.loads(row[0]).get("result_sha256") if row else None
 

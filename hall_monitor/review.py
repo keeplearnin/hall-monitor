@@ -100,7 +100,11 @@ def main(argv: list[str] | None = None) -> int:
             reason=args.reason,
             evidence_sha256=args.evidence_sha256,
         ).signed(args.claim_id, key)
-        result = workflow.decide(args.claim_id, decision)
+        try:
+            result = workflow.decide(args.claim_id, decision)
+        except ValueError as exc:  # decided meanwhile by someone else, or not waiting any more
+            print(str(exc).split("\n")[0], file=sys.stderr)
+            return 1
         _print(
             result
             if result["state"] == "decided"
