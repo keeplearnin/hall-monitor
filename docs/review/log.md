@@ -246,6 +246,18 @@ confirmed.
 
 | Finding | Severity | Outcome |
 |---|---|---|
-| The approved prompt hash for `coverage_check` and `critic` didn't cover the untrusted-claim notice, which they filled in at run time, so an edit to it reached the model with no new approval | Low-Medium | The notice is in the hashed template (coverage-check-v4, critic-v3; the text sent is unchanged) |
+| The approved prompt hash for `coverage_check` and `critic` didn't cover the untrusted-claim notice, which they filled in at run time, so an edit to it reached the model with no new approval | Medium | The notice is in the hashed template (coverage-check-v4, critic-v3; the text sent is unchanged) |
 | The policy wording filled into those prompts isn't covered by any approval | Low | Logged in HM-01 gaps; covering it would be a new kind of approval |
 | A stop or an API error between an agent's tool rounds dropped the record of the requests it had already sent, so the audit trail missed them and the cost read low | Medium | The interrupted agent's requests are kept on the error and recorded |
+
+**Pre-PR review of those fixes:** 7 findings, 5 confirmed and 2 plausible; fixed or logged.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The new helper was inserted between `@tracing.observe(name="triage")` and `triage`, so claims got no triage span | Medium | Moved; a test checks the decorator wraps `triage` |
+| A billed answer that fails validation inside the SDK's parse call raises before its usage is read, so it is still missing from the record and the cost | Medium | Logged in HM-01 gaps; capturing it means validating outside the SDK call |
+| README's list of current prompt versions was stale | Low | Updated |
+| ADR 0003 and the one-pagers said any prompt change needs approval; the policy wording doesn't | Low | Say the template is approved and the wording isn't |
+| The test didn't check the interrupted call is logged once and costed | Low | It does now |
+| An error object raised twice could carry an earlier claim's partial record | Low, plausible | Always set |
+| A brace in the notice would break `.format` | Low, plausible | A test checks it has none |

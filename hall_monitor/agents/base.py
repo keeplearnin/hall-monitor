@@ -162,10 +162,10 @@ def run_agent[T: BaseModel](
                 {"role": "user", "content": results},
             ]
     except Exception as exc:
-        if api_calls:
-            # Requests already sent are kept on the error, so a claim stopped part-way (a stop
-            # or an API error between tool rounds) still records them and their cost.
-            exc.partial_call = record(None)  # type: ignore[attr-defined]
+        # Requests already sent are kept on the error, so a claim stopped part-way (a stop or
+        # an API error between tool rounds) still records them and their cost. Always set, so
+        # an error object raised again can't carry an earlier claim's record.
+        exc.partial_call = record(None) if api_calls else None  # type: ignore[attr-defined]
         raise
 
     call = record(response.stop_reason)

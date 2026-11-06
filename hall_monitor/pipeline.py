@@ -152,13 +152,6 @@ def _economy(registry: Registry, agent_id: str, extraction: IntakeExtraction, on
     )
 
 
-def _feedback(
-    problems: dict[ReviewedStage, list[str]], stage: ReviewedStage, previous: BaseModel
-) -> str | None:
-    return render_feedback(previous, problems[stage]) if stage in problems else None
-
-
-@tracing.observe(name="triage", as_type="chain")
 def _keep_partial(run: _Run, exc: Exception) -> None:
     """An agent interrupted after sending requests (a stop or an error between tool rounds)
     carries a record of them; keep it, so the audit trail and the cost include them."""
@@ -166,6 +159,13 @@ def _keep_partial(run: _Run, exc: Exception) -> None:
         run.calls.append(call)
 
 
+def _feedback(
+    problems: dict[ReviewedStage, list[str]], stage: ReviewedStage, previous: BaseModel
+) -> str | None:
+    return render_feedback(previous, problems[stage]) if stage in problems else None
+
+
+@tracing.observe(name="triage", as_type="chain")
 def triage(
     claim: ClaimSubmission,
     *,

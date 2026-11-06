@@ -38,7 +38,9 @@ controls:
       yet, so it isn't enforced. Approvals pin each system-prompt template (the untrusted-claim
       notice included since review 6), but not the policy wording filled into it: an edit to
       the wording file changes what the coverage and critic agents are sent without a new
-      approval. Nor do they pin the output
+      approval. A model answer that fails validation inside the SDK's parse call is billed but
+      raises before its usage is read, so that request is missing from the agent's record and
+      its cost. Nor do they pin the output
       schema the model is given, so a change to an output model (a new field constraint, say)
       needs no new approval; the API passes pydantic patterns to the model as description
       text, not as constraints, and they are checked only once the answer is back. The owner is checked against the list of people when the registry

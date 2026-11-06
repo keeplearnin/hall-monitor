@@ -524,14 +524,18 @@ def test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted(
         return answer(**kwargs)
 
     client.messages.parse = parse
+    events = []
     result = triage(
         claim,
         registry=registry,
         gateway=ToolGateway(registry),
         wording=load_policy_wording(),
         client=client,
+        on_event=lambda name, item: events.append((name, item)),
     )
     assert result.stopped_reason
     coverage = [c for c in result.agent_calls if c.agent_id == "coverage_check"]
-    assert coverage and coverage[0].request_ids == ["req_coverage_round1"]
-    assert coverage[0].input_tokens == 50000
+    assert len(coverage) == 1 and coverage[0].request_ids == ["req_coverage_round1"]
+    assert coverage[0].input_tokens == 50000 and result.cost_usd > 0
+    logged = [i for n, i in events if n == "agent_call" and i.agent_id == "coverage_check"]
+    assert len(logged) == 1

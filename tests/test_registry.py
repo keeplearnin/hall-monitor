@@ -143,3 +143,10 @@ def test_the_approved_prompt_covers_the_untrusted_claim_notice():
         assert "{untrusted}" not in module.SYSTEM_PROMPT, agent_id
         if agent_id != "recommendation":  # sees no claim text
             assert UNTRUSTED_CLAIM_NOTICE in module.SYSTEM_PROMPT, agent_id
+
+
+def test_the_untrusted_claim_notice_has_no_braces():
+    """It is put into templates that later go through str.format."""
+    from hall_monitor.agents.base import UNTRUSTED_CLAIM_NOTICE
+
+    assert "{" not in UNTRUSTED_CLAIM_NOTICE and "}" not in UNTRUSTED_CLAIM_NOTICE
