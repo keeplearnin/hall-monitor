@@ -95,7 +95,7 @@ def test_unapproved_manifest_is_refused(registry, tmp_path):
 
     from hall_monitor.registry import UnapprovedManifestError
 
-    shutil.copytree(DEFAULT_REGISTRY_DIR, tmp_path / "registry")
+    shutil.copytree(TEST_REGISTRY_DIR, tmp_path / "registry")
     edited = tmp_path / "registry" / "intake.yaml"
     edited.write_text(edited.read_text().replace("claude-haiku-5-5", "claude-sonnet-5-5"))
     with pytest.raises(UnapprovedManifestError):

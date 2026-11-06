@@ -1,6 +1,7 @@
 """A fake Claude client that answers each agent with the ground truth for one claim, and the
 registry the tests run agents from."""
 
+import atexit
 import shutil
 import tempfile
 from pathlib import Path
@@ -76,7 +77,9 @@ def _registry_without_stops() -> Path:
     """The shipped registry with an empty stop list. Stops are live state: an owner may stop an
     agent at any time, and the tests must keep passing while one is stopped and after it is
     restarted. The kill switch's own tests start from this copy and add their stops to it."""
-    path = Path(tempfile.mkdtemp(prefix="hall-monitor-registry-")) / "registry"
+    root = Path(tempfile.mkdtemp(prefix="hall-monitor-registry-"))
+    atexit.register(shutil.rmtree, root, ignore_errors=True)
+    path = root / "registry"
     shutil.copytree(DEFAULT_REGISTRY_DIR, path)
     (path / STOPS_FILENAME).write_text(yaml.safe_dump({"stops": []}))
     approvals = yaml.safe_load((path / APPROVALS_FILENAME).read_text())

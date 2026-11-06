@@ -79,9 +79,18 @@ def test_tests_run_agents_from_a_registry_with_no_stops():
     registry from a copy with an empty stop list."""
     from pathlib import Path
 
-    shipped = "Registry.from_dir" + "()"
+    shipped = [
+        "Registry.from_dir" + "()",
+        "from_dir(" + "DEFAULT_REGISTRY_DIR",
+        "copytree(" + "DEFAULT_REGISTRY_DIR",
+    ]
+    allowed = {"test_the_shipped_stop_list_is_valid_whatever_it_holds"}  # reads it on purpose
     for module in Path(__file__).parent.glob("test_*.py"):
-        assert shipped not in module.read_text(), module.name
+        for test in module.read_text().split("\ndef ")[1:]:
+            if test.split("(")[0] in allowed:
+                continue
+            for pattern in shipped:
+                assert pattern not in test, f"{module.name}::{test.split('(')[0]}"
 
 
 def test_a_stop_takes_effect_on_the_next_call(registry_dir):
@@ -568,3 +577,22 @@ def test_no_agent_may_take_the_pipelines_id(registry_dir):
     (registry_dir / "pipeline.yaml").write_text(yaml.safe_dump(raw))
     with pytest.raises(ValueError, match="pipeline"):
         Registry.from_dir(registry_dir)
+
+
+def test_a_stop_reaches_a_symlinked_stop_list(registry_dir, tmp_path):
+    """A deployment may link registry/stops.yaml to a shared store: the stop must land there,
+    keep the link, and keep the file's permissions."""
+    shared = tmp_path / "shared" / STOPS_FILENAME
+    shared.parent.mkdir()
+    shutil.copy(registry_dir / STOPS_FILENAME, shared)
+    shared.chmod(0o640)
+    link = registry_dir / STOPS_FILENAME
+    link.unlink()
+    link.symlink_to(shared)
+
+    _stop(registry_dir)
+
+    assert link.is_symlink()
+    assert (shared.stat().st_mode & 0o777) == 0o640
+    with pytest.raises(AgentStoppedError):
+        Registry.from_dir(registry_dir).require("intake")

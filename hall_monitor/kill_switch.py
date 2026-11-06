@@ -17,7 +17,6 @@ This module only reads and writes the file; the registry decides what a stop mea
 from __future__ import annotations
 
 import argparse
-import fcntl
 import os
 import re
 import sys
@@ -107,7 +106,10 @@ def _next_id(entries: list[dict]) -> str:
 @contextmanager
 def _exclusive(path: Path):
     """Hold a lock beside the stop list while it is read and rewritten, so two owners stopping
-    agents at the same moment can't overwrite each other's stop."""
+    agents at the same moment can't overwrite each other's stop. POSIX file locks: they
+    serialise owners on one machine."""
+    import fcntl  # POSIX only; imported here so the registry still loads elsewhere
+
     with open(path.with_name(f".{path.name}.lock"), "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         try:
@@ -126,7 +128,9 @@ def add_stop(
     now: datetime | None = None,
 ) -> Stop:
     """Append a stop. Only appends: existing entries are written back unchanged. The file is
-    replaced in one step, so a reader never sees it half-written."""
+    replaced in one step, so a reader never sees it half-written. A symlinked stop list (a shared
+    store) is written through the link, keeping the target's permissions."""
+    path = path.resolve()
     with _exclusive(path):
         existing = _raw(path)
         stop = Stop(
@@ -140,7 +144,12 @@ def add_stop(
             raise ValueError(f"stop id {stop.id} is already used")
         entries = [*existing, stop.model_dump(mode="json")]
         partial = path.with_name(f".{path.name}.partial")
-        partial.write_text(HEADER + yaml.safe_dump({"stops": entries}, sort_keys=False))
+        with open(partial, "w") as out:
+            out.write(HEADER + yaml.safe_dump({"stops": entries}, sort_keys=False))
+            out.flush()
+            os.fsync(out.fileno())
+        if path.exists():
+            os.chmod(partial, path.stat().st_mode & 0o7777)
         os.replace(partial, path)
     return stop
 

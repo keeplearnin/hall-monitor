@@ -520,8 +520,9 @@ controls:
       hall_monitor.approvals --resume), a reviewed approval.
       CI fails a pull request that removes or edits a stop. Refusals carry the stop and owner IDs,
       never the reason. Stops are written under a lock and replaced in one step, so two owners
-      stopping agents at once both take effect, and the stop command reads only the manifests'
-      names and the owners, so a broken file elsewhere in the registry can't block it. Tests run
+      stopping agents at once both take effect; a symlinked stop list is written through the
+      link. The stop command reads only the manifest file names, the owners and the stop list
+      itself, so a broken approvals file or manifest can't block it. Tests run
       agents from a copy of the registry with no stops, so a live stop doesn't fail every later
       pull request. No agent may take the ID "pipeline", which the tool gateway reserves.
     status: built
@@ -568,7 +569,8 @@ controls:
       on, and it isn't: until then a direct push to main, and always an edit on the host, could
       delete a stop and restart the agent unreviewed. Stops are not written to the audit log as
       events; a stopped agent shows there only as the stopped claim's reason. The stop lock is a
-      file lock, so it serialises owners on one machine, not on a shared network store.
+      file lock (POSIX), so it serialises owners on one machine, not on a shared network store, and
+      replacing the file needs write access to its directory.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
