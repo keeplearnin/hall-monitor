@@ -597,6 +597,7 @@ def test_a_stop_reaches_a_symlinked_stop_list(registry_dir, tmp_path):
     with pytest.raises(AgentStoppedError):
         Registry.from_dir(registry_dir).require("intake")
 
+
 def _tool_round(request_id):
     from types import SimpleNamespace
 
