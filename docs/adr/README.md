@@ -23,6 +23,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0014](0014-signed-decisions-and-stored-evidence.md) | Adjuster decisions are signed, and evidence is stored by its hash | HM-05, HM-06 |
 | [0015](0015-kill-switch.md) | Stopping an agent needs no approval; restarting it does | HM-19 |
 | [0016](0016-read-only-control-panel.md) | The control panel reads the controls and changes nothing | HM-20 |
+| [0017](0017-leave-rules-in-code.md) | Leave eligibility and who decides are code, built before any agent | HM-21 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".

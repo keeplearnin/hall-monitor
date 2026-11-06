@@ -250,7 +250,13 @@ def overview_page(data: dict) -> str:
                     "section",
                     tag("h2", w["name"]),
                     badge(w["status"], "muted"),
-                    tag("p", "Not built: no agents and no cases yet.", class_="empty"),
+                    tag(
+                        "p",
+                        "Eligibility, entitlement and routing are code (HM-21, ",
+                        tag("code", "python -m hall_monitor.hr"),
+                        "); no agents and no cases in the audit log yet, so no numbers here.",
+                        class_="empty",
+                    ),
                     class_="card",
                 )
             )

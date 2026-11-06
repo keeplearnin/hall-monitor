@@ -767,8 +767,9 @@ controls:
       built. It is read-only by design for this phase; stopping an agent and signing a decision
       from the panel are the next phase and aren't built. It reads the SQLite audit log and the
       registry files on one machine, so it shows only what that machine's runs wrote; there is
-      no shared store. The overview covers travel claims only: the HR leave workflow is designed
-      and has no code, so the panel says so rather than showing numbers. It can't anchor audit
+      no shared store. The overview covers travel claims only: the HR leave workflow has its rules
+      in code (HM-21) but no agents and no cases in the audit log, so the panel says so rather
+      than showing numbers. It can't anchor audit
       heads itself: verifying against an anchor needs a head someone copied out. The demo's model is
       scripted from the answer key, so its routing, cost and override numbers show the controls
       working, not how well the agents perform. Routing and stop reasons the code writes name
@@ -781,6 +782,66 @@ controls:
       fields, not free text. The check that a value looks code-written is a backstop for a
       changed entry, not a filter for personal data: a name with no spaces would pass it, so the
       guarantee holds for a log that verifies, and the audit page says when it doesn't.
+
+  - id: HM-21
+    name: Leave eligibility and routing in code (HR example)
+    what: >-
+      The second worked example's governance core, before any agent exists: federal FMLA
+      eligibility and entitlement are checked by ordinary code against synthetic employee and
+      worksite records (python -m hall_monitor.hr). Employer coverage (50 or more employees in 20
+      workweeks this or last year, or a public agency), 12 months of service (52 weeks, not
+      counting service before a break of 7 years or more), 1,250 hours worked in the 12 months
+      before leave, 50 employees within 75 surface miles of the worksite (the employer's own
+      sites, inclusive), a qualifying reason, and the weeks left under each of the four leave-year
+      methods (26 for military caregiver leave, measured forward from its first day). Each check
+      passes, fails or can't be decided from the records, with the facts it was decided on. A code
+      rule then sends every failure, every unknown and every flag (intermittent leave, retaliation
+      risk, a possible accommodation, a state with its own leave law, a key employee, both parents
+      at the same employer, more leave than is left) to HR review, and names the least senior role
+      that may decide: only an HR manager may deny or find an employee ineligible, only an HR
+      director may extend past the entitlement or decide a case with a retaliation risk. Even a
+      clean request is a draft for a leave specialist to sign, never an approval without a
+      person. The records hold no names and nothing medical. 25 synthetic requests sit on the
+      boundaries, each with an answer key worked out by hand.
+    status: partial
+    code:
+      - hall_monitor/hr/eligibility.py::assess
+      - hall_monitor/hr/eligibility.py::entitlement
+      - hall_monitor/hr/routing.py::route_leave
+      - hall_monitor/hr/__main__.py::main
+      - data/synthetic/hr/ground_truth.json
+    tests:
+      - tests/test_hr_leave.py::test_every_request_gets_the_answer_key_s_result
+      - tests/test_hr_leave.py::test_every_routing_reason_is_in_an_answer_key
+      - tests/test_hr_leave.py::test_service_is_52_weeks
+      - tests/test_hr_leave.py::test_hours_are_1250_in_the_12_months_before
+      - tests/test_hr_leave.py::test_worksite_counts_the_employer_s_sites_within_75_miles_inclusive
+      - tests/test_hr_leave.py::test_weeks_used_by_leave_year_method
+      - tests/test_hr_leave.py::test_any_flag_on_a_clean_request_sends_it_to_hr_review
+      - tests/test_hr_leave.py::test_only_hr_managers_and_directors_may_deny_or_extend
+      - tests/test_hr_leave.py::test_the_records_hold_no_names_and_nothing_medical
+    evidence: []
+    nist: [GOVERN 3.2, MAP 3.5, MANAGE 1.3]
+    finos:
+      risks: [RI-22, RI-24]
+      mitigations: [MI-24]
+    gaps: >-
+      Rules only: no agents, no approval gate, no signed decisions, no audit log and no panel
+      cases for this workflow yet, so status is partial. The rules are our reading of the federal
+      regulations (29 CFR Part 825), not reviewed by HR or an employment lawyer, and not legal
+      advice; the positions taken on the design's open questions (no approval without a person,
+      the sign-off limits, intermittent leave always to a person, service before a 7-year break
+      not counted) are assumptions listed in data/synthetic/hr/README.md. State and local leave
+      laws, company policy, paid leave and short-term disability aren't modelled: a state list
+      only routes a request to a person, and isn't a legal list. Rolling-backward entitlement is
+      measured once, at the leave's start, not again as older leave falls out of the window
+      during a long leave; other FMLA leave inside a military caregiver period isn't capped at 12
+      weeks on its own; requested weeks assume continuous full-time leave (intermittent leave
+      always goes to a person); hours count whole weeks ending inside the 12 months; the notice
+      deadline skips weekends, not holidays; and an integrated employer or joint employment,
+      which can change who counts towards the 50, isn't modelled. Eligibility is checked as of
+      the leave's start and the worksite count as of notice, as the regulations say, but the
+      records are snapshots rather than histories.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
