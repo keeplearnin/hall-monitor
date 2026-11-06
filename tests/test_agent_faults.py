@@ -249,6 +249,9 @@ CURRENCIES = {
     "$1.00 CAD": lambda t: re.sub(r"(?:USD |\$)([\d,]+\.\d\d)", r"$\1 CAD", t),
     "HK $1.00": lambda t: re.sub(r"(?:USD |\$)([\d,]+\.\d\d)", r"HK $\1", t),
     "$1.00 (cad)": lambda t: re.sub(r"(?:USD |\$)([\d,]+\.\d\d)", r"$\1 (cad)", t),
+    "CAD\u00a0$1.00": lambda t: re.sub(r"(?:USD |\$)([\d,]+\.\d\d)", "CAD\u00a0$\\1", t),
+    "Cdn. $1.00": lambda t: re.sub(r"(?:USD |\$)([\d,]+\.\d\d)", r"Cdn. $\1", t),
+    "$1.00 in CAD": lambda t: re.sub(r"(?:USD |\$)([\d,]+\.\d\d)", r"$\1 in CAD", t),
 }
 
 

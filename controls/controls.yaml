@@ -113,12 +113,14 @@ controls:
       checks that each claimed item matches its own occurrence of that figure, that the total claimed
       appears in them, and that the items add up to the total. Only figures the documents mark as
       US dollars count ($, US$ or USD on the same line beside them, with no other currency code
-      or symbol and no minus sign or dash next to them), and never part of a date, a time or a
+      or symbol and no minus sign touching the mark), and never part of a date, a time or a
       reference, so a year read as the claim, or a claim in euros or Canadian dollars the
       intake labels USD, goes to a person. Another currency counts beside the mark or after the
-      figure: any three-capital code but USD, and the dollar and peso currencies' codes and
-      prefixes in any case (HK $450, NZ $450, (CAD) $450, cad: $450, Cdn $450, $450 cad), with
-      spaces, a colon or brackets between.
+      figure: any three-capital code but USD, and a list of dollar and peso codes, prefixes and
+      names in any case (HK $450, NZ $450, (CAD) $450, Cdn. $450, $450 cad, $450 in CAD, $450
+      Canadian), with any spaces (non-breaking ones too) or punctuation between. The list is a
+      backstop behind the intake's label and the senior-adjuster rule for claims not in USD, not
+      a currency parser.
     status: built
     code:
       - hall_monitor/governance/routing.py::route_claim
@@ -145,9 +147,13 @@ controls:
       written in both the narrative and a receipt counts twice, so wrong items whose total happens
       to appear in the documents as dollars would pass it. The currency comes from the claimant's
       own marks: a bare "$" the claimant uses for another currency, with no code or prefix beside
-      it, is taken as USD; so is one beside a code or prefix not in the list; and a currency
-      named elsewhere in the document (a header saying "all amounts in CAD") isn't read. A
-      refund written as ($20.00) traces as $20.
+      it, is taken as USD; so is one beside a code, prefix or name not in the list (single
+      letters such as R $ or S $, and two-letter forms that are also words or US state codes:
+      CA, CO, AR, AU); and a currency named elsewhere in the document (a header saying "all
+      amounts in CAD") isn't read. A refund written as ($20.00), or with a spaced dash
+      (– $20.00, which is also how item lists are written), traces as $20. The other way round,
+      an unrelated three-capital word beside a figure ($45.00 ATM fee, VAT $9.00) stops it
+      tracing, so that claim goes to a person.
 
   - id: HM-05
     name: Adjuster approval gate
@@ -223,6 +229,8 @@ controls:
       the audit log shows finished, whatever the checkpoint file holds. A crash after the
       evidence pack is logged but before the checkpoint is saved leaves that claim for a person
       to handle: its status says needs_a_person, and the workflow can't restart or decide it.
+      Read from another process in the moment between those two writes, a claim still
+      finishing normally also shows needs_a_person.
       An adjuster's request_information or investigate is recorded as the claim's final
       decision, so the workflow has no path to triage it again with new documents or decide it
       again; a follow-up has to be handled outside it. The run and review CLIs take
@@ -265,6 +273,7 @@ controls:
       - tests/test_workflow.py::test_a_rejection_logs_the_submission_as_a_keyed_hash
       - tests/test_kill_switch.py::test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted
       - tests/test_privacy_security.py::test_a_claim_id_must_be_a_code
+      - tests/test_privacy_security.py::test_eval_claim_variants_have_valid_claim_ids
     evidence: []
     nist: [MEASURE 2.8, MANAGE 4.1]
     finos:

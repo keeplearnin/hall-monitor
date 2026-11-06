@@ -22,10 +22,11 @@ the coverage period, there is no policy record, or the claim isn't in USD. The a
 too: each claimed item must match its own occurrence of that figure in the claim documents, the
 total claimed must appear in them as well, and the items must add up to the total. Only a
 figure the documents mark as US dollars counts ($, US$ or USD beside it on the same line, with no
-other currency code or symbol, and no minus sign or dash, next to it), and never part of a date, a
-time or a reference. Another currency is recognised before the mark or after the figure: any
-three-capital code but USD, and the dollar and peso currencies' codes and prefixes in any case (HK,
-NZ, cad, Cdn and the like), with spaces, a colon or brackets between. An item invented,
+other currency code or symbol, and no minus sign touching the mark, next to it), and never part of
+a date, a time or a reference. Another currency is recognised before the mark or after the figure:
+any three-capital code but USD, and a list of dollar and peso codes, prefixes and names in any case
+(HK, NZ, cad, Cdn, Canadian and the like), with any spaces or punctuation between. The list is a
+backstop, not a currency parser; HM-04's gaps list what it misses and what it refuses wrongly. An item invented,
 inflated, counted twice or copied from a total line then goes to a person even when coverage pays it in full, because the new total isn't in the
 documents. A year or a time read as the whole claim goes to a person because it isn't written
 as dollars, and so does a claim written as EUR 450, CAD $450, HK $450, (CAD) $450 or $450 cad

@@ -521,3 +521,16 @@ def test_redaction_cant_reveal_a_signal_the_detector_missed(text):
     result = triage(claim, registry=REGISTRY, gateway=GATEWAY, wording=WORDING, client=client)
     assert result.injection_signals
     assert result.routing.route is Route.ADJUSTER
+
+
+def test_eval_claim_variants_have_valid_claim_ids():
+    """The evals copy claims without validation, so their IDs are checked here."""
+    from hall_monitor.models import ClaimSubmission
+
+    variants = [build_claim(case, CLAIMS) for case in load_cases()]
+    claim = CLAIMS["claim_001"]
+    policies = load_policy_records()
+    history = json.loads((DATA_DIR / "claims_history.json").read_text())
+    variants += [name_variant(claim, policies, history, g, NAMES[g])[0] for g in NAMES]
+    for variant in variants:
+        ClaimSubmission.model_validate(variant.model_dump(mode="json"))
