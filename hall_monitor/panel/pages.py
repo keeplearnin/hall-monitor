@@ -65,9 +65,11 @@ def table(headers: Iterable[str], rows: Iterable[Iterable[object]], empty: str) 
     )
 
 
-def usd(value: float | None) -> str:
+def usd(value: object) -> str:
     if value is None:
         return "—"
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        return str(value)
     return f"${value:,.3f}" if 0 < abs(value) < 1 else f"${value:,.2f}"
 
 
@@ -171,8 +173,8 @@ def page(title: str, current: str, body: Safe, *, root: str = "", demo: bool = F
             tag(
                 "footer",
                 "Reads the registry, stop list, audit log, controls register and eval gate. Shows "
-                "IDs, hashes, decision fields, reasons in the code's own words and costs; anything "
-                "the model wrote, and kill-switch and adjusters' reasons, are withheld.",
+                "IDs, hashes, decision fields, reasons in the code's own words and costs; free "
+                "text the model wrote, and kill-switch and adjusters' reasons, are withheld.",
             ),
         ),
         lang="en",

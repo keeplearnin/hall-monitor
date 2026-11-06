@@ -389,7 +389,7 @@ def test_model_written_text_in_the_log_never_reaches_a_page(tmp_path):
         "high risk",
         "critic still disagrees after revisions",
         "critic changed coverage_check.covered_amount, intake.total_claimed",
-        "claim text addresses the AI: ignore_instructions, role_override",
+        "claim text addresses the AI: override_instructions, names_internal_tools",
         "pipeline stopped: agent refused or returned no usable output: intake declined claim c_1",
         "pipeline stopped: APIError from the model call",
         "pipeline stopped: hall pass refused: agent 'risk_fraud' is stopped (stop-0001 by own-302)",
@@ -525,3 +525,180 @@ def test_saved_pages_carry_their_own_security_policy(src, tmp_path):
     cli.snapshot(src, tmp_path)
     page = (tmp_path / "index.html").read_text()
     assert '<meta http-equiv="Content-Security-Policy"' in page and "default-src 'none'" in page
+
+
+# --- Re-review of the review 7 fixes ---------------------------------------------------------
+
+
+def test_every_reason_the_code_generates_is_shown(tmp_path, demo_data):
+    """Reasons built by the real routing rule and the real refusals, so a changed message fails
+    here instead of being withheld unnoticed."""
+    from hall_monitor.gateway.cost import UnpricedModelError, call_cost
+    from hall_monitor.gateway.injection import SIGNALS
+    from hall_monitor.governance.routing import route_claim, route_stopped
+    from hall_monitor.models import (
+        AgentCall,
+        CoverageAssessment,
+        CoverageDecision,
+        NextStep,
+        Recommendation,
+        RiskAssessment,
+        RiskFlag,
+        RiskLevel,
+    )
+    from hall_monitor.registry import DataClass, Registry, RegistryError
+
+    stops = []
+
+    def refusal(registry_dir, check):
+        try:
+            check(Registry.from_dir(registry_dir))
+        except RegistryError as exc:
+            stops.append(f"hall pass refused: {exc}")
+
+    stopped = _registry_copy(demo_data, tmp_path / "a")
+    add_stop(stopped / STOPS_FILENAME, agent="risk_fraud", by="own-302", reason="x")
+    refusal(stopped, lambda r: r.require("risk_fraud"))
+    refusal(stopped, lambda r: r.require("intake", prompt_sha256="ab" * 32))
+    refusal(stopped, lambda r: r.check_data("intake", frozenset(DataClass)))
+    refusal(stopped, lambda r: r.require("nobody"))
+    broken = _registry_copy(demo_data, tmp_path / "b")
+    (broken / STOPS_FILENAME).write_text("stops: [1")
+    refusal(broken, lambda r: r.require("intake"))
+    try:
+        call_cost(
+            AgentCall(
+                agent_id="intake",
+                agent_version="1",
+                model="claude-x-9",
+                manifest_digest="a",
+                prompt_version="1",
+                system_prompt_sha256="a",
+                input_sha256="a",
+                request_ids=[],
+                stop_reason=None,
+                input_tokens=1,
+                output_tokens=1,
+                seconds=0,
+            )
+        )
+    except UnpricedModelError as exc:
+        stops.append(f"unexpected KeyError; cost unknown: {exc}")
+    reasons = [route_stopped(m).reasons[0] for m in stops]
+
+    claim = next(iter_claims())
+    truth = demo.load_ground_truth(claim.claim_id)
+    extraction = truth.extraction.model_copy(
+        update={"currency": "EUR", "total_claimed": 1234567.891, "incident_date": None}
+    )
+    coverage = CoverageAssessment(
+        decision=CoverageDecision.NOT_COVERED,
+        applicable_clauses=[],
+        covered_amount=9999999.5,
+        reasoning="r",
+    )
+    risk = RiskAssessment(level=RiskLevel.HIGH, flags=list(RiskFlag), reasoning="r")
+    recommendation = Recommendation(next_step=NextStep.REQUEST_INFORMATION, reasons=[])
+    policy = next(iter(load_policy_records().values()))
+    reasons += route_claim(
+        extraction,
+        coverage,
+        risk,
+        recommendation,
+        critic_unresolved=True,
+        critic_changed=["coverage_check.covered_amount", "intake.incident_date"],
+        injection_signals=list(SIGNALS),
+        policy=policy,
+        claim_text="no amounts here",
+    ).reasons
+    reasons += route_claim(extraction, coverage, risk, recommendation).reasons
+    assert len(reasons) > 15
+    assert [r for r in reasons if views.shown_reason(r) != r] == []
+
+
+WRONG_TYPES = (5, 1.5, True, "text", [1, "a"], {"a": {"b": 1}}, None)
+
+
+@pytest.mark.parametrize("value", WRONG_TYPES, ids=repr)
+def test_an_entry_with_fields_of_the_wrong_type_shows_as_an_entry_not_an_error(tmp_path, value):
+    """A tampered entry that still parses: every page still renders, and the audit page says
+    the chain doesn't verify (it would, once someone changed a written entry)."""
+    keys = {
+        "claim_submitted": ("attachments", "identifiers_redacted", "injection_signals"),
+        "agent_call": ("agent_id", "stop_reason", "request_ids", "input_tokens"),
+        "tool_call": ("tool", "arguments", "error", "allowed"),
+        "critic_review": ("issues",),
+        "revision": ("round", "changed"),
+        "code_correction": ("correction",),
+        "triage_result": (
+            "route",
+            "routing_reasons",
+            "stopped_reason",
+            "covered_amount",
+            "cost_usd",
+            "models",
+        ),
+        "evidence_pack": ("evidence_sha256", "result_sha256"),
+        "decision_rejected": ("rejected_because",),
+        "final_decision": ("decided_by", "payout_usd", "overrode_ai", "routing_reasons"),
+    }
+    src = _log_with(
+        tmp_path,
+        [
+            ("claim_x", event, "pipeline", dict.fromkeys(fields, value))
+            for event, fields in keys.items()
+        ],
+    )
+    client = _local(src)
+    for path in ("/index.html", "/cases.html", "/queue.html", "/cases/claim_x.html"):
+        assert client.get(path).status_code == 200, path
+    assert client.get("/api/cases/claim_x.json").status_code == 200
+
+
+def test_text_in_a_tampered_field_is_withheld(tmp_path):
+    src = _log_with(
+        tmp_path,
+        [
+            ("claim_x", "claim_submitted", "channel:email", {"attachments": {"a": MODEL_WRITTEN}}),
+            ("claim_x", "agent_call", "intake", {"stop_reason": MODEL_WRITTEN}),
+        ],
+    )
+    assert "Jane Doe" not in _local(src).get("/cases/claim_x.html").text
+
+
+def test_serve_listens_only_where_the_host_check_answers(capsys):
+    assert cli.main(["serve", "--host", "127.0.0.2"]) == 2
+
+
+def test_a_snapshot_refuses_ids_that_differ_only_in_case(tmp_path):
+    src = _log_with(
+        tmp_path,
+        [(cid, "claim_submitted", "channel:email", {}) for cid in ("CASE-A", "case-a")],
+    )
+    with pytest.raises(ValueError, match="differ only in case"):
+        cli.snapshot(src, tmp_path / "snap")
+
+
+def test_a_case_s_route_is_the_one_its_evidence_pack_records(tmp_path):
+    """Two runs at once: the second logs its result, then loses the race for the evidence pack.
+    The pack records which result stands, as the workflow reads it."""
+    src = _log_with(
+        tmp_path,
+        [
+            (
+                "claim_x",
+                "triage_result",
+                "pipeline",
+                {"route": "adjuster", "result_sha256": "a" * 64},
+            ),
+            (
+                "claim_x",
+                "evidence_pack",
+                "pipeline",
+                {"evidence_sha256": "e" * 64, "result_sha256": "a" * 64},
+            ),
+            ("claim_x", "triage_result", "pipeline", {"route": "auto", "result_sha256": "b" * 64}),
+        ],
+    )
+    case = views.cases(src)[0]
+    assert case["route"] == "adjuster" and case["state"] == "waiting for a person"

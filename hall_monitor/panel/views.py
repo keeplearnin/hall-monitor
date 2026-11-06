@@ -5,10 +5,11 @@ Registry.require, the same check that refuses it at run time; the audit view is 
 the eval view is the CI gate. Nothing here writes. The audit log is opened read-only, and the
 checkpoints, which hold claim text, are never opened.
 
-What the views return is as impersonal as the audit log itself: IDs, hashes, decision fields,
-routing reasons and costs. Stop reasons, evidence packs, adjusters' reasons and the signatures
-over them stay where they are (the stop list, the evidence store, the review CLI), because the
-panel is shown to more people than need them.
+What the views return is what the audit log holds, less anything the model wrote as free text:
+IDs, hashes, decision fields, reasons in the code's own words and costs. Kill-switch stop
+reasons, evidence packs, adjusters' reasons and the signatures over them stay where they are
+(the stop list, the evidence store, the review CLI), because the panel is shown to more people
+than need them.
 """
 
 from __future__ import annotations
@@ -350,6 +351,35 @@ _REVISION_VALUES = {
 }
 
 
+# A code-written string: an ID, hash, enum value, timestamp or "agent:model". Free text has spaces.
+_CODE_TEXT = re.compile(r"[A-Za-z0-9_:.+@/-]{0,200}")
+
+
+def _value(value: object, depth: int = 0) -> object:
+    """A logged value as the code writes it (a number, a code, a list or map of them), or
+    "withheld". The code writes only these; anything else means the entry was changed."""
+    if value is None or isinstance(value, bool | int | float):
+        return value
+    if isinstance(value, str):
+        return value if _CODE_TEXT.fullmatch(value) else WITHHELD
+    if depth == 0 and isinstance(value, list):
+        return [_value(v, 1) for v in value]
+    if depth == 0 and isinstance(value, dict):
+        return {
+            (k if _CODE_TEXT.fullmatch(str(k)) else WITHHELD): _value(v, 1)
+            for k, v in value.items()
+        }
+    return WITHHELD
+
+
+def _count(value: object) -> int:
+    return len(value) if isinstance(value, list | dict) else int(value is not None)
+
+
+def _reasons(value: object) -> list[str | None]:
+    return [shown_reason(r) for r in value] if isinstance(value, list) else [WITHHELD]
+
+
 def shown_payload(event: str, payload: object) -> dict:
     """What the panel shows of one entry's payload: its allow-listed fields, with free text
     replaced by "withheld"."""
@@ -357,27 +387,29 @@ def shown_payload(event: str, payload: object) -> dict:
         return {"payload": WITHHELD}
     if event not in _SHOWN_FIELDS:
         return {"fields": f"{WITHHELD} ({len(payload)})"}
-    shown = {k: v for k, v in payload.items() if k in _SHOWN_FIELDS[event]}
+    shown = {k: _value(v) for k, v in payload.items() if k in _SHOWN_FIELDS[event]}
     hidden = len(payload) - len(shown)
     match event:
         case "tool_call":
             tool = payload.get("tool")
-            shown["tool"] = tool if tool in TOOLS else WITHHELD
-            shown["arguments"] = f"{WITHHELD} ({len(payload.get('arguments') or {})})"
+            shown["tool"] = tool if isinstance(tool, str) and tool in TOOLS else WITHHELD
+            shown["arguments"] = f"{WITHHELD} ({_count(payload.get('arguments'))})"
             shown["error"] = WITHHELD if payload.get("error") else None
             hidden -= sum(k in payload for k in ("tool", "arguments", "error"))
         case "critic_review":
+            issues = payload.get("issues")
             shown["issues"] = [
-                {k: i.get(k) for k in ("stage", "problem_hmac")}
-                for i in payload.get("issues") or []
+                {k: _value(i.get(k), 1) for k in ("stage", "problem_hmac")}
+                for i in (issues if isinstance(issues, list) else [])
                 if isinstance(i, dict)
             ]
             hidden -= "issues" in payload
         case "revision":
             changed = payload.get("changed") or {}
             shown["changed"] = {
-                f: v if f in _REVISION_VALUES else [WITHHELD, WITHHELD]
+                f: _value(v) if f in _REVISION_VALUES else [WITHHELD, WITHHELD]
                 for f, v in (changed.items() if isinstance(changed, dict) else ())
+                if f in _REVISION_VALUES or _CODE_TEXT.fullmatch(str(f))
             }
             hidden -= "changed" in payload
         case "code_correction":
@@ -390,18 +422,14 @@ def shown_payload(event: str, payload: object) -> dict:
             )
             hidden -= "correction" in payload
         case "triage_result":
-            shown["routing_reasons"] = [
-                shown_reason(r) for r in payload.get("routing_reasons") or []
-            ]
+            shown["routing_reasons"] = _reasons(payload.get("routing_reasons") or [])
             shown["stopped_reason"] = shown_stop(payload.get("stopped_reason"))
             hidden -= sum(k in payload for k in ("routing_reasons", "stopped_reason"))
         case "decision_rejected":
             shown["rejected_because"] = _template(payload.get("rejected_because"), _REJECTION_RE)
             hidden -= "rejected_because" in payload
         case "final_decision":
-            shown["routing_reasons"] = [
-                shown_reason(r) for r in payload.get("routing_reasons") or []
-            ]
+            shown["routing_reasons"] = _reasons(payload.get("routing_reasons") or [])
             if "signature" in payload:
                 # With the public key it could confirm a guessed reason (HM-06 gap).
                 shown["signature"] = "present (Ed25519)"
@@ -414,15 +442,23 @@ def shown_payload(event: str, payload: object) -> dict:
 # --- Cases -----------------------------------------------------------------------------------
 
 
+def _number(value: object) -> float | None:
+    return value if isinstance(value, int | float) and not isinstance(value, bool) else None
+
+
 def _cases(entries: list[dict]) -> dict[str, dict]:
-    """Each claim's state as the audit log records it. The log, not the checkpoints, decides."""
+    """Each claim's state as the audit log records it. The log, not the checkpoints, decides,
+    and the result that stands is the one the evidence pack records, as the workflow reads it."""
     cases: dict[str, dict] = {}
+    results: dict[str, list[tuple[int, dict]]] = {}
+    packs: dict[str, tuple[int, object]] = {}
     for e in entries:
+        claim_id = e["claim_id"]
         case = cases.setdefault(
-            e["claim_id"],
+            claim_id,
             {
-                "claim_id": e["claim_id"],
-                "linkable": linkable(e["claim_id"]),
+                "claim_id": claim_id,
+                "linkable": linkable(claim_id),
                 "submitted_at": None,
                 "route": None,
                 "routing_reasons": [],
@@ -440,29 +476,39 @@ def _cases(entries: list[dict]) -> dict[str, dict]:
             },
         )
         case["last_seq"] = e["seq"]
-        payload = e["payload"] if isinstance(e["payload"], dict) else {}
-        match e["event"]:
-            case "claim_submitted":
-                case["submitted_at"] = case["submitted_at"] or e["recorded_at"]
-            case "triage_result":
-                shown = shown_payload("triage_result", payload)
-                case["route"] = shown.get("route")
-                case["routing_reasons"] = shown["routing_reasons"]
-                case["recommended_next_step"] = shown.get("recommended_next_step")
-                case["covered_amount"] = shown.get("covered_amount")
-                case["stopped_reason"] = shown["stopped_reason"]
-                cost = payload.get("cost_usd")
-                case["cost_usd"] += cost if isinstance(cost, int | float) else 0.0
-            case "evidence_pack":
-                case["evidence"] = True
-            case "decision_rejected":
-                case["rejected_decisions"] += 1
-            case "final_decision" if case["decided_by"] is None:  # the first one stands
-                case["decided_by"] = payload.get("decided_by")
-                case["next_step"] = payload.get("next_step")
-                case["payout_usd"] = payload.get("payout_usd")
-                case["overrode_ai"] = bool(payload.get("overrode_ai"))
-    for case in cases.values():
+        event = e["event"]
+        shown = shown_payload(event, e["payload"])
+        if event == "claim_submitted":
+            case["submitted_at"] = case["submitted_at"] or e["recorded_at"]
+        elif event == "triage_result":
+            results.setdefault(claim_id, []).append((e["seq"], shown))
+            case["cost_usd"] += _number(shown.get("cost_usd")) or 0.0  # every run cost money
+        elif event == "evidence_pack" and claim_id not in packs:  # once per claim
+            case["evidence"] = True
+            packs[claim_id] = (e["seq"], shown.get("result_sha256"))
+        elif event == "decision_rejected":
+            case["rejected_decisions"] += 1
+        elif event == "final_decision" and case["decided_by"] is None:  # the first one stands
+            decided_by = shown.get("decided_by")
+            case["decided_by"] = decided_by if isinstance(decided_by, str) else WITHHELD
+            case["next_step"] = shown.get("next_step")
+            case["payout_usd"] = _number(shown.get("payout_usd"))
+            case["overrode_ai"] = shown.get("overrode_ai") is True
+    for claim_id, case in cases.items():
+        runs = results.get(claim_id, [])
+        pack_seq, pack_result = packs.get(claim_id, (None, None))
+        standing = next((r for _, r in runs if r.get("result_sha256") == pack_result), None)
+        if standing is None and runs:
+            # As AuditLog.result_hash: the latest result before the pack, or the latest.
+            before = [r for seq, r in runs if pack_seq is None or seq < pack_seq]
+            standing = (before or [runs[-1][1]])[-1]
+        if standing is not None:
+            route = standing.get("route")
+            case["route"] = route if route in ("auto", "adjuster") else None
+            case["routing_reasons"] = standing["routing_reasons"]
+            case["recommended_next_step"] = standing.get("recommended_next_step")
+            case["covered_amount"] = _number(standing.get("covered_amount"))
+            case["stopped_reason"] = standing["stopped_reason"]
         if case["decided_by"]:
             case["state"] = "decided"
         elif case["evidence"] and case["route"] == "adjuster":

@@ -12,7 +12,6 @@ what the panel showed at a moment. The panel has no sign-in yet, so it serves th
 from __future__ import annotations
 
 import argparse
-import ipaddress
 import json
 import sys
 from pathlib import Path
@@ -20,7 +19,7 @@ from pathlib import Path
 from starlette.testclient import TestClient
 
 from hall_monitor.panel import demo, views
-from hall_monitor.panel.app import create_app
+from hall_monitor.panel.app import LOCAL_HOSTS, create_app
 
 DEFAULT_PORT = 8765
 
@@ -38,14 +37,8 @@ def _sources(args: argparse.Namespace) -> views.Sources:
 
 
 def _loopback(host: str) -> bool:
-    """IPv4 loopback only: the host check accepts the names localhost and 127.0.0.1."""
-    if host == "localhost":
-        return True
-    try:
-        address = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    return address.version == 4 and address.is_loopback
+    """Only the addresses the host check answers to (app.LOCAL_HOSTS): IPv4 loopback."""
+    return host in LOCAL_HOSTS
 
 
 def snapshot(src: views.Sources, out: Path) -> list[str]:
@@ -66,6 +59,10 @@ def snapshot(src: views.Sources, out: Path) -> list[str]:
     ]
     for agent in views.agents(src)["agents"]:
         paths += [f"agents/{agent['id']}.html", f"api/agents/{agent['id']}.json"]
+    saved = [c["claim_id"] for c in views.cases(src) if c["linkable"]]
+    if len({c.lower() for c in saved}) != len(saved):
+        # One would overwrite the other on a case-insensitive disk (the macOS default).
+        raise ValueError("claim IDs that differ only in case can't be saved as separate pages")
     for case in views.cases(src):
         if case["linkable"]:
             paths += [f"cases/{case['claim_id']}.html", f"api/cases/{case['claim_id']}.json"]

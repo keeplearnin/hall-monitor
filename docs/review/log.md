@@ -387,14 +387,14 @@ The same stale "predate milestones 4-8" claim in `docs/executive-brief.html` and
 ## Review 7: the control panel (HM-20)
 
 **Reviewer:** the governance-reviewer agent, on the control-panel branch before its pull request.
-13 findings: 11 confirmed, 2 plausible. All fixed, test-first; the limits that remain are in
-HM-20's gaps.
+13 findings: 11 confirmed, 2 plausible. All fixed, test-first, and the fixes reviewed again
+(below); the limits that remain are in HM-20's gaps.
 
 | Finding | Severity | Outcome |
 |---|---|---|
 | The case trace showed every payload as logged, so tool-call arguments and tool errors as the model wrote them (a name sent as a policy number reached the page) and policyholders' policy numbers; HM-20, the README and the footer said nothing personal was shown | High | Each event shows an allow-list of fields; tool arguments, tool errors, corrected policy numbers, unknown fields and unknown events are withheld; reasons are shown only if they match the code's own templates |
 | `snapshot` wrote `cases/{claim_id}.html` as given, so a claim ID of `../../../index` wrote outside the folder, and IDs with `?`, `#` or `/` aborted it | Medium | Only IDs matching a safe pattern get a page or a link; the write path is checked to stay inside the folder |
-| A payload that no longer parsed, or a file that isn't a database, made the overview and case pages fail with a server error, hiding the "doesn't verify" warning on the very log that needed it | Medium | Every page reports the log as unreadable and points to the audit page, which reports the failure |
+| A payload that no longer parsed, or a file that isn't a database, made the overview and case pages fail with a server error, hiding the "doesn't verify" warning on the very log that needed it | Medium | Every page reports a log that isn't a database or doesn't parse as unreadable and points to the audit page, which reports the failure (entries with fields of the wrong type: see the re-review) |
 | The queue listed any claim with an evidence pack and no decision, including one routed automatically whose decision was never recorded, which the review CLI refuses | Medium | The queue holds claims routed to a person; the others show as needing a person, on the overview too |
 | The demo copied approvals that clear a stop but reset the stop list, so once the real registry had a cleared stop every demo agent was refused and the build crashed; a refused claim could also be decided twice | Medium | The copy drops the clearances with the stops; the junior adjuster's decision counts when it stands |
 | The read-only test couldn't see a writable open: a writable `AuditLog` leaves the files unchanged, and the AST check matched only the bare name | Medium | A test records every database opened while reading every page and requires read-only; the ADR says what the byte check covers |
@@ -405,3 +405,16 @@ HM-20's gaps.
 | Reasons with figures other than "payout above" were counted one row per amount | Low | Every template with figures is grouped without them |
 | A saved snapshot had no security policy, since that was only an HTTP header | Low, plausible | Every page also carries it as a meta tag |
 | The README said no page shows stop reasons, but the case page shows the pipeline's stop reason | Low | It says kill-switch stop reasons |
+
+**Re-review of those fixes:** 8 findings, 7 confirmed and 1 plausible; all fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| An entry that still parsed but had fields of the wrong type (`routing_reasons: 5`) still gave a server error on the overview, case and queue pages | Medium | Every shown value is checked against what the code writes; a test changes each field of each event to every wrong type and requires every page to render |
+| HM-20, the README and the footer said nothing the model wrote is shown, but typed values it chose (amounts, dates, enums, a currency code) are | Medium | They say no free text the model wrote; HM-20's gaps list the typed values shown |
+| Allow-listed fields passed any value through, so text written into one by hand reached the page | Low | A shown value must look code-written or it is withheld; HM-20's gaps say this is a backstop for a log that doesn't verify, not a personal-data filter |
+| `serve --host 127.0.0.2` started but refused every request | Low | Only the two addresses the host check answers to |
+| Two claim IDs differing only in case overwrote each other's pages on a case-insensitive disk | Low | The snapshot refuses them |
+| A case's route came from the last triage result, not the one its evidence pack records, so a run that lost the race could hide a claim from the queue | Low, plausible | The route is from the result the pack records, as the workflow reads it |
+| The reason-template test was a hand-written list with injection codes that don't exist | Low | A test builds reasons from the real routing rule, refusals and cost error |
+| The review log and a docstring still described the first fixes as complete | Low | Corrected |
