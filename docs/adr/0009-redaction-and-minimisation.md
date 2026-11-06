@@ -22,8 +22,10 @@ coverage decision, which depends on them.
   stay, but only for agents approved to see them.
 - **Enforce data classes at run time.** Each manifest lists the classes the agent may see (pii,
   health, financial). Each agent input and each tool declares the classes it carries: claims
-  history carries health, policy records pii and financial, and an input that says nothing is
-  taken to carry everything. Anything beyond the manifest is refused before the model or tool
+  history carries pii, health and financial, policy records pii and financial, and an input that
+  says nothing is taken to carry everything. Only the recommender's input declares its classes,
+  so the input check constrains only the recommender; the other agents are approved for every
+  class. Anything beyond the manifest is refused before the model or tool
   is called.
 - **Minimise the recommender.** It receives structured fields only (`RecommendationInput`): no
   names, no claim text, no free-text reasoning that could carry medical details. Its claim type

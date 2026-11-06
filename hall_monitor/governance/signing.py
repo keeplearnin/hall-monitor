@@ -2,12 +2,13 @@
 
 Each adjuster in registry/adjusters.yaml has an Ed25519 public key. A decision is signed over
 the claim ID and every decision field, evidence hash included, so a signature can't be moved to
-another claim, another payout or other evidence. The system holds public keys only, so it can
-check a decision but never make one.
+another claim, another payout or other evidence. For a real adjuster the system would hold the
+public key only, so it could check a decision but never make one.
 
-The two fictional adjusters have demo keys derived from their IDs, so the demo runs end to end.
-They are public by construction and marked `demo_key: true`; a real deployment issues keys from
-the firm's identity system (a smart card, an HSM, or signing behind single sign-on).
+The two fictional adjusters have demo keys derived from their IDs (demo_private_key), so the demo
+runs end to end and anyone, this code included, can sign as them. They are public by
+construction and marked `demo_key: true`; a real deployment issues keys from the firm's identity
+system (a smart card, an HSM, or signing behind single sign-on).
 """
 
 from __future__ import annotations

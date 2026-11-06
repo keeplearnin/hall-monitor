@@ -1,7 +1,8 @@
 # hall-monitor controls register.
 #
-# Every control names its code, the tests that prove it, and its published evidence, and maps to
-# NIST AI RMF 1.0 subcategories and FINOS AI Governance Framework risks and mitigations. Only
+# Every control names its code and the tests that prove it, lists its published evidence where
+# there is any (an empty list where there is none yet), and maps to NIST AI RMF 1.0
+# subcategories and FINOS AI Governance Framework risks and mitigations. Only
 # identifiers listed in controls/frameworks.yaml (verified against the sources) are allowed.
 # docs/controls.md is generated from this file: uv run python -m hall_monitor.governance.controls
 #
@@ -354,10 +355,11 @@ controls:
     what: >-
       Dates of birth, emails, phone, card, passport and SSN numbers, IBANs, and tax IDs, bank
       account and routing numbers labelled as such are removed from the claim text, attachment file names and tool
-      results before any model sees them. Each agent input
-      and each tool declares the data classes it carries, and anything beyond the agent's manifest
-      is refused before the model or tool is called, and agents aren't offered tools they'd be
-      refused. The recommender gets a structured summary with no names, claim text or reasoning;
+      results before any model sees them. Each tool, and the recommender's input, declares the data
+      classes it carries; an agent input that declares nothing is taken to carry every class.
+      Anything beyond the agent's manifest is refused before the model or tool is called, and
+      agents aren't offered tools they'd be refused. The recommender gets a structured summary
+      with no names, claim text or reasoning;
       its claim type and clause numbers can reveal a medical claim, so it is approved for health
       data. Identifiers removed from tool results are counted on each tool call.
     status: built
@@ -384,11 +386,16 @@ controls:
     gaps: >-
       Names and medical details still reach the agents that need them to decide. Tax IDs, bank
       account and routing numbers are caught only after a label ("TIN", "tax ID", "account
-      number", "acct #", "A/C no.", "routing"): an unlabelled number, or "account" with no
-      "number", "no." or "#", is missed, because an unlabelled run of digits could be an amount,
-      a date, an invoice or a booking number. IBANs must pass their checksum and use spaces or
+      number", "acct #", "A/C no.", "account ending", "routing"): an unlabelled number, or a
+      number after "account" with no "number", "no.", "#" or "ending", is missed, because an
+      unlabelled run of digits could be an amount, a date, an invoice or a booking number. A
+      labelled account number must have 4 to 17 digits, so a longer one is missed, and "account
+      ending" removes four digits only. IBANs must pass their checksum and use spaces or
       dashes, or none; lower case is caught only after "IBAN". Data classes are
       declared per input by code, not detected from content, so a wrong declaration isn't caught.
+      Only the recommender's input declares its classes; the other agents' inputs default to every
+      class, which their manifests allow, so in practice the input check constrains only the
+      recommender.
       Pattern redaction misses unusual formats.
 
   - id: HM-11
@@ -438,8 +445,9 @@ controls:
   - id: HM-13
     name: Grounding checks and evidence for every decision
     what: >-
-      Every extracted name, policy number, place and amount, and every cited clause, must trace to
-      the claim or the policy wording. Each decision carries an evidence pack: the AI's findings,
+      Eval scoring checks that every extracted name, policy number, place and amount, and every
+      cited clause, traces to the claim or the policy wording. Each decision carries an evidence
+      pack: the AI's findings,
       reasons, clauses, lookups and corrections.
     status: built
     code:
@@ -454,7 +462,12 @@ controls:
     finos:
       risks: [RI-04, RI-17]
       mitigations: [MI-13, MI-21]
-    gaps: Only extracted values and cited clauses are checked; reasoning text isn't.
+    gaps: >-
+      The full grounding check (unsupported_values) runs only when an eval run is scored, so only
+      on published runs, not on live claims. At run time the routing rule (HM-04) traces the
+      claimed amounts to the claim documents and checks the claimant's name and the incident date
+      against the policy record, and the policy number must match a policy record; extracted
+      places and cited clauses aren't checked. Even in scoring, reasoning text isn't checked.
 
   - id: HM-14
     name: Counterfactual fairness test
@@ -539,7 +552,8 @@ controls:
     gaps: >-
       The gate checks published results; it doesn't run live evals itself (that costs money and
       needs an API key), so a stale result is only a warning until a fresh baseline exists.
-      Until then the gate doesn't block a regression. Metrics other than unsafe routes are read
+      Until then the gate doesn't block a regression. A failing check fails CI but doesn't block a
+      merge: main has no branch protection yet. Metrics other than unsafe routes are read
       from the summary each run wrote. The live-eval workflow runs only from main, but that guard
       is in the workflow file, which a branch can edit in its own copy: the API key must be a
       secret of the live-eval environment limited to main, a repository setting this repo can't
@@ -659,7 +673,10 @@ not_covered:
   - ref: RI-26
     why: The MCP server is first-party and runs in-process; nothing checks a third-party server's integrity because there isn't one.
   - ref: RI-27
-    why: Workflow checkpoints are trusted local state; they aren't integrity-checked like the audit log.
+    why: >-
+      Workflow checkpoints are local state. The evidence pack and triage result in a checkpoint are
+      checked against the hashes in the audit log (HM-05); other checkpoint state isn't
+      integrity-checked.
   - ref: RI-29
     why: Agents hold no credentials; the API key stays in the host process.
   - ref: RI-30

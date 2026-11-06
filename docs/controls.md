@@ -153,14 +153,14 @@ Claim text and model output are escaped and fenced as untrusted (ampersands too,
 
 **Identifier redaction and data minimisation** (built)
 
-Dates of birth, emails, phone, card, passport and SSN numbers, IBANs, and tax IDs, bank account and routing numbers labelled as such are removed from the claim text, attachment file names and tool results before any model sees them. Each agent input and each tool declares the data classes it carries, and anything beyond the agent's manifest is refused before the model or tool is called, and agents aren't offered tools they'd be refused. The recommender gets a structured summary with no names, claim text or reasoning; its claim type and clause numbers can reveal a medical claim, so it is approved for health data. Identifiers removed from tool results are counted on each tool call.
+Dates of birth, emails, phone, card, passport and SSN numbers, IBANs, and tax IDs, bank account and routing numbers labelled as such are removed from the claim text, attachment file names and tool results before any model sees them. Each tool, and the recommender's input, declares the data classes it carries; an agent input that declares nothing is taken to carry every class. Anything beyond the agent's manifest is refused before the model or tool is called, and agents aren't offered tools they'd be refused. The recommender gets a structured summary with no names, claim text or reasoning; its claim type and clause numbers can reveal a medical claim, so it is approved for health data. Identifiers removed from tool results are counted on each tool call.
 
 - **Code:** [`hall_monitor/gateway/redaction.py`](../hall_monitor/gateway/redaction.py) `redact_claim`; [`hall_monitor/agents/recommendation.py`](../hall_monitor/agents/recommendation.py) `recommendation_input`; [`hall_monitor/registry.py`](../hall_monitor/registry.py) `Registry`; [`hall_monitor/tools/server.py`](../hall_monitor/tools/server.py)
 - **Tests:** [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_no_identifier_reaches_any_model`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_redaction_never_removes_evidence_from_a_real_claim`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_recommender_sees_structured_fields_only`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_an_input_beyond_the_manifests_data_classes_is_refused_before_the_model`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_a_tool_beyond_the_agents_data_classes_is_refused`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_identifiers_are_redacted_from_tool_results_and_file_names`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_tax_ids_and_bank_details_are_redacted`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_bank_and_tax_patterns_leave_ordinary_evidence_alone`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_redaction_stays_fast_on_long_runs_of_space`
 - **NIST AI RMF:** MEASURE 2.10 (Privacy risk of the AI system – as identified in the map function – is examined and documented)
 - **FINOS risks:** RI-01 Information Leaked To Hosted Model
 - **FINOS mitigations:** MI-01 AI Data Leakage Prevention and Detection; MI-06 Data Quality & Classification/Sensitivity; MI-12 Role-Based Access Control for AI Data
-- **Gaps:** Names and medical details still reach the agents that need them to decide. Tax IDs, bank account and routing numbers are caught only after a label ("TIN", "tax ID", "account number", "acct #", "A/C no.", "routing"): an unlabelled number, or "account" with no "number", "no." or "#", is missed, because an unlabelled run of digits could be an amount, a date, an invoice or a booking number. IBANs must pass their checksum and use spaces or dashes, or none; lower case is caught only after "IBAN". Data classes are declared per input by code, not detected from content, so a wrong declaration isn't caught. Pattern redaction misses unusual formats.
+- **Gaps:** Names and medical details still reach the agents that need them to decide. Tax IDs, bank account and routing numbers are caught only after a label ("TIN", "tax ID", "account number", "acct #", "A/C no.", "account ending", "routing"): an unlabelled number, or a number after "account" with no "number", "no.", "#" or "ending", is missed, because an unlabelled run of digits could be an amount, a date, an invoice or a booking number. A labelled account number must have 4 to 17 digits, so a longer one is missed, and "account ending" removes four digits only. IBANs must pass their checksum and use spaces or dashes, or none; lower case is caught only after "IBAN". Data classes are declared per input by code, not detected from content, so a wrong declaration isn't caught. Only the recommender's input declares its classes; the other agents' inputs default to every class, which their manifests allow, so in practice the input check constrains only the recommender. Pattern redaction misses unusual formats.
 
 ### HM-11
 
@@ -193,7 +193,7 @@ Deterministic scoring against answer keys: extraction, coverage reasoning with c
 
 **Grounding checks and evidence for every decision** (built)
 
-Every extracted name, policy number, place and amount, and every cited clause, must trace to the claim or the policy wording. Each decision carries an evidence pack: the AI's findings, reasons, clauses, lookups and corrections.
+Eval scoring checks that every extracted name, policy number, place and amount, and every cited clause, traces to the claim or the policy wording. Each decision carries an evidence pack: the AI's findings, reasons, clauses, lookups and corrections.
 
 - **Code:** [`hall_monitor/evals/scoring.py`](../hall_monitor/evals/scoring.py) `unsupported_values`; [`hall_monitor/governance/approval.py`](../hall_monitor/governance/approval.py) `build_evidence_pack`
 - **Tests:** [`tests/test_scoring.py`](../tests/test_scoring.py) `test_invented_amount_and_clause_count_as_hallucinations`; [`tests/test_workflow.py`](../tests/test_workflow.py) `test_evidence_hash_is_stable_and_tracks_content`
@@ -201,7 +201,7 @@ Every extracted name, policy number, place and amount, and every cited clause, m
 - **NIST AI RMF:** MEASURE 2.9 (The AI model is explained, validated, and documented, and AI system output is interpreted within its context – as identified in the map function – to inform responsible use and governance)
 - **FINOS risks:** RI-04 Hallucination and Inaccurate Outputs; RI-17 Lack of Explainability
 - **FINOS mitigations:** MI-13 Providing Citations and Source Traceability for AI-Generated Information; MI-21 Agent Decision Audit and Explainability
-- **Gaps:** Only extracted values and cited clauses are checked; reasoning text isn't.
+- **Gaps:** The full grounding check (unsupported_values) runs only when an eval run is scored, so only on published runs, not on live claims. At run time the routing rule (HM-04) traces the claimed amounts to the claim documents and checks the claimant's name and the incident date against the policy record, and the policy number must match a policy record; extracted places and cited clauses aren't checked. Even in scoring, reasoning text isn't checked.
 
 ### HM-14
 
@@ -254,7 +254,7 @@ Every pull request runs lint, the offline tests, the approvals check, this regis
 - **NIST AI RMF:** MEASURE 3.1 (Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts)
 - **FINOS risks:** RI-05 Foundation Model Versioning; RI-06 Non-Deterministic Behaviour
 - **FINOS mitigations:** MI-05 System Acceptance Testing; MI-10 AI Model Version Pinning
-- **Gaps:** The gate checks published results; it doesn't run live evals itself (that costs money and needs an API key), so a stale result is only a warning until a fresh baseline exists. Until then the gate doesn't block a regression. Metrics other than unsafe routes are read from the summary each run wrote. The live-eval workflow runs only from main, but that guard is in the workflow file, which a branch can edit in its own copy: the API key must be a secret of the live-eval environment limited to main, a repository setting this repo can't check.
+- **Gaps:** The gate checks published results; it doesn't run live evals itself (that costs money and needs an API key), so a stale result is only a warning until a fresh baseline exists. Until then the gate doesn't block a regression. A failing check fails CI but doesn't block a merge: main has no branch protection yet. Metrics other than unsafe routes are read from the summary each run wrote. The live-eval workflow runs only from main, but that guard is in the workflow file, which a branch can edit in its own copy: the API key must be a secret of the live-eval environment limited to main, a repository setting this repo can't check.
 
 ### HM-18
 
@@ -339,7 +339,7 @@ An agent's owner can stop it by adding an entry to registry/stops.yaml (python -
 | RI-24 | Agent Action Authorization Bypass | [HM-03](#hm-03), [HM-04](#hm-04), [HM-15](#hm-15) |
 | RI-25 | Tool Chain Manipulation and Injection | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15) |
 | RI-26 | MCP Server Supply Chain Compromise | Not covered: The MCP server is first-party and runs in-process; nothing checks a third-party server's integrity because there isn't one. |
-| RI-27 | Agent State Persistence Poisoning | Not covered: Workflow checkpoints are trusted local state; they aren't integrity-checked like the audit log. |
+| RI-27 | Agent State Persistence Poisoning | Not covered: Workflow checkpoints are local state. The evidence pack and triage result in a checkpoint are checked against the hashes in the audit log (HM-05); other checkpoint state isn't integrity-checked. |
 | RI-28 | Multi-Agent Trust Boundary Violations | [HM-09](#hm-09) |
 | RI-29 | Agent-Mediated Credential Discovery and Harvesting | Not covered: Agents hold no credentials; the API key stays in the host process. |
 | RI-30 | Skill/Plugin Supply Chain Compromise | Not covered: The system loads no skills or plugins. |
