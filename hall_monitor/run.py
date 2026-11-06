@@ -80,7 +80,11 @@ def main(argv: list[str] | None = None) -> int:
             critic=not args.no_critic,
             model_routing=args.model_routing,
         ) as workflow:
-            status = workflow.submit(claim, restart=args.fresh)
+            try:
+                status = workflow.submit(claim, restart=args.fresh)
+            except ValueError as exc:  # already submitted, finished, or running elsewhere
+                print(str(exc).split("\n")[0], file=sys.stderr)
+                return 1
     finally:
         tracing.flush()
 

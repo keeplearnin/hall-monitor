@@ -306,3 +306,33 @@ def test_a_rejected_decision_logs_no_names_or_submitted_text(tmp_path):
     assert len(rejections) == 3
     assert "Jordan Avery" not in everything
     assert "Ana Ruiz" not in everything and "X1234567" not in everything
+
+
+def test_the_cli_reports_a_dropped_table_as_tampering(tmp_path, capsys):
+    """A log whose table was dropped is tampered with (exit 3), not missing (exit 1)."""
+    import sqlite3
+
+    from hall_monitor import audit as audit_cli
+
+    path = tmp_path / "audit.sqlite"
+    sqlite3.connect(path).execute("CREATE TABLE other (x)").connection.commit()
+    assert audit_cli.main(["--db", str(path), "verify"]) == 3
+    assert "audit_log" in capsys.readouterr().out
+
+
+def test_the_cli_doesnt_call_a_busy_log_tampered(tmp_path, capsys):
+    """A log another process holds locked is busy (exit 4), not tampered with (exit 3)."""
+    import sqlite3
+
+    from hall_monitor import audit as audit_cli
+
+    path = tmp_path / "audit.sqlite"
+    AuditLog(path).close()
+    holder = sqlite3.connect(path, isolation_level=None)
+    holder.execute("BEGIN EXCLUSIVE")
+    try:
+        assert audit_cli.main(["--db", str(path), "verify"]) == 4
+    finally:
+        holder.execute("ROLLBACK")
+        holder.close()
+    assert "busy" in capsys.readouterr().err
