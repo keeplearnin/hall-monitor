@@ -8,6 +8,7 @@ missing answer, an API failure. Faults that code can't see (a wrong answer consi
 fact code can check) are pinned at the end as known limits, so adding a control flips them.
 """
 
+import re
 from datetime import timedelta
 
 import anthropic
@@ -233,21 +234,29 @@ def test_a_wrong_answer_sends_the_claim_to_a_person(claim, fault):
     assert any(expected_reason in r for r in result.routing.reasons), result.routing.reasons
 
 
-def _in_euros(claim):
-    """The same claim written in euros: every dollar sign and USD becomes EUR."""
-
-    def eur(text: str) -> str:
-        return text.replace("USD", "EUR").replace("$", "EUR ")
-
-    attachments = [a.model_copy(update={"text": eur(a.text)}) for a in claim.attachments]
-    return claim.model_copy(update={"narrative": eur(claim.narrative), "attachments": attachments})
+def _rewritten(claim, rewrite):
+    attachments = [a.model_copy(update={"text": rewrite(a.text)}) for a in claim.attachments]
+    narrative = rewrite(claim.narrative)
+    return claim.model_copy(update={"narrative": narrative, "attachments": attachments})
 
 
+# The same claim in another currency, each way a document might write it.
+CURRENCIES = {
+    "EUR 1.00": lambda t: t.replace("USD", "EUR").replace("$", "EUR "),
+    "CAD $1.00": lambda t: (
+        t.replace("USD", "CAD $").replace("$", "CAD $").replace("CAD CAD $", "CAD $")
+    ),
+    "$1.00 CAD": lambda t: re.sub(r"(?:USD |\$)([\d,]+\.\d\d)", r"$\1 CAD", t),
+}
+
+
+@pytest.mark.parametrize("currency", list(CURRENCIES))
 @pytest.mark.parametrize("claim", AUTO_CLAIMS, ids=lambda c: c.claim_id)
-def test_a_claim_in_another_currency_labelled_usd_goes_to_a_person(claim):
+def test_a_claim_in_another_currency_labelled_usd_goes_to_a_person(claim, currency):
     """The currency label is the model's; the trace only counts figures the documents show in
-    dollars, so a euro claim the intake calls USD isn't paid 1:1."""
-    result = _run(_in_euros(claim), outputs_from_truth(load_ground_truth(claim.claim_id)))
+    US dollars, so a claim in another currency the intake calls USD isn't paid 1:1."""
+    claim = _rewritten(claim, CURRENCIES[currency])
+    result = _run(claim, outputs_from_truth(load_ground_truth(claim.claim_id)))
 
     assert result.routing.route is Route.ADJUSTER
     assert any("not in the claim documents" in r for r in result.routing.reasons)

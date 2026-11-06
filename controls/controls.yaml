@@ -100,8 +100,10 @@ controls:
       no incident date or another currency goes to a person. Against the claim documents it
       checks that each claimed item matches its own occurrence of that figure, that the total claimed
       appears in them, and that the items add up to the total. Only figures the documents mark as
-      dollars count ($, US$ or USD next to them), and never part of a date, a time or a reference,
-      so a year read as the claim, or a euro claim the intake labels USD, goes to a person.
+      US dollars count ($, US$ or USD on the same line beside them, with no other currency code
+      or symbol and no minus sign next to them), and never part of a date, a time or a
+      reference, so a year read as the claim, or a claim in euros or Canadian dollars the
+      intake labels USD, goes to a person.
     status: built
     code:
       - hall_monitor/governance/routing.py::route_claim
@@ -127,8 +129,10 @@ controls:
       agents' figures against what the claimant sent, not the claimant's own figures, and a figure
       written in both the narrative and a receipt counts twice, so wrong items whose total happens
       to appear in the documents as dollars would pass it. The currency comes from the claimant's
-      own marks: a "$" the claimant uses for another dollar currency, written without a prefix
-      such as C$ or A$, is taken as USD.
+      own marks: a bare "$" the claimant uses for another currency, with no code or prefix beside
+      it (C$, CAD $, $450 CAD), is taken as USD, and a currency named elsewhere in the document
+      (a header saying "all amounts in CAD") isn't read. A refund written as ($20.00) traces as
+      $20.
 
   - id: HM-05
     name: Adjuster approval gate
