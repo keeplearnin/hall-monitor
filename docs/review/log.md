@@ -261,3 +261,28 @@ each; this entry starts with the amount trace.
 | The marker could sit on another line, so a bare year at a line end traced when the next line started "USD" | Medium | One space or tab at most between the marker and the figure |
 | The scoring comment said its amount check followed the routing rule, but scoring accepts any currency | Low | Comment says what each check asks |
 | A discount line "-$20.00" traced as $20 | Low, plausible | A minus sign before the marker stops it; "($20.00)" still traces (HM-04 gap), because the claims put ordinary amounts in brackets |
+
+## Review 6: approval gate and audit log
+
+The approval-gate and audit-log findings from review 6 (the four-reviewer review of the whole
+repository after HM-10).
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Two runs of the same claim at once (a redelivered message, a double click) both paid it, and two adjusters deciding at once both had decisions recorded | High | `evidence_pack` and `final_decision` are once-only per claim, checked inside the append's `BEGIN IMMEDIATE`; the second run or decision fails with a message, and a second adjuster's attempt is recorded as a rejection |
+| Restoring the checkpoints file from a backup let a decided claim be decided and paid again | High | `decide` refuses a claim the log shows decided, and `status` reports it decided from the log |
+| Appending a `triage_result` and an `evidence_pack` to the log made the review trust them, so a junior adjuster could pay a fraud-flagged claim and `verify` stayed OK | Medium | The pack's entry names the result it was built from, and the review checks those; a second pack appended by hand makes the claim undecidable, and the adjuster is shown the pack stored at triage |
+| A rejection logged an unkeyed hash of the whole submission, reason included, so a guessed reason could be confirmed | Medium | Logged as a keyed hash |
+| The final decision's signature covers the reason, so with the public key it confirms a guessed reason | Medium | Logged in the HM-06 gaps and ADR 0014; not yet fixed (it needs a change to what is signed) |
+| `waiting()` crashed on a new checkpoints file | Low | Creates LangGraph's tables first |
+| The audit CLI crashed on a file with no `audit_log` table, exiting 1 ("no log") rather than 3 ("tampered") | Low | Reports it as not a readable log, exit 3 |
+
+**Pre-PR review of those fixes:** 4 findings and 1 smaller one, all confirmed and fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| `status` trusted a `final` in the checkpoint before the log, so an edited checkpoint took a waiting claim out of the queue and showed a payout nobody approved | Medium | The log decides; a checkpoint decision it doesn't hold, or that differs from it, is reported as a problem |
+| Two runs of a claim going to an adjuster both recorded a pack, leaving it undecidable with a message that read as tampering | Medium | The pack is once-only too, and its entry names the result it was built from |
+| With two packs recorded, the adjuster was shown the checkpoint's copy | Low | Shown the pack stored at triage |
+| The audit CLI called a log another process held locked "tampered" (exit 3) | Low | Busy is exit 4 |
+| A lost race in `review decide` or `run` ended in a traceback | Low | One-line message, exit 1 |
