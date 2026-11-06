@@ -21,15 +21,14 @@ from starlette.routing import Route
 
 from hall_monitor.governance.audit import ChainHead
 from hall_monitor.panel import pages, views
+from hall_monitor.panel.pages import CSP
 
-LOCAL_HOSTS = ["localhost", "127.0.0.1", "testserver"]
+# Names a browser on this machine uses for it. (The snapshot's client sends "localhost".)
+LOCAL_HOSTS = ["localhost", "127.0.0.1"]
 
 SECURITY_HEADERS = {
     # Only the panel's own stylesheet; no scripts, frames or other origins.
-    "Content-Security-Policy": (
-        "default-src 'none'; style-src 'self'; form-action 'self'; frame-ancestors 'none'; "
-        "base-uri 'none'"
-    ),
+    "Content-Security-Policy": CSP + "; frame-ancestors 'none'",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
     "Cache-Control": "no-store",
@@ -42,8 +41,9 @@ def _anchor(request: Request) -> ChainHead | None | str:
     if not seq and not digest:
         return None
     digest = (digest or "").strip().lower()
+    seq = (seq or "").strip()
     if (
-        not (seq or "").strip().isdigit()
+        not (seq.isascii() and seq.isdigit())
         or len(digest) != 64
         or not all(ch in "0123456789abcdef" for ch in digest)
     ):

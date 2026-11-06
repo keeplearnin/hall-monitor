@@ -38,17 +38,20 @@ def _sources(args: argparse.Namespace) -> views.Sources:
 
 
 def _loopback(host: str) -> bool:
+    """IPv4 loopback only: the host check accepts the names localhost and 127.0.0.1."""
     if host == "localhost":
         return True
     try:
-        return ipaddress.ip_address(host).is_loopback
+        address = ipaddress.ip_address(host)
     except ValueError:
         return False
+    return address.version == 4 and address.is_loopback
 
 
 def snapshot(src: views.Sources, out: Path) -> list[str]:
-    """Save every page and its JSON under `out`, at the paths the server uses."""
-    client = TestClient(create_app(src))
+    """Save every page and its JSON under `out`, at the paths the server uses. A case whose ID
+    can't safely be a file name gets no page; its row says so."""
+    client = TestClient(create_app(src), base_url="http://localhost")
     paths = [
         "panel.css",
         "index.html",
@@ -64,11 +67,15 @@ def snapshot(src: views.Sources, out: Path) -> list[str]:
     for agent in views.agents(src)["agents"]:
         paths += [f"agents/{agent['id']}.html", f"api/agents/{agent['id']}.json"]
     for case in views.cases(src):
-        paths += [f"cases/{case['claim_id']}.html", f"api/cases/{case['claim_id']}.json"]
+        if case["linkable"]:
+            paths += [f"cases/{case['claim_id']}.html", f"api/cases/{case['claim_id']}.json"]
+    root = out.resolve()
     for path in paths:
+        target = (out / path).resolve()
+        if root not in target.parents:  # only IDs that match SAFE_ID reach here; belt and braces
+            raise ValueError(f"refusing to write {path} outside {out}")
         response = client.get("/" + path)
         response.raise_for_status()
-        target = out / path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(response.content)
     return paths

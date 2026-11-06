@@ -38,7 +38,7 @@ def src(demo_data):
 
 @pytest.fixture
 def client(src):
-    return TestClient(create_app(src))
+    return TestClient(create_app(src), base_url="http://localhost")
 
 
 def _all_paths(src) -> list[str]:
@@ -107,7 +107,12 @@ def test_an_audit_log_without_a_key_gets_none_from_the_panel(tmp_path):
     log.close()
     (tmp_path / "audit.key").unlink()
     src = views.Sources(audit_db=tmp_path / "audit.sqlite")
-    assert TestClient(create_app(src)).get("/cases/claim_x.html").status_code == 200
+    assert (
+        TestClient(create_app(src), base_url="http://localhost")
+        .get("/cases/claim_x.html")
+        .status_code
+        == 200
+    )
     assert not (tmp_path / "audit.key").exists()
 
 
@@ -132,7 +137,9 @@ def test_values_from_the_log_are_escaped(tmp_path):
     log = AuditLog(tmp_path / "audit.sqlite")
     log.append("<script>x</script>", "claim_submitted", "<b>actor</b>", {"note": "<img src=x>"})
     log.close()
-    client = TestClient(create_app(views.Sources(audit_db=tmp_path / "audit.sqlite")))
+    client = TestClient(
+        create_app(views.Sources(audit_db=tmp_path / "audit.sqlite")), base_url="http://localhost"
+    )
     page = client.get("/cases.html").text
     assert "<script>x</script>" not in page and "&lt;script&gt;x&lt;/script&gt;" in page
 
@@ -261,3 +268,260 @@ def test_the_eval_view_judges_results_against_the_panel_s_own_approvals(tmp_path
     (registry / "approvals.yaml").write_text(yaml.safe_dump({"agents": approvals}))
     assert views.evals(views.Sources(registry_dir=registry))["checks"][0]["state"] == "pass"
     assert views.evals(views.Sources())["checks"][0]["state"] == "stale"
+
+
+# --- Review 7 findings -----------------------------------------------------------------------
+
+
+def _log_with(tmp_path, entries) -> views.Sources:
+    log = AuditLog(tmp_path / "audit.sqlite")
+    for claim_id, event, actor, payload in entries:
+        log.append(claim_id, event, actor, payload)
+    log.close()
+    return views.Sources(audit_db=tmp_path / "audit.sqlite")
+
+
+def _local(src) -> TestClient:
+    return TestClient(create_app(src), base_url="http://localhost")
+
+
+MODEL_WRITTEN = "Jane Doe, broken leg in Lisbon"
+
+
+def test_model_written_text_in_the_log_never_reaches_a_page(tmp_path):
+    """Tool arguments, tool errors, corrected policy numbers and revision values are written by
+    the model; the panel shows an allow-list of fields per event, and reasons only when they
+    match the code's own templates."""
+    src = _log_with(
+        tmp_path,
+        [
+            (
+                "claim_x",
+                "tool_call",
+                "risk_fraud",
+                {
+                    "actor": "risk_fraud",
+                    "tool": "policy_lookup",
+                    "arguments": {"policy_number": f"WTP-ESS-999999 {MODEL_WRITTEN}"},
+                    "allowed": False,
+                    "result_sha256": None,
+                    "error": f"policy WTP-ESS-999999 {MODEL_WRITTEN} is outside the claim",
+                    "identifiers_redacted": {},
+                    "seconds": 0.01,
+                },
+            ),
+            (
+                "claim_x",
+                "tool_call",
+                "intake",
+                {"actor": "intake", "tool": MODEL_WRITTEN, "arguments": {}, "allowed": False},
+            ),
+            (
+                "claim_x",
+                "code_correction",
+                "pipeline",
+                {
+                    "correction": f"policy_number '{MODEL_WRITTEN}' replaced by 'WTP-ESS-100001', "
+                    "the only valid policy number in the claim text"
+                },
+            ),
+            (
+                "claim_x",
+                "revision",
+                "intake",
+                {
+                    "round": 1,
+                    "changed": {
+                        "policy_number": [MODEL_WRITTEN, "WTP-ESS-100001"],
+                        "total_claimed": [450.0, 540.0],
+                    },
+                },
+            ),
+            (
+                "claim_x",
+                "triage_result",
+                "pipeline",
+                {
+                    "route": "adjuster",
+                    "routing_reasons": [
+                        "payout 3,000.00 above 2,500 threshold",
+                        f"pipeline stopped: hall pass refused: agent 'intake' may not call tool "
+                        f"'{MODEL_WRITTEN}'",
+                    ],
+                    "stopped_reason": f"hall pass refused: agent 'intake' may not call tool "
+                    f"'{MODEL_WRITTEN}'",
+                    "cost_usd": 0.01,
+                    "unknown_field": MODEL_WRITTEN,
+                },
+            ),
+            ("claim_x", "something_new", "pipeline", {"note": MODEL_WRITTEN}),
+        ],
+    )
+    client = _local(src)
+    for path in ("/cases/claim_x.html", "/api/cases/claim_x.json", "/index.html", "/cases.html"):
+        text = client.get(path).text
+        assert "Jane Doe" not in text and "WTP-ESS-999999" not in text, path
+        assert "WTP-ESS-100001" not in text, path  # a policy number is the policyholder's
+    trace = client.get("/api/cases/claim_x.json").json()
+    shown = [e["payload"] for e in trace["entries"]]
+    assert shown[0]["arguments"] == "withheld (1)" and shown[0]["error"] == "withheld"
+    assert shown[3]["changed"]["total_claimed"] == [450.0, 540.0]
+    assert shown[4]["routing_reasons"][0] == "payout 3,000.00 above 2,500 threshold"
+    assert "withheld" in shown[4]["routing_reasons"][1]
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "claim is in EUR, not USD: amounts can't be compared",
+        "no policy record to check the claim against",
+        "claimant is not the insured named on the policy",
+        "no incident date to check against the coverage period",
+        "incident date is outside the coverage period",
+        "no claim text to check the claimed amounts against",
+        "claimed amounts not in the claim documents in USD: 1.00, 2,023.00",
+        "claimed items (450.00) don't add up to the 540.00 claimed",
+        "recommended request information",
+        "nothing covered (a denial)",
+        "payout 600.00 exceeds the 540.00 claimed",
+        "payout 3,000.00 above 2,500 threshold",
+        "fraud flags: duplicate_receipt, prior_similar_claim",
+        "high risk",
+        "critic still disagrees after revisions",
+        "critic changed coverage_check.covered_amount, intake.total_claimed",
+        "claim text addresses the AI: ignore_instructions, role_override",
+        "pipeline stopped: agent refused or returned no usable output: intake declined claim c_1",
+        "pipeline stopped: APIError from the model call",
+        "pipeline stopped: hall pass refused: agent 'risk_fraud' is stopped (stop-0001 by own-302)",
+        "pipeline stopped: no policy record found for the policy number on the claim",
+        "pipeline stopped: unexpected KeyError",
+    ],
+)
+def test_every_reason_the_code_writes_is_shown(reason):
+    assert views.shown_reason(reason) == reason
+
+
+def test_reasons_are_counted_without_their_figures():
+    kinds = {
+        views.reason_kind(r)
+        for r in (
+            "payout 600.00 exceeds the 540.00 claimed",
+            "payout 700.00 exceeds the 650.00 claimed",
+        )
+    }
+    assert kinds == {"payout exceeds the amount claimed"}
+    assert views.reason_kind("claimed amounts not in the claim documents in USD: 1.00") == (
+        "claimed amounts not in the claim documents in USD"
+    )
+    assert views.reason_kind("claimed items (1.00) don't add up to the 2.00 claimed") == (
+        "claimed items don't add up to the total claimed"
+    )
+    assert views.reason_kind(
+        "pipeline stopped: agent refused or returned no usable output: "
+        "intake declined claim claim_007"
+    ) == ("pipeline stopped: agent refused or returned no usable output")
+
+
+def test_a_snapshot_never_writes_outside_its_folder(tmp_path):
+    src = _log_with(
+        tmp_path,
+        [(cid, "claim_submitted", "channel:email", {}) for cid in ("../../../index", "a?b", "")]
+        + [("claim_ok", "claim_submitted", "channel:email", {})],
+    )
+    out = tmp_path / "snap" / "deep"
+    cli.snapshot(src, out)
+    written = [p for p in tmp_path.rglob("*") if p.is_file() and p.suffix in (".html", ".json")]
+    assert all(out in p.parents for p in written), written
+    assert (out / "cases" / "claim_ok.html").exists()
+
+
+def test_a_damaged_audit_log_shows_as_damaged_not_as_an_error(tmp_path):
+    import sqlite3
+
+    src = _log_with(tmp_path, [("claim_x", "claim_submitted", "channel:email", {})])
+    db = sqlite3.connect(tmp_path / "audit.sqlite")
+    db.execute("DROP TRIGGER audit_log_no_update")
+    db.execute("UPDATE audit_log SET payload = 'not json'")
+    db.commit()
+    db.close()
+    client = _local(src)
+    for path in ("/index.html", "/cases.html", "/queue.html", "/audit.html", "/cases/claim_x.html"):
+        assert client.get(path).status_code == 200, path
+    assert not views.overview(src)["audit"]["ok"]
+    assert "can't be read" in views.overview(src)["audit_problem"]
+    (tmp_path / "garbage.sqlite").write_bytes(b"this is not a database at all, not even close")
+    garbage = views.Sources(audit_db=tmp_path / "garbage.sqlite")
+    for path in ("/index.html", "/cases.html", "/audit.html"):
+        assert _local(garbage).get(path).status_code == 200, path
+    assert not views.audit_integrity(garbage)["ok"]
+
+
+def test_the_queue_holds_only_claims_routed_to_a_person(tmp_path):
+    src = _log_with(
+        tmp_path,
+        [
+            ("claim_a", "triage_result", "pipeline", {"route": "auto", "routing_reasons": []}),
+            ("claim_a", "evidence_pack", "pipeline", {"evidence_sha256": "0" * 64}),
+            ("claim_b", "triage_result", "pipeline", {"route": "adjuster", "routing_reasons": []}),
+            ("claim_b", "evidence_pack", "pipeline", {"evidence_sha256": "1" * 64}),
+        ],
+    )
+    assert [c["claim_id"] for c in views.review_queue(src)] == ["claim_b"]
+    states = {c["claim_id"]: c["state"] for c in views.cases(src)}
+    assert states["claim_a"] == "routed automatically, no decision recorded"
+
+
+def test_the_demo_builds_from_a_registry_whose_approvals_clear_a_stop(tmp_path, monkeypatch):
+    registry = tmp_path / "shipped"
+    shutil.copytree(demo.DEFAULT_REGISTRY_DIR, registry, ignore=shutil.ignore_patterns(".*"))
+    add_stop(registry / STOPS_FILENAME, agent="critic", by="own-301", reason="test")
+    approvals = yaml.safe_load((registry / "approvals.yaml").read_text())
+    approvals["agents"]["critic"]["cleared_stops"] = ["stop-0001"]
+    (registry / "approvals.yaml").write_text(yaml.safe_dump(approvals))
+    monkeypatch.setattr(demo, "DEFAULT_REGISTRY_DIR", registry)
+    built = demo.build(tmp_path / "demo", limit=6, stop_after=5)
+    assert built["claims"] == 6
+
+
+def test_every_audit_log_the_panel_opens_is_read_only(src, monkeypatch):
+    """A writable open would leave the files unchanged too, so check the opens themselves."""
+    import sqlite3
+
+    real = sqlite3.connect
+    opened = []
+
+    def spy(target, *args, **kwargs):
+        opened.append(str(target))
+        return real(target, *args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", spy)
+    client = TestClient(create_app(src), base_url="http://localhost")
+    for path in _all_paths(src):
+        client.get(path)
+    assert opened and all(t.startswith("file:") and t.endswith("?mode=ro") for t in opened)
+
+
+def test_only_this_machine_s_names_are_accepted():
+    app = create_app(views.Sources())
+    for host in ("testserver", "localhost.", "[::1]:8765", "evil.example"):
+        assert TestClient(app).get("/index.html", headers={"host": host}).status_code == 400
+    assert cli.main(["serve", "--host", "::1"]) == 2
+
+
+def test_a_non_ascii_digit_anchor_is_refused_not_an_error(client):
+    assert client.get(f"/audit.html?seq=%C2%B2&hash={'a' * 64}").status_code == 400
+
+
+def test_a_broken_approvals_file_shows_on_the_eval_page(tmp_path, demo_data):
+    registry = _registry_copy(demo_data, tmp_path)
+    (registry / "approvals.yaml").write_text("- not a mapping\n")
+    client = _local(views.Sources(registry_dir=registry))
+    for path in ("/evals.html", "/agents.html", "/agents/critic.html", "/index.html"):
+        assert client.get(path).status_code in (200, 404), path
+    assert views.evals(views.Sources(registry_dir=registry))["problem"]
+
+
+def test_saved_pages_carry_their_own_security_policy(src, tmp_path):
+    cli.snapshot(src, tmp_path)
+    page = (tmp_path / "index.html").read_text()
+    assert '<meta http-equiv="Content-Security-Policy"' in page and "default-src 'none'" in page

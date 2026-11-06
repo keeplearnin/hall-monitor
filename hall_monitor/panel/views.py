@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import sqlite3
 from collections import Counter
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -25,9 +26,11 @@ import yaml
 
 from hall_monitor.approvals import AGENT_MODULES, prompt_sha256
 from hall_monitor.evals import gate
+from hall_monitor.governance.approval import FinalDecision
 from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog, ChainHead
 from hall_monitor.governance.controls import REGISTER, load_register
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
+from hall_monitor.models import AgentCall
 from hall_monitor.registry import (
     APPROVALS_FILENAME,
     DEFAULT_REGISTRY_DIR,
@@ -39,6 +42,7 @@ from hall_monitor.registry import (
     load_approvals,
     load_owners,
 )
+from hall_monitor.tools.server import CLAIMS_HISTORY, POLICY_LOOKUP
 
 # The worked examples. Only travel claims write to the audit log today.
 WORKFLOWS = (
@@ -72,9 +76,23 @@ def _audit(src: Sources) -> Iterator[AuditLog | None]:
         log.close()
 
 
-def _entries(src: Sources) -> list[dict]:
-    with _audit(src) as log:
-        return log.entries() if log is not None else []
+# A damaged file, or an entry that no longer parses: the audit view says which.
+_UNREADABLE = (sqlite3.DatabaseError, ValueError, TypeError)
+
+# IDs the panel links to and saves pages for. Anything else is shown as text, never in a path.
+SAFE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+
+
+def linkable(identifier: object) -> bool:
+    return isinstance(identifier, str) and SAFE_ID.fullmatch(identifier) is not None
+
+
+def _entries(src: Sources, claim_id: str | None = None) -> tuple[list[dict], str | None]:
+    try:
+        with _audit(src) as log:
+            return (log.entries(claim_id) if log is not None else []), None
+    except _UNREADABLE as exc:
+        return [], f"the audit log can't be read ({type(exc).__name__}); see Audit integrity"
 
 
 # --- Agents ----------------------------------------------------------------------------------
@@ -188,6 +206,211 @@ def agent(src: Sources, agent_id: str) -> dict | None:
     return found | {"evals": scored}
 
 
+# --- What the panel shows of each entry -------------------------------------------------------
+#
+# The log holds IDs, hashes, decision fields and costs, but a few fields carry what the model
+# wrote: tool arguments and tool errors, a policy number a code correction replaced, revision
+# values. The panel shows an allow-list of fields per event, and a reason only when it matches
+# one of the code's own templates. A template added later is withheld until it is listed here:
+# the panel fails closed.
+
+WITHHELD = "withheld"
+_N = r"-?[\d,]+(?:\.\d+)?"
+_CODES = r"[a-z_]+(?:, [a-z_]+)*"
+_STOPS = (
+    r"agent refused or returned no usable output: [a-z_]+ (?:declined claim \S+|was still "
+    r"calling tools after \d+ rounds|returned no complete output for \S+)",
+    r"[A-Za-z]+ from the model call",
+    r"hall pass refused: agent '[a-z_]+' (?:has no hall pass|is (?:planned|retired), not active|"
+    r"is stopped \(stop-\d+ by [\w-]+\)|(?:manifest|prompt) [0-9a-f]+ is not the approved "
+    r"version|may not see [a-z, ]+ data)",
+    r"hall pass refused: [\w .()'-]+; every agent is refused",
+    r"no policy record found (?:for the policy number on the claim|after the critic's correction)",
+    r"unexpected [A-Za-z]+",
+)
+_COST_UNKNOWN = r"(?:; cost unknown: no price for model '[\w.-]+' in PRICES_PER_MTOK)?"
+_STOP = rf"(?:{'|'.join(_STOPS)}){_COST_UNKNOWN}"
+_REASONS = (
+    r"claim is in [A-Z]{3}, not USD: amounts can't be compared",
+    r"no policy record to check the claim against",
+    r"claimant is not the insured named on the policy",
+    r"no incident date to check against the coverage period",
+    r"incident date is outside the coverage period",
+    r"no claim text to check the claimed amounts against",
+    rf"claimed amounts not in the claim documents in USD: {_N}(?:, {_N})*",
+    rf"claimed items \({_N}\) don't add up to the {_N} claimed",
+    r"recommended [a-z ]+",
+    r"nothing covered \(a denial\)",
+    rf"payout {_N} exceeds the {_N} claimed",
+    rf"payout {_N} above {_N} threshold",
+    rf"fraud flags: {_CODES}",
+    r"(?:low|medium|high) risk",
+    r"critic still disagrees after revisions",
+    r"critic changed [a-z_.]+(?:, [a-z_.]+)*",
+    rf"claim text addresses the AI: {_CODES}",
+    rf"pipeline stopped: {_STOP}",
+)
+_REJECTIONS = (
+    r"the decision names an adjuster who isn't registered",
+    r"the decision isn't signed with [\w-]+'s key",
+    r"evidence hash doesn't match the current evidence pack",
+    r"this claim (?:is in [A-Z]{3}|has no amount extracted), so its amount can't be checked "
+    r"against USD limits; a senior adjuster must decide",
+    rf"denying {_N} exceeds [\w-]+'s authority of {_N}; a senior adjuster must decide",
+    r"a payment needs a payout above 0",
+    rf"payout exceeds the {_N} claimed",
+    rf"payout exceeds [\w-]+'s authority of {_N}; a senior adjuster must decide",
+    r"paying a claim the AI never assessed for fraud needs a senior adjuster",
+    r"paying a claim with a fraud flag or above-low risk needs a senior adjuster",
+    r"[a-z_]+ can't carry a payout",
+    r"overriding the AI or denying a claim needs a reason of at least \d+ characters",
+    r"the decision isn't valid \([a-z_, ]+\)",
+    r"the saved triage result isn't the one recorded at triage",
+    r"the saved evidence pack (?:isn't the one recorded at triage|was changed after triage)",
+    r"the evidence pack recorded at triage is no longer stored",
+    r"evidence pack [0-9a-f]+ was changed after it was stored",
+    r"the claim was already decided",
+)
+_REASON_RE = re.compile("|".join(_REASONS))
+_STOP_RE = re.compile(_STOP)
+_REJECTION_RE = re.compile("|".join(_REJECTIONS))
+_CORRECTION_RE = re.compile(
+    r"policy_number .* replaced by .*, the only valid policy number in the claim text"
+)
+TOOLS = frozenset({POLICY_LOOKUP, CLAIMS_HISTORY})
+
+
+def _template(text: object, pattern: re.Pattern) -> str | None:
+    if text is None:
+        return None
+    return text if isinstance(text, str) and pattern.fullmatch(text) else WITHHELD
+
+
+def shown_reason(reason: object) -> str | None:
+    """A routing reason as the code wrote it, or "withheld" if it isn't one of its templates."""
+    return _template(reason, _REASON_RE)
+
+
+def shown_stop(reason: object) -> str | None:
+    return _template(reason, _STOP_RE)
+
+
+def reason_kind(reason: str) -> str:
+    """A routing reason without its case's figures, so reasons can be counted together."""
+    for prefix, kind in (
+        ("fraud flags:", "fraud flags"),
+        ("claimed amounts not in the claim documents in USD", None),
+        ("claimed items (", "claimed items don't add up to the total claimed"),
+        ("claim text addresses the AI", None),
+        ("pipeline stopped: agent refused or returned no usable output", None),
+    ):
+        if reason.startswith(prefix):
+            return kind or prefix
+    if re.fullmatch(rf"payout {_N} exceeds the {_N} claimed", reason):
+        return "payout exceeds the amount claimed"
+    return re.sub(rf"^payout {_N} above", "payout above", reason)
+
+
+_SHOWN_FIELDS = {
+    "claim_submitted": {
+        "claim_sha256",
+        "submitted_at",
+        "attachments",
+        "identifiers_redacted",
+        "injection_signals",
+    },
+    "agent_call": set(AgentCall.model_fields),
+    "tool_call": {"actor", "allowed", "result_sha256", "identifiers_redacted", "seconds"},
+    "critic_review": set(),
+    "revision": {"round"},
+    "code_correction": set(),
+    "triage_result": {
+        "result_sha256",
+        "route",
+        "recommended_next_step",
+        "covered_amount",
+        "cost_usd",
+        "models",
+    },
+    "evidence_pack": {"evidence_sha256", "result_sha256"},
+    "decision_rejected": {"submitted_hmac"},
+    "final_decision": (set(FinalDecision.model_fields) - {"adjuster_name", "reason"})
+    | {"reason_hmac"},
+}
+# Revised fields whose values are typed by the code (enums, dates, amounts). A policy number is
+# the policyholder's, and the model wrote it.
+_REVISION_VALUES = {
+    "claim_type",
+    "incident_date",
+    "total_claimed",
+    "decision",
+    "covered_amount",
+    "level",
+    "flags",
+}
+
+
+def shown_payload(event: str, payload: object) -> dict:
+    """What the panel shows of one entry's payload: its allow-listed fields, with free text
+    replaced by "withheld"."""
+    if not isinstance(payload, dict):
+        return {"payload": WITHHELD}
+    if event not in _SHOWN_FIELDS:
+        return {"fields": f"{WITHHELD} ({len(payload)})"}
+    shown = {k: v for k, v in payload.items() if k in _SHOWN_FIELDS[event]}
+    hidden = len(payload) - len(shown)
+    match event:
+        case "tool_call":
+            tool = payload.get("tool")
+            shown["tool"] = tool if tool in TOOLS else WITHHELD
+            shown["arguments"] = f"{WITHHELD} ({len(payload.get('arguments') or {})})"
+            shown["error"] = WITHHELD if payload.get("error") else None
+            hidden -= sum(k in payload for k in ("tool", "arguments", "error"))
+        case "critic_review":
+            shown["issues"] = [
+                {k: i.get(k) for k in ("stage", "problem_hmac")}
+                for i in payload.get("issues") or []
+                if isinstance(i, dict)
+            ]
+            hidden -= "issues" in payload
+        case "revision":
+            changed = payload.get("changed") or {}
+            shown["changed"] = {
+                f: v if f in _REVISION_VALUES else [WITHHELD, WITHHELD]
+                for f, v in (changed.items() if isinstance(changed, dict) else ())
+            }
+            hidden -= "changed" in payload
+        case "code_correction":
+            fixed = _CORRECTION_RE.fullmatch(str(payload.get("correction", "")))
+            shown["correction"] = (
+                "policy_number replaced by the only valid policy number in the claim text "
+                "(numbers withheld)"
+                if fixed
+                else WITHHELD
+            )
+            hidden -= "correction" in payload
+        case "triage_result":
+            shown["routing_reasons"] = [
+                shown_reason(r) for r in payload.get("routing_reasons") or []
+            ]
+            shown["stopped_reason"] = shown_stop(payload.get("stopped_reason"))
+            hidden -= sum(k in payload for k in ("routing_reasons", "stopped_reason"))
+        case "decision_rejected":
+            shown["rejected_because"] = _template(payload.get("rejected_because"), _REJECTION_RE)
+            hidden -= "rejected_because" in payload
+        case "final_decision":
+            shown["routing_reasons"] = [
+                shown_reason(r) for r in payload.get("routing_reasons") or []
+            ]
+            if "signature" in payload:
+                # With the public key it could confirm a guessed reason (HM-06 gap).
+                shown["signature"] = "present (Ed25519)"
+                hidden -= 1
+    if hidden > 0:
+        shown["other_fields"] = f"{WITHHELD} ({hidden})"
+    return shown
+
+
 # --- Cases -----------------------------------------------------------------------------------
 
 
@@ -199,6 +422,7 @@ def _cases(entries: list[dict]) -> dict[str, dict]:
             e["claim_id"],
             {
                 "claim_id": e["claim_id"],
+                "linkable": linkable(e["claim_id"]),
                 "submitted_at": None,
                 "route": None,
                 "routing_reasons": [],
@@ -216,17 +440,19 @@ def _cases(entries: list[dict]) -> dict[str, dict]:
             },
         )
         case["last_seq"] = e["seq"]
-        payload = e["payload"]
+        payload = e["payload"] if isinstance(e["payload"], dict) else {}
         match e["event"]:
             case "claim_submitted":
                 case["submitted_at"] = case["submitted_at"] or e["recorded_at"]
             case "triage_result":
-                case["route"] = payload.get("route")
-                case["routing_reasons"] = payload.get("routing_reasons") or []
-                case["recommended_next_step"] = payload.get("recommended_next_step")
-                case["covered_amount"] = payload.get("covered_amount")
-                case["stopped_reason"] = payload.get("stopped_reason")
-                case["cost_usd"] += payload.get("cost_usd") or 0.0
+                shown = shown_payload("triage_result", payload)
+                case["route"] = shown.get("route")
+                case["routing_reasons"] = shown["routing_reasons"]
+                case["recommended_next_step"] = shown.get("recommended_next_step")
+                case["covered_amount"] = shown.get("covered_amount")
+                case["stopped_reason"] = shown["stopped_reason"]
+                cost = payload.get("cost_usd")
+                case["cost_usd"] += cost if isinstance(cost, int | float) else 0.0
             case "evidence_pack":
                 case["evidence"] = True
             case "decision_rejected":
@@ -237,48 +463,53 @@ def _cases(entries: list[dict]) -> dict[str, dict]:
                 case["payout_usd"] = payload.get("payout_usd")
                 case["overrode_ai"] = bool(payload.get("overrode_ai"))
     for case in cases.values():
-        case["state"] = (
-            "decided"
-            if case["decided_by"]
-            else "waiting for a person"
-            if case["evidence"]
-            else "in triage, or stopped before it finished"
-        )
+        if case["decided_by"]:
+            case["state"] = "decided"
+        elif case["evidence"] and case["route"] == "adjuster":
+            case["state"] = "waiting for a person"
+        elif case["evidence"]:
+            # Triage finished but no decision was recorded: the workflow won't decide it again,
+            # so a person has to look (workflow.status says needs_a_person or in_progress).
+            case["state"] = (
+                "routed automatically, no decision recorded"
+                if case["route"] == "auto"
+                else "triaged, no decision recorded"
+            )
+        else:
+            case["state"] = "in triage, or stopped before it finished"
     return cases
 
 
 def cases(src: Sources) -> list[dict]:
-    return sorted(_cases(_entries(src)).values(), key=lambda c: c["claim_id"])
+    entries, _ = _entries(src)
+    return sorted(_cases(entries).values(), key=lambda c: c["claim_id"])
 
 
 def review_queue(src: Sources) -> list[dict]:
-    """Claims the routing rule sent to a person that nobody has decided yet. Deciding stays in
-    the review CLI, where the adjuster sees the evidence and signs."""
+    """Claims the routing rule sent to a person that nobody has decided, as the audit log
+    records them. Deciding stays in the review CLI, where the adjuster sees the evidence and
+    signs; it also checks the claim's saved state, so it can refuse one listed here."""
     return [c for c in cases(src) if c["state"] == "waiting for a person"]
 
 
 def case_trace(src: Sources, claim_id: str) -> dict | None:
-    """Every audit entry for one claim, in order. A signature is shown as present, not by value:
-    with the public key it could confirm a guessed reason (HM-06 gap)."""
-    with _audit(src) as log:
-        entries = log.entries(claim_id) if log is not None else []
+    """Every audit entry for one claim, in order, each with what the panel shows of it."""
+    entries, problem = _entries(src, claim_id)
+    if problem:
+        return {"claim_id": claim_id, "case": None, "entries": [], "problem": problem}
     if not entries:
         return None
-    shown = []
-    for e in entries:
-        payload = dict(e["payload"])
-        if "signature" in payload:
-            payload["signature"] = "present (Ed25519)"
-        shown.append({k: e[k] for k in ("seq", "recorded_at", "event", "actor", "entry_hash")})
-        shown[-1]["payload"] = payload
-    return {"claim_id": claim_id, "case": _cases(entries)[claim_id], "entries": shown}
-
-
-def reason_kind(reason: str) -> str:
-    """A routing reason without its case's figures, so reasons can be counted together."""
-    if reason.startswith("fraud flags:"):
-        return "fraud flags"
-    return re.sub(r"^payout [\d,.]+ above", "payout above", reason)
+    shown = [
+        {k: e[k] for k in ("seq", "recorded_at", "event", "actor", "entry_hash")}
+        | {"payload": shown_payload(e["event"], e["payload"])}
+        for e in entries
+    ]
+    return {
+        "claim_id": claim_id,
+        "case": _cases(entries)[claim_id],
+        "entries": shown,
+        "problem": problem,
+    }
 
 
 # --- Overview --------------------------------------------------------------------------------
@@ -287,7 +518,8 @@ def reason_kind(reason: str) -> str:
 def overview(src: Sources) -> dict:
     """Per workflow: cases, the share sent to a person, overrides, stopped cases, cost; and any
     agent that can't run, and whether the audit chain verifies."""
-    all_cases = cases(src)
+    entries, audit_problem = _entries(src)
+    all_cases = sorted(_cases(entries).values(), key=lambda c: c["claim_id"])
     triaged = [c for c in all_cases if c["route"] is not None]
     decided = [c for c in all_cases if c["decided_by"]]
     by_person = [c for c in decided if c["decided_by"] != "auto"]
@@ -301,6 +533,7 @@ def overview(src: Sources) -> dict:
         "decided_automatically": len(decided) - len(by_person),
         "decided_by_a_person": len(by_person),
         "waiting_for_a_person": sum(c["state"] == "waiting for a person" for c in all_cases),
+        "no_decision_recorded": sum(c["state"].endswith("no decision recorded") for c in all_cases),
         "overrides": sum(c["overrode_ai"] for c in by_person),
         "stopped_cases": sum(c["stopped_reason"] is not None for c in triaged),
         "rejected_decisions": sum(c["rejected_decisions"] for c in all_cases),
@@ -321,6 +554,7 @@ def overview(src: Sources) -> dict:
         ],
         "registry_problem": roster["problem"],
         "audit": {k: integrity[k] for k in ("ok", "entries", "head", "problems", "exists")},
+        "audit_problem": audit_problem,
         "demo": src.demo,
     }
 
@@ -342,7 +576,18 @@ def audit_integrity(src: Sources, anchor: ChainHead | None = None) -> dict:
                 "problems": [],
                 "evidence_erased": [],
             }
-        result = log.verify(expect=anchor)
+        try:
+            result = log.verify(expect=anchor)
+        except sqlite3.DatabaseError as exc:
+            return {
+                "exists": True,
+                "ok": False,
+                "entries": 0,
+                "head": None,
+                "anchor": None if anchor is None else vars(anchor),
+                "problems": [f"the file can't be read as an audit log ({type(exc).__name__})"],
+                "evidence_erased": [],
+            }
     return {
         "exists": True,
         "ok": result.ok,
@@ -360,9 +605,14 @@ def audit_integrity(src: Sources, anchor: ChainHead | None = None) -> dict:
 def evals(src: Sources) -> dict:
     """The CI eval gate's own result, with each check's thresholds, values and the agent
     versions it scored. Published results only: no model calls."""
-    approvals = load_approvals(src.registry_dir / APPROVALS_FILENAME)
-    ok, results = gate.run_gate(src.gate_config, approvals)
-    config = yaml.safe_load(src.gate_config.read_text())
+    try:
+        approvals = load_approvals(src.registry_dir / APPROVALS_FILENAME)
+        ok, results = gate.run_gate(src.gate_config, approvals)
+        config = yaml.safe_load(src.gate_config.read_text())
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, yaml.YAMLError) as exc:
+        # The gate would fail in CI too.
+        problem = f"the gate can't run on these files ({type(exc).__name__})"
+        return {"passed": False, "stale_results": None, "checks": [], "problem": problem}
     checks = []
     for spec, result in zip(config["checks"], results, strict=True):
         checks.append(
@@ -385,7 +635,12 @@ def evals(src: Sources) -> dict:
                 "agents": result.meta.get("agents", []),
             }
         )
-    return {"passed": ok, "stale_results": config["stale_results"], "checks": checks}
+    return {
+        "passed": ok,
+        "stale_results": config["stale_results"],
+        "checks": checks,
+        "problem": None,
+    }
 
 
 def controls(src: Sources) -> dict:

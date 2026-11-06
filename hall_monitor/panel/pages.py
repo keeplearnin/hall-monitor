@@ -10,6 +10,9 @@ from __future__ import annotations
 import html
 import json
 from collections.abc import Iterable
+from urllib.parse import quote
+
+from hall_monitor.panel.views import linkable
 
 NAV = (
     ("index.html", "Overview"),
@@ -68,6 +71,17 @@ def usd(value: float | None) -> str:
     return f"${value:,.3f}" if 0 < abs(value) < 1 else f"${value:,.2f}"
 
 
+# The same policy the server sends as a header, so a saved snapshot carries it too.
+CSP = "default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'"
+
+
+def case_link(claim_id: str, prefix: str = "") -> Safe:
+    """A link to a case page, or the ID as text when it can't safely be a path."""
+    if not linkable(claim_id):
+        return tag("span", claim_id, title="no page: this ID can't be used in a link")
+    return tag("a", claim_id, href=f"{prefix}cases/{quote(claim_id, safe='')}.html")
+
+
 def short(digest: str | None) -> Safe:
     return tag("code", digest[:12], title=digest) if digest else esc("—")
 
@@ -85,6 +99,9 @@ STATE_TONE = {
     "partial": "warn",
     "decided": "ok",
     "waiting for a person": "warn",
+    "routed automatically, no decision recorded": "stop",
+    "triaged, no decision recorded": "stop",
+    "withheld": "muted",
 }
 
 
@@ -134,6 +151,7 @@ def page(title: str, current: str, body: Safe, *, root: str = "", demo: bool = F
             "head",
             Safe('<meta charset="utf-8">'),
             Safe('<meta name="viewport" content="width=device-width, initial-scale=1">'),
+            Safe(f'<meta http-equiv="Content-Security-Policy" content="{CSP}">'),
             tag("title", f"{title} · hall-monitor control panel"),
             Safe(f'<link rel="stylesheet" href="{esc(root)}panel.css">'),
         ),
@@ -152,8 +170,9 @@ def page(title: str, current: str, body: Safe, *, root: str = "", demo: bool = F
             tag("main", *banners, tag("h1", title), body),
             tag(
                 "footer",
-                "Reads the registry, stop list, audit log, controls register and eval gate. "
-                "Nothing personal is shown: IDs, hashes, decisions, reasons the code gave, costs.",
+                "Reads the registry, stop list, audit log, controls register and eval gate. Shows "
+                "IDs, hashes, decision fields, reasons in the code's own words and costs; anything "
+                "the model wrote, and kill-switch and adjusters' reasons, are withheld.",
             ),
         ),
         lang="en",
@@ -176,6 +195,18 @@ def _attention(data: dict) -> Safe:
                 state_badge(a["state"]),
                 f"Agent {a['id']} can't run ({a['state']}); its owner is {a['owner']}.",
                 f"agents/{a['id']}.html",
+            )
+        )
+    if data["audit_problem"]:
+        items.append((state_badge("fail"), data["audit_problem"] + ".", "audit.html"))
+    unrecorded = sum(w.get("metrics", {}).get("no_decision_recorded", 0) for w in data["workflows"])
+    if unrecorded:
+        items.append(
+            (
+                state_badge("fail"),
+                f"{unrecorded} cases finished triage with no decision recorded; a person must "
+                "look at them.",
+                "cases.html",
             )
         )
     waiting = sum(w.get("metrics", {}).get("waiting_for_a_person", 0) for w in data["workflows"])
@@ -394,7 +425,7 @@ def agent_page(a: dict, *, demo: bool) -> str:
 def _case_rows(cases: list[dict]) -> Iterable[tuple]:
     for c in cases:
         yield (
-            tag("a", c["claim_id"], href=f"cases/{c['claim_id']}.html"),
+            case_link(c["claim_id"]),
             state_badge(c["state"]),
             c["route"] or "—",
             c["recommended_next_step"] or "—",
@@ -408,7 +439,7 @@ def _case_rows(cases: list[dict]) -> Iterable[tuple]:
 def queue_page(queue: list[dict], *, demo: bool) -> str:
     rows = (
         (
-            tag("a", c["claim_id"], href=f"cases/{c['claim_id']}.html"),
+            case_link(c["claim_id"]),
             "; ".join(c["routing_reasons"]) or "—",
             c["recommended_next_step"] or "—",
             usd(c["covered_amount"]),
@@ -461,6 +492,9 @@ def cases_page(cases: list[dict], *, demo: bool) -> str:
 
 
 def case_page(trace: dict, *, demo: bool) -> str:
+    if trace["case"] is None:
+        body = tag("p", state_badge("fail"), " ", trace["problem"], ".", class_="banner alert")
+        return page(f"Case {trace['claim_id']}", "cases.html", body, root="../", demo=demo)
     c = trace["case"]
     facts = [
         ("State", state_badge(c["state"])),
@@ -494,7 +528,11 @@ def case_page(trace: dict, *, demo: bool) -> str:
                 "p",
                 "Every entry the audit log holds for this claim, in order. The log keeps IDs, "
                 "hashes, decision fields and costs; written reasons only as keyed hashes. ",
-                tag("a", "This record as JSON", href=f"../api/cases/{trace['claim_id']}.json"),
+                tag(
+                    "a",
+                    "This record as JSON",
+                    href=f"../api/cases/{quote(trace['claim_id'], safe='')}.json",
+                ),
                 ".",
                 class_="lead",
             ),
@@ -581,6 +619,9 @@ def audit_page(result: dict, *, demo: bool) -> str:
 
 
 def evals_page(data: dict, *, demo: bool) -> str:
+    if data["problem"]:
+        body = tag("p", state_badge("fail"), " ", data["problem"], ".", class_="banner alert")
+        return page("Evals and gate", "evals.html", body, demo=demo)
     sections = []
     for check in data["checks"]:
         rows = (

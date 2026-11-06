@@ -383,3 +383,25 @@ Each finding was checked against the code before the docs changed; no code behav
 
 The same stale "predate milestones 4-8" claim in `docs/executive-brief.html` and
 `docs/architecture.html` is corrected too.
+
+## Review 7: the control panel (HM-20)
+
+**Reviewer:** the governance-reviewer agent, on the control-panel branch before its pull request.
+13 findings: 11 confirmed, 2 plausible. All fixed, test-first; the limits that remain are in
+HM-20's gaps.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The case trace showed every payload as logged, so tool-call arguments and tool errors as the model wrote them (a name sent as a policy number reached the page) and policyholders' policy numbers; HM-20, the README and the footer said nothing personal was shown | High | Each event shows an allow-list of fields; tool arguments, tool errors, corrected policy numbers, unknown fields and unknown events are withheld; reasons are shown only if they match the code's own templates |
+| `snapshot` wrote `cases/{claim_id}.html` as given, so a claim ID of `../../../index` wrote outside the folder, and IDs with `?`, `#` or `/` aborted it | Medium | Only IDs matching a safe pattern get a page or a link; the write path is checked to stay inside the folder |
+| A payload that no longer parsed, or a file that isn't a database, made the overview and case pages fail with a server error, hiding the "doesn't verify" warning on the very log that needed it | Medium | Every page reports the log as unreadable and points to the audit page, which reports the failure |
+| The queue listed any claim with an evidence pack and no decision, including one routed automatically whose decision was never recorded, which the review CLI refuses | Medium | The queue holds claims routed to a person; the others show as needing a person, on the overview too |
+| The demo copied approvals that clear a stop but reset the stop list, so once the real registry had a cleared stop every demo agent was refused and the build crashed; a refused claim could also be decided twice | Medium | The copy drops the clearances with the stops; the junior adjuster's decision counts when it stands |
+| The read-only test couldn't see a writable open: a writable `AuditLog` leaves the files unchanged, and the AST check matched only the bare name | Medium | A test records every database opened while reading every page and requires read-only; the ADR says what the byte check covers |
+| `testserver` was an allowed host in production, so a spoofed single-label name could reach the panel | Low, plausible | Only `localhost` and `127.0.0.1`; the snapshot's client uses `localhost` |
+| `serve --host ::1` started but refused every request | Low | IPv6 is refused at start, with the reason |
+| A non-ASCII digit in the anchor (`²`) gave a server error instead of a refusal | Low | Only ASCII digits are accepted |
+| A broken approvals file made the eval page fail with a server error | Low | The page says the gate can't run on these files |
+| Reasons with figures other than "payout above" were counted one row per amount | Low | Every template with figures is grouped without them |
+| A saved snapshot had no security policy, since that was only an HTTP header | Low, plausible | Every page also carries it as a meta tag |
+| The README said no page shows stop reasons, but the case page shows the pipeline's stop reason | Low | It says kill-switch stop reasons |

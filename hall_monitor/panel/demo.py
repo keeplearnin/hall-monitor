@@ -20,6 +20,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+import yaml
+
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.governance.approval import AdjusterDecision
 from hall_monitor.governance.signing import demo_private_key
@@ -31,7 +33,7 @@ from hall_monitor.models import (
     Recommendation,
     RiskAssessment,
 )
-from hall_monitor.registry import DEFAULT_REGISTRY_DIR, Registry
+from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR, Registry
 from hall_monitor.tools.gateway import ToolGateway
 from hall_monitor.workflow import open_workflow
 
@@ -66,7 +68,13 @@ def _registry_copy(out: Path) -> Path:
     shutil.copytree(
         DEFAULT_REGISTRY_DIR, registry, ignore=shutil.ignore_patterns(".*", "*.schema.json")
     )
+    # A fresh stop list, so no stop the approvals clear: drop those clearances too, or the
+    # registry would refuse every agent (approvals may only clear stops the list holds).
     (registry / STOPS_FILENAME).write_text("stops: []\n")
+    approvals = yaml.safe_load((registry / APPROVALS_FILENAME).read_text())
+    for entry in approvals["agents"].values():
+        entry.pop("cleared_stops", None)
+    (registry / APPROVALS_FILENAME).write_text(yaml.safe_dump(approvals, sort_keys=True))
     return registry
 
 
@@ -148,8 +156,9 @@ def build(
         for claim_id in to_decide:
             if claim_id in left_waiting:
                 continue
-            if claim_id == refused:
-                _decide(workflow, claim_id, "adj-101")
+            if claim_id == refused and _decide(workflow, claim_id, "adj-101") == "decided":
+                outcomes[claim_id] = "decided"  # it was within their authority after all
+                continue
             if claim_id == overridden:
                 payout = round(payouts[claim_id] * 0.6, 2)
                 outcomes[claim_id] = _decide(workflow, claim_id, "adj-201", payout=payout)

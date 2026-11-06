@@ -661,12 +661,22 @@ controls:
       gate's result. It can't change anything: every route is GET, the audit log is opened
       read-only, the checkpoints (which hold claim text) are never opened, and reading every
       page leaves every file byte for byte as it was. Stopping, deciding and approving stay in
-      the kill switch, the review CLI and reviewed registry changes. It shows nothing personal:
-      stop reasons, evidence packs, adjusters' reasons and decision signatures are left out.
+      the kill switch, the review CLI and reviewed registry changes. It shows nothing the model
+      wrote: a case trace shows an allow-list of fields for each audit event, so tool arguments,
+      tool errors, the policy numbers in code corrections and revisions, and any field it doesn't
+      know are withheld, and a routing, stop or refusal reason is shown only if it matches one of
+      the code's own templates (a template added later is withheld until listed). Kill-switch stop
+      reasons, evidence packs, adjusters' reasons and decision signatures are left out too. A
+      damaged or unreadable audit log is reported as such on every page, not as an error.
       Pages carry a policy that allows no scripts and nothing from other origins, every value is
-      escaped, and the server answers only requests addressed to this machine. `snapshot` saves
-      every page and its JSON as static files; `demo` builds demo data by running the synthetic
-      claims through the real workflow with a scripted model, and every demo page says so.
+      escaped, and the server answers only requests addressed to localhost or 127.0.0.1 and listens
+      only on IPv4 loopback. `snapshot` saves every page and its JSON as static files, each page
+      carrying the same policy, and writes nothing outside its folder: a claim ID that can't be a
+      file name gets no page; `demo` builds demo data by running the synthetic
+      claims through the real workflow with a scripted model, and every demo page says so. The
+      review queue is what the audit log records: routed to a person, with an evidence pack and no
+      decision. A claim that finished triage with no decision recorded on any other route is shown
+      as needing a person, not queued.
     status: built
     code:
       - hall_monitor/panel/views.py::agents
@@ -680,6 +690,12 @@ controls:
       - tests/test_panel.py::test_reading_every_page_leaves_every_file_as_it_was
       - tests/test_panel.py::test_the_panel_opens_the_audit_log_read_only_and_never_the_checkpoints
       - tests/test_panel.py::test_no_page_shows_claim_text_stop_reasons_adjuster_reasons_or_signatures
+      - tests/test_panel.py::test_model_written_text_in_the_log_never_reaches_a_page
+      - tests/test_panel.py::test_every_reason_the_code_writes_is_shown
+      - tests/test_panel.py::test_every_audit_log_the_panel_opens_is_read_only
+      - tests/test_panel.py::test_a_snapshot_never_writes_outside_its_folder
+      - tests/test_panel.py::test_a_damaged_audit_log_shows_as_damaged_not_as_an_error
+      - tests/test_panel.py::test_the_queue_holds_only_claims_routed_to_a_person
       - tests/test_panel.py::test_values_from_the_log_are_escaped
       - tests/test_panel.py::test_requests_for_another_host_are_refused
       - tests/test_panel.py::test_serve_refuses_to_listen_beyond_this_machine
@@ -703,9 +719,12 @@ controls:
       and has no code, so the panel says so rather than showing numbers. It can't anchor audit
       heads itself: verifying against an anchor needs a head someone copied out. The demo's model is
       scripted from the answer key, so its routing, cost and override numbers show the controls
-      working, not how well the agents perform. Case pages show routing reasons and the
-      stopped-claim reason as the code wrote them; those name agent, stop and owner IDs, never
-      claim content.
+      working, not how well the agents perform. Routing and stop reasons the code writes name
+      agent, stop and owner IDs and amounts; a reason in a form the panel doesn't list is withheld,
+      which hides it from the reader too. The review queue reads the audit log, not the
+      checkpoints, so the review CLI can still refuse a listed claim whose saved state is missing
+      or changed. A saved snapshot is served without the HTTP headers, so its policy is the page's
+      own meta tag, which can't forbid framing.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:

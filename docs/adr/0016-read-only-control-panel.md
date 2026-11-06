@@ -16,28 +16,36 @@ with the code that enforces it.
 ## Decision
 
 - **Read-only first.** Every route is GET. The audit log is opened read-only, so it isn't
-  created, its triggers aren't put back and no key is written. The checkpoints, which hold claim
-  text, are never opened. A test reads every page and checks that every file under the panel's
-  sources is byte for byte unchanged. Stopping an agent, deciding a claim and approving a change
-  stay where they are: the kill switch, the review CLI, and reviewed changes to the registry.
+  created, its triggers aren't put back and no key is written; a test records every database the
+  panel opens while it reads every page and checks each was opened read-only. The checkpoints,
+  which hold claim text, are never opened. Another test reads every page and checks every file
+  the demo wrote (registry copy, audit log, key, checkpoints) is byte for byte unchanged.
+  Stopping an agent, deciding a claim and approving a change stay where they are: the kill
+  switch, the review CLI, and reviewed changes to the registry.
 - **Each view asks the enforcing code.** An agent's state is `Registry.require`'s answer with its
   current prompt template, so the panel can't call an agent runnable when the run-time check
   would refuse it. The audit view is `AuditLog.verify`, against an anchored head when one is
   given. The eval view is the CI gate's own result and values, judged against the panel's
   registry approvals. A case's state comes from the audit log, which decides it for the workflow
   too ([ADR 0014](0014-signed-decisions-and-stored-evidence.md)).
-- **Nothing personal.** The panel shows what the audit log holds, and less: stop reasons stay in
-  the stop list, evidence packs in the evidence store, adjusters' reasons are keyed hashes, and a
-  decision's signature shows as present, not by value, because with the public key it could
-  confirm a guessed reason. A test checks no page or JSON holds claim text, policyholders' names,
-  a stop reason or an adjuster's reason.
+- **Nothing the model wrote, nothing personal.** The audit log holds IDs, hashes and decision
+  fields, but a few fields carry what the model wrote: tool arguments and errors, the policy
+  number a code correction replaced, revision values. So a case trace shows an allow-list of
+  fields for each event, and a routing, stop or refusal reason only if it matches one of the
+  code's own templates; anything else, including a template added later, shows as "withheld"
+  until it is listed. That fails closed: the cost is a reason hidden from the reader, not one
+  leaked to them. Stop reasons stay in the stop list, evidence packs in the evidence store,
+  adjusters' reasons are keyed hashes, and a decision's signature shows as present, not by
+  value, because with the public key it could confirm a guessed reason. Tests feed model-written
+  text through every such field and check no page or JSON shows it.
 - **Small surface.** Starlette and uvicorn, already installed with fastmcp; pages rendered on
   the server with escape-by-default helpers, no template engine and no scripts. Every page
-  carries a policy that allows only its own stylesheet. With no sign-in, the server answers only
-  requests addressed to this machine, which also stops DNS rebinding, and refuses to listen on
-  any other address.
+  carries a policy that allows only its own stylesheet, as a header and in the page itself. With
+  no sign-in, the server answers only requests addressed to localhost or 127.0.0.1, which also
+  stops DNS rebinding, and refuses to listen on any address but IPv4 loopback.
 - **Same pages served and saved.** Links are relative and pages share paths with their JSON, so
   `snapshot` saves the panel as static files: a record of what it showed, or a page to publish.
+  It writes nothing outside its folder; a claim ID that can't be a file name gets no page.
   `demo` builds data for it offline by running the synthetic claims through the real workflow
   with a scripted model; every demo page says so.
 
