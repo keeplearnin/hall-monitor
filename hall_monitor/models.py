@@ -23,11 +23,18 @@ class Plan(StrEnum):
 # --- Inputs ---------------------------------------------------------------
 
 
+# The channel and an attachment's kind are the claimant's too, but they reach every prompt (and
+# the channel the audit log's actor), so they must be codes, not free text.
+CODE = r"^[a-z][a-z_]{0,39}$"
+
+
 class Attachment(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     filename: str
-    kind: str = Field(description="e.g. receipt, medical_report, carrier_letter, invoice")
+    kind: str = Field(
+        pattern=CODE, description="e.g. receipt, medical_report, carrier_letter, invoice"
+    )
     text: str = Field(description="Text content of the document (OCR output in production).")
 
 
@@ -38,7 +45,7 @@ class ClaimSubmission(BaseModel):
 
     claim_id: str
     submitted_at: datetime
-    channel: str
+    channel: str = Field(pattern=CODE, description="e.g. email, mobile_app, web_form")
     narrative: str
     attachments: list[Attachment]
 

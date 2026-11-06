@@ -241,3 +241,16 @@ confirmed.
 | IBANs followed by a word, in lower case, or split by dashes were missed | Medium | A failed checksum retries shorter prefixes; dashes allowed; any case after "IBAN" |
 | Common labels were missed ("EIN 12 3456789", "routing # ...", "A/C no.", "Account No. is ...") | Medium | Caught; what is still missed is listed in HM-10's gaps |
 | Counts by type follow pattern order; HM-10, the controls doc and the business summary dropped "labelled" | Low | Docstring says so; the docs say "labelled" |
+
+## Review 6: fields beside the claim text
+
+The prompt-injection and redaction findings from review 6 that concern the claim's channel,
+attachment kinds and encoded markup.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| `channel` wasn't scanned for injection or redacted, yet went into every prompt; an override instruction or an email there reached the model and the claim routed automatically | Medium | `channel` must be a code (`^[a-z][a-z_]{0,39}$`) and is scanned |
+| `channel` went raw into the audit log's actor, so free text from the claimant reached a log that can't be erased | Low | Fixed by the same rule |
+| An attachment's `kind` was scanned but not redacted, so an email or phone number there reached the model | Low | `kind` must be a code too |
+| Markup written as HTML entities, full-width brackets or with a zero-width space slipped past the detector, and `&lt;system&gt;` rendered exactly like an escaped real tag | Low-Medium, plausible | The detector decodes entities, compatibility forms and invisible characters first; `escape` escapes `&` |
+| The coverage step's cited clauses are free model text the recommender receives unchecked | Low, plausible | Logged in HM-09 gaps; checking clause shape would change the coverage output schema, which needs a new approval |

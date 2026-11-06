@@ -139,15 +139,15 @@ A refusal, API error, invalid output (including output of the wrong type, or a t
 
 **Prompt-injection defences** (built, results pending)
 
-Claim text and model output are escaped and fenced as untrusted. A code detector flags text aimed at the AI (override instructions, fake markup, claimed approval, requests to skip review, internal tool names) and sends the claim to a person.
+Claim text and model output are escaped and fenced as untrusted (ampersands too, so text written as entities doesn't render like an escaped tag). A code detector flags text aimed at the AI (override instructions, fake markup, claimed approval, requests to skip review, internal tool names) in the narrative, attachments, file names, attachment kinds and the channel, after decoding entities, full-width forms and invisible characters, and sends the claim to a person. The channel and attachment kinds must be codes (lowercase letters and underscores), so they can't carry free text into prompts or the audit log.
 
 - **Code:** [`hall_monitor/agents/base.py`](../hall_monitor/agents/base.py) `escape`; [`hall_monitor/gateway/injection.py`](../hall_monitor/gateway/injection.py) `detect_instructions`
-- **Tests:** [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_claim_text_cannot_close_its_fence_or_forge_feedback`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_no_real_claim_is_flagged`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_flagged_claim_goes_to_a_person_even_if_otherwise_automatic`
+- **Tests:** [`tests/test_pipeline.py`](../tests/test_pipeline.py) `test_claim_text_cannot_close_its_fence_or_forge_feedback`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_no_real_claim_is_flagged`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_flagged_claim_goes_to_a_person_even_if_otherwise_automatic`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_channel_and_kind_must_be_codes`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_instructions_in_the_channel_or_kind_are_flagged`; [`tests/test_privacy_security.py`](../tests/test_privacy_security.py) `test_encoded_markup_is_flagged_and_renders_differently`
 - **Evidence:** *Pending live run:* `uv run python -m hall_monitor.evals.adversarial`
 - **NIST AI RMF:** MEASURE 2.7 (AI system security and resilience – as identified in the map function – are evaluated and documented); MANAGE 1.3 (Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented)
 - **FINOS risks:** RI-10 Prompt Injection; RI-14 Inadequate System Alignment; RI-25 Tool Chain Manipulation and Injection; RI-28 Multi-Agent Trust Boundary Violations
 - **FINOS mitigations:** MI-03 User/App/Model Firewalling/Filtering; MI-17 AI Firewall Implementation and Management; MI-19 Tool Chain Validation and Sanitization
-- **Gaps:** Pattern detection misses wording it wasn't written for; the adversarial suite measures that.
+- **Gaps:** Pattern detection misses wording it wasn't written for; the adversarial suite measures that. A claim whose channel or attachment kind isn't a code is refused when it is loaded, before triage, so it leaves no audit entry. The coverage step's cited clauses are free text the recommender receives unchecked, so a clause written with a name or condition in it would reach a model not approved for personal data.
 
 ### HM-10
 

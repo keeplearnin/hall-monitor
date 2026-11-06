@@ -8,7 +8,9 @@ to the claims process itself; a customer writing "please pay my claim" doesn't m
 
 from __future__ import annotations
 
+import html
 import re
+import unicodedata
 
 from hall_monitor.models import ClaimSubmission
 
@@ -60,6 +62,18 @@ SIGNALS: dict[str, re.Pattern[str]] = {
 def detect_instructions(claim: ClaimSubmission) -> list[str]:
     """Names of the signals found anywhere in the claim, in a stable order."""
     texts = [claim.narrative, *(a.text for a in claim.attachments)]
-    texts += [a.filename for a in claim.attachments] + [a.kind for a in claim.attachments]
-    joined = "\n".join(texts)
+    texts += [a.filename for a in claim.attachments]
+    texts += [
+        code.replace("_", " ") for code in (claim.channel, *(a.kind for a in claim.attachments))
+    ]
+    joined = _normalise("\n".join(texts))
     return [name for name, pattern in SIGNALS.items() if pattern.search(joined)]
+
+
+_INVISIBLE = dict.fromkeys(map(ord, "\u00ad\u200b\u200c\u200d\u2060\ufeff"))
+
+
+def _normalise(text: str) -> str:
+    """What the text says once decoded: HTML entities (&lt;system&gt;), full-width and other
+    compatibility forms (＜system＞) and invisible characters inside words don't hide a match."""
+    return unicodedata.normalize("NFKC", html.unescape(text)).translate(_INVISIBLE)
