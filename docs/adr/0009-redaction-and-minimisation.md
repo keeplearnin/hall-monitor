@@ -12,7 +12,8 @@ coverage decision, which depends on them.
 ## Decision
 
 - **Redact before any model sees the claim.** Dates of birth, emails, phone numbers, card,
-  passport and Social Security numbers are removed from the claim text, attachment file names
+  passport and Social Security numbers, IBANs (checked with their checksum), and labelled tax
+  IDs, bank account and routing numbers are removed from the claim text, attachment file names
   and tool results by
   [`gateway/redaction.py`](../../hall_monitor/gateway/redaction.py); only counts by type are
   recorded. Patterns are deliberately narrow so an ordinary date is never removed as a phone

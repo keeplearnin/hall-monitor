@@ -224,3 +224,20 @@ test-first, 2 plausible and logged.
 | An unforeseen error's text went into `stop_reason`; a tool error repeats the model's tool arguments, so they reached the routing reasons and the evidence pack | Medium | The stop reason carries the error type only |
 | A saved result edited until it no longer parsed crashed the review step instead of being a recorded rejection | Medium | Parsed inside the check; logged as a rejection |
 | Approvals don't pin output schemas, and the API sends pydantic patterns to the model as description text, so the new currency and policy-number patterns changed what the model sees without a new approval; answers like `usd` now stop the claim | Low | Logged in HM-01 gaps; pinning output schemas in approvals is left for its own change |
+
+## Tax ID and bank detail redaction (HM-10)
+
+**What:** tax IDs, bank account and routing numbers (each after a label) and IBANs (checked
+with their checksum) are redacted with the other identifiers.
+
+**Pre-PR review** (the `governance-reviewer` instructions on the branch's diff): 6 findings, all
+confirmed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The labelled tax ID pattern had three adjacent `\s*`, so a label followed by a long blank run (common in OCR text) took cubic time: 24 s at 2,000 spaces, enough to hang triage | High | Every run between a label and its number is bounded; a test times 5,000 spaces after each label |
+| The unlabelled EIN pattern removed invoice numbers, claim IDs and some phone numbers | Medium | Removed: tax IDs need a label (HM-10 gap) |
+| "account" followed by any digits removed amounts, dates and years, and "account ending" ate the amount after it | Medium | An account number needs "number", "no." or "#" and stops before a decimal; "ending" takes four digits only |
+| IBANs followed by a word, in lower case, or split by dashes were missed | Medium | A failed checksum retries shorter prefixes; dashes allowed; any case after "IBAN" |
+| Common labels were missed ("EIN 12 3456789", "routing # ...", "A/C no.", "Account No. is ...") | Medium | Caught; what is still missed is listed in HM-10's gaps |
+| Counts by type follow pattern order; HM-10, the controls doc and the business summary dropped "labelled" | Low | Docstring says so; the docs say "labelled" |
