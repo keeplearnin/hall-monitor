@@ -92,7 +92,7 @@
 <body>
 <main class="sheet">
   <header>
-    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · briefing for business leaders · November 2026 · after milestone 10</span></div>
+    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · briefing for business leaders · November 2026 · after milestone 11 and Phase B so far</span></div>
     <h1>AI that prepares insurance claims, with people making the calls that matter</h1>
     <p class="lede">hall-monitor shows how a regulated firm can use AI agents to speed up claims work <strong>and still answer the regulator's questions</strong>: what each AI was allowed to do, who approved it, what records it looked at, and who made the final decision. The rules live in software, not in a policy binder.</p>
   </header>
@@ -186,9 +186,10 @@
         <text class="s" x="1015" y="264" text-anchor="middle">every denial</text>
         <text class="s" x="1015" y="281" text-anchor="middle">over $2,500</text>
         <text class="s" x="1015" y="298" text-anchor="middle">any fraud flag</text>
-        <text class="s" x="1015" y="315" text-anchor="middle">any AI correction</text>
-        <text class="s" x="1015" y="332" text-anchor="middle">suspicious text</text>
-        <text class="s" x="1015" y="349" text-anchor="middle">AI failures</text>
+        <text class="s" x="1015" y="315" text-anchor="middle">a decision the</text>
+        <text class="s" x="1015" y="332" text-anchor="middle">checker changed</text>
+        <text class="s" x="1015" y="349" text-anchor="middle">suspicious text</text>
+        <text class="s" x="1015" y="366" text-anchor="middle">AI failures</text>
 
         <polyline class="dots" points="480,300 480,404"/>
         <polyline class="dots" points="1015,378 1015,404"/>
@@ -197,7 +198,7 @@
         <text class="s" x="200" y="433">every AI step, its approved instructions, every lookup and correction, the decision and who made it, the cost</text>
       </svg>
     </div>
-    <figcaption>Each AI step has a <b>hall pass</b>: a registered, approved permit naming its owner, risk level, the AI model it may use and the records it may look up. A changed permit or changed instructions are refused until a new approval is committed. Before any AI sees a claim, ID numbers are removed and text that tries to instruct the AI is flagged. The AI gathers evidence and proposes; it never denies or pays a claim on its own. Step 4 is a second AI that checks the others' work against the documents and sends mistakes back. The rule that decides when a person must step in is ordinary software, so the AI can't argue its way past it.</figcaption>
+    <figcaption>Each AI step has a <b>hall pass</b>: a registered, approved permit naming its owner, risk level, the AI model it may use and the records it may look up. A changed permit or changed core instructions are refused until a new approval is committed (not yet covered: the policy wording, the look-up descriptions and the text sending corrections back). Before any AI sees a claim, ID numbers are removed and text that tries to instruct the AI is flagged. The AI gathers evidence and proposes; it never denies or pays a claim on its own. Step 4 is a second AI that checks the others' work against the documents and sends mistakes back. The rule that decides when a person must step in is ordinary software, so the AI can't argue its way past it.</figcaption>
   </figure>
 
   <section class="grid">
@@ -216,8 +217,8 @@
       <h2>What a regulator will ask</h2>
       <ul class="qa">
         <li><span class="q">What is this AI allowed to do? <span class="chip built">Built</span></span><span class="a">Its permit lists the model, the records and the lookups it may use, for this claim only. Anything else is refused and logged.</span></li>
-        <li><span class="q">Who approved it? <span class="chip built">Built</span></span><span class="a">Every permit names an owner, and each version and its instructions need a committed approval to run. Who may approve is set by repository controls, not yet enforced.</span></li>
-        <li><span class="q">Who makes the big calls? <span class="chip built">Built</span></span><span class="a">Denials, large payouts, fraud and AI corrections wait for an adjuster, within their authority limit.</span></li>
+        <li><span class="q">Who approved it? <span class="chip built">Built</span></span><span class="a">Every permit names an owner, and each version and its core instructions need a committed approval to run (the policy wording, look-up descriptions and correction text aren't covered yet). Who may approve is set by repository controls, not yet enforced.</span></li>
+        <li><span class="q">Who makes the big calls? <span class="chip built">Built</span></span><span class="a">Denials, large payouts, fraud, and a decision the checking AI changed or still disputes wait for an adjuster, within their authority limit.</span></li>
         <li><span class="q">What happens to personal data? <span class="chip built">Built</span></span><span class="a">ID numbers are removed from claim text before the AI sees it; no claim narrative goes into logs or traces.</span></li>
         <li><span class="q">Is it accurate and fair? <span class="chip part">Partly</span></span><span class="a">Scored on 34 test claims, on earlier versions, misses published. Fairness and attack tests are built; their results are next.</span></li>
         <li><span class="q">Can you prove it months later? <span class="chip built">Built</span></span><span class="a">A hash-chained record shows any change. Keep a copy of its latest hash elsewhere to catch a full rewrite.</span></li>
@@ -234,6 +235,9 @@
         <li class="done"><span class="m">8</span><span>Privacy, attack defences, fairness and attack tests (results next)</span></li>
         <li class="done"><span class="m">9</span><span>Mapped to NIST AI RMF and FINOS; quality gate on every change</span></li>
         <li class="done"><span class="m">10</span><span>Decision records, board brief, review package (outside reviewers invited)</span></li>
+        <li class="done"><span class="m">11</span><span>Hardening: signed adjuster decisions, evidence checked before a decision, data limits enforced at run time</span></li>
+        <li class="done"><span class="m">12</span><span>Phase B so far: tests of every AI step giving wrong answers, an owner's stop switch, more ID numbers removed (not yet scored live)</span></li>
+        <li><span class="m">13</span><span>Test harness for vendor guardrails, gateways and observability; limits as policy code</span></li>
       </ol>
     </div>
   </section>

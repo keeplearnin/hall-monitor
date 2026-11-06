@@ -87,7 +87,7 @@ Every model call goes through one function that checks the agent's approved hall
 
 GitHub shows HTML files as source, so download them and open them in a browser.
 
-Tracing sends IDs, versions, hashes and token counts to Langfuse, never claim text or policy records: trace decorators don't capture function inputs or outputs. The Anthropic SDK's own spans are metadata-only by default; nothing in the code stops someone setting `ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE=content`, which would send content.
+Tracing sends IDs, versions, hashes and token counts to Langfuse, never claim text or policy records: trace decorators don't capture function inputs or outputs, and a function that raises marks its span with the exception's type only, never its message. The Anthropic SDK's own spans are metadata-only by default; nothing in the code stops someone setting `ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE=content`, which would send content.
 
 ## Governance controls
 
@@ -110,7 +110,7 @@ Each control's NIST AI RMF and FINOS AIGF mapping is in the [controls register](
 | Adversarial test suite | Ten attacks planted in real claims (instruction override, forged reviewer tags, claimed prior approval, data exfiltration, forged documents, PII) and scored on whether any worked (`evals.adversarial`). Defences: escaped claim text, a code detector that sends flagged claims to a person, and tool lookups limited to the claim's own policy. | HM-15 | Built; results need a live run (milestone 8) |
 | CI eval gate | Every PR runs `evals.gate`: published results must meet the thresholds in `evals/gate.yaml` (accuracy, hallucination, unsafe routes, critic catch rate; attacks and fairness once run), and results scored on agent versions or prompts that are no longer approved, or that don't record them, are flagged. Live evals run on demand from a manual workflow. | HM-17 | Built (milestone 9); stale results warn until a fresh baseline |
 | Control panel | A read-only web panel and JSON API (`python -m hall_monitor.panel serve`): an overview per workflow with what needs attention first, the agent inventory with each agent's owner, approval, stops and eval results, the review queue, each case's full audit trace, audit-chain verification against an anchored head, the eval gate and the controls register. Each view asks the code that enforces the control (an agent's state is the registry's own run-time check). Every route is GET, the audit log is opened read-only and the checkpoints are never opened. Case traces show an allow-list of each audit event's fields, so no free text the model wrote (tool arguments, policy numbers it read) reaches a page, and no page shows claim text, kill-switch stop reasons, adjusters' reasons or signatures. No sign-in yet, so it serves this machine only; stopping and deciding stay in their CLIs. `snapshot` saves it as static files; `demo` builds demo data offline with a scripted model, labelled on every page. | HM-20 | Built, read-only (control panel phase 1) |
-| Framework mapping | 20 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (11 have none yet), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
+| Framework mapping | 20 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (14 have none yet: 11 list none, and HM-09, HM-14 and HM-15 list only live runs still to be made), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
 
 ## Results
 
@@ -166,7 +166,7 @@ uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
 uv run python -m hall_monitor.review list                  # claims waiting for an adjuster
 uv run python -m hall_monitor.review show claim_004        # evidence pack and its hash
 uv run python -m hall_monitor.audit verify                 # check the audit chain
-uv run python -m hall_monitor.evals.baseline --trials 3     # 36 claims x 3, about $4
+uv run python -m hall_monitor.evals.baseline --trials 3 --out evals/results/my-baseline  # 36 claims x 3, about $4
 uv run python -m hall_monitor.evals.critic_seeded         # critic vs planted errors, about $2
 uv run python -m hall_monitor.evals.adversarial            # attack suite, about $1
 uv run python -m hall_monitor.evals.fairness               # name-swap fairness, about $10
@@ -182,7 +182,7 @@ uv run python -m hall_monitor.panel serve --demo           # the panel over the 
 
 ```text
 hall-monitor/
-├── registry/                # Agent manifests, approvals.yaml, adjusters.yaml, manifest schema
+├── registry/                # Agent manifests, approvals.yaml, adjusters.yaml, owners.yaml, stops.yaml, manifest schema
 ├── hall_monitor/
 │   ├── agents/              # Intake, coverage check, risk and fraud, critic, recommendation; base.py is the one call path
 │   ├── tools/               # MCP server (policy_lookup, claims_history) and the tool gateway
@@ -193,6 +193,7 @@ hall-monitor/
 │   ├── pipeline.py          # Claim triage
 │   ├── workflow.py          # LangGraph workflow with the approval gate
 │   ├── run.py, review.py, audit.py  # CLIs: submit a claim, review as an adjuster, verify the log
+│   ├── kill_switch.py       # Stop an agent; CI's append-only check of the stop list
 │   └── registry.py, approvals.py, models.py, tracing.py
 ├── data/synthetic/
 │   ├── policies/            # Policy wording and policy records

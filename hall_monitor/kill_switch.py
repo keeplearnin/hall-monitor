@@ -156,7 +156,21 @@ def add_stop(
 
 def check_append_only(base: dict, head: dict) -> None:
     """Every stop in base must still be in head, unchanged."""
-    head_by_id = {s.get("id"): s for s in (head or {}).get("stops") or []}
+    head_stops = (head or {}).get("stops") if isinstance(head, dict | None) else head
+    if (
+        not isinstance(head, dict | None)
+        or not isinstance(head_stops, list | None)
+        or not all(isinstance(s, dict) for s in head_stops or [])
+    ):
+        raise AppendOnlyError("the head registry/stops.yaml isn't a stop list (stops: [...])")
+    base_stops = (base or {}).get("stops") if isinstance(base, dict | None) else base
+    if (
+        not isinstance(base, dict | None)
+        or not isinstance(base_stops, list | None)
+        or not all(isinstance(s, dict) for s in base_stops or [])
+    ):
+        raise AppendOnlyError("the base registry/stops.yaml isn't a stop list (stops: [...])")
+    head_by_id = {s.get("id"): s for s in head_stops or []}
     changed = [
         s.get("id") for s in (base or {}).get("stops") or [] if head_by_id.get(s.get("id")) != s
     ]

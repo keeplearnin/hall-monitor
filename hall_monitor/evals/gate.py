@@ -41,7 +41,8 @@ def unsafe_routes(data: dict) -> int:
         result = run.get("result")
         if not result or run.get("score", {}).get("error"):
             continue
-        claim_id = result["claim_id"].split("+")[0].split("~")[0]
+        # A variant's ID is the claim's plus "-case" (older results used "+" or "~").
+        claim_id = result["claim_id"].split("+")[0].split("~")[0].split("-")[0]
         if (
             load_ground_truth(claim_id).route.value == "adjuster"
             and result["routing"]["route"] == "auto"
