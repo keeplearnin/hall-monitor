@@ -1,6 +1,6 @@
 id: critic
 name: Critic
-version: 0.3.0
+version: 0.4.0
 owner: own-301
 purpose: Check extraction and coverage reasoning against the source documents and send them back when they disagree.
 risk_tier: medium

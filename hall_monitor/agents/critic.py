@@ -24,7 +24,7 @@ from hall_monitor.models import (
 from hall_monitor.registry import Registry
 
 AGENT_ID = "critic"
-PROMPT_VERSION = "critic-v2"
+PROMPT_VERSION = "critic-v3"
 
 SYSTEM_PROMPT = """\
 You are the critic in a travel insurance claims process. Three steps have already worked on \
@@ -55,7 +55,9 @@ and give that evidence. Don't report differences of style or wording.
 
 <policy_wording>
 {wording}
-</policy_wording>"""
+</policy_wording>""".replace(
+    "{untrusted}", UNTRUSTED_CLAIM_NOTICE
+)  # inside the hashed template, so editing it needs an approval
 
 
 @tracing.observe(name=AGENT_ID, as_type="agent")
@@ -79,7 +81,7 @@ def run_critic(
         AGENT_ID,
         registry=registry,
         client=client or anthropic.Anthropic(),
-        system=SYSTEM_PROMPT.format(untrusted=UNTRUSTED_CLAIM_NOTICE, wording=wording),
+        system=SYSTEM_PROMPT.format(wording=wording),
         prompt_template=SYSTEM_PROMPT,
         content=content,
         output_format=CriticReview,

@@ -26,6 +26,7 @@ controls:
       - tests/test_registry.py::test_unapproved_manifest_is_refused
       - tests/test_registry.py::test_approvals_match_the_current_manifests_and_prompts
       - tests/test_registry.py::test_unapproved_prompt_is_refused_at_run_time
+      - tests/test_registry.py::test_the_approved_prompt_covers_the_untrusted_claim_notice
     evidence: []
     nist: [GOVERN 1.6, GOVERN 2.1, MAP 1.1, MANAGE 2.4]
     finos:
@@ -34,7 +35,12 @@ controls:
     gaps: >-
       Anyone who can commit can regenerate approvals.yaml. Review of that change depends on
       repository settings: .github/CODEOWNERS names an owner, but main has no branch protection
-      yet, so it isn't enforced. Approvals pin each system-prompt template, not the output
+      yet, so it isn't enforced. Approvals pin each system-prompt template (the untrusted-claim
+      notice included since review 6), but not the policy wording filled into it: an edit to
+      the wording file changes what the coverage and critic agents are sent without a new
+      approval. A model answer that fails validation inside the SDK's parse call is billed but
+      raises before its usage is read, so that request is missing from the agent's record and
+      its cost. Nor do they pin the output
       schema the model is given, so a change to an output model (a new field constraint, say)
       needs no new approval; the API passes pydantic patterns to the model as description
       text, not as constraints, and they are checked only once the answer is back. Nor do they
@@ -238,6 +244,8 @@ controls:
       - tests/test_audit.py::test_reads_and_writes_from_many_threads_stay_consistent
       - tests/test_audit.py::test_the_cli_reports_a_dropped_table_as_tampering
       - tests/test_workflow.py::test_a_rejection_logs_the_submission_as_a_keyed_hash
+
+      - tests/test_kill_switch.py::test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted
     evidence: []
     nist: [MEASURE 2.8, MANAGE 4.1]
     finos:
@@ -603,6 +611,8 @@ controls:
       - tests/test_kill_switch.py::test_no_agent_may_take_the_pipelines_id
       - tests/test_kill_switch.py::test_tests_run_agents_from_a_registry_with_no_stops
       - tests/test_kill_switch.py::test_the_shipped_stop_list_is_valid_whatever_it_holds
+
+      - tests/test_kill_switch.py::test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted
     evidence: []
     nist: [MANAGE 2.4, GOVERN 2.1]
     finos:
