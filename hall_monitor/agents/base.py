@@ -185,8 +185,12 @@ def run_agent[T: BaseModel](
 
 
 def escape(text: str) -> str:
-    """Neutralise angle brackets so untrusted text can't close or forge a tag."""
-    return text.replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    """Neutralise angle brackets so untrusted text can't close or forge a tag. Ampersands go
+    first, so text already written as entities (&lt;system&gt;) doesn't reach the model looking
+    exactly like an escaped tag."""
+    return (
+        text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    )
 
 
 def render_claim(claim: ClaimSubmission) -> str:

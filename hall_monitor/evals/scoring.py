@@ -121,8 +121,9 @@ def unsupported_values(
         checks.append(
             (f"incident_location={extraction.incident_location}", bool(place & source_tokens))
         )
-    # Amounts follow the routing rule: traced in the text the agents saw (after redaction), each
-    # item to its own occurrence.
+    # Amounts are traced like the routing rule's (in the text the agents saw, after redaction,
+    # each item to its own occurrence) but in any currency: this asks whether the figure was
+    # read from the documents, and routing separately asks whether it is in US dollars.
     missing = Counter(
         untraced([i.amount for i in extraction.claimed_items], source_text(redact_claim(claim)[0]))
     )

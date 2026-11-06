@@ -8,6 +8,7 @@ from hall_monitor.agents.base import AgentRefusedError, render_claim
 from hall_monitor.agents.intake import run_intake
 from hall_monitor.data import iter_claims, load_ground_truth
 from hall_monitor.registry import Registry, UnregisteredAgentError
+from tests.fakes import TEST_REGISTRY_DIR
 
 CLAIM = next(iter_claims())
 
@@ -35,9 +36,9 @@ def test_uses_the_model_on_the_hall_pass():
     expected = load_ground_truth(CLAIM.claim_id).extraction
     client = fake_client(parsed_output=expected)
 
-    run = run_intake(CLAIM, Registry.from_dir(), client=client)
+    run = run_intake(CLAIM, Registry.from_dir(TEST_REGISTRY_DIR), client=client)
     assert run.output == expected
-    assert run.call.manifest_digest == Registry.from_dir().get("intake").digest()
+    assert run.call.manifest_digest == Registry.from_dir(TEST_REGISTRY_DIR).get("intake").digest()
     assert client.messages.calls[0]["model"] == "claude-haiku-5-5"
 
 
@@ -50,7 +51,9 @@ def test_refuses_without_a_hall_pass():
 
 def test_model_refusal_is_raised():
     with pytest.raises(AgentRefusedError):
-        run_intake(CLAIM, Registry.from_dir(), client=fake_client(stop_reason="refusal"))
+        run_intake(
+            CLAIM, Registry.from_dir(TEST_REGISTRY_DIR), client=fake_client(stop_reason="refusal")
+        )
 
 
 def test_claim_text_is_fenced_as_data():
