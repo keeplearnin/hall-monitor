@@ -383,3 +383,40 @@ Each finding was checked against the code before the docs changed; no code behav
 
 The same stale "predate milestones 4-8" claim in `docs/executive-brief.html` and
 `docs/architecture.html` is corrected too.
+
+## Review 6: end-of-phase review of the fixes together
+
+**Reviewer:** a review of the six fix pull requests together, at the end of the phase. The
+runtime findings were fixed in code test-first; the change-control and docs findings changed
+docs, comments and `.github/CODEOWNERS` only.
+
+**Runtime**
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A traced function's exception text, which can repeat the model's output, reached Langfuse spans | Medium | Fixed: the span is marked as an error by type only (HM-11) |
+| The claim ID was free text reaching every audit entry, the recommender's input and traces | Medium | Fixed: it must be a code (HM-06, HM-09) |
+| More ways of writing another currency beside "$" (HK $, (CAD) $, Cdn $, $450 cad, Unicode minus) traced as USD | Medium | Fixed; a bare "$", a code not in the list or a currency named only in a header still trace as USD (HM-04 gaps) |
+| An adjuster's request_information or investigate is the claim's final decision, so the workflow can't triage it again with new documents | Medium | Logged in HM-05 gaps; a follow-up path is a design decision |
+| Injection detection ran before redaction, which can join words into a phrase only the agents read | Low | Fixed: both versions are scanned (HM-09) |
+| `audit show` crashed on an unparseable entry | Low | Fixed: reported as tampered with, exit 3 (HM-06) |
+| `review decide` crashed with a traceback on an impossible payout | Low | Fixed: refused with a message naming the fields (HM-05) |
+| A claim whose evidence pack was logged but never checkpointed said in_progress | Low | Fixed: it says needs_a_person (HM-05) |
+| `run` and `review` can't select an audit log other than `var/audit.sqlite` | Low | Logged in HM-05 gaps |
+| With model routing on, the recommender's economy choice uses the extraction before critic corrections | Low | Logged in HM-16 gaps; a correction that would change the choice sends the claim to a person anyway |
+
+**Change control and docs**
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| `evals/results/` and the answer keys had no code owner, yet the gate trusts the agent digests each result file records and the answer keys drive `unsafe_routes` | Medium | `/evals/` and `/data/synthetic/` given the same owner; HM-17 gaps say the gate doesn't check a result's digests against its commit |
+| Approvals don't pin the tool definitions sent to the model or the reviewer-feedback text | Low | Logged in HM-01 gaps; the one-pagers' caveat covers them |
+| A sentence about billed answers that fail validation sat in HM-01's gaps, breaking its flow | Low | Moved to HM-06 gaps |
+| The executive brief said "after milestone 10", stopped its roadmap at 10, sent "any AI correction" to an adjuster and had no caveat on changed instructions; the architecture page lacked HM-19 and said every agent input is checked against data classes | Low | Fixed to match README and the register |
+| `approvals.py` and CLAUDE.md said a test fails unless a prompt change has a new PROMPT_VERSION; the test only checks approvals.yaml is regenerated | Low | Say the version bump is a review rule |
+| ADR 0015 said a claim is never paid on a stopped agent's answer; ADR 0001 said a threshold change is gated | Low | Narrowed: the automatic finish isn't rechecked; CI checks, nothing blocks a merge yet |
+| ADR 0013 said every run is committed with its raw results; `raw_results.jsonl` is git-ignored and live runs are uploaded for a person to choose from | Low | Fixed |
+| README said 10 controls have no evidence (13 have none published), its quickstart baseline overwrote the published 6-claim result, and its layout omitted the owners and stop lists and `kill_switch.py` | Low | Fixed; the quickstart writes to `evals/results/my-baseline` |
+| `check-append-only` crashed on a malformed stop list | Low | Fixed: fails with a message (HM-19) |
+| The CI workflows pin third-party actions by version tag, not commit SHA, and live-eval passes the API key in the same job | Low | Logged in HM-17 gaps |
+| HM-05 said a second run "can't triage" a claim; its gaps say both runs call the agents | Low | Says the second run's result isn't recorded |

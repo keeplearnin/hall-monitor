@@ -27,7 +27,8 @@ was accountable or could be asked to act.
   because a refused tool call alone goes back to the model as an error. A stopped agent stops
   the claim and sends it to a person, like any refusal ([ADR 0007](0007-failures-stop-the-claim.md)).
   Just before routing, the pipeline checks again every agent the result rests on, so a claim
-  is never paid on the answer of an agent stopped after it gave it.
+  that used the answer of an agent stopped after it gave it goes to a person. A stop made after
+  that check, before the workflow's automatic finish, isn't caught (see Consequences).
 - **Doubt stops everything.** A missing or unreadable stop list, one with a key twice (YAML
   would keep the last, so `stops: []` added at the end would hide every stop), a stop naming an
   unknown agent (a typo would otherwise leave the intended agent running) or a person not on the
