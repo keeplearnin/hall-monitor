@@ -229,7 +229,7 @@ Issues and pull requests are welcome, especially from people working on AI gover
 
 ## Author
 
-Built by Hari Perugu, engineering and AI platform leader in regulated financial services. LinkedIn
+Built by Hari Perugu, engineering and AI platform leader in regulated financial services. [LinkedIn](https://www.linkedin.com/in/hariperugu/)
 
 This is a personal project. It is not affiliated with, endorsed by, or built on the systems or data of any current or former employer.
 
