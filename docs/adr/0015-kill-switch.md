@@ -39,7 +39,8 @@ was accountable or could be asked to act.
   approvals file, reviewed like any other ([ADR 0003](0003-approvals-pin-hashes.md)).
 - **Stops are never deleted.** CI fails a pull request that removes or edits an entry, so
   deleting a stop isn't a way round the review. CODEOWNERS covers the code and the CI workflow
-  as well as the approvals, so the same pull request can't quietly switch the check off.
+  as well as the approvals, so once branch protection requires code-owner review, the same pull
+  request can't quietly switch the check off. It isn't on yet (see Consequences).
 - **The reason stays in the file.** Refusals, and so the audit log, carry the stop ID and the
   owner ID only; the free-text reason may be personal.
 

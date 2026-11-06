@@ -15,9 +15,11 @@ could show the adjuster different evidence, or change it afterwards.
 - **Signed decisions.** Each adjuster in [`registry/adjusters.yaml`](../../registry/adjusters.yaml)
   has an Ed25519 public key. A decision counts only if it carries a valid signature over the
   claim ID and every decision field, evidence hash included
-  ([`governance/signing.py`](../../hall_monitor/governance/signing.py)). The system holds public
-  keys only, so it can check a decision but never make one. The signature is kept in the audit
-  log.
+  ([`governance/signing.py`](../../hall_monitor/governance/signing.py)). For real adjusters the
+  system would hold public keys only, so it could check a decision but never make one. The two
+  demo adjusters' private keys are derivable from their IDs by design
+  (`signing.demo_private_key`, used by the review CLI), so anyone, the system included, can sign
+  as them. The signature is kept in the audit log.
 - **Evidence stored by hash.** At triage the evidence pack is stored in the audit database under
   its SHA-256, and the log records that hash. Before any decision, the review step checks that
   the checkpoint's pack is the one recorded and still matches the stored copy. `verify` reports a
