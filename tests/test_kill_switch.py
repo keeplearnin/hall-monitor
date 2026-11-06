@@ -658,3 +658,9 @@ def test_a_stop_reaches_a_symlinked_stop_list(registry_dir, tmp_path):
     assert (shared.stat().st_mode & 0o777) == 0o640
     with pytest.raises(AgentStoppedError):
         Registry.from_dir(registry_dir).require("intake")
+
+
+@pytest.mark.parametrize("head", [["a"], "text", {"stops": "text"}, {"stops": ["a"]}])
+def test_a_malformed_stop_list_fails_the_check_with_a_message(head):
+    with pytest.raises(AppendOnlyError, match="isn't a stop list"):
+        check_append_only({"stops": [_entry()]}, head)

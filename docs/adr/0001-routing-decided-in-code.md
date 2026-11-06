@@ -22,11 +22,17 @@ the coverage period, there is no policy record, or the claim isn't in USD. The a
 too: each claimed item must match its own occurrence of that figure in the claim documents, the
 total claimed must appear in them as well, and the items must add up to the total. Only a
 figure the documents mark as US dollars counts ($, US$ or USD beside it on the same line, with no
-other currency code or symbol next to it), and never part of a date, a time or a reference. An item invented, inflated, counted twice or copied from a total line
-then goes to a person even when coverage pays it in full, because the new total isn't in the
+other currency code or symbol, and no minus sign touching the mark, next to it), and never part of
+a date, a time or a reference. Another currency is recognised before the mark or after the figure:
+any three-capital code but USD, and a list of dollar and peso codes, prefixes and names in any case
+(HK, NZ, cad, Cdn, Canadian and the like), with any spaces or punctuation between. The list is a
+backstop, not a currency parser; HM-04's gaps list what it misses and what it refuses wrongly. An item invented,
+inflated, counted twice or copied from a total line then goes to a person even when coverage pays it in full, because the new total isn't in the
 documents. A year or a time read as the whole claim goes to a person because it isn't written
-as dollars, and so does a claim written as EUR 450, CAD $450 or $450 CAD that the intake labels
-USD. A bare "$" meant as another currency still counts as USD (HM-04 gap). (The first version of the trace
+as dollars, and so does a claim written as EUR 450, CAD $450, HK $450, (CAD) $450 or $450 cad
+that the intake labels USD. A bare "$" meant as another currency, one beside a
+code not in the list, or one whose currency is named only in a header still counts as USD, and a
+refund written as ($20.00) traces as $20 (HM-04 gaps). (The first version of the trace
 matched bare figures, and a review found that a year from a date, taken as the only item, the
 total and the payout, traced and was paid automatically on all 16 automatic test claims.) A claim the pipeline couldn't finish always goes to a person
 (`route_stopped`).
@@ -59,7 +65,8 @@ documents would pass it.
   (`tests/test_pipeline.py`), and the eval checks every route against the answer key.
 - It is conservative by design: about 58% of test runs go to a person. The test claims are
   weighted towards edge cases, so the production rate is unknown.
-- Changing the threshold is a code change, reviewed and gated like any other.
+- Changing the threshold is a code change: CI runs the tests and the eval gate on it like any
+  other, but nothing blocks the merge until branch protection is on, and it isn't yet.
 
 ## Evidence
 

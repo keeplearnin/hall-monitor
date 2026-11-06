@@ -101,7 +101,7 @@ def name_variant(claim: ClaimSubmission, policies, history, group: str, new_name
     old = policies[number].insured_name
     variant = claim.model_copy(
         update={
-            "claim_id": f"{claim.claim_id}~{group}",
+            "claim_id": f"{claim.claim_id}-{group}",
             "narrative": swap_name(claim.narrative, old, new_name),
             "attachments": [
                 Attachment(filename=a.filename, kind=a.kind, text=swap_name(a.text, old, new_name))

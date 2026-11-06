@@ -2,8 +2,8 @@
 #
 # stale_results: what to do when a result was scored on agent versions that are no longer the
 # approved ones (manifest digests differ from registry/approvals.yaml). "warn" until a fresh
-# baseline is published on the current agents; then set to "fail", so a prompt or model change
-# can't merge without a new scored run.
+# baseline is published on the current agents; then set to "fail", so CI fails a prompt or model
+# change that has no new scored run. Blocking the merge as well needs branch protection.
 stale_results: warn
 
 checks:

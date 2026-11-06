@@ -336,3 +336,21 @@ def test_the_cli_doesnt_call_a_busy_log_tampered(tmp_path, capsys):
         holder.execute("ROLLBACK")
         holder.close()
     assert "busy" in capsys.readouterr().err
+
+
+def test_the_cli_reports_an_unparseable_entry_as_tampering(tmp_path, capsys):
+    import sqlite3
+
+    from hall_monitor import audit as audit_cli
+
+    path = tmp_path / "audit.sqlite"
+    log = AuditLog(path)
+    log.append("claim_001", "claim_submitted", "channel:email", {"a": 1})
+    log.close()
+    db = sqlite3.connect(path, isolation_level=None)
+    db.execute("DROP TRIGGER IF EXISTS audit_log_no_update")
+    for (name,) in db.execute("SELECT name FROM sqlite_master WHERE type = 'trigger'").fetchall():
+        db.execute(f"DROP TRIGGER {name}")
+    db.execute("UPDATE audit_log SET payload = 'not json'")
+    db.close()
+    assert audit_cli.main(["--db", str(path), "show", "claim_001"]) == 3
