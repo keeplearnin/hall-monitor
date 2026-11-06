@@ -13,10 +13,10 @@ from hall_monitor.models import AgentCall, CoverageFinding, CriticReview, Review
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, AgentManifest, Registry
 from hall_monitor.tools.gateway import ToolGateway
-from tests.fakes import fake_client, outputs_from_truth
+from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
-REGISTRY = Registry.from_dir()
+REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
 GATEWAY = ToolGateway(REGISTRY)
 WORDING = load_policy_wording()
 

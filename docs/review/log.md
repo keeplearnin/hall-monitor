@@ -310,3 +310,26 @@ attachment kinds and encoded markup.
 | Only six invisible characters were dropped; direction marks, invisible operators and tag characters still split words | Low | Every format character, the grapheme joiner and variation selectors are dropped |
 | Escaping `&` changes what the model receives for 5 of the 36 claims, with no approval change and published results not marked stale | Low | Logged in HM-01 gaps: approvals don't pin how requests are rendered |
 | A claim file with a bad channel or kind failed with a traceback that echoed the submitted value | Low | `run` names the fields and error types only |
+
+## Review 6: kill switch and live evals
+
+The change-control findings from review 6 that concern operating the kill switch and the
+live-eval workflow.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Once a stop was committed, CI failed for good: 443 tests failed while the stop was live and 17 after the reviewed restart, because tests ran agents from the shipped registry, asserted it had no stops and reused `stop-0001` | Medium-High | Tests run agents from a copy of the registry with no stops; a test checks no test loads the shipped one |
+| Two owners running `kill_switch stop` at once could lose a stop without an error, or corrupt the file | Medium | Stops are added under a file lock and the file is replaced in one step |
+| `live-eval.yml` ran any dispatched branch with the real API key | Medium | The job runs only from main in the `live-eval` environment; the key must move to that environment, limited to main, which is a repository setting (HM-17 gap) |
+| An agent with the ID `pipeline` skipped every gateway check | Low | The registry refuses that ID |
+| The stop command failed if any other registry file couldn't be read | Low | It reads only the manifests' names and the owners |
+
+**Pre-PR review of those fixes:** 5 findings, 2 confirmed and 3 plausible; all fixed or logged.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Replacing the stop list broke a symlink to a shared store, so the stop stayed local and other hosts kept running the agent; permissions were reset too | Medium | The path is resolved first and the file's mode kept; a test stops an agent through a symlink |
+| One test still copied the shipped registry, so stopping `intake` failed it | Medium | Fixed, and the guard now forbids copying or loading the shipped registry in any test but the one that checks it; stopping every agent at once leaves the suite green |
+| `fcntl` was imported at module level, so the registry wouldn't load on Windows | Low, plausible | Imported where the lock is taken |
+| The replace wasn't synced first, and needs write access to the directory | Low, plausible | Synced before the replace; the directory access is logged in HM-19 gaps |
+| Each test run left a registry copy in the temp directory | Low | Removed at exit |

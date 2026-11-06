@@ -12,8 +12,9 @@ from hall_monitor.models import CoverageFinding, ToolCall
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import PIPELINE_ACTOR, ToolGateway
 from hall_monitor.tools.server import build_server
+from tests.fakes import TEST_REGISTRY_DIR
 
-REGISTRY = Registry.from_dir()
+REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
 GATEWAY = ToolGateway(REGISTRY)
 
 

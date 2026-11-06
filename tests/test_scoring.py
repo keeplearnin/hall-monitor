@@ -239,13 +239,13 @@ def test_seeded_scoring():
     from hall_monitor.models import CriticIssue, CriticReview, ReviewedStage
     from hall_monitor.registry import Registry
     from hall_monitor.tools.gateway import ToolGateway
-    from tests.fakes import fake_client
+    from tests.fakes import TEST_REGISTRY_DIR, fake_client
 
     truth = load_ground_truth("claim_001")
     issue = CriticReview(
         issues=[CriticIssue(stage=ReviewedStage.INTAKE, problem="Date missing.", evidence="x")]
     )
-    registry = Registry.from_dir()
+    registry = Registry.from_dir(TEST_REGISTRY_DIR)
     context = {
         "gateway": ToolGateway(registry),
         "wording": WORDING,

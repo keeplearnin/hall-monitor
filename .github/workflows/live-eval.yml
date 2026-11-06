@@ -2,7 +2,10 @@ name: Live eval
 
 # Runs an eval against the Claude API. Manual only: every run costs money, and results are
 # uploaded for review rather than committed, so a person decides what gets published.
-# Needs the repository secret ANTHROPIC_API_KEY.
+# Runs only from main, so a dispatch can't send an unreviewed branch's prompts and code to the API
+# with the key. The guard lives in this file, so a branch could edit it out of its own copy: keep
+# ANTHROPIC_API_KEY as a secret of the live-eval environment, limited to the main branch (Settings,
+# Environments), not as a repository secret.
 on:
   workflow_dispatch:
     inputs:
@@ -22,6 +25,8 @@ permissions:
 jobs:
   eval:
     name: Run ${{ inputs.eval }}
+    if: github.ref == 'refs/heads/main'
+    environment: live-eval
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
