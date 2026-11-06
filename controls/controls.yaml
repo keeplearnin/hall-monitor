@@ -138,9 +138,11 @@ controls:
       nothing extracted), also needs a senior adjuster.
       The adjuster is shown the stored pack, with a warning if the checkpoint no longer matches
       it. A decision signed with a public demo key is marked as such in the record. A claim gets
-      one final decision: the audit log refuses a second inside the same write transaction, so
-      two runs or two adjusters at once, or a checkpoints file restored from a backup, can't
-      decide or pay it again, and the claim shows as decided whatever the checkpoint holds.
+      one evidence pack and one final decision: the audit log refuses a second of either inside
+      the same write transaction, so two runs or two adjusters at once, or a checkpoints file
+      restored from a backup, can't triage, decide or pay it again. The log, not the
+      checkpoint, says whether and how a claim was decided: a decision in the checkpoint that
+      the log doesn't hold, or that differs from it, is reported as a problem.
     status: built
     code:
       - hall_monitor/workflow.py::build_graph
@@ -162,6 +164,8 @@ controls:
       - tests/test_workflow.py::test_two_adjusters_deciding_at_once_decide_once
       - tests/test_workflow.py::test_a_restored_checkpoints_file_cant_decide_a_claim_again
       - tests/test_workflow.py::test_entries_appended_to_the_log_cant_relax_the_approval_rules
+      - tests/test_workflow.py::test_a_checkpoint_decision_the_log_doesnt_hold_isnt_reported_decided
+      - tests/test_workflow.py::test_two_runs_of_a_claim_for_review_leave_it_decidable
       - tests/test_approval_rules.py::test_paying_a_claim_the_ai_never_assessed_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_denying_more_than_your_authority_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_a_demo_key_signature_is_marked_in_the_record
@@ -179,10 +183,11 @@ controls:
       The fictional adjusters' keys are public demo keys (decisions signed with them are marked);
       a deployment would issue keys from the firm's identity system. The evidence pack lists document names rather than the documents.
       The evidence pack and the triage result the approval rules read are checked against the
-      hashes the audit log recorded at triage (the first pack, and the result logged before it:
-      a second pack appended later makes the claim undecidable rather than replacing it); other
-      checkpoint state isn't. Two runs of one claim at once both triage it, and both record
-      their triage events; only the payment is once-only, and the claim then needs a person. A signed decision
+      hashes the audit log recorded at triage (the pack's entry names the result it was built
+      from; a second pack appended by hand makes the claim undecidable rather than replacing
+      it); other checkpoint state isn't. Two runs of one claim at once both call the agents and
+      both record their agent and tool calls before the second fails, so the log shows a run
+      whose result wasn't recorded. A signed decision
       carries no nonce, so if a claim were ever triaged again with an identical pack, an earlier
       signature for it would verify again; the workflow refuses a second triage of any claim
       the audit log shows finished, whatever the checkpoint file holds. A crash after the
@@ -237,7 +242,8 @@ controls:
       final decision entry keeps the adjuster's Ed25519 signature, which covers the reason, so
       anyone with the log and the public key can confirm a guessed reason: the keyed hash
       doesn't protect a signed reason yet. The audit CLI reports a file with no readable log as
-      tampered with (exit 3), not missing (exit 1).
+      tampered with (exit 3), not missing (exit 1), and a log another process holds locked as
+      busy (exit 4).
 
   - id: HM-07
     name: Critic review with revision history

@@ -271,8 +271,7 @@ def test_run_fresh_refuses_a_claim_that_finished_triage(db, monkeypatch, claim_i
     """--fresh restarts a crashed triage only: a decided claim must not be paid twice, and a
     claim waiting for an adjuster must not be re-run until it routes automatically."""
     _submit(db, claim_id)
-    with pytest.raises(ValueError, match="already"):
-        _run_fresh(db, claim_id, monkeypatch)
+    assert _run_fresh(db, claim_id, monkeypatch) != 0  # refused with a message, not a traceback
     with _open(db) as workflow:
         triaged = [e for e in workflow.audit.entries(claim_id) if e["event"] == "triage_result"]
     assert len(triaged) == 1
@@ -354,7 +353,7 @@ def test_two_runs_of_the_same_claim_at_once_pay_it_once(db, monkeypatch):
         return real(*args)
 
     monkeypatch.setattr(workflow_module, "build_evidence_pack", other_run_finishes_first)
-    with pytest.raises(ValueError, match="already decided"):
+    with pytest.raises(ValueError, match="already"):
         _submit(db, "claim_001")
     assert len(_finals(db, "claim_001")) == 1
 
@@ -494,3 +493,163 @@ def test_a_rejection_logs_the_submission_as_a_keyed_hash(db):
             canonical(submitted)
         )
         assert sha256(canonical(submitted)) not in str(rejected["payload"])
+
+
+def test_a_checkpoint_decision_the_log_doesnt_hold_isnt_reported_decided(db):
+    """The log, not the checkpoint, says whether a claim was decided: an edited checkpoint
+    can't take a waiting claim out of the queue or show a payout nobody approved."""
+    _submit(db, "claim_004")
+    config = {"configurable": {"thread_id": "claim_004"}}
+    with _open(db) as workflow:
+        workflow.app.update_state(config, {"final": {"claim_id": "claim_004", "payout_usd": 99999}})
+        status = workflow.status("claim_004")
+    assert status["state"] != "decided"
+    assert "audit log" in status["problem"]
+
+
+def test_an_edited_decision_in_the_checkpoint_is_reported(db):
+    _submit(db, "claim_001")
+    config = {"configurable": {"thread_id": "claim_001"}}
+    with _open(db) as workflow:
+        final = workflow.app.get_state(config).values["final"]
+        workflow.app.update_state(config, {"final": final | {"payout_usd": 99999.0}})
+        status = workflow.status("claim_001")
+    assert status["state"] == "decided"
+    assert status["final"]["payout_usd"] == 1992.0  # the log's, not the edited checkpoint's
+    assert "audit log" in status["problem"]
+
+
+def test_two_runs_of_a_claim_for_review_leave_it_decidable(db, monkeypatch):
+    """Two runs of a claim that goes to an adjuster: the second fails, and the first stays
+    waiting and can be decided, rather than reading as tampered with."""
+    import hall_monitor.workflow as workflow_module
+
+    real = workflow_module.build_evidence_pack
+    nested = []
+
+    def other_run_finishes_first(*args):
+        if not nested:
+            nested.append(True)
+            with _open(winner, "claim_004") as other:
+                assert other.submit(CLAIMS["claim_004"])["state"] == "waiting_for_adjuster"
+        return real(*args)
+
+    winner = db.with_name("other-checkpoints.sqlite")  # another worker, same audit log
+    monkeypatch.setattr(workflow_module, "build_evidence_pack", other_run_finishes_first)
+    with pytest.raises(ValueError, match="already triaged"):
+        _submit(db, "claim_004")
+    with _open(winner) as workflow:
+        status = workflow.status("claim_004")
+    assert status["state"] == "waiting_for_adjuster" and status["evidence_problem"] is None
+    decided = _decide(
+        winner,
+        "claim_004",
+        adjuster_id="adj-101",
+        next_step=NextStep.DENY,
+        payout_usd=0,
+        reason="Medication changed 43 days before purchase: pre-existing (5.1).",
+    )
+    assert decided["state"] == "decided"
+
+
+def test_the_adjuster_sees_the_pack_stored_at_triage_after_a_forged_append(db):
+    from hall_monitor.governance.audit import AuditLog
+
+    stored = _submit(db, "claim_006")["evidence"]
+    forged = stored | {"risk": stored["risk"] | {"flags": [], "level": "low"}}
+    config = {"configurable": {"thread_id": "claim_006"}}
+    log = AuditLog(db.with_name("audit.sqlite"))
+    log.append(
+        "claim_006", "evidence_pack", "pipeline", {"evidence_sha256": log.put_evidence(forged)}
+    )
+    log.close()
+    with _open(db) as workflow:
+        workflow.app.update_state(config, {"evidence": forged})
+        status = workflow.status("claim_006")
+    assert status["evidence"] == stored
+    assert status["evidence_problem"]
+
+
+def test_cli_reports_a_claim_already_decided_without_a_traceback(db, monkeypatch, capsys):
+    import hall_monitor.review as review_module
+
+    digest = _submit(db, "claim_003")["evidence_sha256"]
+    backup = db.read_bytes()
+    _decide(db, "claim_003", adjuster_id="adj-201", next_step=NextStep.PAY, payout_usd=6480.0)
+    db.write_bytes(backup)
+    real = review_module.open_workflow
+    monkeypatch.setattr(
+        review_module,
+        "open_workflow",
+        lambda checkpoints, **kw: real(checkpoints, audit_db=db.with_name("audit.sqlite"), **kw),
+    )
+    code = review_module.main(
+        [
+            "--checkpoints",
+            str(db),
+            "decide",
+            "claim_003",
+            "--adjuster",
+            "adj-201",
+            "--next-step",
+            "pay",
+            "--payout",
+            "10",
+            "--reason",
+            "x" * 30,
+            "--evidence-sha256",
+            digest,
+        ]
+    )
+    assert code != 0
+    assert "decided" in capsys.readouterr().err
+
+
+def test_cli_reports_a_lost_race_without_a_traceback(db, monkeypatch, capsys):
+    """The decision that loses a race fails inside decide(), after the CLI's own check."""
+    import hall_monitor.review as review_module
+    import hall_monitor.workflow as workflow_module
+
+    digest = _submit(db, "claim_004")["evidence_sha256"]
+    real_open, real_validate = review_module.open_workflow, workflow_module.validate_decision
+    nested = []
+
+    def other_adjuster_decides_first(*args, **kwargs):
+        if not nested:
+            nested.append(True)
+            _decide(
+                db,
+                "claim_004",
+                adjuster_id="adj-201",
+                next_step=NextStep.DENY,
+                payout_usd=0,
+                reason="Medication changed 43 days before purchase: pre-existing (5.1).",
+            )
+        return real_validate(*args, **kwargs)
+
+    monkeypatch.setattr(workflow_module, "validate_decision", other_adjuster_decides_first)
+    monkeypatch.setattr(
+        review_module,
+        "open_workflow",
+        lambda checkpoints, **kw: real_open(
+            checkpoints, audit_db=db.with_name("audit.sqlite"), **kw
+        ),
+    )
+    code = review_module.main(
+        [
+            "--checkpoints",
+            str(db),
+            "decide",
+            "claim_004",
+            "--adjuster",
+            "adj-101",
+            "--next-step",
+            "deny",
+            "--reason",
+            "Pre-existing condition under clause 5.1 noted.",
+            "--evidence-sha256",
+            digest,
+        ]
+    )
+    assert code != 0
+    assert "already decided" in capsys.readouterr().err

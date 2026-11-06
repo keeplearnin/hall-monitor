@@ -87,7 +87,21 @@ def build_graph(
         )
         pack = build_evidence_pack(result, claim)
         digest = audit.put_evidence(pack)
-        audit.append(claim.claim_id, "evidence_pack", "pipeline", {"evidence_sha256": digest})
+        try:
+            # Once per claim, with the result it was built from: a second run of the same
+            # claim at the same moment fails here, and the first run's pack and result stand.
+            audit.append(
+                claim.claim_id,
+                "evidence_pack",
+                "pipeline",
+                {"evidence_sha256": digest, "result_sha256": sha256(result.model_dump_json())},
+                once=True,
+            )
+        except AlreadyRecorded:
+            raise ValueError(
+                f"{claim.claim_id} was already triaged by another run; this run's result wasn't "
+                "recorded"
+            ) from None
         return {
             "result": result.model_dump(mode="json"),
             "evidence": pack,
@@ -286,19 +300,35 @@ class ClaimWorkflow:
         values = snapshot.values
         if not values:
             return {"claim_id": claim_id, "state": "unknown"}
+        # The log, not the checkpoint, says whether and how a claim was decided.
+        logged_final = self.audit.final_decision(claim_id)
+        if logged_final is not None:
+            checkpoint_final = values.get("final")
+            if checkpoint_final is not None and self._matches(checkpoint_final, logged_final):
+                return {"claim_id": claim_id, "state": "decided", "final": checkpoint_final}
+            # Restored from a backup, decided by another process, or edited: the log's record
+            # of the decision, which holds no reason text.
+            problem = (
+                None
+                if checkpoint_final is None
+                else "the checkpoint's decision isn't the one the audit log recorded"
+            )
+            return {
+                "claim_id": claim_id,
+                "state": "decided",
+                "final": logged_final,
+                "problem": problem,
+            }
         if "final" in values:
-            return {"claim_id": claim_id, "state": "decided", "final": values["final"]}
-        if (logged_final := self.audit.final_decision(claim_id)) is not None:
-            # Decided, but not in this checkpoint (restored from a backup, or decided by
-            # another process): the log's record of the decision, which holds no reason text.
-            return {"claim_id": claim_id, "state": "decided", "final": logged_final}
+            return {
+                "claim_id": claim_id,
+                "state": "needs_a_person",
+                "problem": "the checkpoint shows a decision the audit log doesn't hold",
+            }
         if "review" in snapshot.next:
             # Show the pack stored under the hash the audit log recorded at triage, not the
             # checkpoint's copy, and say if the checkpoint no longer matches it.
-            try:
-                logged = self.audit.evidence_hash(claim_id)
-            except EvidenceChanged:
-                logged = None
+            logged = self.audit.evidence_hash(claim_id, strict=False)
             try:
                 result = TriageResult.model_validate(values["result"])
                 _check_evidence(self.audit, claim_id, values, result)
@@ -321,6 +351,18 @@ class ClaimWorkflow:
                 "previous_decision_rejected": values.get("rejected"),
             }
         return {"claim_id": claim_id, "state": "in_progress"}
+
+    def _matches(self, checkpoint_final: dict, logged: dict) -> bool:
+        """The checkpoint's full decision is the one the log recorded: the same fields, and the
+        written reason hashing to the logged keyed hash."""
+        fields = {k: v for k, v in checkpoint_final.items() if k not in {"adjuster_name", "reason"}}
+        logged_fields = {k: v for k, v in logged.items() if k not in {"reason_hmac", "signature"}}
+        reason = checkpoint_final.get("reason")
+        return (
+            fields == logged_fields
+            and isinstance(reason, str)
+            and self.audit.keyed_hash(reason) == logged.get("reason_hmac")
+        )
 
     def waiting(self) -> list[str]:
         """Claims waiting for an adjuster."""

@@ -4,6 +4,8 @@ uv run python -m hall_monitor.audit verify
 uv run python -m hall_monitor.audit head            # copy this somewhere safe
 uv run python -m hall_monitor.audit verify --expect-seq 42 --expect-hash <hash>
 uv run python -m hall_monitor.audit show claim_004
+
+Exit codes: 0 verified, 1 no log at that path, 3 tampered with (or not a readable log), 4 busy.
 """
 
 from __future__ import annotations
@@ -35,13 +37,25 @@ def main(argv: list[str] | None = None) -> int:
     log = AuditLog(args.db, read_only=True)
     try:
         return _run(args, log, parser)
+    except sqlite3.OperationalError as exc:
+        if "locked" not in str(exc) and "busy" not in str(exc):
+            return _unreadable(exc)
+        print(
+            f"the audit log at {args.db} is busy (locked by another process); try again",
+            file=sys.stderr,
+        )
+        return 4
     except sqlite3.DatabaseError as exc:
-        # A file that exists but holds no readable log (a dropped table, a corrupt file) has
-        # been tampered with, not mislaid: the same exit code as a failed verify.
-        print(json.dumps({"ok": False, "problems": [f"not a readable audit log: {exc}"]}))
-        return 3
+        return _unreadable(exc)
     finally:
         log.close()
+
+
+def _unreadable(exc: sqlite3.DatabaseError) -> int:
+    """A file that exists but holds no readable log (a dropped table, a corrupt file) has been
+    tampered with, not mislaid: the same exit code as a failed verify."""
+    print(json.dumps({"ok": False, "problems": [f"not a readable audit log: {exc}"]}))
+    return 3
 
 
 def _run(args: argparse.Namespace, log: AuditLog, parser: argparse.ArgumentParser) -> int:

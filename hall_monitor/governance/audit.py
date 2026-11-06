@@ -262,23 +262,30 @@ class AuditLog:
             (claim_id,),
         ).fetchall()
         if len(rows) > 1:
-            # Triage records one pack per claim (submit refuses a claim that has one), so a
-            # second was appended by something else: trust neither.
+            # Triage records at most one pack per claim (the append is once-only), so a second
+            # was appended by something else: trust neither.
             raise EvidenceChanged(f"more than one evidence pack is recorded for {claim_id}")
         return rows[0] if rows else None
 
     @_locked
-    def evidence_hash(self, claim_id: str) -> str | None:
+    def evidence_hash(self, claim_id: str, *, strict: bool = True) -> str | None:
         """The hash of the evidence pack recorded at the claim's triage. Raises EvidenceChanged
-        if more than one is recorded: an entry appended later can't replace it."""
+        if more than one is recorded: an entry appended later can't replace it. strict=False
+        returns the first one regardless, for showing an adjuster what triage stored."""
+        if not strict:
+            row = self._first(claim_id, "evidence_pack")
+            return _evidence_ref(row[1]) if row else None
         row = self._evidence_entry(claim_id)
         return _evidence_ref(row[1]) if row else None
 
     @_locked
     def result_hash(self, claim_id: str) -> str | None:
-        """The hash of the triage result recorded with the claim's evidence pack: the latest
-        one before the pack (a restarted triage records another), never one appended after."""
+        """The hash of the triage result the claim's evidence pack was built from: recorded in
+        the pack's entry, or, in a log written before it was, the latest result logged before
+        the pack (a restarted triage records another). Never one appended after."""
         pack = self._evidence_entry(claim_id)
+        if pack is not None and (recorded := json.loads(pack[1]).get("result_sha256")):
+            return recorded
         row = self._db.execute(
             "SELECT payload FROM audit_log WHERE claim_id = ? AND event = 'triage_result'"
             " AND seq < ? ORDER BY seq DESC LIMIT 1",
