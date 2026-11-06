@@ -1,0 +1,156 @@
+{
+  "employers": [
+    {
+      "id": "larkspur",
+      "name": "Larkspur Supply Co.",
+      "public_agency": false,
+      "weeks_with_50_or_more_employees": {
+        "2025": 52,
+        "2026": 44
+      },
+      "leave_year": {
+        "method": "rolling_backward"
+      }
+    },
+    {
+      "id": "larkspur_labs",
+      "name": "Larkspur Labs LLC",
+      "public_agency": false,
+      "weeks_with_50_or_more_employees": {
+        "2025": 8,
+        "2026": 0
+      },
+      "leave_year": {
+        "method": "calendar_year"
+      }
+    }
+  ],
+  "worksites": [
+    {
+      "id": "ws-hq",
+      "employer_id": "larkspur",
+      "name": "Head office",
+      "state": "OH",
+      "headcount": 140
+    },
+    {
+      "id": "ws-spr",
+      "employer_id": "larkspur",
+      "name": "Warehouse",
+      "state": "OH",
+      "headcount": 35
+    },
+    {
+      "id": "ws-bil",
+      "employer_id": "larkspur",
+      "name": "Store 12",
+      "state": "MT",
+      "headcount": 22
+    },
+    {
+      "id": "ws-lau",
+      "employer_id": "larkspur",
+      "name": "Store 14",
+      "state": "MT",
+      "headcount": 27
+    },
+    {
+      "id": "ws-har",
+      "employer_id": "larkspur",
+      "name": "Depot 3",
+      "state": "MT",
+      "headcount": 1
+    },
+    {
+      "id": "ws-fre",
+      "employer_id": "larkspur",
+      "name": "Store 31",
+      "state": "CA",
+      "headcount": 61
+    },
+    {
+      "id": "ws-lab",
+      "employer_id": "larkspur_labs",
+      "name": "Lab",
+      "state": "OH",
+      "headcount": 30
+    }
+  ],
+  "surface_miles": [
+    [
+      "ws-hq",
+      "ws-spr",
+      26
+    ],
+    [
+      "ws-hq",
+      "ws-bil",
+      1580
+    ],
+    [
+      "ws-hq",
+      "ws-lau",
+      1565
+    ],
+    [
+      "ws-hq",
+      "ws-har",
+      1530
+    ],
+    [
+      "ws-hq",
+      "ws-fre",
+      2290
+    ],
+    [
+      "ws-spr",
+      "ws-bil",
+      1595
+    ],
+    [
+      "ws-spr",
+      "ws-lau",
+      1580
+    ],
+    [
+      "ws-spr",
+      "ws-har",
+      1545
+    ],
+    [
+      "ws-spr",
+      "ws-fre",
+      2305
+    ],
+    [
+      "ws-bil",
+      "ws-lau",
+      16
+    ],
+    [
+      "ws-bil",
+      "ws-har",
+      75
+    ],
+    [
+      "ws-bil",
+      "ws-fre",
+      1070
+    ],
+    [
+      "ws-lau",
+      "ws-har",
+      91
+    ],
+    [
+      "ws-lau",
+      "ws-fre",
+      1060
+    ],
+    [
+      "ws-har",
+      "ws-fre",
+      1140
+    ]
+  ]
+}

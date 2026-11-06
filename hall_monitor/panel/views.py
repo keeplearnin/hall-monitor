@@ -48,7 +48,11 @@ from hall_monitor.tools.server import CLAIMS_HISTORY, POLICY_LOOKUP
 # The worked examples. Only travel claims write to the audit log today.
 WORKFLOWS = (
     {"id": "travel_claims", "name": "Travel-insurance claims", "status": "built"},
-    {"id": "hr_leave", "name": "Workday HR leave of absence", "status": "designed, no code yet"},
+    {
+        "id": "hr_leave",
+        "name": "Workday HR leave of absence",
+        "status": "rules only, no agents yet",
+    },
 )
 
 

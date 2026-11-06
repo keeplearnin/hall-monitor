@@ -1,0 +1,714 @@
+[
+  {
+    "id": "e101",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e102",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2025-12-14",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-12-20",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e103",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2025-12-13",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-12-13",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 30
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e104",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2025-11-29",
+        "hours_per_week": 40
+      },
+      {
+        "weeks_ending_from": "2025-12-06",
+        "weeks_ending_to": "2026-11-21",
+        "hours_per_week": 24
+      },
+      {
+        "weeks_ending_from": "2026-11-28",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 25
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e105",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2025-11-29",
+        "hours_per_week": 40
+      },
+      {
+        "weeks_ending_from": "2025-12-06",
+        "weeks_ending_to": "2026-11-21",
+        "hours_per_week": 24
+      },
+      {
+        "weeks_ending_from": "2026-11-28",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 26
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e106",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-lau",
+    "home_state": "MT",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e107",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-bil",
+    "home_state": "MT",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e108",
+    "employer_id": "larkspur_labs",
+    "worksite_id": "ws-lab",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e109",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [
+      {
+        "start": "2026-06-01",
+        "end": "2026-08-09",
+        "reason": "own_serious_health_condition"
+      }
+    ],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e110",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [
+      {
+        "start": "2025-11-10",
+        "end": "2025-12-07",
+        "reason": "own_serious_health_condition"
+      }
+    ],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e111",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e112",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": true,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e113",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e114",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-fre",
+    "home_state": "CA",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e115",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": true,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e116",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": "e101",
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e117",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e118",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e119",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e120",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e121",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2010-03-01",
+        "end": "2015-06-30"
+      },
+      {
+        "start": "2026-06-01",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2026-06-06",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 50
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e122",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2020-03-02",
+        "end": "2022-03-01"
+      },
+      {
+        "start": "2026-05-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2026-05-09",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 45
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e123",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": null,
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e124",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "MT",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e125",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e126",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [
+      {
+        "start": "2025-03-02",
+        "end": "2025-05-24",
+        "reason": "military_caregiver"
+      }
+    ],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e127",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "NY",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  },
+  {
+    "id": "e128",
+    "employer_id": "larkspur",
+    "worksite_id": "ws-hq",
+    "home_state": "OH",
+    "employment": [
+      {
+        "start": "2019-03-04",
+        "end": null
+      }
+    ],
+    "hours_ledger": [
+      {
+        "weeks_ending_from": "2025-01-04",
+        "weeks_ending_to": "2026-11-28",
+        "hours_per_week": 40
+      }
+    ],
+    "fmla_leave_taken": [],
+    "key_employee": false,
+    "spouse_employee_id": null,
+    "pending_adverse_action": false,
+    "count_service_before_long_break": false
+  }
+]

@@ -1,0 +1,432 @@
+[
+  {
+    "request_id": "lr_001",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "specialist_sign_off",
+    "decided_by": "leave_specialist",
+    "reasons": [],
+    "notice_due": "2026-11-09",
+    "why": "Clean: eligible, own health condition, 4 of 12 weeks."
+  },
+  {
+    "request_id": "lr_002",
+    "eligible": false,
+    "failed_checks": [
+      "service"
+    ],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "hr_manager",
+    "reasons": [
+      "short_service"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "51 weeks on the payroll, hired on a Sunday."
+  },
+  {
+    "request_id": "lr_003",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "specialist_sign_off",
+    "decided_by": "leave_specialist",
+    "reasons": [],
+    "notice_due": "2026-11-09",
+    "why": "Hired on a Saturday: that day's week counts, making 52."
+  },
+  {
+    "request_id": "lr_004",
+    "eligible": false,
+    "failed_checks": [
+      "hours"
+    ],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "hr_manager",
+    "reasons": [
+      "low_hours"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "1,249 hours in the 12 months before leave."
+  },
+  {
+    "request_id": "lr_005",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "specialist_sign_off",
+    "decided_by": "leave_specialist",
+    "reasons": [],
+    "notice_due": "2026-11-12",
+    "why": "Exactly 1,250 hours counts; notice on a Thursday."
+  },
+  {
+    "request_id": "lr_006",
+    "eligible": false,
+    "failed_checks": [
+      "worksite"
+    ],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "hr_manager",
+    "reasons": [
+      "small_worksite"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "49 employees within 75 miles."
+  },
+  {
+    "request_id": "lr_007",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "specialist_sign_off",
+    "decided_by": "leave_specialist",
+    "reasons": [],
+    "notice_due": "2026-11-09",
+    "why": "50 within 75 miles, counting a site exactly 75 miles away."
+  },
+  {
+    "request_id": "lr_008",
+    "eligible": false,
+    "failed_checks": [
+      "employer",
+      "worksite"
+    ],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "hr_manager",
+    "reasons": [
+      "employer_not_covered",
+      "small_worksite"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Employer not covered (8 and 0 weeks with 50 or more); 30 within 75 miles."
+  },
+  {
+    "request_id": "lr_009",
+    "eligible": true,
+    "failed_checks": [
+      "entitlement"
+    ],
+    "unknown_checks": [],
+    "remaining_weeks": 2.0,
+    "requested_weeks": 3.0,
+    "route": "hr_review",
+    "decided_by": "hr_director",
+    "reasons": [
+      "past_entitlement"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "10 weeks used in the rolling year; 3 asked, 2 left."
+  },
+  {
+    "request_id": "lr_010",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 11.0,
+    "requested_weeks": 6.0,
+    "route": "specialist_sign_off",
+    "decided_by": "leave_specialist",
+    "reasons": [],
+    "notice_due": "2026-11-09",
+    "why": "Only 5 workdays of an older leave fall in the rolling year."
+  },
+  {
+    "request_id": "lr_011",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": null,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "intermittent"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Intermittent leave goes to a person."
+  },
+  {
+    "request_id": "lr_012",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "hr_director",
+    "reasons": [
+      "retaliation_risk"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Pending adverse action: retaliation risk."
+  },
+  {
+    "request_id": "lr_013",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "possible_accommodation"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Possible ADA or PWFA accommodation."
+  },
+  {
+    "request_id": "lr_014",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "state_law"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "California worksite: a state leave law may apply."
+  },
+  {
+    "request_id": "lr_015",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "key_employee"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Key employee."
+  },
+  {
+    "request_id": "lr_016",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "spouses_same_employer"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Both parents work here: their bonding leave may be shared."
+  },
+  {
+    "request_id": "lr_017",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 6.0,
+    "route": "hr_review",
+    "decided_by": "hr_manager",
+    "reasons": [
+      "bonding_window"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Bonding leave starting inside the 12 months after the birth but ending after them: the part inside qualifies, a person decides the rest."
+  },
+  {
+    "request_id": "lr_018",
+    "eligible": true,
+    "failed_checks": [
+      "reason"
+    ],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "hr_manager",
+    "reasons": [
+      "family_member_not_covered"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "A parent-in-law isn't a covered family member."
+  },
+  {
+    "request_id": "lr_019",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [
+      "reason"
+    ],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "reason_unclear"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Reason unclear."
+  },
+  {
+    "request_id": "lr_020",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 26.0,
+    "requested_weeks": 18.0,
+    "route": "specialist_sign_off",
+    "decided_by": "leave_specialist",
+    "reasons": [],
+    "notice_due": "2026-11-06",
+    "why": "Military caregiver: 26 weeks; notice on a Friday."
+  },
+  {
+    "request_id": "lr_021",
+    "eligible": false,
+    "failed_checks": [
+      "service"
+    ],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "hr_manager",
+    "reasons": [
+      "short_service"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Service before a break of almost 11 years isn't counted: 27 weeks."
+  },
+  {
+    "request_id": "lr_022",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "specialist_sign_off",
+    "decided_by": "leave_specialist",
+    "reasons": [],
+    "notice_due": "2026-11-09",
+    "why": "Service before a 4-year break counts: 136 weeks."
+  },
+  {
+    "request_id": "lr_023",
+    "eligible": null,
+    "failed_checks": [],
+    "unknown_checks": [
+      "hours"
+    ],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "facts_missing"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "No hours ledger, so hours can't be checked."
+  },
+  {
+    "request_id": "lr_024",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "specialist_sign_off",
+    "decided_by": "leave_specialist",
+    "reasons": [],
+    "notice_due": "2026-11-09",
+    "why": "Works from home; the worksite is the office they're assigned to."
+  },
+  {
+    "request_id": "lr_025",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [
+      "reason"
+    ],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "adult_child"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Adult child: a person checks whether they can care for themselves."
+  },
+  {
+    "request_id": "lr_026",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [
+      "entitlement"
+    ],
+    "remaining_weeks": null,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "caregiver_history"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Earlier caregiver leave in a period that has ended: a person checks whether this is the same servicemember and injury."
+  },
+  {
+    "request_id": "lr_027",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "state_law"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Works at an Ohio office but lives in New York: a state law may apply."
+  },
+  {
+    "request_id": "lr_028",
+    "eligible": true,
+    "failed_checks": [],
+    "unknown_checks": [
+      "reason"
+    ],
+    "remaining_weeks": 12.0,
+    "requested_weeks": 4.0,
+    "route": "hr_review",
+    "decided_by": "leave_specialist",
+    "reasons": [
+      "before_birth"
+    ],
+    "notice_due": "2026-11-09",
+    "why": "Birth bonding leave starting before the birth: a person decides what it is."
+  }
+]

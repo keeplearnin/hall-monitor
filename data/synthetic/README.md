@@ -9,6 +9,8 @@ hospitals, airlines and receipts are fictional. No real customer, policy or clai
 - `claims/`: claim submissions as the customer sent them: a free-text narrative plus attachment
   text. Treat this as untrusted input.
 - `claims_history.json`: earlier claims by some of the insured people, served by the `claims_history` MCP tool.
+- `hr/`: the second worked example, leave-of-absence requests at a fictional employer, with
+  their own answer keys ([`hr/README.md`](hr/README.md)).
 - `ground_truth/`: the expected intake extraction, coverage decision, risk flags, next step and
   route for each claim, with the reasoning written out.
 
