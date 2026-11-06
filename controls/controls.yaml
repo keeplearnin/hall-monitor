@@ -480,7 +480,10 @@ controls:
       The gate checks published results; it doesn't run live evals itself (that costs money and
       needs an API key), so a stale result is only a warning until a fresh baseline exists.
       Until then the gate doesn't block a regression. Metrics other than unsafe routes are read
-      from the summary each run wrote.
+      from the summary each run wrote. The live-eval workflow runs only from main, but that guard
+      is in the workflow file, which a branch can edit in its own copy: the API key must be a
+      secret of the live-eval environment limited to main, a repository setting this repo can't
+      check.
 
   - id: HM-18
     name: Synthetic data and documented limits
@@ -516,7 +519,11 @@ controls:
       refused. Restarting needs the stop cleared in registry/approvals.yaml (python -m
       hall_monitor.approvals --resume), a reviewed approval.
       CI fails a pull request that removes or edits a stop. Refusals carry the stop and owner IDs,
-      never the reason.
+      never the reason. Stops are written under a lock and replaced in one step, so two owners
+      stopping agents at once both take effect, and the stop command reads only the manifests'
+      names and the owners, so a broken file elsewhere in the registry can't block it. Tests run
+      agents from a copy of the registry with no stops, so a live stop doesn't fail every later
+      pull request. No agent may take the ID "pipeline", which the tool gateway reserves.
     status: built
     code:
       - hall_monitor/kill_switch.py::add_stop
@@ -538,6 +545,11 @@ controls:
       - tests/test_kill_switch.py::test_an_unreadable_stop_list_refuses_every_agent
       - tests/test_kill_switch.py::test_removing_or_editing_a_stop_fails_the_check
       - tests/test_kill_switch.py::test_every_agent_is_owned_by_a_named_person
+      - tests/test_kill_switch.py::test_two_stops_at_once_are_both_kept
+      - tests/test_kill_switch.py::test_an_agent_can_be_stopped_while_other_registry_files_are_broken
+      - tests/test_kill_switch.py::test_no_agent_may_take_the_pipelines_id
+      - tests/test_kill_switch.py::test_tests_run_agents_from_a_registry_with_no_stops
+      - tests/test_kill_switch.py::test_the_shipped_stop_list_is_valid_whatever_it_holds
     evidence: []
     nist: [MANAGE 2.4, GOVERN 2.1]
     finos:
@@ -555,7 +567,8 @@ controls:
       and disabled the check would need the owner's review, but only once branch protection is
       on, and it isn't: until then a direct push to main, and always an edit on the host, could
       delete a stop and restart the agent unreviewed. Stops are not written to the audit log as
-      events; a stopped agent shows there only as the stopped claim's reason.
+      events; a stopped agent shows there only as the stopped claim's reason. The stop lock is a
+      file lock, so it serialises owners on one machine, not on a shared network store.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:

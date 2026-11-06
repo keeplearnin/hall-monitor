@@ -17,8 +17,11 @@ This module only reads and writes the file; the registry decides what a stop mea
 from __future__ import annotations
 
 import argparse
+import fcntl
+import os
 import re
 import sys
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -93,8 +96,24 @@ def _raw(path: Path) -> list[dict]:
 
 
 def next_stop_id(path: Path) -> str:
-    numbers = [int(m.group(1)) for s in _raw(path) if (m := re.match(r"stop-(\d+)$", s["id"]))]
+    return _next_id(_raw(path))
+
+
+def _next_id(entries: list[dict]) -> str:
+    numbers = [int(m.group(1)) for s in entries if (m := re.match(r"stop-(\d+)$", s["id"]))]
     return f"stop-{max(numbers, default=0) + 1:04d}"
+
+
+@contextmanager
+def _exclusive(path: Path):
+    """Hold a lock beside the stop list while it is read and rewritten, so two owners stopping
+    agents at the same moment can't overwrite each other's stop."""
+    with open(path.with_name(f".{path.name}.lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 def add_stop(
@@ -106,19 +125,23 @@ def add_stop(
     stop_id: str | None = None,
     now: datetime | None = None,
 ) -> Stop:
-    """Append a stop. Only appends: existing entries are written back unchanged."""
-    existing = _raw(path)
-    stop = Stop(
-        id=stop_id or next_stop_id(path),
-        agent=agent,
-        stopped_by=by,
-        stopped_at=now or datetime.now(UTC).replace(microsecond=0),
-        reason=reason,
-    )
-    if any(s.get("id") == stop.id for s in existing):
-        raise ValueError(f"stop id {stop.id} is already used")
-    entries = [*existing, stop.model_dump(mode="json")]
-    path.write_text(HEADER + yaml.safe_dump({"stops": entries}, sort_keys=False))
+    """Append a stop. Only appends: existing entries are written back unchanged. The file is
+    replaced in one step, so a reader never sees it half-written."""
+    with _exclusive(path):
+        existing = _raw(path)
+        stop = Stop(
+            id=stop_id or _next_id(existing),
+            agent=agent,
+            stopped_by=by,
+            stopped_at=now or datetime.now(UTC).replace(microsecond=0),
+            reason=reason,
+        )
+        if any(s.get("id") == stop.id for s in existing):
+            raise ValueError(f"stop id {stop.id} is already used")
+        entries = [*existing, stop.model_dump(mode="json")]
+        partial = path.with_name(f".{path.name}.partial")
+        partial.write_text(HEADER + yaml.safe_dump({"stops": entries}, sort_keys=False))
+        os.replace(partial, path)
     return stop
 
 
@@ -152,10 +175,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "stop":
         # A stop naming an unknown agent or person refuses every agent, so catch typos first.
-        from hall_monitor.registry import OWNERS_FILENAME, Registry, load_owners
+        # Only the manifests' names and the owners are read: a broken approvals file or
+        # manifest elsewhere in the registry mustn't block a stop during an incident.
+        from hall_monitor.registry import NON_MANIFEST_FILES, OWNERS_FILENAME, load_owners
 
         registry_dir = args.stops.parent
-        if args.agent not in {m.id for m in Registry.from_dir(registry_dir)}:
+        agents = {f.stem for f in registry_dir.glob("*.yaml") if f.name not in NON_MANIFEST_FILES}
+        if args.agent not in agents:
             parser.error(f"no agent {args.agent!r} in {registry_dir}")
         if args.by not in {p["id"] for p in load_owners(registry_dir / OWNERS_FILENAME)}:
             parser.error(f"{args.by!r} is not an owner ID in {OWNERS_FILENAME}")

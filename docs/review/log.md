@@ -241,3 +241,16 @@ confirmed.
 | IBANs followed by a word, in lower case, or split by dashes were missed | Medium | A failed checksum retries shorter prefixes; dashes allowed; any case after "IBAN" |
 | Common labels were missed ("EIN 12 3456789", "routing # ...", "A/C no.", "Account No. is ...") | Medium | Caught; what is still missed is listed in HM-10's gaps |
 | Counts by type follow pattern order; HM-10, the controls doc and the business summary dropped "labelled" | Low | Docstring says so; the docs say "labelled" |
+
+## Review 6: kill switch and live evals
+
+The change-control findings from review 6 that concern operating the kill switch and the
+live-eval workflow.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Once a stop was committed, CI failed for good: 443 tests failed while the stop was live and 17 after the reviewed restart, because tests ran agents from the shipped registry, asserted it had no stops and reused `stop-0001` | Medium-High | Tests run agents from a copy of the registry with no stops; a test checks no test loads the shipped one. Simulated stop, restart and clean registry all pass |
+| Two owners running `kill_switch stop` at once could lose a stop without an error, or corrupt the file | Medium | Stops are added under a file lock and the file is replaced in one step |
+| `live-eval.yml` ran any dispatched branch with the real API key | Medium | The job runs only from main in the `live-eval` environment; the key must move to that environment, limited to main, which is a repository setting (HM-17 gap) |
+| An agent with the ID `pipeline` skipped every gateway check | Low | The registry refuses that ID |
+| The stop command failed if any other registry file couldn't be read | Low | It reads only the manifests' names and the owners |

@@ -10,10 +10,10 @@ from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
 from hall_monitor.workflow import open_workflow
-from tests.fakes import fake_client, outputs_from_truth, signed_decision
+from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth, signed_decision
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
-REGISTRY = Registry.from_dir()
+REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
 GATEWAY = ToolGateway(REGISTRY)
 WORDING = load_policy_wording()
 

@@ -1,9 +1,16 @@
-"""A fake Claude client that answers each agent with the ground truth for one claim."""
+"""A fake Claude client that answers each agent with the ground truth for one claim, and the
+registry the tests run agents from."""
 
+import shutil
+import tempfile
+from pathlib import Path
 from types import SimpleNamespace
+
+import yaml
 
 from hall_monitor.governance.approval import AdjusterDecision
 from hall_monitor.governance.signing import demo_private_key
+from hall_monitor.kill_switch import STOPS_FILENAME
 from hall_monitor.models import (
     CoverageFinding,
     CriticReview,
@@ -12,6 +19,7 @@ from hall_monitor.models import (
     Recommendation,
     RiskAssessment,
 )
+from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR
 
 
 def outputs_from_truth(truth: GroundTruth) -> dict[type, object]:
@@ -62,3 +70,20 @@ def signed_decision(claim_id: str, **fields) -> AdjusterDecision:
     """An adjuster decision signed with that adjuster's demo key, as the review CLI does."""
     decision = AdjusterDecision(**fields)
     return decision.signed(claim_id, demo_private_key(decision.adjuster_id))
+
+
+def _registry_without_stops() -> Path:
+    """The shipped registry with an empty stop list. Stops are live state: an owner may stop an
+    agent at any time, and the tests must keep passing while one is stopped and after it is
+    restarted. The kill switch's own tests start from this copy and add their stops to it."""
+    path = Path(tempfile.mkdtemp(prefix="hall-monitor-registry-")) / "registry"
+    shutil.copytree(DEFAULT_REGISTRY_DIR, path)
+    (path / STOPS_FILENAME).write_text(yaml.safe_dump({"stops": []}))
+    approvals = yaml.safe_load((path / APPROVALS_FILENAME).read_text())
+    for entry in approvals["agents"].values():
+        entry.pop("cleared_stops", None)
+    (path / APPROVALS_FILENAME).write_text(yaml.safe_dump(approvals, sort_keys=False))
+    return path
+
+
+TEST_REGISTRY_DIR = _registry_without_stops()

@@ -22,10 +22,10 @@ from fastmcp import Client, FastMCP
 
 from hall_monitor.gateway.redaction import redact_value
 from hall_monitor.models import PolicyRecord, ToolCall
-from hall_monitor.registry import ALL_DATA_CLASSES, Registry, RegistryError
+from hall_monitor.registry import ALL_DATA_CLASSES, RESERVED_AGENT_ID, Registry, RegistryError
 from hall_monitor.tools.server import POLICY_LOOKUP, TOOL_DATA_CLASSES, build_server
 
-PIPELINE_ACTOR = "pipeline"
+PIPELINE_ACTOR = RESERVED_AGENT_ID  # no agent may take this ID (Registry refuses it)
 # The pipeline's own code checks may use these tools; it is not an agent and has no manifest.
 PIPELINE_TOOLS = frozenset({POLICY_LOOKUP})
 
