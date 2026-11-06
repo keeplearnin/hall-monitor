@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+from pydantic import ValidationError
 
 from hall_monitor import tracing
 from hall_monitor.data import load_claim, load_policy_wording
@@ -49,7 +50,16 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv()
     registry = Registry.from_dir(args.registry)
     gateway = ToolGateway(registry)
-    claim = load_claim(args.claim)
+    try:
+        claim = load_claim(args.claim)
+    except ValidationError as exc:
+        # Refused before triage. pydantic's message repeats the submitted values, which are the
+        # claimant's, so only the fields and error types are shown.
+        problems = ", ".join(
+            sorted({f"{'.'.join(map(str, e['loc']))} ({e['type']})" for e in exc.errors()})
+        )
+        print(f"{args.claim} isn't a valid claim: {problems}", file=sys.stderr)
+        return 1
     try:
         if args.triage_only:
             result = triage(

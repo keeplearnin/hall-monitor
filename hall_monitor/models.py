@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -23,11 +24,27 @@ class Plan(StrEnum):
 # --- Inputs ---------------------------------------------------------------
 
 
+# The channel and an attachment's kind come with the claim, but they reach every prompt (and the
+# channel the audit log's actor), so only known values load: a free-form code could still
+# spell a name or an instruction.
+Channel = Literal["email", "mobile_app", "web_form"]
+AttachmentKind = Literal[
+    "booking_confirmation",
+    "carrier_letter",
+    "certificate",
+    "document",
+    "invoice",
+    "letter",
+    "medical_report",
+    "receipt",
+]
+
+
 class Attachment(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     filename: str
-    kind: str = Field(description="e.g. receipt, medical_report, carrier_letter, invoice")
+    kind: AttachmentKind
     text: str = Field(description="Text content of the document (OCR output in production).")
 
 
@@ -38,7 +55,7 @@ class ClaimSubmission(BaseModel):
 
     claim_id: str
     submitted_at: datetime
-    channel: str
+    channel: Channel
     narrative: str
     attachments: list[Attachment]
 
