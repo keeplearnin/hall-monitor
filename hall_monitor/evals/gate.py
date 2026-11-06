@@ -29,6 +29,9 @@ class CheckResult:
     state: str  # "pass", "fail", "missing", "stale"
     failures: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    # The values the thresholds were checked against, and the run's meta (when, which agents).
+    metrics: dict = field(default_factory=dict)
+    meta: dict = field(default_factory=dict)
 
 
 def unsafe_routes(data: dict) -> int:
@@ -72,7 +75,7 @@ def check(spec: dict, approvals: dict, stale_policy: str) -> CheckResult:
     if "unsafe_routes" in spec.get("max", {}):
         metrics["unsafe_routes"] = unsafe_routes(data)
 
-    out = CheckResult(spec["name"], "pass")
+    out = CheckResult(spec["name"], "pass", metrics=metrics, meta=data.get("meta", {}))
     for key, floor in spec.get("min", {}).items():
         value = metrics.get(key)
         if value is None or value < floor:
@@ -98,9 +101,12 @@ def check(spec: dict, approvals: dict, stale_policy: str) -> CheckResult:
     return out
 
 
-def run_gate(config_path: Path = CONFIG) -> tuple[bool, list[CheckResult]]:
+def run_gate(
+    config_path: Path = CONFIG, approvals: dict | None = None
+) -> tuple[bool, list[CheckResult]]:
+    """approvals defaults to registry/approvals.yaml."""
     config = yaml.safe_load(config_path.read_text())
-    approvals = load_approvals()
+    approvals = load_approvals() if approvals is None else approvals
     results = [check(spec, approvals, config["stale_results"]) for spec in config["checks"]]
     return all(r.state != "fail" for r in results), results
 

@@ -82,7 +82,7 @@ Every model call goes through one function that checks the agent's approved hall
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
 - [`docs/business-summary.md`](docs/business-summary.md), a one-page business summary in plain English
 - [`docs/board-brief.md`](docs/board-brief.md), one page for a board or risk committee: the risks, the evidence, what isn't proven and the decisions a pilot would need
-- [`docs/adr/`](docs/adr/README.md), 15 architecture decision records: why each design choice was made and what it costs
+- [`docs/adr/`](docs/adr/README.md), 16 architecture decision records: why each design choice was made and what it costs
 - [`docs/review/`](docs/review/README.md), the external review package and a log of every review so far and what it changed
 
 GitHub shows HTML files as source, so download them and open them in a browser.
@@ -109,7 +109,8 @@ Each control's NIST AI RMF and FINOS AIGF mapping is in the [controls register](
 | Fairness checks | Counterfactual runner: each claim re-run under names associated with six groups, swapped everywhere the name appears, counting outcome flips and per-group payment rates (`evals.fairness`). | HM-14 | Built; results need a live run (milestone 8) |
 | Adversarial test suite | Ten attacks planted in real claims (instruction override, forged reviewer tags, claimed prior approval, data exfiltration, forged documents, PII) and scored on whether any worked (`evals.adversarial`). Defences: escaped claim text, a code detector that sends flagged claims to a person, and tool lookups limited to the claim's own policy. | HM-15 | Built; results need a live run (milestone 8) |
 | CI eval gate | Every PR runs `evals.gate`: published results must meet the thresholds in `evals/gate.yaml` (accuracy, hallucination, unsafe routes, critic catch rate; attacks and fairness once run), and results scored on agent versions or prompts that are no longer approved, or that don't record them, are flagged. Live evals run on demand from a manual workflow. | HM-17 | Built (milestone 9); stale results warn until a fresh baseline |
-| Framework mapping | 19 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (13 have none yet: 10 list none, and HM-09, HM-14 and HM-15 list only live runs still to be made), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
+| Control panel | A read-only web panel and JSON API (`python -m hall_monitor.panel serve`): an overview per workflow with what needs attention first, the agent inventory with each agent's owner, approval, stops and eval results, the review queue, each case's full audit trace, audit-chain verification against an anchored head, the eval gate and the controls register. Each view asks the code that enforces the control (an agent's state is the registry's own run-time check). Every route is GET, the audit log is opened read-only and the checkpoints are never opened. Case traces show an allow-list of each audit event's fields, so no free text the model wrote (tool arguments, policy numbers it read) reaches a page, and no page shows claim text, kill-switch stop reasons, adjusters' reasons or signatures. No sign-in yet, so it serves this machine only; stopping and deciding stay in their CLIs. `snapshot` saves it as static files; `demo` builds demo data offline with a scripted model, labelled on every page. | HM-20 | Built, read-only (control panel phase 1) |
+| Framework mapping | 20 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (14 have none yet: 11 list none, and HM-09, HM-14 and HM-15 list only live runs still to be made), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
 
 ## Results
 
@@ -141,14 +142,16 @@ The two baseline rows use the same code; the second runs on a larger claim set. 
 11. ~~Hardening from the claims audit: audit events written as they happen, evidence stored by hash and checked before a decision, signed adjuster decisions, reasons hashed in the log, data classes enforced at run time, redaction of file names and tool results~~ (done)
 12. ~~Phase B so far: fault-injection tests of every agent's answer, and the amount trace they led to; the kill switch; redaction of labelled tax IDs, bank account and routing numbers, and IBANs~~ (done; not yet in a scored live run)
 13. Vendor test harness: adapters for guardrails, gateway policy and observability; routing and authority limits as policy code; OpenTelemetry export; automated anchoring
+14. ~~Control panel, read-only: overview, agents, review queue, case trace, audit integrity, evals and controls~~ (done; no sign-in yet)
+15. Control panel write actions and access: sign-in with four roles (viewer, reviewer, owner, approver), stopping an agent and signing a decision from the panel, a shared store for the audit log and stops
 
 Daily progress notes are in [`docs/devlog/`](docs/devlog/).
 
 ## Stack
 
-Python 3.12 · uv · Claude (Haiku and Sonnet) · LangGraph · MCP via fastmcp · SQLite · Langfuse
+Python 3.12 · uv · Claude (Haiku and Sonnet) · LangGraph · MCP via fastmcp · SQLite · Langfuse · Starlette
 
-In use today: Python 3.12, uv, Claude Haiku 5.5 and Sonnet 5.5 through the Anthropic SDK, Pydantic, fastmcp, LangGraph with a SQLite checkpointer, a SQLite audit log, `cryptography` for signatures, and Langfuse. There is no Postgres, vector store, eval framework or web API; the evals are plain Python scoring code. Postgres is the planned replacement for SQLite in production.
+In use today: Python 3.12, uv, Claude Haiku 5.5 and Sonnet 5.5 through the Anthropic SDK, Pydantic, fastmcp, LangGraph with a SQLite checkpointer, a SQLite audit log, `cryptography` for signatures, Langfuse, and Starlette with uvicorn for the control panel. There is no Postgres, vector store or eval framework, and the only web API is the control panel's read-only one; the evals are plain Python scoring code. Postgres is the planned replacement for SQLite in production.
 
 ## Quickstart
 
@@ -170,6 +173,9 @@ uv run python -m hall_monitor.evals.fairness               # name-swap fairness,
 uv run python -m hall_monitor.evals.override evals/results/hardened-critic  # no API calls
 uv run pytest                                              # offline tests; no API calls
 uv run python -m hall_monitor.evals.gate                   # check published results; no API calls
+uv run python -m hall_monitor.panel serve                  # control panel at http://127.0.0.1:8765
+uv run python -m hall_monitor.panel demo                   # demo data offline, scripted model; no API calls
+uv run python -m hall_monitor.panel serve --demo           # the panel over the demo data
 ```
 
 ## Repository layout
@@ -183,6 +189,7 @@ hall-monitor/
 │   ├── gateway/             # Cost, identifier redaction, injection detection
 │   ├── governance/          # Routing rule, approval gate, audit log
 │   ├── evals/               # Scoring, baseline, critic seeded test, override, adversarial, fairness
+│   ├── panel/               # Read-only control panel: views, pages, app, snapshot, demo data
 │   ├── pipeline.py          # Claim triage
 │   ├── workflow.py          # LangGraph workflow with the approval gate
 │   ├── run.py, review.py, audit.py  # CLIs: submit a claim, review as an adjuster, verify the log
