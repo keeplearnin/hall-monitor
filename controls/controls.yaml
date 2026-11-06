@@ -147,7 +147,12 @@ controls:
       paying or denying a claim whose amount can't be compared with USD limits (not in USD, or
       nothing extracted), also needs a senior adjuster.
       The adjuster is shown the stored pack, with a warning if the checkpoint no longer matches
-      it. A decision signed with a public demo key is marked as such in the record.
+      it. A decision signed with a public demo key is marked as such in the record. A claim gets
+      one evidence pack and one final decision: the audit log refuses a second of either inside
+      the same write transaction, so two runs or two adjusters at once, or a checkpoints file
+      restored from a backup, can't triage, decide or pay it again. The log, not the
+      checkpoint, says whether and how a claim was decided: a decision in the checkpoint that
+      the log doesn't hold, or that differs from it, is reported as a problem.
     status: built
     code:
       - hall_monitor/workflow.py::build_graph
@@ -165,6 +170,12 @@ controls:
       - tests/test_workflow.py::test_an_edited_checkpoint_result_cant_relax_the_approval_rules
       - tests/test_workflow.py::test_run_fresh_refuses_a_claim_that_finished_triage
       - tests/test_workflow.py::test_a_claim_the_log_shows_triaged_cant_be_triaged_again_with_new_checkpoints
+      - tests/test_workflow.py::test_two_runs_of_the_same_claim_at_once_pay_it_once
+      - tests/test_workflow.py::test_two_adjusters_deciding_at_once_decide_once
+      - tests/test_workflow.py::test_a_restored_checkpoints_file_cant_decide_a_claim_again
+      - tests/test_workflow.py::test_entries_appended_to_the_log_cant_relax_the_approval_rules
+      - tests/test_workflow.py::test_a_checkpoint_decision_the_log_doesnt_hold_isnt_reported_decided
+      - tests/test_workflow.py::test_two_runs_of_a_claim_for_review_leave_it_decidable
       - tests/test_approval_rules.py::test_paying_a_claim_the_ai_never_assessed_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_denying_more_than_your_authority_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_a_demo_key_signature_is_marked_in_the_record
@@ -182,7 +193,11 @@ controls:
       The fictional adjusters' keys are public demo keys (decisions signed with them are marked);
       a deployment would issue keys from the firm's identity system. The evidence pack lists document names rather than the documents.
       The evidence pack and the triage result the approval rules read are checked against the
-      hashes the audit log recorded at triage; other checkpoint state isn't. A signed decision
+      hashes the audit log recorded at triage (the pack's entry names the result it was built
+      from; a second pack appended by hand makes the claim undecidable rather than replacing
+      it); other checkpoint state isn't. Two runs of one claim at once both call the agents and
+      both record their agent and tool calls before the second fails, so the log shows a run
+      whose result wasn't recorded. A signed decision
       carries no nonce, so if a claim were ever triaged again with an identical pack, an earlier
       signature for it would verify again; the workflow refuses a second triage of any claim
       the audit log shows finished, whatever the checkpoint file holds. A crash after the
@@ -198,9 +213,9 @@ controls:
       which each entry's hash covers the previous one. Triggers refuse edits and deletes, and
       verify reports any changed, missing or reordered entry, any stored evidence pack that no
       longer matches its hash, and (opened read-only, as the audit CLI does) any trigger someone
-      removed. Entries hold no claim narrative or documents; the adjuster's written reason and
-      critic issues are kept as keyed hashes (HMAC-SHA256), so they can't be confirmed by
-      guessing. Every read and write takes the same lock.
+      removed. Entries hold no claim narrative or documents; the adjuster's written reason, critic
+      issues and a rejected submission are kept as keyed hashes (HMAC-SHA256), so the hashes
+      alone can't confirm a guess (but see the gaps on signatures). Every read and write takes the same lock.
     status: built
     code:
       - hall_monitor/governance/audit.py::AuditLog
@@ -218,6 +233,8 @@ controls:
       - tests/test_pipeline.py::test_a_recording_failure_stops_the_claim
       - tests/test_audit.py::test_keyed_hashes_depend_on_the_key
       - tests/test_audit.py::test_reads_and_writes_from_many_threads_stay_consistent
+      - tests/test_audit.py::test_the_cli_reports_a_dropped_table_as_tampering
+      - tests/test_workflow.py::test_a_rejection_logs_the_submission_as_a_keyed_hash
     evidence: []
     nist: [MEASURE 2.8, MANAGE 4.1]
     finos:
@@ -231,7 +248,12 @@ controls:
       policy numbers, decision fields and tool-call arguments. The currency and policy number
       the model extracts are repeated in routing reasons and corrections, so both must be
       code-shaped; tool-call arguments are still logged as the model wrote them. An unforeseen
-      error stops the claim with its type only, since its text can repeat those arguments.
+      error stops the claim with its type only, since its text can repeat those arguments. The
+      final decision entry keeps the adjuster's Ed25519 signature, which covers the reason, so
+      anyone with the log and the public key can confirm a guessed reason: the keyed hash
+      doesn't protect a signed reason yet. The audit CLI reports a file with no readable log as
+      tampered with (exit 3), not missing (exit 1), and a log another process holds locked as
+      busy (exit 4).
 
   - id: HM-07
     name: Critic review with revision history
