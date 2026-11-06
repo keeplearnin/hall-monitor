@@ -269,7 +269,6 @@ controls:
       - tests/test_audit.py::test_keyed_hashes_depend_on_the_key
       - tests/test_audit.py::test_reads_and_writes_from_many_threads_stay_consistent
       - tests/test_kill_switch.py::test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted
-
       - tests/test_audit.py::test_the_cli_reports_a_dropped_table_as_tampering
       - tests/test_audit.py::test_the_cli_reports_an_unparseable_entry_as_tampering
       - tests/test_workflow.py::test_a_rejection_logs_the_submission_as_a_keyed_hash
@@ -667,7 +666,6 @@ controls:
       - tests/test_kill_switch.py::test_removing_or_editing_a_stop_fails_the_check
       - tests/test_kill_switch.py::test_every_agent_is_owned_by_a_named_person
       - tests/test_kill_switch.py::test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted
-
       - tests/test_kill_switch.py::test_two_stops_at_once_are_both_kept
       - tests/test_kill_switch.py::test_an_agent_can_be_stopped_while_other_registry_files_are_broken
       - tests/test_kill_switch.py::test_no_agent_may_take_the_pipelines_id
