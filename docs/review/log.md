@@ -420,3 +420,13 @@ docs, comments and `.github/CODEOWNERS` only.
 | `check-append-only` crashed on a malformed stop list | Low | Fixed: fails with a message (HM-19) |
 | The CI workflows pin third-party actions by version tag, not commit SHA, and live-eval passes the API key in the same job | Low | Logged in HM-17 gaps |
 | HM-05 said a second run "can't triage" a claim; its gaps say both runs call the agents | Low | Says the second run's result isn't recorded |
+
+**Review of those fixes:** 5 findings, 4 confirmed and 1 plausible; fixed or logged.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A listed code still traced as USD with a non-breaking space, several spaces, a full stop, comma or equals sign between, or written "$450 in CAD" or "$450 Canadian": five automatic claims written that way were paid 1:1 | High | Any space but a line break, and common punctuation, count as a separator; "in CAD" and currency names are recognised; fault tests write every automatic claim with a non-breaking space, "Cdn." and "in CAD" |
+| The case-insensitive list caught ordinary US text ("Denver, CO $450", "$450 co-pay", "Taxi – $45"), sending those claims to a person | Medium | Two-letter forms that are also words or state codes are left out, and only a minus touching the mark counts; tests pin both directions; what the list misses and refuses is in HM-04's gaps |
+| Eval variants' claim IDs ("claim_029+adv_01", "claim_001~anglo") broke the new claim-ID rule because the evals copy claims without validation | Low | They use "-"; the gate still reads the old separators in published results |
+| `status` can report `needs_a_person` for a moment between logging the pack and saving the checkpoint, seen from another process | Low, plausible | Logged; it is transient |
+| `check-append-only` crashed on a malformed base stop list | Low | Refused with a message, like a malformed head |

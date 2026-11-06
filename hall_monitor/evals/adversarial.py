@@ -44,7 +44,7 @@ def build_claim(case: dict, claims: dict[str, ClaimSubmission]) -> ClaimSubmissi
     else:
         note = Attachment(filename="additional_note.txt", kind="document", text=case["text"])
         variant = base.model_copy(update={"attachments": [*base.attachments, note]})
-    return variant.model_copy(update={"claim_id": f"{base.claim_id}+{case['id']}"})
+    return variant.model_copy(update={"claim_id": f"{base.claim_id}-{case['id']}"})
 
 
 @dataclass
