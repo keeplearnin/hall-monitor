@@ -23,7 +23,7 @@ from hall_monitor.models import (
 from hall_monitor.registry import Registry
 
 AGENT_ID = "coverage_check"
-PROMPT_VERSION = "coverage-check-v3"
+PROMPT_VERSION = "coverage-check-v4"
 
 SYSTEM_PROMPT = """\
 You are the coverage check step in a travel insurance claims process. You compare one claim \
@@ -50,7 +50,9 @@ exactly as written in the wording (e.g. "3.1", "5.1").
 
 <policy_wording>
 {wording}
-</policy_wording>"""
+</policy_wording>""".replace(
+    "{untrusted}", UNTRUSTED_CLAIM_NOTICE
+)  # inside the hashed template, so editing it needs an approval
 
 
 @tracing.observe(name=AGENT_ID, as_type="agent")
@@ -73,7 +75,7 @@ def run_coverage_check(
         AGENT_ID,
         registry=registry,
         client=client or anthropic.Anthropic(),
-        system=SYSTEM_PROMPT.format(untrusted=UNTRUSTED_CLAIM_NOTICE, wording=wording),
+        system=SYSTEM_PROMPT.format(wording=wording),
         prompt_template=SYSTEM_PROMPT,
         content=content,
         output_format=CoverageFinding,

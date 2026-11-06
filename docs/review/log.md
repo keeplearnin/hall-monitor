@@ -333,3 +333,53 @@ live-eval workflow.
 | `fcntl` was imported at module level, so the registry wouldn't load on Windows | Low, plausible | Imported where the lock is taken |
 | The replace wasn't synced first, and needs write access to the directory | Low, plausible | Synced before the replace; the directory access is logged in HM-19 gaps |
 | Each test run left a registry copy in the temp directory | Low | Removed at exit |
+
+## Review 6: approvals and the record of interrupted agents
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The approved prompt hash for `coverage_check` and `critic` didn't cover the untrusted-claim notice, which they filled in at run time, so an edit to it reached the model with no new approval | Medium | The notice is in the hashed template (coverage-check-v4, critic-v3; the text sent is unchanged) |
+| The policy wording filled into those prompts isn't covered by any approval | Low | Logged in HM-01 gaps; covering it would be a new kind of approval |
+| A stop or an API error between an agent's tool rounds dropped the record of the requests it had already sent, so the audit trail missed them and the cost read low | Medium | The interrupted agent's requests are kept on the error and recorded |
+
+**Pre-PR review of those fixes:** 7 findings, 5 confirmed and 2 plausible; fixed or logged.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The new helper was inserted between `@tracing.observe(name="triage")` and `triage`, so claims got no triage span | Medium | Moved; a test checks the decorator wraps `triage` |
+| A billed answer that fails validation inside the SDK's parse call raises before its usage is read, so it is still missing from the record and the cost | Medium | Logged in HM-01 gaps; capturing it means validating outside the SDK call |
+| README's list of current prompt versions was stale | Low | Updated |
+| ADR 0003 and the one-pagers said any prompt change needs approval; the policy wording doesn't | Low | Say the template is approved and the wording isn't |
+| The test didn't check the interrupted call is logged once and costed | Low | It does now |
+| An error object raised twice could carry an earlier claim's partial record | Low, plausible | Always set |
+| A brace in the notice would break `.format` | Low, plausible | A test checks it has none |
+
+## Review 6: docs against code
+
+**Reviewer:** a review of the README, one-pagers, ADRs and controls register against the code.
+Each finding was checked against the code before the docs changed; no code behaviour changed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| README, business summary, ADR 0013 and ADR 0015 said a change "can't merge" or "must pass" without approval and checks; main has no branch protection or rulesets, so a failing CI run doesn't block a merge | Medium | Reworded: CI checks and fails; blocking a merge needs branch protection, which isn't on. HM-17 gaps say so too |
+| HM-13 said every extracted value and cited clause must trace to a source; that check runs only when published eval runs are scored | Low | HM-13 says so; at run time only amounts, claimant name, incident date and policy number are checked |
+| README said the Anthropic SDK's spans stay metadata-only; that is a default nothing enforces | Low | Reworded to match HM-11 gaps |
+| README, HM-10 and ADR 0009 said each agent input declares its data classes; only the recommender's does, the rest default to every class | Low | Reworded: in practice the input check constrains only the recommender |
+| "19 controls, each with its code, tests and evidence": 10 have no evidence | Low | README and register header say evidence is listed where it exists |
+| Business summary implied any change to the record shows up; a consistent rewrite of the whole chain doesn't, without an outside copy of the chain head | Low | Added |
+| ADR 0014 and `signing.py` said the system holds public keys only and can never make a decision; the demo keys are derivable and the review CLI signs with them | Low | Narrowed to real adjusters; demo keys derivable by design |
+| README said only a senior adjuster decides a claim whose amount can't be compared with USD limits; a junior may still investigate or ask for information | Low | Narrowed to paying or denying |
+| Business summary said any undecided claim that used a stopped agent's work goes to a person; the automatic finish after routing isn't rechecked | Low | Narrowed to claims not yet routed |
+| Board brief and business summary said the AI sees only that claim's records; claims history is matched by name, so namesakes share it | Low | Caveat added (HM-03 gap) |
+| Board brief and README said "AI correction" goes to a person; only critic changes to decision fields (or unresolved disagreement) do | Low | Narrowed |
+| README said 14 ADRs; there are 15 | Low | Fixed |
+| README and business summary labelled the current system "after milestone 9" and "after milestone 10" | Low | Now "after milestone 11 and Phase B so far" |
+| README, business summary and ADR 0013 listed only milestones 4-8 as unscored | Low | Milestone 11, Phase B and the tax-ID and bank redaction added; published routing figures noted as from an older, less strict rule |
+| README roadmap had no entry for Phase B | Low | Entry added for fault injection, the kill switch and the tax-ID and bank redaction |
+| RI-27 said checkpoints aren't integrity-checked; the evidence pack and triage result in them are | Low | Reworded: other checkpoint state isn't |
+| ADR 0009 said claims history carries health; `tools/server.py` declares pii, health and financial | Low | Fixed |
+| HM-10 gaps said "account" with no number/no./# is missed, but "account ending 1234" is caught, and didn't mention the 4-17 digit limit | Low | Reworded |
+| README Stack listed pgvector, DeepEval and FastAPI; none is a dependency or used | Low | Removed; the stack lists what is used |
+
+The same stale "predate milestones 4-8" claim in `docs/executive-brief.html` and
+`docs/architecture.html` is corrected too.
