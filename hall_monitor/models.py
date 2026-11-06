@@ -53,7 +53,8 @@ class ClaimSubmission(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    claim_id: str
+    # It reaches every audit entry, the recommender's input and traces, so it must be a code.
+    claim_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
     submitted_at: datetime
     channel: Channel
     narrative: str

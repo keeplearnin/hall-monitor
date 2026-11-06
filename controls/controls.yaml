@@ -245,7 +245,6 @@ controls:
       - tests/test_audit.py::test_reads_and_writes_from_many_threads_stay_consistent
       - tests/test_audit.py::test_the_cli_reports_a_dropped_table_as_tampering
       - tests/test_workflow.py::test_a_rejection_logs_the_submission_as_a_keyed_hash
-
       - tests/test_kill_switch.py::test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted
     evidence: []
     nist: [MEASURE 2.8, MANAGE 4.1]
@@ -625,7 +624,6 @@ controls:
       - tests/test_kill_switch.py::test_no_agent_may_take_the_pipelines_id
       - tests/test_kill_switch.py::test_tests_run_agents_from_a_registry_with_no_stops
       - tests/test_kill_switch.py::test_the_shipped_stop_list_is_valid_whatever_it_holds
-
       - tests/test_kill_switch.py::test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted
     evidence: []
     nist: [MANAGE 2.4, GOVERN 2.1]

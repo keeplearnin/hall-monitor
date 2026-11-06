@@ -3,6 +3,7 @@
 import ast
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -134,3 +135,41 @@ def test_the_triage_span_wraps_triage():
 
     assert pipeline.triage.__wrapped__.__name__ == "triage"
     assert not hasattr(pipeline._keep_partial, "__wrapped__")
+
+
+def test_an_exception_never_carries_its_text_into_a_trace(monkeypatch):
+    """Langfuse records an exception's message on the span, and pydantic's repeats the model's
+    output; the span gets the error type only, and the caller still gets the exception."""
+    import langfuse
+
+    from hall_monitor import tracing
+
+    escaped, marked = [], []
+
+    def fake_observe(**kwargs):
+        def wrap(fn):
+            def traced(*args, **kw):
+                try:
+                    return fn(*args, **kw)
+                except BaseException as exc:
+                    escaped.append(str(exc))
+                    raise
+
+            return traced
+
+        return wrap
+
+    client = SimpleNamespace(update_current_span=lambda **kw: marked.append(kw))
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+    monkeypatch.setattr(langfuse, "observe", fake_observe)
+    monkeypatch.setattr(langfuse, "get_client", lambda: client)
+
+    @tracing.observe(name="probe")
+    def probe():
+        raise ValueError("input_value='Jane Doe, DOB 1980-02-03'")
+
+    with pytest.raises(ValueError, match="Jane Doe"):
+        probe()
+    assert escaped == []
+    assert marked == [{"level": "ERROR", "status_message": "ValueError"}]

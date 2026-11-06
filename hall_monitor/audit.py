@@ -45,13 +45,13 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 4
-    except sqlite3.DatabaseError as exc:
+    except (sqlite3.DatabaseError, ValueError) as exc:  # ValueError: an entry that isn't JSON
         return _unreadable(exc)
     finally:
         log.close()
 
 
-def _unreadable(exc: sqlite3.DatabaseError) -> int:
+def _unreadable(exc: Exception) -> int:
     """A file that exists but holds no readable log (a dropped table, a corrupt file) has been
     tampered with, not mislaid: the same exit code as a failed verify."""
     print(json.dumps({"ok": False, "problems": [f"not a readable audit log: {exc}"]}))

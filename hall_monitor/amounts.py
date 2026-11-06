@@ -13,10 +13,19 @@ _USD_AFTER = r"[ \t]?USD\b"
 # Not part of a date (2026-08-14, 14/08/2026), a time (21:45) or a reference (BA2026, #2026).
 _NOT_BEFORE = r"(?<![\w,.:/#-])"
 _NOT_AFTER = r"(?!\d|[.,]\d|[-/:]\d)"
-# Another currency written next to the dollar mark or the figure (CAD $450, $450 CAD, €450 USD),
-# or a minus sign (a discount or refund line).
-_OTHER_BEFORE = re.compile(r"(?:\b(?!USD)[A-Z]{3}[ \t]?|[€£¥][ \t]?|-)$")
-_OTHER_AFTER = re.compile(r"^[ \t]?(?:(?!USD\b)[A-Z]{3}\b|[€£¥])")
+# Another currency written next to the dollar mark or the figure (CAD $450, HK $450, (cad) $450,
+# $450 CAD, €450 USD), or a minus sign (a discount or refund line). Any three capitals other
+# than USD count, and so do the dollar and peso currencies' codes and prefixes in any case.
+_OTHER_CODES = (
+    "aud|cad|nzd|hkd|sgd|twd|mxn|ars|clp|cop|brl|php|uyu|cuc|jmd|ttd|bsd|bbd|bzd|fjd|lrd|nad|"
+    "srd|xcd|kyd|bmd|gyd|sbd|zwd|hk|nz|au|ca|cdn|aus|sg|nt|mx|ar|cl|co|uy"
+)
+_SEP = r"[ \t:()\[\]]{0,3}"  # spaces, a colon or brackets between a code and the mark
+_MINUS = r"[-\u2212\u2013\u2014][ \t]?"  # hyphen, minus sign, en and em dash
+_OTHER_BEFORE = re.compile(
+    rf"(?:\b(?:(?!USD)[A-Z]{{3}}|(?i:{_OTHER_CODES})){_SEP}|[€£¥]{_SEP}|{_MINUS})$"
+)
+_OTHER_AFTER = re.compile(rf"^{_SEP}(?:(?:(?!USD\b)[A-Z]{{3}}|(?i:{_OTHER_CODES}))\b|[€£¥])")
 
 
 def _pattern(amount: float, usd: bool) -> re.Pattern[str]:

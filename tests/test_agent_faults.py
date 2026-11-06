@@ -247,6 +247,8 @@ CURRENCIES = {
         t.replace("USD", "CAD $").replace("$", "CAD $").replace("CAD CAD $", "CAD $")
     ),
     "$1.00 CAD": lambda t: re.sub(r"(?:USD |\$)([\d,]+\.\d\d)", r"$\1 CAD", t),
+    "HK $1.00": lambda t: re.sub(r"(?:USD |\$)([\d,]+\.\d\d)", r"HK $\1", t),
+    "$1.00 (cad)": lambda t: re.sub(r"(?:USD |\$)([\d,]+\.\d\d)", r"$\1 (cad)", t),
 }
 
 

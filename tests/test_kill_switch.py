@@ -658,3 +658,9 @@ def test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted(
     assert coverage[0].input_tokens == 50000 and result.cost_usd > 0
     logged = [i for n, i in events if n == "agent_call" and i.agent_id == "coverage_check"]
     assert len(logged) == 1
+
+
+@pytest.mark.parametrize("head", [["a"], "text", {"stops": "text"}, {"stops": ["a"]}])
+def test_a_malformed_stop_list_fails_the_check_with_a_message(head):
+    with pytest.raises(AppendOnlyError, match="isn't a stop list"):
+        check_append_only({"stops": [_entry()]}, head)

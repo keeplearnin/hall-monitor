@@ -21,6 +21,27 @@ def enabled() -> bool:
     return bool(os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"))
 
 
+def _contained[**P, R](fn: Callable[P, R]) -> Callable[P, tuple[R | None, BaseException | None]]:
+    """Run fn inside the span without letting an exception escape it: Langfuse would record the
+    exception's message, and a validation error's message repeats the model's output (claim
+    text). The span is marked as an error by type only; the caller re-raises the exception."""
+
+    @functools.wraps(fn)
+    def inner(*args: P.args, **kwargs: P.kwargs) -> tuple[R | None, BaseException | None]:
+        try:
+            return fn(*args, **kwargs), None
+        except Exception as exc:
+            try:
+                from langfuse import get_client
+
+                get_client().update_current_span(level="ERROR", status_message=type(exc).__name__)
+            except Exception:  # tracing must never change what the claim does
+                pass
+            return None, exc
+
+    return inner
+
+
 def observe(name: str, as_type: str = "span") -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Trace the decorated function when tracing is on. Checked per call, so .env can load late."""
 
@@ -37,8 +58,11 @@ def observe(name: str, as_type: str = "span") -> Callable[[Callable[P, R]], Call
 
                 traced = langfuse_observe(
                     name=name, as_type=as_type, capture_input=False, capture_output=False
-                )(fn)
-            return traced(*args, **kwargs)
+                )(_contained(fn))
+            result, error = traced(*args, **kwargs)
+            if error is not None:
+                raise error
+            return result
 
         return wrapper
 

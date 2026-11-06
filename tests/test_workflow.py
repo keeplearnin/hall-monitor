@@ -653,3 +653,59 @@ def test_cli_reports_a_lost_race_without_a_traceback(db, monkeypatch, capsys):
     )
     assert code != 0
     assert "already decided" in capsys.readouterr().err
+
+
+def test_a_claim_whose_pack_was_logged_but_not_saved_needs_a_person(db, monkeypatch):
+    """The crash window HM-05 logs: the pack is in the log but the checkpoint never got it."""
+    import hall_monitor.workflow as workflow_module
+
+    real = workflow_module.AuditLog.append
+
+    def crash_after_pack(self, claim_id, event, *args, **kwargs):
+        head = real(self, claim_id, event, *args, **kwargs)
+        if event == "evidence_pack":
+            raise RuntimeError("process died after logging the pack")
+        return head
+
+    monkeypatch.setattr(workflow_module.AuditLog, "append", crash_after_pack)
+    with pytest.raises(RuntimeError):
+        _submit(db, "claim_004")
+    monkeypatch.setattr(workflow_module.AuditLog, "append", real)
+    with _open(db) as workflow:
+        status = workflow.status("claim_004")
+    assert status["state"] == "needs_a_person" and "audit log" in status["problem"]
+
+
+@pytest.mark.parametrize("payout", ["-5", "nan"])
+def test_cli_refuses_an_impossible_payout_without_a_traceback(db, monkeypatch, capsys, payout):
+    import hall_monitor.review as review_module
+
+    digest = _submit(db, "claim_003")["evidence_sha256"]
+    real_open = review_module.open_workflow
+    monkeypatch.setattr(
+        review_module,
+        "open_workflow",
+        lambda checkpoints, **kw: real_open(
+            checkpoints, audit_db=db.with_name("audit.sqlite"), **kw
+        ),
+    )
+    code = review_module.main(
+        [
+            "--checkpoints",
+            str(db),
+            "decide",
+            "claim_003",
+            "--adjuster",
+            "adj-201",
+            "--next-step",
+            "pay",
+            "--payout",
+            payout,
+            "--reason",
+            "x" * 30,
+            "--evidence-sha256",
+            digest,
+        ]
+    )
+    assert code != 0
+    assert "payout" in capsys.readouterr().err

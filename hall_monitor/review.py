@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+from pydantic import ValidationError
 
 from hall_monitor.data import load_policy_wording
 from hall_monitor.governance.approval import AdjusterDecision, load_adjusters
@@ -93,13 +94,18 @@ def main(argv: list[str] | None = None) -> int:
             payout = evidence["coverage"]["covered_amount"] if next_step is NextStep.PAY else 0.0
         else:
             next_step, payout = NextStep(args.next_step), args.payout
-        decision = AdjusterDecision(
-            adjuster_id=args.adjuster,
-            next_step=next_step,
-            payout_usd=payout,
-            reason=args.reason,
-            evidence_sha256=args.evidence_sha256,
-        ).signed(args.claim_id, key)
+        try:
+            decision = AdjusterDecision(
+                adjuster_id=args.adjuster,
+                next_step=next_step,
+                payout_usd=payout,
+                reason=args.reason,
+                evidence_sha256=args.evidence_sha256,
+            ).signed(args.claim_id, key)
+        except ValidationError as exc:  # a negative or non-numeric payout, say
+            fields = ", ".join(sorted({str(e["loc"][0]) for e in exc.errors() if e["loc"]}))
+            print(f"the decision isn't valid: {fields}", file=sys.stderr)
+            return 1
         try:
             result = workflow.decide(args.claim_id, decision)
         except ValueError as exc:  # decided meanwhile by someone else, or not waiting any more

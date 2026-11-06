@@ -30,7 +30,7 @@ from hall_monitor.agents.recommendation import run_recommendation
 from hall_monitor.agents.risk_fraud import run_risk_fraud
 from hall_monitor.amounts import source_text
 from hall_monitor.gateway.cost import UnpricedModelError, call_cost
-from hall_monitor.gateway.injection import detect_instructions
+from hall_monitor.gateway.injection import SIGNALS, detect_instructions
 from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.governance.routing import route_claim, route_stopped
 from hall_monitor.models import (
@@ -209,9 +209,12 @@ def _triage_with_stop(
     run = _Run(on_event)
     # Code checks before any model sees the claim: text aimed at the AI is flagged (and routes
     # the claim to a person), and identifiers no agent needs are removed.
-    signals = detect_instructions(claim)
     original = claim
     claim, redactions = redact_claim(claim)
+    # Both the claim as sent and the redacted claim the agents read: redaction can join words
+    # (an email's dots, where a phrase would stop) into a phrase the detector then matches.
+    found = set(detect_instructions(original)) | set(detect_instructions(claim))
+    signals = [name for name in SIGNALS if name in found]
     if on_event is not None:
         on_event(
             "claim_submitted",
