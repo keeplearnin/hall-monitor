@@ -387,7 +387,8 @@ class TriageRecorder:
     """Writes one claim's triage events to the log as they happen (pipeline.triage's on_event).
 
     Payloads hold IDs, hashes, decision fields and costs, never claim text: critic issues and
-    the claim itself are hashed.
+    the claim itself are hashed. An agent's input hash is keyed (HMAC): the recommendation
+    agent's input has few possible values, so a plain hash could be confirmed by guessing.
     """
 
     def __init__(self, log: AuditLog, claim_id: str):
@@ -408,9 +409,10 @@ class TriageRecorder:
             "injection_signals": item["injection_signals"],
         }
 
-    @staticmethod
-    def _agent_call(call) -> tuple[str, dict]:
-        return call.agent_id, call.model_dump(mode="json")
+    def _agent_call(self, call) -> tuple[str, dict]:
+        payload = call.model_dump(mode="json")
+        payload["input_hmac"] = self.log.keyed_hash(payload.pop("input_sha256"))
+        return call.agent_id, payload
 
     @staticmethod
     def _tool_call(tool) -> tuple[str, dict]:

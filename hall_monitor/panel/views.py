@@ -388,7 +388,9 @@ _SHOWN_FIELDS |= {
         "decided_at",
     },
 }
-_SHOWN_FIELDS["agent_call"] = _SHOWN_FIELDS["agent_call"] | {"input_hmac"}  # HR calls log it keyed
+# Calls log the input hash keyed; a log written before claims did that holds it plain, which is
+# never shown.
+_SHOWN_FIELDS["agent_call"] = (_SHOWN_FIELDS["agent_call"] - {"input_sha256"}) | {"input_hmac"}
 _ROLES = "leave_specialist|hr_manager|hr_director"
 _HR_AGENT_STOP = (
     rf"agent refused or returned no usable output: (?:leave_intake|leave_explainer) (?:declined "

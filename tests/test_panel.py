@@ -669,6 +669,18 @@ def test_text_in_a_tampered_field_is_withheld(tmp_path):
     assert "Jane Doe" not in _local(src).get("/cases/claim_x.html").text
 
 
+def test_a_plain_input_hash_from_an_older_log_is_not_shown(tmp_path):
+    """Logs written before claims keyed the input hash hold it plain; the panel leaves it out."""
+    plain = "f" * 64
+    src = _log_with(
+        tmp_path,
+        [("claim_x", "agent_call", "intake", {"agent_id": "intake", "input_sha256": plain})],
+    )
+    client = _local(src)
+    assert plain not in client.get("/cases/claim_x.html").text
+    assert plain not in client.get("/api/cases/claim_x.json").text
+
+
 def test_serve_listens_only_where_the_host_check_answers(capsys):
     assert cli.main(["serve", "--host", "127.0.0.2"]) == 2
 

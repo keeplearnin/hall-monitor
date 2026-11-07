@@ -158,6 +158,31 @@ def test_the_log_holds_no_claim_text(tmp_path):
     assert "blood alcohol" not in everything
 
 
+def test_the_log_keeps_each_agent_s_input_as_a_keyed_hash(tmp_path):
+    """The recommendation agent is sent a structured summary with few possible values, so a
+    plain hash of its input could be confirmed by guessing; the log keys it (HMAC)."""
+    with _workflow(tmp_path, "claim_004") as workflow:
+        workflow.submit(CLAIMS["claim_004"])
+        result = workflow.app.get_state(workflow._config("claim_004")).values["result"]
+        logged = [
+            e["payload"] for e in workflow.audit.entries("claim_004") if e["event"] == "agent_call"
+        ]
+        plain = [c["input_sha256"] for c in result["agent_calls"]]
+        assert len(logged) == len(plain) > 0
+        assert all("input_sha256" not in c for c in logged)
+        assert [c["input_hmac"] for c in logged] == [workflow.audit.keyed_hash(h) for h in plain]
+
+
+def test_no_plain_hash_of_a_claims_agent_s_input_reaches_a_trace(tmp_path, monkeypatch):
+    from hall_monitor import tracing
+
+    sent = []
+    monkeypatch.setattr(tracing, "update_span", lambda **kw: sent.append(kw))
+    with _workflow(tmp_path, "claim_004") as workflow:
+        workflow.submit(CLAIMS["claim_004"])
+    assert sent and all("input_sha256" not in kw["metadata"] for kw in sent)
+
+
 def test_the_log_keeps_the_adjusters_reason_as_a_hash(tmp_path):
     reason = "Crohn's medication changed 43 days before purchase (5.1)."
     with _workflow(tmp_path, "claim_004") as workflow:

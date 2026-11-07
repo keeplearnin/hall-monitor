@@ -74,5 +74,4 @@ def run_leave_intake(
         prompt_version=PROMPT_VERSION,
         claim_id=message.id,
         carries=CARRIES,
-        trace_input_hash=False,  # its plain hash goes to the audit log keyed, never to a trace
     )
