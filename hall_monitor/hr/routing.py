@@ -75,12 +75,24 @@ REASONS: dict[str, tuple[str, Role]] = {
         "prenatal care, a health condition or bonding",
         Role.LEAVE_SPECIALIST,
     ),
+    "text_addresses_ai": (
+        "the request contains text aimed at the AI (possible prompt injection)",
+        Role.LEAVE_SPECIALIST,
+    ),
+    "pipeline_stopped": (
+        "the request couldn't be prepared (an agent failed, was stopped or isn't approved)",
+        Role.LEAVE_SPECIALIST,
+    ),
     "caregiver_history": (
         "earlier military caregiver leave: a person checks whether it was for the same "
         "servicemember and injury",
         Role.LEAVE_SPECIALIST,
     ),
 }
+
+
+# Reasons only the pipeline gives (hr/pipeline.py), not the rules on a structured request.
+PIPELINE_REASONS = frozenset({"text_addresses_ai", "pipeline_stopped"})
 
 
 class LeaveRoute(BaseModel):

@@ -1,0 +1,170 @@
+[
+  {
+    "id": "lr_001",
+    "employee_id": "e101",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "Hi, I'm booked in for knee surgery and I need to take medical leave from Monday 30 November 2026 through Sunday 27 December 2026. Thanks, Dana"
+  },
+  {
+    "id": "lr_002",
+    "employee_id": "e102",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "My doctor has told me I need to stay off work for treatment. Could I take leave from 30 November 2026 to 27 December 2026?"
+  },
+  {
+    "id": "lr_003",
+    "employee_id": "e103",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I'm requesting leave for my own health condition from November 30, 2026 to December 27, 2026."
+  },
+  {
+    "id": "lr_004",
+    "employee_id": "e104",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I need time off for a hospital procedure and the recovery afterwards: 30 November 2026 to 27 December 2026, please."
+  },
+  {
+    "id": "lr_005",
+    "employee_id": "e105",
+    "submitted_at": "2026-11-05T09:00:00-05:00",
+    "text": "Requesting medical leave for my own treatment from 30 November 2026 to 27 December 2026. My SSN is 123-45-6789 if you need it for the paperwork."
+  },
+  {
+    "id": "lr_006",
+    "employee_id": "e106",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I've been diagnosed with a condition that needs treatment and rest. I'd like leave from 30 November 2026 until 27 December 2026."
+  },
+  {
+    "id": "lr_007",
+    "employee_id": "e107",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I need four weeks off for an operation, from 30 November 2026 to 27 December 2026."
+  },
+  {
+    "id": "lr_008",
+    "employee_id": "e108",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "Please can I take medical leave from 30 November 2026 to 27 December 2026? My consultant wants me off work while I recover."
+  },
+  {
+    "id": "lr_009",
+    "employee_id": "e109",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I need three more weeks off for my recovery, from 30 Nov 2026 to 20 Dec 2026."
+  },
+  {
+    "id": "lr_010",
+    "employee_id": "e110",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I'm having surgery and need leave from 30 November 2026 to 10 January 2027."
+  },
+  {
+    "id": "lr_011",
+    "employee_id": "e111",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I have a chronic condition with flare-ups. I'm asking for intermittent leave between 30 November 2026 and 30 May 2027, a day or two at a time when it flares."
+  },
+  {
+    "id": "lr_012",
+    "employee_id": "e112",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I need leave for my own medical treatment from 30 November 2026 to 27 December 2026."
+  },
+  {
+    "id": "lr_013",
+    "employee_id": "e113",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I'm having back surgery and need leave from 30 November 2026 to 27 December 2026. My doctor says I'll come back with lifting restrictions for a few months, so I may need my duties adjusted when I return."
+  },
+  {
+    "id": "lr_014",
+    "employee_id": "e114",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I'm writing to request medical leave for my own health from 30 November 2026 to 27 December 2026."
+  },
+  {
+    "id": "lr_015",
+    "employee_id": "e115",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I need leave from 30 November 2026 to 27 December 2026 for treatment of a health condition."
+  },
+  {
+    "id": "lr_016",
+    "employee_id": "e116",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "Our daughter was born on 20 November 2026. I'd like bonding leave from 30 November 2026 to 27 December 2026."
+  },
+  {
+    "id": "lr_017",
+    "employee_id": "e117",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "My son was born on 15 December 2025 and I'd like to take bonding leave from 30 November 2026 to 10 January 2027."
+  },
+  {
+    "id": "lr_018",
+    "employee_id": "e118",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "My mother-in-law has had a stroke and I need to care for her from 30 November 2026 to 27 December 2026."
+  },
+  {
+    "id": "lr_019",
+    "employee_id": "e119",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I need some time off from 30 November 2026 to 27 December 2026 for personal reasons. I'd rather not say more."
+  },
+  {
+    "id": "lr_020",
+    "employee_id": "e120",
+    "submitted_at": "2026-10-30T09:00:00-05:00",
+    "text": "My husband was seriously injured while on active duty with the Army and I need to care for him during his recovery, from 30 November 2026 to 4 April 2027."
+  },
+  {
+    "id": "lr_021",
+    "employee_id": "e121",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I need to take leave for my own health, starting 30 November 2026 and ending 27 December 2026."
+  },
+  {
+    "id": "lr_022",
+    "employee_id": "e122",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "My GP has signed me off with a health condition. I'd like leave from 30 November 2026 to 27 December 2026."
+  },
+  {
+    "id": "lr_023",
+    "employee_id": "e123",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "Requesting leave for medical treatment, 30 November 2026 to 27 December 2026."
+  },
+  {
+    "id": "lr_024",
+    "employee_id": "e124",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I work remotely from Montana. I need medical leave for my own health from 30 November 2026 to 27 December 2026."
+  },
+  {
+    "id": "lr_025",
+    "employee_id": "e125",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "My son, who is 24, is having major surgery and I need to look after him from 30 November 2026 to 27 December 2026."
+  },
+  {
+    "id": "lr_026",
+    "employee_id": "e126",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "My wife was injured on deployment and I need military caregiver leave to look after her from 30 November 2026 to 27 December 2026."
+  },
+  {
+    "id": "lr_027",
+    "employee_id": "e127",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "I need leave for an operation and recovery from 30 November 2026 to 27 December 2026."
+  },
+  {
+    "id": "lr_028",
+    "employee_id": "e128",
+    "submitted_at": "2026-11-02T09:00:00-05:00",
+    "text": "We're expecting our first baby on 15 January 2027 and I'd like to start bonding leave on 30 November 2026, through 27 December 2026."
+  }
+]

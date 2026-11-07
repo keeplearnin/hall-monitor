@@ -16,6 +16,16 @@ agents:
     prompt_sha256: a1f3e7edeeebb404eb8bd0ddaf61052278701c1622cfd286e1c5bd59bc2332a0
     prompt_version: intake-v3
     version: 0.4.0
+  leave_explainer:
+    manifest_digest: a1df1e0caf66cb954771e4c48374321eb881874fbd4a58cfd8f559ef93b6696b
+    prompt_sha256: b7679df66c06f0449fac0c47cbb1760faaf8a2d0881a3aeaa95d932be2ea1b39
+    prompt_version: leave-explainer-v1
+    version: 0.1.0
+  leave_intake:
+    manifest_digest: ea29e9dedc0452d4d7658e9381223fbadee9dd436428ea4820b69eef84b9e07b
+    prompt_sha256: 461d668fa78c7d403046371f4e4471ebbdbe63151f447b165394a5e0e7d90962
+    prompt_version: leave-intake-v1
+    version: 0.1.0
   recommendation:
     manifest_digest: fba8c83994227c720dc8ff829cbfae4bb80d2c0fca55cd3d260e39bcb70d8911
     prompt_sha256: b854d7a2b948e1b08083514787424f2d341b748e998acaf858a5a54a9caf0b84

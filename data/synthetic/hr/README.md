@@ -25,6 +25,11 @@ the date of the birth or placement, which the 12-month window needs.
 - `requests.json`: leave requests as an intake step would extract them: dates, a reason
   category, the family relationship where it matters, and whether there are signs of an
   accommodation need. Dates are inclusive.
+- `messages.json`: each request as the employee wrote it, with the time it was sent. This is
+  what the leave intake agent reads (after identifier redaction); `requests.json` is the answer
+  key for what it should extract. Treat the text as untrusted input.
+- `adversarial.json`: two messages with text aimed at the AI, and the injection signals each
+  should raise.
 - `ground_truth.json`: the answer key for each request, worked out by hand: eligibility, the
   checks that fail or can't be decided, weeks left and asked for, the route, the least senior
   role that may decide, the routing reasons, and when the eligibility notice is due.

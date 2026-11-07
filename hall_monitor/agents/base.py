@@ -69,6 +69,7 @@ def run_agent[T: BaseModel](
     economy: bool = False,
     prompt_template: str | None = None,
     carries: frozenset[DataClass] = ALL_DATA_CLASSES,
+    trace_input_hash: bool = True,
 ) -> AgentRun[T]:
     """Call the model named on the agent's hall pass and return validated, typed output.
 
@@ -85,6 +86,10 @@ def run_agent[T: BaseModel](
     carries is the set of data classes in the input. Anything beyond the manifest's
     data_classes is refused before the model is called; an input that doesn't say is taken to
     carry every class.
+
+    trace_input_hash=False keeps the plain hash of the input out of the trace, for an agent whose
+    input has so few possible values that the hash could be confirmed by guessing. It stays on
+    the returned call, for the caller to log as a keyed hash.
     """
     template_sha256 = _sha256(prompt_template if prompt_template is not None else system)
     manifest = registry.require(agent_id, prompt_sha256=template_sha256)
@@ -169,7 +174,8 @@ def run_agent[T: BaseModel](
         raise
 
     call = record(response.stop_reason)
-    tracing.update_span(metadata={"claim_id": claim_id, **call.model_dump(exclude={"seconds"})})
+    hidden = {"seconds"} if trace_input_hash else {"seconds", "input_sha256"}
+    tracing.update_span(metadata={"claim_id": claim_id, **call.model_dump(exclude=hidden)})
 
     if response.stop_reason == "refusal":
         raise AgentRefusedError(f"{agent_id} declined claim {claim_id}", call)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from datetime import UTC, datetime
 
-from hall_monitor.approvals import AGENT_MODULES, prompt_sha256
+from hall_monitor.approvals import AGENT_MODULES, CLAIMS_AGENTS, prompt_sha256
 from hall_monitor.registry import Registry
 
 
@@ -14,10 +14,11 @@ def git(*args: str) -> str:
 
 
 def agent_versions(registry: Registry, agent_ids: list[str] | None = None) -> list[dict]:
-    """The hall passes and prompt templates a run used: by default, every agent."""
+    """The hall passes and prompt templates a run used: by default, every claims agent."""
+    agent_ids = CLAIMS_AGENTS if agent_ids is None else agent_ids
     rows = []
     for manifest in registry:
-        if agent_ids is not None and manifest.id not in agent_ids:
+        if manifest.id not in agent_ids:
             continue
         module = AGENT_MODULES[manifest.id]
         rows.append(

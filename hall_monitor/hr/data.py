@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from hall_monitor.hr.models import Company, Employee, LeaveAnswer, LeaveRequest
+from hall_monitor.hr.models import Company, Employee, LeaveAnswer, LeaveMessage, LeaveRequest
 
 HR_DIR = Path(__file__).resolve().parents[2] / "data" / "synthetic" / "hr"
 
@@ -30,3 +30,15 @@ def load_requests(data_dir: Path = HR_DIR) -> list[LeaveRequest]:
 def load_answers(data_dir: Path = HR_DIR) -> dict[str, LeaveAnswer]:
     answers = [LeaveAnswer.model_validate(a) for a in _load("ground_truth.json", data_dir)]
     return {a.request_id: a for a in answers}
+
+
+def load_messages(data_dir: Path = HR_DIR) -> list[LeaveMessage]:
+    return [LeaveMessage.model_validate(m) for m in _load("messages.json", data_dir)]
+
+
+def load_adversarial(data_dir: Path = HR_DIR) -> list[tuple[LeaveMessage, list[str]]]:
+    """Messages with text aimed at the AI, and the injection signals each should raise."""
+    return [
+        (LeaveMessage.model_validate(a["message"]), a["expected_signals"])
+        for a in _load("adversarial.json", data_dir)
+    ]

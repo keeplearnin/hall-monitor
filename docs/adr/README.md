@@ -24,6 +24,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0015](0015-kill-switch.md) | Stopping an agent needs no approval; restarting it does | HM-19 |
 | [0016](0016-read-only-control-panel.md) | The control panel reads the controls and changes nothing | HM-20 |
 | [0017](0017-leave-rules-in-code.md) | Leave eligibility and who decides are code, built before any agent | HM-21 |
+| [0018](0018-leave-agents-explain-code-decides.md) | The leave agents read and explain; code decides and a person signs | HM-22 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".
