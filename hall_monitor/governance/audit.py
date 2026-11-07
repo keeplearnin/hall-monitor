@@ -110,10 +110,12 @@ def evidence_body(pack: dict) -> str:
 
 
 TRIGGERS = ("audit_log_no_update", "audit_log_no_delete", "evidence_no_update")
+# Entries that point at a stored evidence pack: a claim's, and a leave request's (hr/signoff.py).
+EVIDENCE_EVENTS = ("evidence_pack", "leave_evidence")
 
 
 def _evidence_ref(payload: str) -> str | None:
-    """The evidence hash an evidence_pack entry refers to, or None if the entry is malformed."""
+    """The evidence hash an evidence entry refers to, or None if the entry is malformed."""
     try:
         digest = json.loads(payload)["evidence_sha256"]
     except (ValueError, KeyError, TypeError):
@@ -352,11 +354,11 @@ class AuditLog:
         ]
         erased = []
         for seq, _, _, event, _, payload, _, _ in rows:
-            if event != "evidence_pack":
+            if event not in EVIDENCE_EVENTS:
                 continue
             digest = _evidence_ref(payload)
             if digest is None:
-                problems.append(f"entry {seq}: evidence_pack entry is malformed")
+                problems.append(f"entry {seq}: {event} entry is malformed")
                 continue
             try:
                 if self.get_evidence(digest) is None:

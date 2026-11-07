@@ -954,29 +954,38 @@ controls:
   - id: HM-23
     name: Signed HR sign-off within the role the rules name (HR example)
     what: >-
-      A person decides every leave request (python -m hall_monitor.hr.review). Each prepared
-      request leaves an evidence pack in the audit database, stored once under its hash (the
-      structured request, the code's checks and route, the explanation, and a random nonce so the
-      hash can't be confirmed by guessing); preparing a request again is refused. A decision
+      A person decides each leave request that is prepared into the audit log (python -m
+      hall_monitor.hr.run, which calls the API, then python -m hall_monitor.hr.review). Each
+      prepared request leaves an evidence pack in the audit database, stored once under its hash
+      (the redacted message, the structured request, the code's checks and route, the
+      explanation, and a random nonce so the hash can't be confirmed by guessing); preparing a
+      request again is refused, and the chain check reports a pack that was changed or erased. A decision
       counts only if the staff member is in registry/hr_staff.yaml, it is signed with their
       Ed25519 key over the request, every decision field and the evidence hash, and code finds it
       within their role: at least the role the routing rule named; approving FMLA leave only for
       an eligible employee with a qualifying reason, for more than 0 weeks and no more than are
-      left or were asked; denying only by an HR manager or above, with a reason; extending past
-      the entitlement only by an HR director, with a reason; approving a request the rule sent to
-      HR review only with a reason; asking for more information by anyone registered. The audit
-      log decides whether a request was decided: one final decision per request, checked inside
-      the write. A refused decision is logged with why. The log keeps the staff ID and role, the
+      left, were asked or qualify (bonding weeks after the 12 months don't); approving fewer weeks
+      than asked only by an HR manager or above, with a reason, since it refuses the rest;
+      denying only by an HR manager or above, with a reason; extending only by an HR director,
+      with a reason, for an eligible employee whose request is past the entitlement, up to the
+      weeks asked; approving a request the rule sent to HR review only with a reason. Asking for
+      more information is open to anyone registered and isn't a decision: it is logged and the
+      request keeps waiting. The audit log decides whether a request was decided: one final
+      decision per request, checked inside the write. Every refused decision on a prepared
+      request is logged with why, including one that lost a race or met a changed or erased
+      pack. The log keeps the staff ID and role, the
       outcome and weeks, the code's route, and keyed hashes of the reason and the signed
-      decision; the signed decision itself, with its reason and signature, is kept beside the
+      decision; the signed decision that won, with its reason and signature, is kept beside the
       evidence pack in the store that can be erased, not in the chain, so no signature in the
-      chain can confirm a guessed reason.
+      chain can confirm a guessed reason. What HR is shown comes from the pack, so a run that
+      lost the race to prepare a request can't change it.
     status: built
     code:
       - hall_monitor/hr/signoff.py::validate
       - hall_monitor/hr/signoff.py::decide
       - hall_monitor/hr/signoff.py::record_evidence
       - hall_monitor/hr/review.py::main
+      - hall_monitor/hr/run.py::run
       - registry/hr_staff.yaml
     tests:
       - tests/test_hr_signoff.py::test_the_role_the_rules_name_is_enforced
@@ -990,6 +999,12 @@ controls:
       - tests/test_hr_signoff.py::test_changed_evidence_is_refused_and_nothing_is_recorded
       - tests/test_hr_signoff.py::test_two_decisions_at_once_record_one
       - tests/test_hr_signoff.py::test_the_log_keeps_no_reason_and_no_signature_but_the_store_can_prove_them
+      - tests/test_hr_signoff.py::test_approving_fewer_weeks_than_asked_is_a_partial_denial
+      - tests/test_hr_signoff.py::test_asking_for_information_leaves_the_request_waiting
+      - tests/test_hr_signoff.py::test_an_extension_is_only_past_the_entitlement_and_up_to_what_was_asked
+      - tests/test_hr_signoff.py::test_bonding_weeks_after_the_12_months_can_t_be_approved
+      - tests/test_hr_signoff.py::test_the_chain_check_reports_a_changed_or_erased_leave_pack
+      - tests/test_hr_signoff.py::test_every_refusal_of_a_prepared_request_is_logged
     evidence: []
     nist: [GOVERN 3.2, MAP 3.5, MEASURE 2.8]
     finos:
@@ -999,15 +1014,20 @@ controls:
       The three fictional staff use public demo keys derived from their IDs, so a demo decision
       proves nothing about who made it (each logged decision says so); a real deployment issues
       keys from the firm's identity system. The sign-off is a command-line step on one machine's
-      audit log: no sign-in, no shared store, and the panel doesn't show HR cases yet. "Approve"
-      covers FMLA leave only; leave under company policy or state law for someone the rules find
-      ineligible is decided outside this step. Asking for more information ends the request here:
-      there is no way to resume it when the employee answers (the same limit as claims). The
+      audit log: no sign-in, no shared store, and the panel doesn't show HR cases yet. Requests
+      get into the log only through hr.run, which prepares the synthetic messages with the live
+      model. "Approve" and "extend" cover FMLA leave only; leave under company policy or state law
+      for someone the rules find ineligible is decided outside this step. After a request for
+      more information the request keeps waiting, but the employee's answer isn't added to the
+      evidence: the person decides on the same pack. The
       roles and limits are the design's guess and this code's choices (HM-21), not confirmed by
-      HR. The evidence pack holds the structured request (dates, the reason category, the
-      family relationship) and the explanation, which an auditor with the database can read; it
-      can be erased under a data-protection request, and the log still shows its hash was
-      recorded.
+      HR. The evidence pack holds personal and health information an auditor with the database
+      can read: the redacted message (with the employee's name and condition), the structured
+      request (dates, the reason category, the family relationship, whether an adult child can't
+      care for themselves, signs of an accommodation need, a birth or placement date), the hours,
+      service and leave already used behind each check, and the explanation. It can be erased
+      under a data-protection request, and the log still shows its hash was recorded. A run that
+      lost the race to prepare a request leaves its unreferenced pack in the store.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
@@ -1077,3 +1097,4 @@ audit_events:
   leave_evidence: [HM-23]
   leave_decision: [HM-23]
   leave_decision_refused: [HM-23]
+  leave_information_requested: [HM-23]

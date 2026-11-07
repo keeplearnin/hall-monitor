@@ -17,6 +17,8 @@ import json
 import sys
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog, EvidenceChanged
 from hall_monitor.governance.signing import demo_private_key, load_private_key
 from hall_monitor.hr.signoff import (
@@ -74,23 +76,36 @@ def main(argv: list[str] | None = None) -> int:
                 state |= {"evidence_sha256": found[0], "evidence": found[1]}
             _print(state)
             return 0
-        staff = load_staff()
+        try:
+            staff = load_staff()
+        except ValueError as exc:
+            print(f"the HR staff file can't be used: {exc}", file=sys.stderr)
+            return 2
         member = staff.get(args.staff)
-        if args.key is not None:
-            key = load_private_key(args.key)
-        elif member is not None and member.demo_key:
-            print(f"warning: signing with {args.staff}'s public demo key", file=sys.stderr)
-            key = demo_private_key(args.staff)
-        else:
-            print(f"--key is required to sign as {args.staff}", file=sys.stderr)
-            return 1
-        decision = LeaveDecision(
-            staff_id=args.staff,
-            outcome=Outcome(args.outcome),
-            weeks=args.weeks,
-            reason=args.reason,
-            evidence_sha256=args.evidence_sha256,
-        ).signed(args.request_id, key)
+        try:
+            if args.key is not None:
+                key = load_private_key(args.key)
+            elif member is not None and member.demo_key:
+                print(f"warning: signing with {args.staff}'s public demo key", file=sys.stderr)
+                key = demo_private_key(args.staff)
+            else:
+                print(f"--key is required to sign as {args.staff}", file=sys.stderr)
+                return 1
+        except (OSError, ValueError) as exc:
+            print(f"the key can't be read ({type(exc).__name__})", file=sys.stderr)
+            return 2
+        try:
+            decision = LeaveDecision(
+                staff_id=args.staff,
+                outcome=Outcome(args.outcome),
+                weeks=args.weeks,
+                reason=args.reason,
+                evidence_sha256=args.evidence_sha256,
+            ).signed(args.request_id, key)
+        except ValidationError as exc:  # field names only: the message would echo the values
+            fields = ", ".join(sorted({str(e["loc"][0]) for e in exc.errors()}))
+            print(f"refused: the decision isn't valid ({fields})", file=sys.stderr)
+            return 2
         try:
             _print(decide(audit, args.request_id, decision, staff))
         except DecisionRefused as exc:

@@ -543,3 +543,25 @@ fixed, test-first.
 | "Implausible date" overstated what is refused | Low | "A date outside 1900 to 2199" |
 | The branch in `stop` that kept the code's route was unreachable | Low | Removed; an unknown cost after routing keeps the reasons, as the docs now say |
 | An unknown cost dropped a good note without saying why | Low | The note's problem says the request stopped |
+
+## Review 10: the signed HR sign-off (HM-23)
+
+**Reviewer:** the governance-reviewer agent, on the hr-signoff branch before its pull request,
+with offline probes and a mutation run. 14 findings, all confirmed; all fixed or logged.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A leave specialist could approve 0.01 of the weeks asked with no reason: a final partial denial by someone not allowed to deny | High | Approving fewer weeks than asked is a partial denial: HR manager or above, with a reason |
+| The chain check ignored HR evidence packs, so a changed or erased leave pack verified clean, though HM-06 says it reports any changed pack | High | `verify` checks `leave_evidence` entries too |
+| Asking for more information skipped the role check but was the request's one final decision, so a specialist could close a director's case | Medium | It isn't a decision: logged as `leave_information_requested`, and the request keeps waiting |
+| An extension had no limits: any weeks, on a request within the entitlement, for an ineligible employee | Medium | Only for an eligible employee past the entitlement, up to the weeks asked |
+| Approval counted bonding weeks after the 12 months, which the code knows don't qualify | Medium | The assessment carries the weeks that qualify, and approval can't exceed them |
+| Nothing put a request into the sign-off: the only caller of `prepare` passed no log | Medium | `python -m hall_monitor.hr.run` prepares requests into the log (it calls the API) |
+| A run that lost the race to prepare a request logged a different route, which `status` showed to HR | Medium | `status` reads the route from the evidence pack |
+| A decision that lost a race left its reason in the store and logged no refusal | Low | Only the winning decision is stored; the loss is logged |
+| "A refused decision is logged" overstated: already decided, erased or changed evidence and a lost race weren't | Medium | Each is logged now, for any request in the log |
+| Seven checks could be removed with every test still passing, though the ADR said each was tested | Medium | A test for each; the ADR says the removal check was by hand |
+| HM-22 said the specialist checks the message, but the pack had no message | Medium | The pack holds the redacted message |
+| The HM-23 gap understated what the pack holds | Low | It lists every kind of personal and health information in it |
+| `status` crashed when a request had evidence but no `leave_prepared` entry | Low | It reads the pack, not that entry |
+| The review CLI crashed on bad input, echoing it, and a duplicate staff ID silently changed a role | Low | Clear refusals without the values; a duplicate ID or unknown role refuses the file, naming the entry |

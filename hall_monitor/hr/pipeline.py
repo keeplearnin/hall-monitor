@@ -56,6 +56,9 @@ class LeavePreparation(BaseModel):
 
     request_id: str
     employee_id: str
+    # The message as the intake agent read it, identifiers redacted: for the person who decides,
+    # to check the extraction against. It goes into the erasable evidence pack, never the log.
+    message_redacted: str
     intake: LeaveIntake | None
     request: LeaveRequest | None
     assessment: Assessment | None
@@ -231,6 +234,7 @@ def prepare(
         prepared = LeavePreparation(
             request_id=message.id,
             employee_id=message.employee_id,
+            message_redacted=text,
             intake=intake,
             request=request,
             assessment=assessment,
