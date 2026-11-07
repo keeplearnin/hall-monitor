@@ -640,3 +640,25 @@ published eval results hold the input hashes for synthetic claims (in HM-06's ga
 log or on any panel page, across three full claims and every policy's tool calls; each new test
 fails with its fix undone. Not checked: a live run in which an agent asks for tools (the fake
 client never does), so the tool-call path was exercised through direct gateway calls.
+
+## Review 13: the leave submission form (HM-24)
+
+**Reviewer:** the governance-reviewer agent, on the leave-submit branch before its pull request,
+with live probes of the demo app and checks undone in memory. Before the review, a check in a
+real browser found that the pages' no-referrer policy made the browser post the form with
+`Origin: null`, so every real submission was refused; the pages now send a same-origin referrer
+policy, and a test checks the header. The review found no way past the token, origin, host or
+body checks. 5 findings, 4 confirmed and 1 plausible; all fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The large-body test exercised only the declared length; with the streaming limit (the only one for a chunked body) removed, every test passed | Medium | A test posts a chunked body over the limit with no declared length |
+| The README said the form takes a submission "only from its own page", and the gap said "anyone who can use a browser": any process on this machine can read the token and send any origin | Medium | The README, ADR 0020 and HM-24's gap say the check stops other sites posting through a browser, not users or processes on this machine |
+| The 32 KB body limit refused valid messages: URL-encoding makes a character up to 9 bytes (6,000 "é" got "too large"), and a browser's CRLF line breaks pushed a message the textarea allowed over 10,000 characters | Low | The limit is the room the longest message needs; line breaks are counted as the textarea counts them; a test sends both |
+| The content-type check and the repeated-field refusal had no test, and nothing showed a refused submission doesn't use up the spend cap | Low | A test for each |
+| HM-24 was mapped to GOVERN 1.6 (inventory), and a stopped request told the submitter "nothing was kept", though the log keeps its keyed hash | Low, plausible | Mapped to MANAGE 4.1 only; it says the message itself wasn't kept |
+
+**Re-review of those fixes:** no findings. Each check undone in memory (the streaming limit, the
+content-type and repeated-field checks, the spend cap's place and its increment, the line-break
+handling, the old limit) fails a test; probes found no way past the 10,000-character limit, with
+the worst-case 9-byte characters and with line breaks. Not checked: live mode against the API.

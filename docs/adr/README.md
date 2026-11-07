@@ -26,6 +26,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0017](0017-leave-rules-in-code.md) | Leave eligibility and who decides are code, built before any agent | HM-21 |
 | [0018](0018-leave-agents-explain-code-decides.md) | The leave agents read and explain; code decides and a person signs | HM-22 |
 | [0019](0019-signed-hr-sign-off.md) | A person signs each leave decision, within the role the rules name | HM-23 |
+| [0020](0020-leave-submission-form.md) | Leave requests are added through a separate form, not the panel | HM-24 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".
