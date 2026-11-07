@@ -387,7 +387,9 @@ class TriageRecorder:
     """Writes one claim's triage events to the log as they happen (pipeline.triage's on_event).
 
     Payloads hold IDs, hashes, decision fields and costs, never claim text: critic issues and
-    the claim itself are hashed.
+    the claim itself are hashed. An agent's input hash is keyed (HMAC): the recommendation
+    agent's input has few possible values, so a plain hash could be confirmed by guessing. A tool
+    result's hash is keyed for the same reason.
     """
 
     def __init__(self, log: AuditLog, claim_id: str):
@@ -408,13 +410,18 @@ class TriageRecorder:
             "injection_signals": item["injection_signals"],
         }
 
-    @staticmethod
-    def _agent_call(call) -> tuple[str, dict]:
-        return call.agent_id, call.model_dump(mode="json")
+    def _agent_call(self, call) -> tuple[str, dict]:
+        payload = call.model_dump(mode="json")
+        payload["input_hmac"] = self.log.keyed_hash(payload.pop("input_sha256"))
+        return call.agent_id, payload
 
-    @staticmethod
-    def _tool_call(tool) -> tuple[str, dict]:
-        return tool.actor, tool.model_dump(mode="json")
+    def _tool_call(self, tool) -> tuple[str, dict]:
+        # The result went to the agent too, and can have few possible values (a policy with no
+        # earlier claims returns only the insured's name), so its hash is keyed as well.
+        payload = tool.model_dump(mode="json")
+        result = payload.pop("result_sha256")
+        payload["result_hmac"] = None if result is None else self.log.keyed_hash(result)
+        return tool.actor, payload
 
     def _critic_review(self, review) -> tuple[str, dict]:
         # Issue text can quote the claim, so only its keyed hash is kept here.

@@ -1,6 +1,7 @@
 """The hash-chained audit log: append-only, tamper-evident, and what the workflow writes."""
 
 import hashlib
+import json
 import sqlite3
 import threading
 
@@ -156,6 +157,58 @@ def test_the_log_holds_no_claim_text(tmp_path):
         everything = str(workflow.audit.entries())
     assert claim.narrative[:40] not in everything
     assert "blood alcohol" not in everything
+
+
+def test_the_log_keeps_each_agent_s_input_as_a_keyed_hash(tmp_path):
+    """The recommendation agent is sent a structured summary with few possible values, so a
+    plain hash of its input could be confirmed by guessing; the log keys it (HMAC)."""
+    with _workflow(tmp_path, "claim_004") as workflow:
+        workflow.submit(CLAIMS["claim_004"])
+        result = workflow.app.get_state(workflow._config("claim_004")).values["result"]
+        logged = [
+            e["payload"] for e in workflow.audit.entries("claim_004") if e["event"] == "agent_call"
+        ]
+        plain = [c["input_sha256"] for c in result["agent_calls"]]
+        assert len(logged) == len(plain) > 0
+        assert all("input_sha256" not in c for c in logged)
+        assert [c["input_hmac"] for c in logged] == [workflow.audit.keyed_hash(h) for h in plain]
+        everything = str(workflow.audit.entries())
+    assert not [h for h in plain if h in everything]  # under any event, not just agent_call
+
+
+def test_a_tool_result_hash_can_t_confirm_the_insured_s_name(tmp_path):
+    """Tool results go to the agent too. For a policy with no earlier claims, claims_history
+    returns only the insured's name, so a plain hash of the result could be confirmed from a
+    list of names; the log keys it."""
+    from hall_monitor.data import load_policy_records
+    from hall_monitor.governance.audit import TriageRecorder
+
+    def name_only(name: str) -> str:
+        body = json.dumps({"found": True, "insured_name": name, "claims": []}, sort_keys=True)
+        return hashlib.sha256(body.encode()).hexdigest()
+
+    for policy, record in load_policy_records().items():
+        calls = []
+        GATEWAY.call("risk_fraud", "claims_history", {"policy_number": policy}, calls)
+        if calls[-1].result_sha256 == name_only(record.insured_name):
+            break
+    else:
+        pytest.fail("no policy without earlier claims")
+    log = AuditLog(tmp_path / "audit.sqlite")
+    TriageRecorder(log, "claim_x")("tool_call", calls[-1])
+    payload = log.entries("claim_x")[-1]["payload"]
+    assert name_only(record.insured_name) not in str(log.entries())
+    assert payload["result_hmac"] == log.keyed_hash(name_only(record.insured_name))
+
+
+def test_no_plain_hash_of_a_claims_agent_s_input_reaches_a_trace(tmp_path, monkeypatch):
+    from hall_monitor import tracing
+
+    sent = []
+    monkeypatch.setattr(tracing, "update_span", lambda **kw: sent.append(kw))
+    with _workflow(tmp_path, "claim_004") as workflow:
+        workflow.submit(CLAIMS["claim_004"])
+    assert sent and all("input_sha256" not in kw["metadata"] for kw in sent)
 
 
 def test_the_log_keeps_the_adjusters_reason_as_a_hash(tmp_path):

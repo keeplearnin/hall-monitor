@@ -615,3 +615,28 @@ with offline probes and a demo build. 9 findings, all confirmed; all fixed.
 | The cost per request left stopped requests out of the count but not the cost | Low | It divides by every request prepared |
 | The integrity check ran on every page | Low | Cached until the log changes; the ID pattern is taken from `SAFE_ID` |
 | A request's ID and times still let someone who knows when a colleague asked find it | Low, plausible | Logged in HM-20's gaps; the request shows no reasons |
+
+## Review 12: the claims agents' input and tool-result hashes (HM-06)
+
+**Reviewer:** the governance-reviewer agent, on the fix-claims-input-hash branch before its pull
+request, with offline probes. The branch closes the gap Review 9's re-review logged: the claims
+agents logged and traced `input_sha256`, a plain hash of what each agent was sent, and the
+recommendation agent's input is a structured summary a guess could confirm. The log now keeps it
+keyed (`input_hmac`), no trace carries it, and the panel doesn't show the plain field from older
+logs. 3 findings, 2 confirmed and 1 plausible; all fixed, test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Tool results go to the agents too, and their hash was logged plain and shown on the panel; for a policy with no earlier claims `claims_history` returns only the insured's name, and an offline probe recovered the name for 32 of 36 synthetic policies in 0.34 seconds from the hash and a list of names. This predates the branch, and the branch's docs ("each agent call's hash of what the agent was sent is keyed") overstated | High | The log keeps it keyed (`result_hmac`); the panel shows only that and leaves out `result_sha256` from older logs; HM-06, ADR 0008 and the README say so, and HM-06's gaps say older logs still hold both hashes plain |
+| The register and ADR 0008 cited Review 12 before it existed | Low | This section |
+| The input-hash test checked only `agent_call` entries, by key name | Low, plausible | It also checks that no plain input hash appears in any entry |
+
+The HR pipeline keys `keyed_hash(_canonical(h))` and claims key `keyed_hash(h)`; `_canonical`
+returns a string unchanged, so both give the same value. The LangGraph checkpoint still holds the
+plain input and tool-result hashes, beside the claim and the policy record in clear, and the
+published eval results hold the input hashes for synthetic claims (in HM-06's gaps).
+
+**Re-review of those fixes:** no findings. The name probe found no plain or name-only hash in the
+log or on any panel page, across three full claims and every policy's tool calls; each new test
+fails with its fix undone. Not checked: a live run in which an agent asks for tools (the fake
+client never does), so the tool-call path was exercised through direct gateway calls.

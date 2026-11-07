@@ -249,8 +249,9 @@ controls:
       verify reports any changed, missing or reordered entry, any stored evidence pack that no
       longer matches its hash, and (opened read-only, as the audit CLI does) any trigger someone
       removed. Entries hold no claim narrative or documents; the adjuster's written reason, critic
-      issues and a rejected submission are kept as keyed hashes (HMAC-SHA256), so the hashes
-      alone can't confirm a guess (but see the gaps on signatures). Every read and write takes the same lock.
+      issues, a rejected submission, each agent call's hash of what the agent was sent and each
+      tool call's hash of its result are kept as keyed hashes (HMAC-SHA256), so the hashes alone
+      can't confirm a guess (but see the gaps on signatures). Traces leave the input hash out. Every read and write takes the same lock.
     status: built
     code:
       - hall_monitor/governance/audit.py::AuditLog
@@ -259,6 +260,10 @@ controls:
       - tests/test_audit.py::test_a_changed_entry_is_detected
       - tests/test_audit.py::test_a_consistent_rewrite_is_caught_only_by_an_anchor
       - tests/test_audit.py::test_the_log_holds_no_claim_text
+      - tests/test_audit.py::test_the_log_keeps_each_agent_s_input_as_a_keyed_hash
+      - tests/test_audit.py::test_a_tool_result_hash_can_t_confirm_the_insured_s_name
+      - tests/test_audit.py::test_no_plain_hash_of_a_claims_agent_s_input_reaches_a_trace
+      - tests/test_panel.py::test_a_plain_input_hash_from_an_older_log_is_not_shown
       - tests/test_audit.py::test_the_log_keeps_the_adjusters_reason_as_a_hash
       - tests/test_audit.py::test_a_rejected_decision_logs_no_names_or_submitted_text
       - tests/test_intake.py::test_codes_the_log_repeats_must_be_codes
@@ -295,10 +300,12 @@ controls:
       an entry it can't parse, as tampered with (exit 3), not missing (exit 1), and a log
       another process holds locked as busy (exit 4). A model answer that fails validation
       inside the SDK's parse call is billed but raises before its usage is read, so that
-      request is missing from the agent's record and its cost. The claims
-      agents' calls log and trace input_sha256, a plain hash of what each agent was sent; for the
-      recommendation agent, whose input is a structured summary, a guess could confirm it. The HR
-      agents log it keyed and keep it out of traces (HM-22).
+      request is missing from the agent's record and its cost. A log written before the claims
+      agents' input and tool-result hashes were keyed (Review 12) still holds them plain, where
+      a guess could confirm the recommendation agent's structured input or, for a policy with no
+      earlier claims, the insured's name; the log can't be edited, so the panel leaves those
+      fields out. The published eval results (evals/results) keep the plain input hash of
+      synthetic claims.
 
   - id: HM-07
     name: Critic review with revision history
