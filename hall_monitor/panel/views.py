@@ -15,6 +15,7 @@ than need them.
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 import sqlite3
 from collections import Counter
@@ -220,16 +221,23 @@ def agent(src: Sources, agent_id: str) -> dict | None:
 WITHHELD = "withheld"
 _N = r"-?[\d,]+(?:\.\d+)?"
 _CODES = r"[a-z_]+(?:, [a-z_]+)*"
-_STOPS = (
-    r"agent refused or returned no usable output: [a-z_]+ (?:declined claim \S+|was still "
-    r"calling tools after \d+ rounds|returned no complete output for \S+)",
-    r"[A-Za-z]+ from the model call",
+_ID = r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}"  # SAFE_ID: a claim or request ID
+_MODEL_CALL = r"[A-Za-z]+ from the model call"
+_HALL_PASS = (
     r"hall pass refused: agent '[a-z_]+' (?:has no hall pass|is (?:planned|retired), not active|"
     r"is stopped \(stop-\d+ by [\w-]+\)|(?:manifest|prompt) [0-9a-f]+ is not the approved "
-    r"version|may not see [a-z, ]+ data)",
-    r"hall pass refused: [\w .()'-]+; every agent is refused",
+    r"version|may not see [a-z, ]+ data)"
+)
+_STOP_LIST = r"hall pass refused: [\w .()'-]+; every agent is refused"
+_UNEXPECTED = r"unexpected [A-Za-z]+"
+_STOPS = (
+    rf"agent refused or returned no usable output: [a-z_]+ (?:declined claim {_ID}|was still "
+    rf"calling tools after \d+ rounds|returned no complete output for {_ID})",
+    _MODEL_CALL,
+    _HALL_PASS,
+    _STOP_LIST,
     r"no policy record found (?:for the policy number on the claim|after the critic's correction)",
-    r"unexpected [A-Za-z]+",
+    _UNEXPECTED,
 )
 _COST_UNKNOWN = r"(?:; cost unknown: no price for model '[\w.-]+' in PRICES_PER_MTOK)?"
 _STOP = rf"(?:{'|'.join(_STOPS)}){_COST_UNKNOWN}"
@@ -343,8 +351,9 @@ _SHOWN_FIELDS = {
 # The leave request events (hr/pipeline.py, hr/signoff.py). Reasons and refusals are shown
 # only when they are the code's own words; the rest is withheld, as for claims.
 _SHOWN_FIELDS |= {
+    # No employee ID, weeks used or asked: next to the reason codes they would tell anyone with
+    # the panel who asked for what.
     "leave_request_submitted": {
-        "employee_id",
         "submitted_at",
         "message_hmac",
         "identifiers_redacted",
@@ -356,8 +365,6 @@ _SHOWN_FIELDS |= {
         "eligible",
         "failed_checks",
         "unknown_checks",
-        "remaining_weeks",
-        "requested_weeks",
         "route",
         "decided_by",
     },
@@ -391,13 +398,15 @@ _SHOWN_FIELDS |= {
 _SHOWN_FIELDS["agent_call"] = _SHOWN_FIELDS["agent_call"] | {"input_hmac"}  # HR calls log it keyed
 _ROLES = "leave_specialist|hr_manager|hr_director"
 _HR_AGENT_STOP = (
-    r"agent refused or returned no usable output: (?:leave_intake|leave_explainer) (?:declined "
-    r"claim \S+|was still calling tools after \d+ rounds|returned no complete output for \S+)"
+    rf"agent refused or returned no usable output: (?:leave_intake|leave_explainer) (?:declined "
+    rf"claim {_ID}|was still calling tools after \d+ rounds|returned no complete output for {_ID})"
 )
 _HR_STOPS = (
     _HR_AGENT_STOP,
-    *_STOPS[1:4],  # model-call errors, hall pass refusals, stop-list refusals
-    r"unexpected [A-Za-z]+",
+    _MODEL_CALL,
+    _HALL_PASS,
+    _STOP_LIST,
+    _UNEXPECTED,
     r"no employee record for this request",
     r"the request doesn't give its dates",
     r"the extracted request isn't valid \([a-z_, ]+\)",
@@ -410,8 +419,10 @@ _HR_EXPLANATION_RE = re.compile(
             r"the explanation didn't cover exactly the checks the code made",
             r"the explanation agent gave no usable answer",
             r"the request stopped, so the note was left out",
-            *_STOPS[1:4],
-            r"unexpected [A-Za-z]+",
+            _MODEL_CALL,
+            _HALL_PASS,
+            _STOP_LIST,
+            _UNEXPECTED,
         )
     )
 )
@@ -440,20 +451,45 @@ _HR_REFUSALS = (
     r"an extension needs the weeks it grants, more weeks than are left; approving within what "
     r"is left is an approval",
     r"extended weeks can't be more than were asked for",
-    r"the audit log shows \S+ was already decided",
+    rf"the audit log shows {_ID} was already decided",
     r"the evidence pack was changed after it was stored",
     r"the evidence pack recorded for this request is no longer stored",
-    r"\S+ has no evidence pack yet",
+    rf"{_ID} has no evidence pack yet",
     r"this request for information is already recorded",
 )
 _HR_REFUSAL_RE = re.compile("|".join(_HR_REFUSALS))
 
 
-def shown_leave_reasons(value: object) -> list[str]:
+# Reasons that tell something about the employee's health, family, pregnancy, discipline or
+# where they live. On a single request they show as SENSITIVE; the overview counts them across
+# requests. HR reads them in the review CLI.
+SENSITIVE_LEAVE_REASONS = frozenset(
+    {
+        "possible_accommodation",
+        "before_birth",
+        "adult_child",
+        "caregiver_history",
+        "family_member_not_covered",
+        "bonding_window",
+        "spouses_same_employer",
+        "retaliation_risk",
+        "intermittent",
+        "state_law",
+    }
+)
+SENSITIVE = "sensitive (HR only)"
+
+
+def _leave_codes(value: object) -> list[str]:
     """Routing reason codes the leave rules give (hr/routing.py), or withheld."""
     if not isinstance(value, list):
         return [WITHHELD]
     return [r if isinstance(r, str) and r in LEAVE_REASONS else WITHHELD for r in value]
+
+
+def shown_leave_reasons(value: object) -> list[str]:
+    """A single request's reason codes, with the sensitive ones masked."""
+    return [SENSITIVE if r in SENSITIVE_LEAVE_REASONS else r for r in _leave_codes(value)]
 
 
 # Revised fields whose values are typed by the code (enums, dates, amounts). A policy number is
@@ -476,6 +512,8 @@ _CODE_TEXT = re.compile(r"[A-Za-z0-9_:.+@/-]{0,200}")
 def _value(value: object, depth: int = 0) -> object:
     """A logged value as the code writes it (a number, a code, a list or map of them), or
     "withheld". The code writes only these; anything else means the entry was changed."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return WITHHELD
     if value is None or isinstance(value, bool | int | float):
         return value
     if isinstance(value, str):
@@ -579,7 +617,9 @@ def shown_payload(event: str, payload: object) -> dict:
 
 
 def _number(value: object) -> float | None:
-    return value if isinstance(value, int | float) and not isinstance(value, bool) else None
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return value if math.isfinite(value) else None
 
 
 def _cases(entries: list[dict]) -> dict[str, dict]:
@@ -663,8 +703,9 @@ def _cases(entries: list[dict]) -> dict[str, dict]:
 
 
 def _leave_ids(entries: list[dict]) -> set[str]:
-    """IDs with a leave_* event: leave requests, not claims."""
-    return {e["claim_id"] for e in entries if str(e["event"]).startswith("leave_")}
+    """IDs with a submitted leave message: leave requests, not claims. Only the pipeline writes
+    that event, so a stray leave_* entry under a claim (a mistyped HR command) can't move it."""
+    return {e["claim_id"] for e in entries if e["event"] == "leave_request_submitted"}
 
 
 def _claims_only(entries: list[dict]) -> list[dict]:
@@ -680,10 +721,12 @@ def cases(src: Sources) -> list[dict]:
 # --- Leave requests --------------------------------------------------------------------------
 
 
-def _leave_requests(entries: list[dict]) -> dict[str, dict]:
+def _leave_requests(entries: list[dict], broken: frozenset[str] = frozenset()) -> dict[str, dict]:
     """Each leave request's state as the audit log records it, as hr/signoff.status reads it,
     but from the log alone: the panel never opens the evidence pack, which holds the employee's
-    message and health details. The route is the one logged just before the evidence pack."""
+    message and health details. The route is the one logged just before the evidence pack.
+    broken holds the hashes (or their first 12 characters) of packs the integrity check found
+    erased or changed: such a request can't be decided, so it isn't shown as waiting."""
     requests: dict[str, dict] = {}
     prepared: dict[str, list[tuple[int, dict]]] = {}
     evidence_seq: dict[str, int] = {}
@@ -708,6 +751,7 @@ def _leave_requests(entries: list[dict]) -> dict[str, dict]:
                 "refused_decisions": 0,
                 "information_requested": 0,
                 "injection_flagged": False,
+                "_codes": [],
             },
         )
         shown = shown_payload(event, e["payload"])
@@ -715,11 +759,15 @@ def _leave_requests(entries: list[dict]) -> dict[str, dict]:
             req["submitted_at"] = req["submitted_at"] or shown.get("submitted_at")
             req["injection_flagged"] = bool(shown.get("injection_signals"))
         elif event == "leave_prepared":
-            prepared.setdefault(request_id, []).append((e["seq"], shown))
+            payload = e["payload"] if isinstance(e["payload"], dict) else {}
+            codes = _leave_codes(payload.get("reasons") or [])
+            prepared.setdefault(request_id, []).append((e["seq"], shown | {"_codes": codes}))
             req["cost_usd"] += _number(shown.get("cost_usd")) or 0.0  # every run cost money
         elif event == "leave_evidence" and request_id not in evidence_seq:
             req["evidence"] = True
             evidence_seq[request_id] = e["seq"]
+            digest = e["payload"].get("evidence_sha256") if isinstance(e["payload"], dict) else None
+            req["_pack"] = digest if isinstance(digest, str) else None
         elif event == "leave_decision_refused":
             req["refused_decisions"] += 1
         elif event == "leave_information_requested":
@@ -741,9 +789,14 @@ def _leave_requests(entries: list[dict]) -> dict[str, dict]:
                 role if isinstance(role, str) and role in _ROLES.split("|") else None
             )
             req["reasons"] = standing["reasons"]
+            req["_codes"] = standing["_codes"]
             req["stopped_reason"] = standing["stopped_reason"]
+        pack = req.pop("_pack", None)
         if req["decision"] is not None:
             req["state"] = "decided"
+        elif req["evidence"] and pack is not None and (pack in broken or pack[:12] in broken):
+            req["state"] = "evidence pack erased or changed"
+            req["route"] = req["decided_by"] = None
         elif req["evidence"]:
             req["state"] = "waiting for HR"
         elif runs:
@@ -753,11 +806,31 @@ def _leave_requests(entries: list[dict]) -> dict[str, dict]:
     return requests
 
 
+def _broken_packs(src: Sources) -> frozenset[str]:
+    """Hashes of evidence packs the integrity check found erased, or the 12-character prefixes
+    of ones it found changed."""
+    result = audit_integrity(src)
+    changed = {
+        m.group(1)
+        for p in result["problems"]
+        if (m := re.search(r"evidence pack ([0-9a-f]{12}) was changed", p))
+    }
+    return frozenset(set(result["evidence_erased"]) | changed)
+
+
+def _public(request: dict) -> dict:
+    return {k: v for k, v in request.items() if not k.startswith("_")}
+
+
+def _leave_view(entries: list[dict], src: Sources) -> dict[str, dict]:
+    leave = _leave_ids(entries)
+    return _leave_requests([e for e in entries if e["claim_id"] in leave], _broken_packs(src))
+
+
 def leave_requests(src: Sources) -> list[dict]:
     entries, _ = _entries(src)
-    leave = _leave_ids(entries)
-    found = _leave_requests([e for e in entries if e["claim_id"] in leave])
-    return sorted(found.values(), key=lambda r: r["request_id"])
+    found = _leave_view(entries, src)
+    return [_public(r) for r in sorted(found.values(), key=lambda r: r["request_id"])]
 
 
 def leave_queue(src: Sources) -> list[dict]:
@@ -795,7 +868,7 @@ def case_trace(src: Sources, claim_id: str) -> dict | None:
         return {
             "claim_id": claim_id,
             "kind": "leave",
-            "case": _leave_requests(entries)[claim_id],
+            "case": _public(_leave_requests(entries, _broken_packs(src))[claim_id]),
             "entries": shown,
             "problem": problem,
         }
@@ -839,9 +912,9 @@ def overview(src: Sources) -> dict:
             reason_kind(r) for c in triaged for r in c["routing_reasons"]
         ).most_common(),
     }
-    leave = _leave_ids(entries)
-    requests = list(_leave_requests([e for e in entries if e["claim_id"] in leave]).values())
-    prepared = [r for r in requests if r["route"] is not None]
+    requests = list(_leave_view(entries, src).values())
+    # Routes and reasons count only requests the rules ran on and that reached HR.
+    prepared = [r for r in requests if r["evidence"] and r["route"] is not None]
     decided = [r for r in requests if r["decision"]]
     hr_cost = sum(r["cost_usd"] for r in requests)
     outcomes = Counter(str((r["decision"] or {}).get("outcome")) for r in decided)
@@ -851,6 +924,7 @@ def overview(src: Sources) -> dict:
         "specialist_sign_off": sum(r["route"] == "specialist_sign_off" for r in prepared),
         "hr_review": sum(r["route"] == "hr_review" for r in prepared),
         "waiting_for_hr": sum(r["state"] == "waiting for HR" for r in requests),
+        "evidence_problems": sum(r["state"] == "evidence pack erased or changed" for r in requests),
         "stopped_before_the_rules": sum(r["state"].startswith("stopped") for r in requests),
         "decided": len(decided),
         "approved": outcomes.get("approve", 0),
@@ -863,7 +937,7 @@ def overview(src: Sources) -> dict:
         "cost_per_request_usd": round(hr_cost / len(prepared), 4) if prepared else None,
         "reasons": [
             (LEAVE_REASONS[code][0] if code in LEAVE_REASONS else code, count)
-            for code, count in Counter(c for r in prepared for c in r["reasons"]).most_common()
+            for code, count in Counter(c for r in prepared for c in r["_codes"]).most_common()
         ],
     }
     metrics = {"travel_claims": travel, "hr_leave": hr}

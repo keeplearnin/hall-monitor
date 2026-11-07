@@ -104,6 +104,8 @@ STATE_TONE = {
     "partial": "warn",
     "decided": "ok",
     "waiting for a person": "warn",
+    "waiting for HR": "warn",
+    "evidence pack erased or changed": "stop",
     "routed automatically, no decision recorded": "stop",
     "triaged, no decision recorded": "stop",
     "withheld": "muted",
@@ -145,8 +147,9 @@ def page(title: str, current: str, body: Safe, *, root: str = "", demo: bool = F
             tag(
                 "p",
                 tag("strong", "Demo data. "),
-                "Synthetic claims answered by a scripted model from the answer key, not live model "
-                "runs. Costs are from the scripted token counts.",
+                "Synthetic claims and leave requests answered by a scripted model from the "
+                "answer key, not live model runs; costs are from the scripted token counts. "
+                "Adjusters and HR staff sign with public demo keys.",
                 class_="banner demo",
             )
         )
@@ -223,6 +226,12 @@ def _attention(data: dict) -> Safe:
     if leave.get("waiting_for_hr"):
         line = f"{leave['waiting_for_hr']} leave requests are waiting for HR."
         items.append((badge("queue", "warn"), line, "queue.html"))
+    if leave.get("evidence_problems"):
+        line = (
+            f"{leave['evidence_problems']} leave requests have an evidence pack that was erased "
+            "or changed, so they can't be decided."
+        )
+        items.append((state_badge("fail"), line, "audit.html"))
     if leave.get("stopped_before_the_rules"):
         line = (
             f"{leave['stopped_before_the_rules']} leave requests stopped before the rules ran; "

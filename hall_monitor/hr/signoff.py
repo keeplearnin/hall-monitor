@@ -81,7 +81,7 @@ def load_staff(path: Path = DEFAULT_REGISTRY_DIR / HR_STAFF_FILENAME) -> dict[st
         raise ValueError(f"{path.name} has an entry that isn't valid ({fields})") from None
     seen: dict[str, StaffMember] = {}
     for member in members:
-        if member.role.upper() not in Role.__members__:
+        if member.role not in {r.label for r in Role}:
             raise ValueError(f"{member.id}: its role isn't one the rules know")
         if member.id in seen:
             raise ValueError(f"{member.id} is listed twice in {path.name}")
@@ -316,8 +316,10 @@ def decide(
     for a request in the log, is logged with why and raises DecisionRefused."""
     staff = load_staff() if staff is None else staff
     signed = _signed_by(decision, request_id, staff)
-    if not audit.entries(request_id):
-        raise DecisionRefused(f"{request_id} isn't in the audit log: it wasn't prepared")
+    entries = audit.entries(request_id)
+    if not any(e["event"] == "leave_request_submitted" for e in entries):
+        # Not logged: a mistyped ID (a claim's, say) mustn't gain leave entries.
+        raise DecisionRefused(f"{request_id} isn't a leave request in the audit log")
     already = f"the audit log shows {request_id} was already decided"
     if audit.has(request_id, "leave_decision"):
         _refuse(audit, request_id, decision, signed, already)

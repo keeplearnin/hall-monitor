@@ -583,3 +583,20 @@ with offline probes and a mutation run. 14 findings, all confirmed; all fixed or
 | Five changes went unnoticed by every test (the empty-entitlement extension, the no-pack refusal, the erased-pack status, the bonding year's last day, the CLI's staff-file refusal) | Low | A test for each |
 | README rows for HM-21 and HM-22 still said there was no sign-off | Low | Corrected |
 | "Every refused decision is logged" covered the CLI's input refusals too | Low | It says those aren't decisions and aren't logged |
+
+## Review 11: leave requests in the control panel (HM-20)
+
+**Reviewer:** the governance-reviewer agent, on the panel-hr branch before its pull request,
+with offline probes and a demo build. 9 findings, all confirmed; all fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A leave request's trace showed the employee ID beside reason codes that reveal pregnancy, disability, a child's condition or pending discipline, though HM-20 said the panel didn't show the category | High | No employee ID or weeks on a leave trace; a request's sensitive reasons show as "sensitive (HR only)"; the overview still counts them across requests, and HM-20 says so |
+| A leave refusal logged under a claim's ID (a mistyped HR command) turned the claim into a "leave request" and took it out of the claims queue | High | A leave request is one with a logged message; the sign-off refuses any other ID without logging |
+| The refusal test exercised 17 of the 25 refusal templates | Medium | A test drives every refusal the code writes and checks every template is matched by one |
+| No test checked that HR stop and note-problem messages were shown, and their templates were a positional slice of the claims list | Medium | A test drives every pipeline stop; the templates are named |
+| A request stopped before the rules counted as sent to HR review | Low | Routes and reasons count only requests that reached HR |
+| A request with an erased pack showed as waiting, though the sign-off refuses it | Low | Shown as "evidence pack erased or changed" and kept out of the queue, with an attention line |
+| ADR 0016 said the panel never opens an evidence pack, but the integrity check hashes them | Low | Reworded |
+| A non-finite number in a payload broke the JSON routes | Low | Shown as withheld (claims too) |
+| A mixed-case staff role made its refusal unmatchable; two templates accepted any text for an ID; the demo banner didn't mention leave requests or demo keys; the privacy test missed redacted messages | Low | Roles must be exact; IDs match the safe ID pattern; the banner and the test are fixed |

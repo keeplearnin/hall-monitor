@@ -765,6 +765,10 @@ controls:
       - tests/test_panel.py::test_the_hr_overview_tells_the_demo_s_leave_story
       - tests/test_panel.py::test_no_page_shows_an_employee_s_message_the_pack_or_a_decision_s_reason
       - tests/test_panel.py::test_every_refusal_the_sign_off_can_give_is_shown_not_withheld
+      - tests/test_panel.py::test_a_leave_trace_shows_no_employee_and_no_sensitive_reason
+      - tests/test_panel.py::test_a_leave_refusal_under_a_claim_id_doesn_t_turn_it_into_a_leave_request
+      - tests/test_panel.py::test_every_refusal_message_the_code_writes_matches_a_panel_template
+      - tests/test_panel.py::test_every_hr_stop_and_note_problem_is_shown_not_withheld
     evidence: []
     nist: [GOVERN 1.6, MANAGE 4.1]
     finos:
@@ -776,11 +780,16 @@ controls:
       built. It is read-only by design for this phase; stopping an agent and signing a decision
       from the panel are the next phase and aren't built. It reads the SQLite audit log and the
       registry files on one machine, so it shows only what that machine's runs wrote; there is
-      no shared store. Leave requests are read from the audit log alone, never from their
-      evidence packs (which hold the employee's message and health details), so the panel shows
-      routes, roles, reason codes, outcomes and counts, not the request's dates or category; the
-      route shown is the one logged just before the evidence pack, which is the pack's unless two
-      preparations of the same request interleave. It can't anchor audit
+      no shared store. Leave requests are read from the audit log alone; no leave view reads an
+      evidence pack (which holds the employee's message and health details), though the
+      integrity check hashes every pack. A leave request's trace shows no employee ID and no
+      weeks used or asked, and its reasons that tell something about health, family, pregnancy,
+      discipline or where the employee lives show as "sensitive (HR only)"; the overview counts
+      every reason across requests, which on a handful of requests can still narrow down who. A
+      request is a leave request only if the pipeline logged its message, so a stray HR entry
+      under a claim's ID can't move the claim. The route shown is the one logged just before the
+      evidence pack, which is the pack's unless two preparations of the same request interleave;
+      a request whose pack the integrity check finds erased or changed isn't shown as waiting. It can't anchor audit
       heads itself: verifying against an anchor needs a head someone copied out. The demo's model is
       scripted from the answer key, so its routing, cost and override numbers show the controls
       working, not how well the agents perform. Routing and stop reasons the code writes name

@@ -62,8 +62,10 @@ with the code that enforces it.
 
 ## Consequences
 
-- Leave requests (HR example) appear beside claims, read from the audit log alone: the panel
-  never opens an evidence pack, which holds the employee's message and health details.
+- Leave requests (HR example) appear beside claims, read from the audit log alone: no leave
+  view reads an evidence pack, which holds the employee's message and health details (the
+  integrity check hashes every pack, without showing any). A request's sensitive reasons show
+  as "sensitive (HR only)", and its trace shows no employee ID.
 
 - The panel is as right as the controls it reads, and no more: what a control doesn't record
   (a stop isn't an audit event), the panel can't show.
