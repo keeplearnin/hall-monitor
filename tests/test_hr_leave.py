@@ -61,8 +61,11 @@ def test_every_request_has_one_answer_and_every_answer_a_request():
 
 
 def test_every_routing_reason_is_in_an_answer_key():
+    """Except the pipeline's own, which tests/test_hr_agents.py covers."""
+    from hall_monitor.hr.routing import PIPELINE_REASONS
+
     used = {reason for a in ANSWERS.values() for reason in a.reasons}
-    assert used == set(REASONS)
+    assert used == set(REASONS) - PIPELINE_REASONS
 
 
 def test_the_cli_scores_every_request(capsys):
@@ -584,7 +587,9 @@ def test_the_check_facts_carry_no_dates_of_birth_or_placement():
 
 
 def test_the_hr_rules_call_no_model():
-    for file in HR.glob("*.py"):
+    """The rules and their records; the agents are separate modules (HM-22)."""
+    rules = ("models.py", "eligibility.py", "routing.py", "data.py", "__main__.py")
+    for file in (HR / name for name in rules):
         imported = {
             n.module if isinstance(n, ast.ImportFrom) else a.name
             for n in ast.walk(ast.parse(file.read_text()))

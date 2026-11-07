@@ -65,6 +65,11 @@ def detect_instructions(claim: ClaimSubmission) -> list[str]:
     texts = [claim.narrative, *(a.text for a in claim.attachments)]
     texts += [a.filename for a in claim.attachments]
     texts += codes + [code.replace("_", " ") for code in codes]  # tool names keep underscores
+    return detect_in_texts(texts)
+
+
+def detect_in_texts(texts: list[str]) -> list[str]:
+    """Names of the signals found in any of the texts, in a stable order."""
     raw = "\n".join(texts)
     # The raw text and the decoded text are both searched: decoding reveals markup written as
     # entities, but it also turns &#10; into a newline, which would end a phrase early.

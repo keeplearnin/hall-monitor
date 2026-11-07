@@ -14,7 +14,15 @@ from hall_monitor.registry import (
 )
 from tests.fakes import TEST_REGISTRY_DIR
 
-EXPECTED_AGENTS = {"intake", "coverage_check", "critic", "risk_fraud", "recommendation"}
+EXPECTED_AGENTS = {
+    "intake",
+    "coverage_check",
+    "critic",
+    "risk_fraud",
+    "recommendation",
+    "leave_intake",
+    "leave_explainer",
+}
 
 
 @pytest.fixture
@@ -139,11 +147,22 @@ def test_the_approved_prompt_covers_the_untrusted_claim_notice():
     template, so an edit to the notice needs a new approval."""
     from hall_monitor.agents.base import UNTRUSTED_CLAIM_NOTICE
     from hall_monitor.approvals import AGENT_MODULES
+    from hall_monitor.hr.leave_intake import UNTRUSTED_REQUEST_NOTICE
 
+    # The agents that read untrusted text, and the notice each one's approved prompt holds.
+    notices = {
+        "intake": UNTRUSTED_CLAIM_NOTICE,
+        "coverage_check": UNTRUSTED_CLAIM_NOTICE,
+        "risk_fraud": UNTRUSTED_CLAIM_NOTICE,
+        "critic": UNTRUSTED_CLAIM_NOTICE,
+        "leave_intake": UNTRUSTED_REQUEST_NOTICE,
+    }
+    readers_of_nothing_untrusted = {"recommendation", "leave_explainer"}
+    assert set(notices) | readers_of_nothing_untrusted == set(AGENT_MODULES)
     for agent_id, module in AGENT_MODULES.items():
         assert "{untrusted}" not in module.SYSTEM_PROMPT, agent_id
-        if agent_id != "recommendation":  # sees no claim text
-            assert UNTRUSTED_CLAIM_NOTICE in module.SYSTEM_PROMPT, agent_id
+        if agent_id in notices:
+            assert notices[agent_id] in module.SYSTEM_PROMPT, agent_id
 
 
 def test_the_untrusted_claim_notice_has_no_braces():

@@ -1,0 +1,10 @@
+id: leave_explainer
+name: Leave explanation
+version: 0.1.0
+owner: own-401
+purpose: Explain the code's eligibility result and route to the leave specialist; advisory only.
+risk_tier: medium
+status: active
+model: claude-haiku-5-5
+allowed_tools: []
+data_classes: [health]

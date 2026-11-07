@@ -21,6 +21,7 @@ from types import ModuleType
 import yaml
 
 from hall_monitor.agents import coverage_check, critic, intake, recommendation, risk_fraud
+from hall_monitor.hr import leave_explainer, leave_intake
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
 from hall_monitor.registry import (
     APPROVALS_FILENAME,
@@ -30,9 +31,10 @@ from hall_monitor.registry import (
     load_approvals,
 )
 
-AGENT_MODULES: dict[str, ModuleType] = {
-    m.AGENT_ID: m for m in (intake, coverage_check, risk_fraud, critic, recommendation)
-}
+CLAIMS_MODULES = (intake, coverage_check, risk_fraud, critic, recommendation)
+HR_MODULES = (leave_intake, leave_explainer)
+CLAIMS_AGENTS = tuple(m.AGENT_ID for m in CLAIMS_MODULES)
+AGENT_MODULES: dict[str, ModuleType] = {m.AGENT_ID: m for m in CLAIMS_MODULES + HR_MODULES}
 
 
 def prompt_sha256(module: ModuleType) -> str:

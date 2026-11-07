@@ -1,6 +1,7 @@
 """The kill switch: an agent's owner can stop it at once, and only a reviewed change restarts it."""
 
 import shutil
+from pathlib import Path
 
 import pytest
 import yaml
@@ -17,6 +18,7 @@ from hall_monitor.pipeline import triage
 from hall_monitor.registry import (
     APPROVALS_FILENAME,
     DEFAULT_REGISTRY_DIR,
+    NON_MANIFEST_FILES,
     OWNERS_FILENAME,
     AgentStoppedError,
     Registry,
@@ -263,7 +265,10 @@ def test_owners_and_stops_are_not_manifests(registry_dir):
     assert {OWNERS_FILENAME, STOPS_FILENAME} <= {
         f.name for f in registry_dir.glob("*.yaml")
     }  # they sit beside the manifests
-    assert len(Registry.from_dir(registry_dir)) == 5
+    manifests = {f.stem for f in registry_dir.glob("*.yaml")} - {
+        Path(n).stem for n in NON_MANIFEST_FILES
+    }
+    assert {m.id for m in Registry.from_dir(registry_dir)} == manifests
 
 
 # --- Append only ---------------------------------------------------------------------

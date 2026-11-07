@@ -8,3 +8,6 @@ owners:
   - id: own-302
     name: Sam Lindqvist
     role: Fraud analytics lead
+  - id: own-401
+    name: Priya Natarajan
+    role: HR leave operations lead

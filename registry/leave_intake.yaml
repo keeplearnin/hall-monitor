@@ -1,0 +1,10 @@
+id: leave_intake
+name: Leave intake
+version: 0.1.0
+owner: own-401
+purpose: Extract the dates, reason category and yes-or-no facts from an employee's leave request, never the condition.
+risk_tier: high
+status: active
+model: claude-haiku-5-5
+allowed_tools: []
+data_classes: [pii, health]

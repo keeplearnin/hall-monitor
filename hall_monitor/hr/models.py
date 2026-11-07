@@ -10,7 +10,7 @@ there are signs of an accommodation need. A request never carries the condition 
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -236,3 +236,59 @@ class LeaveAnswer(BaseModel):
     reasons: list[str]
     notice_due: date
     why: str
+
+
+# --- What the agents read and write ----------------------------------------------------------
+
+
+class LeaveMessage(BaseModel):
+    """An employee's leave request as they wrote it: untrusted free text, with the IDs and time
+    the HR system attaches. The text may hold a name, a condition and identifiers; it goes to
+    the intake agent after redaction and nowhere else."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str = Field(pattern=ID)
+    employee_id: str = Field(pattern=ID)
+    submitted_at: datetime
+    text: str = Field(min_length=1, max_length=10_000)
+
+
+class LeaveIntake(BaseModel):
+    """What the intake agent extracts. Dates, categories and yes-or-no answers only: there is
+    no free-text field, so a diagnosis has nowhere to go."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    start: date | None = Field(description="First day of leave, or null if not stated.")
+    end: date | None = Field(description="Last day of leave (inclusive), or null if not stated.")
+    intermittent: bool = Field(description="Leave taken in separate blocks or a reduced schedule.")
+    reason: LeaveReason
+    family_relationship: Relationship | None = Field(
+        description="Who the employee will care for, when the reason is caring for someone."
+    )
+    family_member_under_18: bool | None = Field(
+        description="For care of a child: whether the child is under 18, or null if not stated."
+    )
+    incapable_of_self_care: bool | None = Field(
+        description="For care of an adult child: whether they can't care for themselves because "
+        "of a disability, or null if not stated."
+    )
+    event_date: date | None = Field(
+        description="For bonding: the date of the birth or placement, expected or past."
+    )
+    possible_accommodation: bool = Field(
+        description="Signs the employee may need a disability or pregnancy accommodation."
+    )
+
+
+class LeaveExplanation(BaseModel):
+    """The explanation agent's note for the leave specialist: advisory text only. The code's
+    result decides; nothing here changes it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    checks: dict[str, str] = Field(
+        description="For each check id given, one plain sentence explaining its result."
+    )
+    summary: str = Field(max_length=800, description="Two or three sentences for the specialist.")

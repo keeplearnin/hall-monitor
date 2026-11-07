@@ -252,9 +252,9 @@ def overview_page(data: dict) -> str:
                     badge(w["status"], "muted"),
                     tag(
                         "p",
-                        "Eligibility, entitlement and routing are code (HM-21, ",
-                        tag("code", "python -m hall_monitor.hr"),
-                        "); no agents and no cases in the audit log yet, so no numbers here.",
+                        "Eligibility, entitlement and routing are code (HM-21); intake and "
+                        "explanation agents prepare each request (HM-22). No sign-off step yet, "
+                        "so no cases are shown here.",
                         class_="empty",
                     ),
                     class_="card",
