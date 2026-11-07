@@ -657,3 +657,8 @@ body checks. 5 findings, 4 confirmed and 1 plausible; all fixed.
 | The 32 KB body limit refused valid messages: URL-encoding makes a character up to 9 bytes (6,000 "é" got "too large"), and a browser's CRLF line breaks pushed a message the textarea allowed over 10,000 characters | Low | The limit is the room the longest message needs; line breaks are counted as the textarea counts them; a test sends both |
 | The content-type check and the repeated-field refusal had no test, and nothing showed a refused submission doesn't use up the spend cap | Low | A test for each |
 | HM-24 was mapped to GOVERN 1.6 (inventory), and a stopped request told the submitter "nothing was kept", though the log keeps its keyed hash | Low, plausible | Mapped to MANAGE 4.1 only; it says the message itself wasn't kept |
+
+**Re-review of those fixes:** no findings. Each check undone in memory (the streaming limit, the
+content-type and repeated-field checks, the spend cap's place and its increment, the line-break
+handling, the old limit) fails a test; probes found no way past the 10,000-character limit, with
+the worst-case 9-byte characters and with line breaks. Not checked: live mode against the API.
