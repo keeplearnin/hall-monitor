@@ -14,7 +14,8 @@ or unapproved agent, an API error, an unusable answer) stops the request and sen
 person, with what was recorded so far.
 
 Each step is written to the audit log as it happens, when one is given: IDs, hashes, counts,
-codes and costs, never the message, the extraction's values or the explanation's text.
+codes and costs, never the message, the extraction's values or the explanation's text. The
+evidence pack a person signs against is stored at the end (hr/signoff.py).
 """
 
 from __future__ import annotations
@@ -43,6 +44,7 @@ from hall_monitor.hr.models import (
     LeaveRequest,
 )
 from hall_monitor.hr.routing import REASONS, LeaveRoute, Role, route_leave
+from hall_monitor.hr.signoff import record_evidence
 from hall_monitor.models import AgentCall
 from hall_monitor.registry import Registry, RegistryError
 
@@ -201,6 +203,10 @@ def prepare(
     client: anthropic.Anthropic | None = None,
     audit: AuditLog | None = None,
 ) -> LeavePreparation:
+    if audit is not None and audit.has(message.id, "leave_evidence"):
+        # The log, not anything else, says whether a request was prepared: it isn't prepared,
+        # and decided, twice.
+        raise ValueError(f"the audit log shows {message.id} was already prepared")
     record = _Recorder(audit, message.id)
     counts: Counter[str] = Counter()
     text = redact_text(message.text, counts)
@@ -238,6 +244,8 @@ def prepare(
             cost_usd=cost,
         )
         record.prepared(prepared)
+        if audit is not None:  # what the person signs against (hr/signoff.py)
+            record_evidence(audit, prepared)
         return prepared
 
     def stop(reason: str, reasons: list[str]) -> LeavePreparation:

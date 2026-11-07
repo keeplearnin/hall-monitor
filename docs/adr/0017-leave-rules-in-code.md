@@ -33,8 +33,8 @@ not collect.
   review and names the least senior role that may decide it, from the sign-off table in the
   design for HR review (a Claude Doc outside this repo; the roles for six flags are this code's
   choice). Even a clean request is only a draft for a leave specialist to sign: the design asked
-  HR whether any approval may skip a person, and until they answer, none does. Nothing enforces
-  the role until there is a sign-off step.
+  HR whether any approval may skip a person, and until they answer, none does. The sign-off
+  ([ADR 0019](0019-signed-hr-sign-off.md)) enforces the role.
 - **Answer keys on the boundaries.** 28 synthetic requests sit on the edges (hired on a
   Saturday against the next day, 1,250 against 1,249 hours, 50 against 49 employees, a site at
   exactly 75 miles, a leave that partly falls outside the rolling year), each worked out by

@@ -256,6 +256,7 @@ def test_each_step_is_logged_with_nothing_the_employee_or_a_model_wrote(registry
         "leave_assessed",
         "agent_call",
         "leave_prepared",
+        "leave_evidence",
     ]
     logged = str([e["payload"] for e in entries])
     for text in ("treatment", "123-45-6789", "2026-11-30", "Look at the route reasons"):
@@ -267,8 +268,8 @@ def test_a_stopped_request_is_logged_too(registry, tmp_path):
     log = AuditLog(tmp_path / "audit.sqlite")
     _prepare(MESSAGES["lr_001"], registry, audit=log, employees={})
     events = [e["event"] for e in log.entries("lr_001")]
-    assert events == ["leave_request_submitted", "agent_call", "leave_prepared"]
-    assert log.entries("lr_001")[-1]["payload"]["reasons"] == ["facts_missing"]
+    assert events == ["leave_request_submitted", "agent_call", "leave_prepared", "leave_evidence"]
+    assert log.entries("lr_001")[-2]["payload"]["reasons"] == ["facts_missing"]
 
 
 def test_pipeline_reasons_are_routing_reasons():
@@ -295,11 +296,13 @@ def test_the_logged_hashes_can_t_be_checked_against_a_guess(registry, tmp_path):
     assert payload["intake_hmac"] == log.keyed_hash(
         json_.dumps(prepared.intake.model_dump(mode="json"), sort_keys=True)
     )
+    # The evidence pack's hash is the one the signer quotes; the pack holds a random nonce, so a
+    # guess can't confirm it.
     assert not any(
         k.endswith("sha256")
         for e in log.entries(message.id)
         for k in e["payload"]
-        if e["event"].startswith("leave_")
+        if e["event"].startswith("leave_") and e["event"] != "leave_evidence"
     )
 
 
@@ -316,7 +319,7 @@ def test_an_extreme_date_from_the_model_goes_to_a_person(change, registry, tmp_p
 
     prepared = _prepare(MESSAGES["lr_001"], registry, _client({LeaveIntake: extreme}), audit=log)
     assert prepared.route.route == "hr_review" and prepared.stopped_reason
-    assert log.entries("lr_001")[-1]["event"] == "leave_prepared"
+    assert log.entries("lr_001")[-2]["event"] == "leave_prepared"
 
 
 def test_an_unexpected_error_in_an_agent_goes_to_a_person(registry, tmp_path):
@@ -327,7 +330,7 @@ def test_an_unexpected_error_in_an_agent_goes_to_a_person(registry, tmp_path):
     prepared = _prepare(MESSAGES["lr_001"], registry, _client({LeaveIntake: broken}), audit=log)
     assert prepared.route.reasons == ["pipeline_stopped"]
     assert prepared.stopped_reason == "unexpected KeyError"
-    assert log.entries("lr_001")[-1]["event"] == "leave_prepared"
+    assert log.entries("lr_001")[-2]["event"] == "leave_prepared"
     explained = _prepare(MESSAGES["lr_012"], registry, _client({LeaveExplanation: broken}))
     assert explained.explanation is None and explained.explanation_problem == "unexpected KeyError"
     assert explained.route.reasons == ["retaliation_risk"]
@@ -424,6 +427,8 @@ def test_the_eval_counts_explanation_failures(registry):
 # --- Re-review of review 9 -------------------------------------------------------------------
 
 PROMPT_HASHES = {"system_prompt_sha256", "prompt_template_sha256"}  # fixed, published templates
+# The evidence pack's hash, which the signer quotes; the pack holds a random nonce.
+UNGUESSABLE = {"evidence_sha256"}
 
 
 def test_no_plain_hash_of_what_an_agent_was_sent_is_logged(registry, tmp_path):
@@ -433,7 +438,7 @@ def test_no_plain_hash_of_what_an_agent_was_sent_is_logged(registry, tmp_path):
     _prepare(MESSAGES["lr_018"], registry, audit=log)
     for entry in log.entries("lr_018"):
         hashes = {k for k in entry["payload"] if k.endswith("sha256")}
-        assert hashes <= PROMPT_HASHES, (entry["event"], hashes)
+        assert hashes <= PROMPT_HASHES | UNGUESSABLE, (entry["event"], hashes)
     calls = [e["payload"] for e in log.entries("lr_018") if e["event"] == "agent_call"]
     assert all(len(c["input_hmac"]) == 64 for c in calls)
 

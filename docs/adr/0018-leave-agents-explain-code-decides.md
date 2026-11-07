@@ -56,7 +56,8 @@ that no agent ever sees a diagnosis it doesn't need and that none can approve or
 
 - The intake agent's accuracy on real messages is unmeasured until a live run.
 - The design's critic and risk agents aren't built; the risk flags come from records in code.
-- The sign-off step, signed decisions and the panel's HR cases are the next slice.
+- The signed sign-off came next ([ADR 0019](0019-signed-hr-sign-off.md)); the panel's HR cases
+  after it.
 
 ## Evidence
 
