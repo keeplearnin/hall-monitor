@@ -633,5 +633,10 @@ logs. 3 findings, 2 confirmed and 1 plausible; all fixed, test-first.
 
 The HR pipeline keys `keyed_hash(_canonical(h))` and claims key `keyed_hash(h)`; `_canonical`
 returns a string unchanged, so both give the same value. The LangGraph checkpoint still holds the
-plain input hashes, beside the claim itself in clear, and the published eval results hold them for
-synthetic claims (in HM-06's gaps).
+plain input and tool-result hashes, beside the claim and the policy record in clear, and the
+published eval results hold the input hashes for synthetic claims (in HM-06's gaps).
+
+**Re-review of those fixes:** no findings. The name probe found no plain or name-only hash in the
+log or on any panel page, across three full claims and every policy's tool calls; each new test
+fails with its fix undone. Not checked: a live run in which an agent asks for tools (the fake
+client never does), so the tool-call path was exercised through direct gateway calls.
