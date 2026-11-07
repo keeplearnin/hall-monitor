@@ -70,6 +70,8 @@ def usd(value: object) -> str:
         return "—"
     if not isinstance(value, int | float) or isinstance(value, bool):
         return str(value)
+    if 0 < abs(value) < 0.01:
+        return f"${value:,.4f}"
     return f"${value:,.3f}" if 0 < abs(value) < 1 else f"${value:,.2f}"
 
 
@@ -101,6 +103,8 @@ STATE_TONE = {
     "partial": "warn",
     "decided": "ok",
     "waiting for a person": "warn",
+    "waiting for HR": "warn",
+    "evidence pack erased or changed": "stop",
     "routed automatically, no decision recorded": "stop",
     "triaged, no decision recorded": "stop",
     "withheld": "muted",
@@ -142,8 +146,9 @@ def page(title: str, current: str, body: Safe, *, root: str = "", demo: bool = F
             tag(
                 "p",
                 tag("strong", "Demo data. "),
-                "Synthetic claims answered by a scripted model from the answer key, not live model "
-                "runs. Costs are from the scripted token counts.",
+                "Synthetic claims and leave requests answered by a scripted model from the "
+                "answer key, not live model runs; costs are from the scripted token counts. "
+                "Adjusters and HR staff sign with public demo keys.",
                 class_="banner demo",
             )
         )
@@ -214,8 +219,24 @@ def _attention(data: dict) -> Safe:
     waiting = sum(w.get("metrics", {}).get("waiting_for_a_person", 0) for w in data["workflows"])
     if waiting:
         items.append(
-            (badge("queue", "warn"), f"{waiting} cases are waiting for a person.", "queue.html")
+            (badge("queue", "warn"), f"{waiting} claims are waiting for a person.", "queue.html")
         )
+    leave = next((w["metrics"] for w in data["workflows"] if w["id"] == "hr_leave"), {})
+    if leave.get("waiting_for_hr"):
+        line = f"{leave['waiting_for_hr']} leave requests are waiting for HR."
+        items.append((badge("queue", "warn"), line, "queue.html"))
+    if leave.get("evidence_problems"):
+        line = (
+            f"{leave['evidence_problems']} leave requests have an evidence pack that was erased "
+            "or changed, so they can't be decided."
+        )
+        items.append((state_badge("fail"), line, "audit.html"))
+    if leave.get("stopped_before_the_rules"):
+        line = (
+            f"{leave['stopped_before_the_rules']} leave requests stopped before the rules ran; "
+            "prepare them again once the cause is fixed."
+        )
+        items.append((state_badge("fail"), line, "cases.html"))
     audit = data["audit"]
     if not audit["exists"]:
         items.append((badge("audit", "muted"), "No audit log yet.", "audit.html"))
@@ -240,43 +261,11 @@ def _attention(data: dict) -> Safe:
     )
 
 
-def overview_page(data: dict) -> str:
-    cards = []
-    for w in data["workflows"]:
-        m = w.get("metrics")
-        if m is None:
-            cards.append(
-                tag(
-                    "section",
-                    tag("h2", w["name"]),
-                    badge(w["status"], "muted"),
-                    tag(
-                        "p",
-                        "Eligibility, entitlement and routing are code (HM-21); intake and "
-                        "explanation agents prepare each request (HM-22); a person signs each "
-                        "decision within their role (HM-23). The panel doesn't read HR cases "
-                        "yet, so none are shown here.",
-                        class_="empty",
-                    ),
-                    class_="card",
-                )
-            )
-            continue
-        share = f"{m['sent_to_a_person'] / m['triaged']:.0%}" if m["triaged"] else "—"
-        # (label, value, needs a person when above zero)
-        stats = [
-            ("Cases", m["cases"], False),
-            ("Sent to a person", f"{m['sent_to_a_person']} ({share})", False),
-            ("Waiting for a person", m["waiting_for_a_person"], True),
-            ("Decided automatically", m["decided_automatically"], False),
-            ("Decided by a person", m["decided_by_a_person"], False),
-            ("People overrode the AI", m["overrides"], False),
-            ("Stopped cases", m["stopped_cases"], True),
-            ("Decisions refused by the rules", m["rejected_decisions"], False),
-            ("Model cost", usd(m["cost_usd"]), False),
-            ("Cost per case", usd(m["cost_per_case_usd"]), False),
-        ]
-        tiles = (
+def _tiles(stats: list[tuple[str, object, bool]]) -> Safe:
+    """(label, value, needs a person when above zero)"""
+    return tag(
+        "dl",
+        *(
             tag(
                 "div",
                 tag("dt", label),
@@ -284,22 +273,83 @@ def overview_page(data: dict) -> str:
                 class_="stat flag" if flag and value else "stat",
             )
             for label, value, flag in stats
-        )
-        cards.append(
-            tag(
-                "section",
-                tag("h2", w["name"]),
-                badge(w["status"], "ok"),
-                tag("dl", *tiles, class_="stats"),
-                tag("h3", "Why cases went to a person (a case can have several reasons)"),
-                table(
-                    ("Reason the routing rule gave", "Cases"),
-                    m["routing_reasons"],
-                    "No case has been routed yet.",
-                ),
-                class_="card wide",
-            )
-        )
+        ),
+        class_="stats",
+    )
+
+
+def _claims_card(w: dict) -> Safe:
+    m = w["metrics"]
+    share = f"{m['sent_to_a_person'] / m['triaged']:.0%}" if m["triaged"] else "—"
+    stats = [
+        ("Cases", m["cases"], False),
+        ("Sent to a person", f"{m['sent_to_a_person']} ({share})", False),
+        ("Waiting for a person", m["waiting_for_a_person"], True),
+        ("Decided automatically", m["decided_automatically"], False),
+        ("Decided by a person", m["decided_by_a_person"], False),
+        ("People overrode the AI", m["overrides"], False),
+        ("Stopped cases", m["stopped_cases"], True),
+        ("Decisions refused by the rules", m["rejected_decisions"], False),
+        ("Model cost", usd(m["cost_usd"]), False),
+        ("Cost per case", usd(m["cost_per_case_usd"]), False),
+    ]
+    return tag(
+        "section",
+        tag("h2", w["name"]),
+        badge(w["status"], "ok"),
+        _tiles(stats),
+        tag("h3", "Why cases went to a person (a case can have several reasons)"),
+        table(
+            ("Reason the routing rule gave", "Cases"),
+            m["routing_reasons"],
+            "No case has been routed yet.",
+        ),
+        class_="card wide",
+    )
+
+
+def _leave_card(w: dict) -> Safe:
+    m = w["metrics"]
+    review = f"{m['hr_review'] / m['prepared']:.0%}" if m["prepared"] else "—"
+    stats = [
+        ("Requests", m["requests"], False),
+        ("To HR review", f"{m['hr_review']} ({review})", False),
+        ("To specialist sign-off", m["specialist_sign_off"], False),
+        ("Waiting for HR", m["waiting_for_hr"], True),
+        ("Approved", m["approved"], False),
+        ("Denied", m["denied"], False),
+        ("Extended", m["extended"], False),
+        ("Information asked for", m["information_requested"], False),
+        ("Decisions refused by the rules", m["refused_decisions"], False),
+        ("Stopped before the rules", m["stopped_before_the_rules"], True),
+        ("Text aimed at the AI", m["text_aimed_at_the_ai"], True),
+        ("Model cost", usd(m["cost_usd"]), False),
+    ]
+    return tag(
+        "section",
+        tag("h2", w["name"]),
+        badge(w["status"], "ok"),
+        tag(
+            "p",
+            "Every request is decided by a person: specialist sign-off is a draft a leave "
+            "specialist signs. The rules name the least senior role that may decide.",
+            class_="lead",
+        ),
+        _tiles(stats),
+        tag("h3", "Why requests went to HR review (a request can have several reasons)"),
+        table(
+            ("Reason the rules gave", "Requests"),
+            m["reasons"],
+            "No request has been sent to HR review yet.",
+        ),
+        class_="card wide",
+    )
+
+
+def overview_page(data: dict) -> str:
+    cards = [
+        _claims_card(w) if w["id"] == "travel_claims" else _leave_card(w) for w in data["workflows"]
+    ]
     body = join([_attention(data), tag("div", *cards, class_="grid")])
     return page("Overview", "index.html", body, demo=data["demo"])
 
@@ -445,7 +495,7 @@ def _case_rows(cases: list[dict]) -> Iterable[tuple]:
         )
 
 
-def queue_page(queue: list[dict], *, demo: bool) -> str:
+def queue_page(queue: list[dict], leave: list[dict], *, demo: bool) -> str:
     rows = (
         (
             case_link(c["claim_id"]),
@@ -456,8 +506,18 @@ def queue_page(queue: list[dict], *, demo: bool) -> str:
         )
         for c in queue
     )
+    leave_rows = (
+        (
+            case_link(r["request_id"]),
+            r["route"] or "—",
+            r["information_requested"] or "",
+            r["refused_decisions"] or "",
+        )
+        for r in leave
+    )
     body = join(
         [
+            tag("h2", "Claims"),
             tag(
                 "p",
                 "Claims the routing rule sent to a person and nobody has decided. An adjuster "
@@ -475,27 +535,64 @@ def queue_page(queue: list[dict], *, demo: bool) -> str:
                     "Refused decisions",
                 ),
                 rows,
-                "Nothing is waiting for a person.",
+                "No claim is waiting for a person.",
+            ),
+            tag("h2", "Leave requests"),
+            tag(
+                "p",
+                "Every leave request waits for a person. HR opens one with ",
+                tag("code", "python -m hall_monitor.hr.review show REQUEST_ID"),
+                " to read the message, the evidence and the reasons, and signs a decision; the "
+                "rules name the least senior role that may make it. The panel doesn't show a "
+                "request's reasons or the role it needs: together they could tell what it is "
+                "about.",
+                class_="lead",
+            ),
+            table(
+                ("Request", "Route", "Information asked for", "Refused decisions"),
+                leave_rows,
+                "No leave request is waiting for HR.",
             ),
         ]
     )
     return page("Review queue", "queue.html", body, demo=demo)
 
 
-def cases_page(cases: list[dict], *, demo: bool) -> str:
-    body = table(
+def cases_page(cases: list[dict], leave: list[dict], *, demo: bool) -> str:
+    leave_rows = (
         (
-            "Claim",
-            "State",
-            "Route",
-            "AI recommends",
-            "AI payout",
-            "Decided by",
-            "Overrode AI",
-            "Cost",
-        ),
-        _case_rows(cases),
-        "No cases in the audit log yet.",
+            case_link(r["request_id"]),
+            state_badge(r["state"]),
+            r["route"] or "—",
+            "—" if not r["decision"] else f"{r['decision']['outcome']} ({r['decision']['role']})",
+            usd(r["cost_usd"]),
+        )
+        for r in leave
+    )
+    body = join(
+        [
+            tag("h2", "Claims"),
+            table(
+                (
+                    "Claim",
+                    "State",
+                    "Route",
+                    "AI recommends",
+                    "AI payout",
+                    "Decided by",
+                    "Overrode AI",
+                    "Cost",
+                ),
+                _case_rows(cases),
+                "No claims in the audit log yet.",
+            ),
+            tag("h2", "Leave requests"),
+            table(
+                ("Request", "State", "Route", "Decision", "Cost"),
+                leave_rows,
+                "No leave requests in the audit log yet.",
+            ),
+        ]
     )
     return page("Cases", "cases.html", body, demo=demo)
 
@@ -505,6 +602,26 @@ def case_page(trace: dict, *, demo: bool) -> str:
         body = tag("p", state_badge("fail"), " ", trace["problem"], ".", class_="banner alert")
         return page(f"Case {trace['claim_id']}", "cases.html", body, root="../", demo=demo)
     c = trace["case"]
+    if trace.get("kind") == "leave":
+        decision = c["decision"] or {}
+        facts = [
+            ("State", state_badge(c["state"])),
+            ("Route", c["route"] or "—"),
+            ("Why", "shown to HR in the review CLI, not here"),
+            ("Stopped", c["stopped_reason"] or "no"),
+            ("Text aimed at the AI", "yes" if c["injection_flagged"] else "no"),
+            (
+                "Decision",
+                "not yet"
+                if not decision
+                else f"{decision.get('outcome')} by {decision.get('decided_by')} "
+                f"({decision.get('role')})",
+            ),
+            ("Information asked for", c["information_requested"]),
+            ("Refused decisions", c["refused_decisions"]),
+            ("Model cost", usd(c["cost_usd"])),
+        ]
+        return _trace_page(trace, facts, "request", "Leave request", demo)
     facts = [
         ("State", state_badge(c["state"])),
         ("Route", c["route"] or "—"),
@@ -519,6 +636,10 @@ def case_page(trace: dict, *, demo: bool) -> str:
         ("Overrode the AI", "yes" if c["overrode_ai"] else "no"),
         ("Model cost", usd(c["cost_usd"])),
     ]
+    return _trace_page(trace, facts, "claim", "Case", demo)
+
+
+def _trace_page(trace: dict, facts: list, noun: str, title: str, demo: bool) -> str:
     rows = (
         (
             e["seq"],
@@ -535,8 +656,9 @@ def case_page(trace: dict, *, demo: bool) -> str:
             tag("dl", *(tag("div", tag("dt", k), tag("dd", v)) for k, v in facts), class_="facts"),
             tag(
                 "p",
-                "Every entry the audit log holds for this claim, in order. The log keeps IDs, "
-                "hashes, decision fields and costs; written reasons only as keyed hashes. ",
+                f"Every entry the audit log holds for this {noun}, in order. The log keeps IDs, "
+                "hashes, decision fields and costs; written reasons only as keyed hashes, and "
+                "anything the code doesn't recognise is withheld. ",
                 tag(
                     "a",
                     "This record as JSON",
@@ -548,7 +670,7 @@ def case_page(trace: dict, *, demo: bool) -> str:
             table(("#", "Recorded", "Event", "Actor", "What was recorded", "Entry hash"), rows, ""),
         ]
     )
-    return page(f"Case {trace['claim_id']}", "cases.html", body, root="../", demo=demo)
+    return page(f"{title} {trace['claim_id']}", "cases.html", body, root="../", demo=demo)
 
 
 def audit_page(result: dict, *, demo: bool) -> str:

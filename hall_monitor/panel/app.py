@@ -83,10 +83,12 @@ def create_app(src: views.Sources | None = None) -> Starlette:
         return html(pages.agent_page(found, demo=src.demo))
 
     async def queue(request: Request) -> Response:
-        return html(pages.queue_page(views.review_queue(src), demo=src.demo))
+        return html(
+            pages.queue_page(views.review_queue(src), views.leave_queue(src), demo=src.demo)
+        )
 
     async def cases(request: Request) -> Response:
-        return html(pages.cases_page(views.cases(src), demo=src.demo))
+        return html(pages.cases_page(views.cases(src), views.leave_requests(src), demo=src.demo))
 
     async def case(request: Request) -> Response:
         trace = views.case_trace(src, request.path_params["claim_id"])
@@ -113,6 +115,8 @@ def create_app(src: views.Sources | None = None) -> Starlette:
             "agents": views.agents,
             "queue": views.review_queue,
             "cases": views.cases,
+            "leave_queue": views.leave_queue,
+            "leave_requests": views.leave_requests,
             "evals": views.evals,
             "controls": views.controls,
         }

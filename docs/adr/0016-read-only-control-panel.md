@@ -62,6 +62,13 @@ with the code that enforces it.
 
 ## Consequences
 
+- Leave requests (HR example) appear beside claims, from the audit log: nothing from an
+  evidence pack, which holds the employee's message and health details, is shown (the
+  integrity check reads and hashes every pack, showing none). A single request shows its state,
+  route, outcome and who decided, never its reasons, the role it needs, its checks or weeks: a
+  first version masked the sensitive reasons, and a review showed the rest still gave them
+  away. The overview counts reasons across requests.
+
 - The panel is as right as the controls it reads, and no more: what a control doesn't record
   (a stop isn't an audit event), the panel can't show.
 - It shows only what this machine's runs wrote. A shared store for the audit log and the stops
