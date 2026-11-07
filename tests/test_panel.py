@@ -54,6 +54,9 @@ def _all_paths(src) -> list[str]:
     ]
     paths += [f"/api/{n}.json" for n in ("overview", "agents", "queue", "cases", "audit")]
     paths += ["/api/evals.json", "/api/controls.json"]
+    paths += ["/api/leave_queue.json", "/api/leave_requests.json"]
+    for r in views.leave_requests(src):
+        paths += [f"/cases/{r['request_id']}.html", f"/api/cases/{r['request_id']}.json"]
     for a in views.agents(src)["agents"]:
         paths += [f"/agents/{a['id']}.html", f"/api/agents/{a['id']}.json"]
     for c in views.cases(src):
@@ -702,3 +705,124 @@ def test_a_case_s_route_is_the_one_its_evidence_pack_records(tmp_path):
     )
     case = views.cases(src)[0]
     assert case["route"] == "adjuster" and case["state"] == "waiting for a person"
+
+
+# --- Leave requests --------------------------------------------------------------------------
+
+
+def test_the_hr_overview_tells_the_demo_s_leave_story(demo_data, src):
+    _, built = demo_data
+    m = next(w for w in views.overview(src)["workflows"] if w["id"] == "hr_leave")["metrics"]
+    outcomes = list(built["leave_outcomes"].values())
+    assert m["requests"] == m["prepared"] == built["leave_requests"] == 28
+    assert m["decided"] == outcomes.count("approve") + outcomes.count("deny") == 9
+    assert m["approved"] == 7 and m["denied"] == 2
+    assert m["information_requested"] == 1 and m["refused_decisions"] == 1
+    assert m["waiting_for_hr"] == len(built["leave_waiting"]) == 19
+    assert m["specialist_sign_off"] == 8 and m["hr_review"] == 20
+    assert [r["request_id"] for r in views.leave_queue(src)] == sorted(built["leave_waiting"])
+
+
+def test_leave_requests_never_appear_as_claims(src):
+    assert not any(c["claim_id"].startswith("lr_") for c in views.cases(src))
+    assert not any(c["claim_id"].startswith("lr_") for c in views.review_queue(src))
+    m = next(w for w in views.overview(src)["workflows"] if w["id"] == "travel_claims")
+    assert m["metrics"]["cases"] == 12
+
+
+def test_no_page_shows_an_employee_s_message_the_pack_or_a_decision_s_reason(src, client):
+    from hall_monitor.hr.data import load_messages
+
+    private = {m.text[:50] for m in load_messages()}
+    private |= {d[4] for d in demo.LEAVE_DECISIONS if d[4]}
+    private |= {"[SSN REDACTED]", "123-45-6789", "Alex Moreno", "Jamie Okoro", "Taylor Brooks"}
+    for path in _all_paths(src):
+        text = client.get(path).text
+        for value in private:
+            assert value not in text, f"{path} shows {value!r}"
+
+
+def test_a_leave_request_s_page_shows_its_decision(client):
+    page = client.get("/cases/lr_009.html").text
+    assert "Leave request lr_009" in page and "approve, 2.0 weeks" in page and "hr_director" in page
+    queue = client.get("/queue.html").text
+    assert "lr_019" in queue and "lr_009" not in queue
+
+
+def test_every_refusal_the_sign_off_can_give_is_shown_not_withheld(tmp_path, demo_data):
+    """Refusals come from the code (hr/signoff.py); the panel shows them only in its own
+    templates, so one left out would be withheld. Drive each refusal and check."""
+    from hall_monitor.governance.signing import demo_private_key
+    from hall_monitor.hr import signoff
+
+    out, _ = demo_data
+    db = tmp_path / "audit.sqlite"
+    shutil.copy(out / "audit.sqlite", db)
+    shutil.copy(out / "audit.key", tmp_path / "audit.key")
+    log = AuditLog(db)
+    staff = signoff.load_staff()
+    reason = "Checked the request and the records against the policy."
+    attempts = [
+        ("lr_022", "hrs-999", "approve", 4, ""),
+        ("lr_022", "hrs-101", "approve", 0, ""),
+        ("lr_022", "hrs-101", "approve", 5, ""),
+        ("lr_022", "hrs-101", "approve", 2, reason),
+        ("lr_022", "hrs-201", "approve", 2, ""),
+        ("lr_022", "hrs-101", "deny", 0, reason),
+        ("lr_022", "hrs-201", "deny", 0, "short"),
+        ("lr_022", "hrs-201", "deny", 1, reason),
+        ("lr_022", "hrs-201", "extend", 1, reason),
+        ("lr_022", "hrs-301", "extend", 4, "short"),
+        ("lr_022", "hrs-301", "extend", 4, reason),
+        ("lr_022", "hrs-101", "request_information", 1, ""),
+        ("lr_012", "hrs-201", "approve", 4, reason),
+        ("lr_004", "hrs-301", "approve", 4, reason),
+        ("lr_013", "hrs-101", "approve", 4, ""),
+        ("lr_017", "hrs-201", "approve", 6, reason),
+        ("lr_011", "hrs-101", "approve", 13, reason),
+        ("lr_004", "hrs-301", "extend", 4, reason),
+        ("lr_009", "hrs-301", "approve", 2, reason),  # already decided
+    ]
+    for request_id, staff_id, outcome, weeks, why in attempts:
+        digest = signoff.evidence(log, request_id)[0]
+        decision = signoff.LeaveDecision(
+            staff_id=staff_id, outcome=outcome, weeks=weeks, reason=why, evidence_sha256=digest
+        ).signed(request_id, demo_private_key(staff_id if staff_id != "hrs-999" else "hrs-101"))
+        with pytest.raises(signoff.DecisionRefused):
+            signoff.decide(log, request_id, decision, staff)
+    wrong_hash = signoff.LeaveDecision(
+        staff_id="hrs-101", outcome="approve", weeks=4, evidence_sha256="0" * 64
+    ).signed("lr_022", demo_private_key("hrs-101"))
+    with pytest.raises(signoff.DecisionRefused):
+        signoff.decide(log, "lr_022", wrong_hash, staff)
+    log.close()
+    refusals = [
+        views.shown_payload(e["event"], e["payload"])["refused_because"]
+        for e in AuditLog(db, read_only=True).entries()
+        if e["event"] == "leave_decision_refused"
+    ]
+    assert len(refusals) >= len(attempts) + 1
+    assert views.WITHHELD not in refusals, [r for r in refusals if r == views.WITHHELD]
+
+
+def test_hr_fields_the_code_doesn_t_write_are_withheld(tmp_path):
+    log = AuditLog(tmp_path / "audit.sqlite")
+    log.append(
+        "lr_x",
+        "leave_prepared",
+        "pipeline",
+        {
+            "route": "hr_review",
+            "decided_by": "hr_manager",
+            "reasons": ["short_service", "Jane Doe"],
+            "stopped_reason": "Jane Doe asked",
+            "explanation_problem": "Jane Doe",
+            "note": "Jane Doe",
+        },
+    )
+    log.append("lr_x", "leave_decision_refused", "hr:?", {"refused_because": "Jane Doe said no"})
+    log.close()
+    src = views.Sources(audit_db=tmp_path / "audit.sqlite")
+    client = TestClient(create_app(src), base_url="http://localhost")
+    for path in ("/cases/lr_x.html", "/api/cases/lr_x.json", "/index.html", "/cases.html"):
+        assert "Jane Doe" not in client.get(path).text, path

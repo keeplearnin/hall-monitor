@@ -700,10 +700,13 @@ controls:
     name: Read-only control panel
     what: >-
       A web panel (python -m hall_monitor.panel serve) and a JSON read API over the governance
-      core: an overview per workflow (cases, the share sent to a person, overrides, stopped cases,
-      refused decisions, cost) with what needs attention first, the agent inventory, each agent's
-      manifest, approval, stops and eval results, the review queue, each case's full audit
-      trace, audit-chain verification against an anchored head, the eval gate and this register.
+      core: an overview per workflow with what needs attention first (for claims: cases, the
+      share sent to a person, overrides, stopped cases, refused decisions, cost; for leave
+      requests: requests, the share sent to HR review, waiting, approved, denied, extended,
+      information asked for, refused decisions, preparations stopped before the rules, text aimed
+      at the AI, cost), the agent inventory, each agent's manifest, approval, stops and eval
+      results, the review queue for claims and for leave requests, each case's and each leave
+      request's full audit trace, audit-chain verification against an anchored head, the eval gate and this register.
       Each view asks the code that enforces the control: an agent's state is Registry.require's
       answer with its current prompt, the audit view is AuditLog.verify, the eval view is the CI
       gate's result. It can't change anything: every route is GET, the audit log is opened
@@ -759,6 +762,9 @@ controls:
       - tests/test_panel.py::test_audit_integrity_checks_an_anchored_head
       - tests/test_panel.py::test_the_eval_view_is_the_gate_s_result
       - tests/test_panel.py::test_the_eval_view_judges_results_against_the_panel_s_own_approvals
+      - tests/test_panel.py::test_the_hr_overview_tells_the_demo_s_leave_story
+      - tests/test_panel.py::test_no_page_shows_an_employee_s_message_the_pack_or_a_decision_s_reason
+      - tests/test_panel.py::test_every_refusal_the_sign_off_can_give_is_shown_not_withheld
     evidence: []
     nist: [GOVERN 1.6, MANAGE 4.1]
     finos:
@@ -770,9 +776,11 @@ controls:
       built. It is read-only by design for this phase; stopping an agent and signing a decision
       from the panel are the next phase and aren't built. It reads the SQLite audit log and the
       registry files on one machine, so it shows only what that machine's runs wrote; there is
-      no shared store. The overview covers travel claims only: the HR leave workflow has its rules
-      in code (HM-21), its agents (HM-22) and its signed sign-off (HM-23), but the panel doesn't
-      read HR cases yet, so it says so rather than showing numbers. It can't anchor audit
+      no shared store. Leave requests are read from the audit log alone, never from their
+      evidence packs (which hold the employee's message and health details), so the panel shows
+      routes, roles, reason codes, outcomes and counts, not the request's dates or category; the
+      route shown is the one logged just before the evidence pack, which is the pack's unless two
+      preparations of the same request interleave. It can't anchor audit
       heads itself: verifying against an anchor needs a head someone copied out. The demo's model is
       scripted from the answer key, so its routing, cost and override numbers show the controls
       working, not how well the agents perform. Routing and stop reasons the code writes name
@@ -942,8 +950,7 @@ controls:
       the CI gate. An intake error the rules can't see (a wrong date, the wrong family member,
       a missed accommodation sign) changes the result without a flag; the eval measures it and
       the specialist checks the message, but nothing in code catches it. There is no critic and
-      no risk agent from the design, and its cases don't appear in the panel; the signed
-      sign-off is HM-23. The injection detector's phrases were written
+      no risk agent from the design; the signed sign-off is HM-23. The injection detector's phrases were written
       for claims; it now also knows the HR tags and a few HR phrasings (approval claimed from HR,
       keeping a leave specialist out, role play as an HR director or manager), but it is a phrase
       list, so other phrasings get through, and the detector is shared, so those phrases can
@@ -1024,7 +1031,8 @@ controls:
       The three fictional staff use public demo keys derived from their IDs, so a demo decision
       proves nothing about who made it (each logged decision says so); a real deployment issues
       keys from the firm's identity system. The sign-off is a command-line step on one machine's
-      audit log: no sign-in, no shared store, and the panel doesn't show HR cases yet. Requests
+      audit log: no sign-in and no shared store; the panel shows HR cases but can't decide them.
+      Requests
       get into the log only through hr.run, which prepares the synthetic messages with the live
       model; a preparation that stopped because the intake call failed leaves no pack, so it can
       be run again, and the review CLI lists it as stopped. "Approve" and "extend" cover FMLA leave only; leave under company policy or state law

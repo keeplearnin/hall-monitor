@@ -55,15 +55,21 @@ def snapshot(src: views.Sources, out: Path) -> list[str]:
         "evals.html",
         "controls.html",
         *(f"api/{name}.json" for name in ("overview", "agents", "queue", "cases", "audit")),
+        "api/leave_queue.json",
+        "api/leave_requests.json",
         *(f"api/{name}.json" for name in ("evals", "controls")),
     ]
     for agent in views.agents(src)["agents"]:
         paths += [f"agents/{agent['id']}.html", f"api/agents/{agent['id']}.json"]
-    saved = [c["claim_id"] for c in views.cases(src) if c["linkable"]]
+    every = [
+        *views.cases(src),
+        *({"claim_id": r["request_id"], **r} for r in views.leave_requests(src)),
+    ]
+    saved = [c["claim_id"] for c in every if c["linkable"]]
     if len({c.lower() for c in saved}) != len(saved):
         # One would overwrite the other on a case-insensitive disk (the macOS default).
         raise ValueError("claim IDs that differ only in case can't be saved as separate pages")
-    for case in views.cases(src):
+    for case in every:
         if case["linkable"]:
             paths += [f"cases/{case['claim_id']}.html", f"api/cases/{case['claim_id']}.json"]
     root = out.resolve()

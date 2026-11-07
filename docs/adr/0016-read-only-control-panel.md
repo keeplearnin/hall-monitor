@@ -62,6 +62,9 @@ with the code that enforces it.
 
 ## Consequences
 
+- Leave requests (HR example) appear beside claims, read from the audit log alone: the panel
+  never opens an evidence pack, which holds the employee's message and health details.
+
 - The panel is as right as the controls it reads, and no more: what a control doesn't record
   (a stop isn't an audit event), the panel can't show.
 - It shows only what this machine's runs wrote. A shared store for the audit log and the stops

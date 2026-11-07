@@ -11,6 +11,12 @@ The story the data tells: the first 30 claims go through; the fraud analytics le
 the risk agent, so the last 6 stop at that step and go to a person; adjusters decide most of
 what was routed to them, one overrides the AI, one decision is refused by the rules, and the
 rest wait in the review queue.
+
+Then the 28 synthetic leave requests go through the leave agents and the rules (scripted the
+same way) into the same log, and HR signs some: a leave specialist signs off six clean requests
+and leaves two waiting, an HR manager denies two, an HR director approves two of the three weeks
+one employee asked for, a specialist asks for more information on the unclear one, and a
+specialist's attempt to deny is refused by the rules. The rest wait for HR.
 """
 
 from __future__ import annotations
@@ -22,9 +28,14 @@ from types import SimpleNamespace
 
 import yaml
 
+from hall_monitor.agents.base import escape
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.governance.approval import AdjusterDecision
 from hall_monitor.governance.signing import demo_private_key
+from hall_monitor.hr import signoff
+from hall_monitor.hr.data import load_company, load_employees, load_messages, load_requests
+from hall_monitor.hr.models import LeaveExplanation, LeaveIntake
+from hall_monitor.hr.pipeline import prepare
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.models import (
     CoverageFinding,
@@ -61,6 +72,88 @@ class _ScriptedMessages:
             parsed_output=self.answers[kwargs["output_format"]],
             usage=SimpleNamespace(input_tokens=1000, output_tokens=200),
         )
+
+
+class _ScriptedLeaveMessages:
+    """Answers the leave intake agent with the request each message describes (the answer key),
+    and the explanation agent with a plain note per check."""
+
+    def __init__(self):
+        self.requests = {r.id: r for r in load_requests()}
+        self.messages = load_messages()
+
+    def parse(self, **kwargs):
+        content = kwargs["messages"][0]["content"]
+        if kwargs["output_format"] is LeaveIntake:
+            found = next(m for m in self.messages if escape(m.text[:60]) in content)
+            fields = set(LeaveIntake.model_fields)
+            answer = LeaveIntake(**self.requests[found.id].model_dump(include=fields))
+        else:
+            ids = ("employer", "service", "hours", "worksite", "reason", "entitlement")
+            answer = LeaveExplanation(
+                checks=[{"id": c, "text": f"The {c} check is as the code found."} for c in ids],
+                summary="Start with the reasons the rules gave.",
+            )
+        return SimpleNamespace(
+            stop_reason="end_turn",
+            parsed_output=answer,
+            usage=SimpleNamespace(input_tokens=600, output_tokens=120),
+        )
+
+
+# Who decides what in the demo: (request, staff, outcome, weeks, reason).
+LEAVE_DECISIONS = (
+    *((r, "hrs-101", "approve", 0, "") for r in ("lr_001", "lr_003", "lr_005", "lr_007")),
+    ("lr_010", "hrs-101", "approve", 0, ""),
+    ("lr_020", "hrs-101", "approve", 0, ""),
+    ("lr_002", "hrs-201", "deny", 0, "Under 12 months of service when the leave starts."),
+    ("lr_018", "hrs-201", "deny", 0, "A parent-in-law isn't a family member FMLA covers."),
+    ("lr_009", "hrs-301", "approve", 2, "Two FMLA weeks left; the third goes to company policy."),
+    ("lr_019", "hrs-101", "request_information", 0, "Please tell us which kind of leave this is."),
+    ("lr_006", "hrs-101", "deny", 0, "Fewer than 50 employees within 75 miles of the site."),
+)
+
+
+def _leave_demo(registry_dir: Path, audit_db: Path) -> dict:
+    """Prepare every synthetic leave request into the log and sign the demo decisions."""
+    from hall_monitor.governance.audit import AuditLog
+
+    audit = AuditLog(audit_db)
+    registry = Registry.from_dir(registry_dir)
+    client = SimpleNamespace(messages=_ScriptedLeaveMessages())
+    company, employees = load_company(), load_employees()
+    try:
+        prepared = {
+            m.id: prepare(
+                m,
+                employees=employees,
+                company=company,
+                registry=registry,
+                client=client,
+                audit=audit,
+            )
+            for m in load_messages()
+        }
+        staff = signoff.load_staff()
+        outcomes = {}
+        for request_id, staff_id, outcome, weeks, reason in LEAVE_DECISIONS:
+            asked = prepared[request_id].assessment.requested_weeks
+            digest = signoff.evidence(audit, request_id)[0]
+            decision = signoff.LeaveDecision(
+                staff_id=staff_id,
+                outcome=outcome,
+                weeks=weeks or (asked if outcome == "approve" else 0),
+                reason=reason,
+                evidence_sha256=digest,
+            ).signed(request_id, demo_private_key(staff_id))
+            try:
+                outcomes[request_id] = signoff.decide(audit, request_id, decision, staff)["outcome"]
+            except signoff.DecisionRefused:
+                outcomes[request_id] = "refused"
+        waiting = [r for r in prepared if signoff.status(audit, r)["state"] == "waiting for HR"]
+    finally:
+        audit.close()
+    return {"leave_requests": len(prepared), "leave_outcomes": outcomes, "leave_waiting": waiting}
 
 
 def _registry_copy(out: Path) -> Path:
@@ -170,4 +263,4 @@ def build(
         "claims": len(claims),
         "decided_by_adjusters": sum(s == "decided" for s in outcomes.values()),
         "waiting": still_waiting,
-    }
+    } | _leave_demo(registry_dir, audit_db)
