@@ -12,7 +12,6 @@ import json
 from collections.abc import Iterable
 from urllib.parse import quote
 
-from hall_monitor.hr.routing import REASONS as LEAVE_REASONS
 from hall_monitor.panel.views import linkable
 
 NAV = (
@@ -496,11 +495,6 @@ def _case_rows(cases: list[dict]) -> Iterable[tuple]:
         )
 
 
-def _reasons_text(codes: list[str]) -> str:
-    """Leave routing codes as the rules explain them; anything else as it was shown."""
-    return "; ".join(LEAVE_REASONS[c][0] if c in LEAVE_REASONS else c for c in codes) or "—"
-
-
 def queue_page(queue: list[dict], leave: list[dict], *, demo: bool) -> str:
     rows = (
         (
@@ -515,8 +509,7 @@ def queue_page(queue: list[dict], leave: list[dict], *, demo: bool) -> str:
     leave_rows = (
         (
             case_link(r["request_id"]),
-            r["decided_by"] or "—",
-            _reasons_text(r["reasons"]) if r["route"] == "hr_review" else "specialist sign-off",
+            r["route"] or "—",
             r["information_requested"] or "",
             r["refused_decisions"] or "",
         )
@@ -549,12 +542,14 @@ def queue_page(queue: list[dict], leave: list[dict], *, demo: bool) -> str:
                 "p",
                 "Every leave request waits for a person. HR opens one with ",
                 tag("code", "python -m hall_monitor.hr.review show REQUEST_ID"),
-                " to read the message and the evidence, and signs a decision; the rules name the "
-                "least senior role that may make it.",
+                " to read the message, the evidence and the reasons, and signs a decision; the "
+                "rules name the least senior role that may make it. The panel doesn't show a "
+                "request's reasons or the role it needs: together they could tell what it is "
+                "about.",
                 class_="lead",
             ),
             table(
-                ("Request", "Needs at least", "Why", "Information asked for", "Refused decisions"),
+                ("Request", "Route", "Information asked for", "Refused decisions"),
                 leave_rows,
                 "No leave request is waiting for HR.",
             ),
@@ -569,7 +564,6 @@ def cases_page(cases: list[dict], leave: list[dict], *, demo: bool) -> str:
             case_link(r["request_id"]),
             state_badge(r["state"]),
             r["route"] or "—",
-            r["decided_by"] or "—",
             "—" if not r["decision"] else f"{r['decision']['outcome']} ({r['decision']['role']})",
             usd(r["cost_usd"]),
         )
@@ -594,7 +588,7 @@ def cases_page(cases: list[dict], leave: list[dict], *, demo: bool) -> str:
             ),
             tag("h2", "Leave requests"),
             table(
-                ("Request", "State", "Route", "Needs at least", "Decision", "Cost"),
+                ("Request", "State", "Route", "Decision", "Cost"),
                 leave_rows,
                 "No leave requests in the audit log yet.",
             ),
@@ -613,16 +607,15 @@ def case_page(trace: dict, *, demo: bool) -> str:
         facts = [
             ("State", state_badge(c["state"])),
             ("Route", c["route"] or "—"),
-            ("Needs at least", c["decided_by"] or "—"),
-            ("Why", _reasons_text(c["reasons"]) if c["reasons"] else "none"),
+            ("Why", "shown to HR in the review CLI, not here"),
             ("Stopped", c["stopped_reason"] or "no"),
             ("Text aimed at the AI", "yes" if c["injection_flagged"] else "no"),
             (
                 "Decision",
                 "not yet"
                 if not decision
-                else f"{decision.get('outcome')}, {decision.get('weeks')} weeks, by "
-                f"{decision.get('decided_by')} ({decision.get('role')})",
+                else f"{decision.get('outcome')} by {decision.get('decided_by')} "
+                f"({decision.get('role')})",
             ),
             ("Information asked for", c["information_requested"]),
             ("Refused decisions", c["refused_decisions"]),

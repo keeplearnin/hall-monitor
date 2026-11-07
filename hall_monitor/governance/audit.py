@@ -371,6 +371,8 @@ class AuditLog:
                     erased.append(digest)
             except EvidenceChanged as exc:
                 problems.append(f"entry {seq}: {exc}")
+            except ValueError:  # stored under its hash, but not a readable pack
+                problems.append(f"entry {seq}: evidence pack {digest[:12]} can't be read")
         head = ChainHead(rows[-1][0], rows[-1][7]) if rows else None
         return Verification(
             ok=not problems,

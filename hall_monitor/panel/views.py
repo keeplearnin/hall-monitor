@@ -221,7 +221,7 @@ def agent(src: Sources, agent_id: str) -> dict | None:
 WITHHELD = "withheld"
 _N = r"-?[\d,]+(?:\.\d+)?"
 _CODES = r"[a-z_]+(?:, [a-z_]+)*"
-_ID = r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}"  # SAFE_ID: a claim or request ID
+_ID = SAFE_ID.pattern  # a claim or request ID
 _MODEL_CALL = r"[A-Za-z]+ from the model call"
 _HALL_PASS = (
     r"hall pass refused: agent '[a-z_]+' (?:has no hall pass|is (?:planned|retired), not active|"
@@ -359,24 +359,17 @@ _SHOWN_FIELDS |= {
         "identifiers_redacted",
         "injection_signals",
     },
-    "leave_assessed": {
-        "intake_hmac",
-        "assessment_hmac",
-        "eligible",
-        "failed_checks",
-        "unknown_checks",
-        "route",
-        "decided_by",
-    },
-    "leave_prepared": {"route", "decided_by", "explanation_hmac", "cost_usd", "models"},
+    # On a single request: the route and hashes only. The checks, reasons, the role needed and
+    # the weeks would let anyone with the panel work out a sensitive reason; HR reads them in
+    # the review CLI, and the overview counts them across requests.
+    "leave_assessed": {"intake_hmac", "assessment_hmac", "route"},
+    "leave_prepared": {"route", "explanation_hmac", "cost_usd", "models"},
     "leave_evidence": {"evidence_sha256"},
     "leave_decision": {
         "decided_by",
         "role",
         "outcome",
-        "weeks",
         "code_route",
-        "code_decided_by",
         "evidence_sha256",
         "decision_hmac",
         "reason_hmac",
@@ -458,26 +451,24 @@ _HR_REFUSALS = (
     r"this request for information is already recorded",
 )
 _HR_REFUSAL_RE = re.compile("|".join(_HR_REFUSALS))
-
-
-# Reasons that tell something about the employee's health, family, pregnancy, discipline or
-# where they live. On a single request they show as SENSITIVE; the overview counts them across
-# requests. HR reads them in the review CLI.
-SENSITIVE_LEAVE_REASONS = frozenset(
-    {
-        "possible_accommodation",
-        "before_birth",
-        "adult_child",
-        "caregiver_history",
-        "family_member_not_covered",
-        "bonding_window",
-        "spouses_same_employer",
-        "retaliation_risk",
-        "intermittent",
-        "state_law",
-    }
+# Refusals about the decision itself, not the request: shown as written. Any other refusal names
+# a rule (the role needed, eligibility, the bonding year), which could tell what the request is
+# about, so a single request shows it only as refused by a leave rule.
+_HR_PROCESS_REFUSAL_RE = re.compile(
+    "|".join(
+        (
+            r"the decision names someone who isn't registered HR staff",
+            r"the decision isn't signed with [\w-]+'s key",
+            r"evidence hash doesn't match the evidence pack for this request",
+            rf"the audit log shows {_ID} was already decided",
+            r"the evidence pack was changed after it was stored",
+            r"the evidence pack recorded for this request is no longer stored",
+            rf"{_ID} has no evidence pack yet",
+            r"this request for information is already recorded",
+        )
+    )
 )
-SENSITIVE = "sensitive (HR only)"
+REFUSED_BY_A_RULE = "refused by a leave rule (HR sees which)"
 
 
 def _leave_codes(value: object) -> list[str]:
@@ -485,11 +476,6 @@ def _leave_codes(value: object) -> list[str]:
     if not isinstance(value, list):
         return [WITHHELD]
     return [r if isinstance(r, str) and r in LEAVE_REASONS else WITHHELD for r in value]
-
-
-def shown_leave_reasons(value: object) -> list[str]:
-    """A single request's reason codes, with the sensitive ones masked."""
-    return [SENSITIVE if r in SENSITIVE_LEAVE_REASONS else r for r in _leave_codes(value)]
 
 
 # Revised fields whose values are typed by the code (enums, dates, amounts). A policy number is
@@ -584,23 +570,20 @@ def shown_payload(event: str, payload: object) -> dict:
         case "decision_rejected":
             shown["rejected_because"] = _template(payload.get("rejected_because"), _REJECTION_RE)
             hidden -= "rejected_because" in payload
-        case "leave_assessed":
-            shown["reasons"] = shown_leave_reasons(payload.get("reasons") or [])
-            hidden -= "reasons" in payload
         case "leave_prepared":
-            shown["reasons"] = shown_leave_reasons(payload.get("reasons") or [])
             shown["stopped_reason"] = _template(payload.get("stopped_reason"), _HR_STOP_RE)
             shown["explanation_problem"] = _template(
                 payload.get("explanation_problem"), _HR_EXPLANATION_RE
             )
-            hidden -= sum(
-                k in payload for k in ("reasons", "stopped_reason", "explanation_problem")
-            )
-        case "leave_decision":
-            shown["code_reasons"] = shown_leave_reasons(payload.get("code_reasons") or [])
-            hidden -= "code_reasons" in payload
+            hidden -= sum(k in payload for k in ("stopped_reason", "explanation_problem"))
         case "leave_decision_refused":
-            shown["refused_because"] = _template(payload.get("refused_because"), _HR_REFUSAL_RE)
+            why = payload.get("refused_because")
+            if isinstance(why, str) and _HR_PROCESS_REFUSAL_RE.fullmatch(why):
+                shown["refused_because"] = why
+            elif isinstance(why, str) and _HR_REFUSAL_RE.fullmatch(why):
+                shown["refused_because"] = REFUSED_BY_A_RULE
+            else:
+                shown["refused_because"] = _template(why, _HR_REFUSAL_RE)
             hidden -= "refused_because" in payload
         case "final_decision":
             shown["routing_reasons"] = _reasons(payload.get("routing_reasons") or [])
@@ -702,10 +685,14 @@ def _cases(entries: list[dict]) -> dict[str, dict]:
     return cases
 
 
+# Events only the leave pipeline writes: a decision or refusal can't make an ID a leave request.
+_PIPELINE_LEAVE_EVENTS = frozenset({"leave_request_submitted", "leave_prepared", "leave_evidence"})
+
+
 def _leave_ids(entries: list[dict]) -> set[str]:
-    """IDs with a submitted leave message: leave requests, not claims. Only the pipeline writes
-    that event, so a stray leave_* entry under a claim (a mistyped HR command) can't move it."""
-    return {e["claim_id"] for e in entries if e["event"] == "leave_request_submitted"}
+    """IDs the leave pipeline wrote to: leave requests, not claims. The sign-off writes only
+    under such IDs, so a mistyped HR command can't move a claim."""
+    return {e["claim_id"] for e in entries if e["event"] in _PIPELINE_LEAVE_EVENTS}
 
 
 def _claims_only(entries: list[dict]) -> list[dict]:
@@ -723,8 +710,11 @@ def cases(src: Sources) -> list[dict]:
 
 def _leave_requests(entries: list[dict], broken: frozenset[str] = frozenset()) -> dict[str, dict]:
     """Each leave request's state as the audit log records it, as hr/signoff.status reads it,
-    but from the log alone: the panel never opens the evidence pack, which holds the employee's
-    message and health details. The route is the one logged just before the evidence pack.
+    but from the log: nothing from an evidence pack (the employee's message and health details)
+    is read here. Publicly a request has its state, route, outcome and counts; its reason codes
+    and the role it needs are kept privately (`_codes`, `_needs`) for the overview's totals,
+    because on one request they would tell what it is about. The route is the one logged just
+    before the evidence pack.
     broken holds the hashes (or their first 12 characters) of packs the integrity check found
     erased or changed: such a request can't be decided, so it isn't shown as waiting."""
     requests: dict[str, dict] = {}
@@ -742,8 +732,6 @@ def _leave_requests(entries: list[dict], broken: frozenset[str] = frozenset()) -
                 "linkable": linkable(request_id),
                 "submitted_at": None,
                 "route": None,
-                "decided_by": None,
-                "reasons": [],
                 "stopped_reason": None,
                 "cost_usd": 0.0,
                 "evidence": False,
@@ -752,6 +740,7 @@ def _leave_requests(entries: list[dict], broken: frozenset[str] = frozenset()) -
                 "information_requested": 0,
                 "injection_flagged": False,
                 "_codes": [],
+                "_runs": 0,
             },
         )
         shown = shown_payload(event, e["payload"])
@@ -762,6 +751,7 @@ def _leave_requests(entries: list[dict], broken: frozenset[str] = frozenset()) -
             payload = e["payload"] if isinstance(e["payload"], dict) else {}
             codes = _leave_codes(payload.get("reasons") or [])
             prepared.setdefault(request_id, []).append((e["seq"], shown | {"_codes": codes}))
+            req["_runs"] += 1
             req["cost_usd"] += _number(shown.get("cost_usd")) or 0.0  # every run cost money
         elif event == "leave_evidence" and request_id not in evidence_seq:
             req["evidence"] = True
@@ -774,7 +764,7 @@ def _leave_requests(entries: list[dict], broken: frozenset[str] = frozenset()) -
             req["information_requested"] += 1
         elif event == "leave_decision" and req["decision"] is None:  # the first one stands
             req["decision"] = {
-                k: shown.get(k) for k in ("decided_by", "role", "outcome", "weeks", "decided_at")
+                k: shown.get(k) for k in ("decided_by", "role", "outcome", "decided_at")
             }
     for request_id, req in requests.items():
         runs = prepared.get(request_id, [])
@@ -784,11 +774,6 @@ def _leave_requests(entries: list[dict], broken: frozenset[str] = frozenset()) -
         if standing is not None:
             route = standing.get("route")
             req["route"] = route if route in ("specialist_sign_off", "hr_review") else None
-            role = standing.get("decided_by")
-            req["decided_by"] = (
-                role if isinstance(role, str) and role in _ROLES.split("|") else None
-            )
-            req["reasons"] = standing["reasons"]
             req["_codes"] = standing["_codes"]
             req["stopped_reason"] = standing["stopped_reason"]
         pack = req.pop("_pack", None)
@@ -796,7 +781,7 @@ def _leave_requests(entries: list[dict], broken: frozenset[str] = frozenset()) -
             req["state"] = "decided"
         elif req["evidence"] and pack is not None and (pack in broken or pack[:12] in broken):
             req["state"] = "evidence pack erased or changed"
-            req["route"] = req["decided_by"] = None
+            req["route"] = None
         elif req["evidence"]:
             req["state"] = "waiting for HR"
         elif runs:
@@ -806,14 +791,30 @@ def _leave_requests(entries: list[dict], broken: frozenset[str] = frozenset()) -
     return requests
 
 
+_BROKEN_CACHE: dict[tuple, frozenset[str]] = {}
+
+
 def _broken_packs(src: Sources) -> frozenset[str]:
     """Hashes of evidence packs the integrity check found erased, or the 12-character prefixes
-    of ones it found changed."""
+    of ones it found changed or can't read. Cached for the log file as it stands, so the
+    integrity check runs once per change, not once per page."""
+    try:
+        stat = src.audit_db.stat()
+    except OSError:
+        return frozenset()
+    key = (str(src.audit_db), stat.st_mtime_ns, stat.st_size)
+    if key not in _BROKEN_CACHE:
+        _BROKEN_CACHE.clear()
+        _BROKEN_CACHE[key] = _find_broken_packs(src)
+    return _BROKEN_CACHE[key]
+
+
+def _find_broken_packs(src: Sources) -> frozenset[str]:
     result = audit_integrity(src)
     changed = {
         m.group(1)
         for p in result["problems"]
-        if (m := re.search(r"evidence pack ([0-9a-f]{12}) was changed", p))
+        if (m := re.search(r"evidence pack ([0-9a-f]{12}) (?:was changed|can't be read)", p))
     }
     return frozenset(set(result["evidence_erased"]) | changed)
 
@@ -934,7 +935,11 @@ def overview(src: Sources) -> dict:
         "refused_decisions": sum(r["refused_decisions"] for r in requests),
         "text_aimed_at_the_ai": sum(r["injection_flagged"] for r in requests),
         "cost_usd": round(hr_cost, 4),
-        "cost_per_request_usd": round(hr_cost / len(prepared), 4) if prepared else None,
+        "cost_per_request_usd": (
+            round(hr_cost / sum(1 for r in requests if r["_runs"]), 4)
+            if any(r["_runs"] for r in requests)
+            else None
+        ),
         "reasons": [
             (LEAVE_REASONS[code][0] if code in LEAVE_REASONS else code, count)
             for code, count in Counter(c for r in prepared for c in r["_codes"]).most_common()

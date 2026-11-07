@@ -766,6 +766,8 @@ controls:
       - tests/test_panel.py::test_no_page_shows_an_employee_s_message_the_pack_or_a_decision_s_reason
       - tests/test_panel.py::test_every_refusal_the_sign_off_can_give_is_shown_not_withheld
       - tests/test_panel.py::test_a_leave_trace_shows_no_employee_and_no_sensitive_reason
+      - tests/test_panel.py::test_a_leave_page_gives_nothing_to_work_out_a_reason_from
+      - tests/test_panel.py::test_an_unreadable_pack_is_reported_not_a_crash
       - tests/test_panel.py::test_a_leave_refusal_under_a_claim_id_doesn_t_turn_it_into_a_leave_request
       - tests/test_panel.py::test_every_refusal_message_the_code_writes_matches_a_panel_template
       - tests/test_panel.py::test_every_hr_stop_and_note_problem_is_shown_not_withheld
@@ -780,16 +782,20 @@ controls:
       built. It is read-only by design for this phase; stopping an agent and signing a decision
       from the panel are the next phase and aren't built. It reads the SQLite audit log and the
       registry files on one machine, so it shows only what that machine's runs wrote; there is
-      no shared store. Leave requests are read from the audit log alone; no leave view reads an
-      evidence pack (which holds the employee's message and health details), though the
-      integrity check hashes every pack. A leave request's trace shows no employee ID and no
-      weeks used or asked, and its reasons that tell something about health, family, pregnancy,
-      discipline or where the employee lives show as "sensitive (HR only)"; the overview counts
-      every reason across requests, which on a handful of requests can still narrow down who. A
-      request is a leave request only if the pipeline logged its message, so a stray HR entry
-      under a claim's ID can't move the claim. The route shown is the one logged just before the
-      evidence pack, which is the pack's unless two preparations of the same request interleave;
-      a request whose pack the integrity check finds erased or changed isn't shown as waiting. It can't anchor audit
+      no shared store. Leave requests come from the audit log; nothing from an evidence pack (the
+      employee's message and health details) is shown, though the integrity check reads and
+      hashes every pack (cached until the log changes) and a request whose pack is erased,
+      changed or unreadable isn't shown as waiting. A single leave request shows its state,
+      route, outcome, who decided and their role, and counts of refusals and information
+      requests; not its reasons, the role it needs, its check results, its weeks, or a refusal
+      that names a rule (shown as refused by a leave rule), because together those let anyone
+      with the panel work out a sensitive reason. The overview counts reasons across requests,
+      which on a handful of requests can still narrow down who, and each request's ID and times
+      are shown, so someone who knows when a colleague asked can find the request (though not
+      its reasons). A request is a leave request only if the leave pipeline wrote to it, so an HR
+      command under a claim's ID can't move the claim. The route shown is the one logged just
+      before the evidence pack, which is the pack's unless two preparations of the same request
+      interleave. It can't anchor audit
       heads itself: verifying against an anchor needs a head someone copied out. The demo's model is
       scripted from the answer key, so its routing, cost and override numbers show the controls
       working, not how well the agents perform. Routing and stop reasons the code writes name

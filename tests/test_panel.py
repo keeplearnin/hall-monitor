@@ -750,7 +750,7 @@ def test_no_page_shows_an_employee_s_message_the_pack_or_a_decision_s_reason(src
 
 def test_a_leave_request_s_page_shows_its_decision(client):
     page = client.get("/cases/lr_009.html").text
-    assert "Leave request lr_009" in page and "approve, 2.0 weeks" in page and "hr_director" in page
+    assert "Leave request lr_009" in page and "approve by hr:hrs-301" in page
     queue = client.get("/queue.html").text
     assert "lr_019" in queue and "lr_009" not in queue
 
@@ -848,7 +848,7 @@ def test_a_leave_trace_shows_no_employee_and_no_sensitive_reason(client):
             assert not re.search(r'(?:"|&quot;)e1\d\d(?:"|&quot;)', text), path
             assert not any(code in text for code in SENSITIVE_CODES), path
             assert "remaining_weeks" not in text and "requested_weeks" not in text, path
-    assert "sensitive (HR only)" in client.get("/cases/lr_013.html").text
+    assert "shown to HR in the review CLI" in client.get("/cases/lr_013.html").text
 
 
 def test_a_leave_refusal_under_a_claim_id_doesn_t_turn_it_into_a_leave_request(tmp_path, demo_data):
@@ -919,7 +919,7 @@ def _refusal_messages(tmp_path, demo_data) -> list[str]:
     attempt("lr_013", "hrs-101", "approve", 4)
     attempt("lr_017", "hrs-201", "approve", 6, why)
     attempt("lr_004", "hrs-301", "extend", 4, why)
-    attempt("lr_010", "hrs-301", "extend", 7, why)  # within the entitlement
+    attempt("lr_014", "hrs-301", "extend", 7, why)  # within the entitlement
     attempt("lr_009", "hrs-301", "approve", 2, why)  # already decided
     asked = next(d for d in demo.LEAVE_DECISIONS if d[0] == "lr_019")
     attempt("lr_019", asked[1], asked[2], 0, asked[4])  # the same request again
@@ -1120,3 +1120,205 @@ def test_a_non_finite_number_in_the_log_doesn_t_break_the_json(tmp_path):
 def test_the_demo_banner_mentions_leave_requests_and_demo_keys(client):
     banner = client.get("/index.html").text
     assert "leave requests" in banner and "demo keys" in banner
+
+
+# --- Re-review of review 11 ------------------------------------------------------------------
+
+DERIVING = (
+    "failed_checks",
+    "unknown_checks",
+    "code_decided_by",
+    "code_reasons",
+    "Needs at least",
+    '"reasons"',
+    "sensitive (HR only)",
+    '"weeks"',
+    "needs a hr_",
+    "needs a leave_",
+)
+
+
+@pytest.mark.parametrize(
+    "request_id", ["lr_012", "lr_026", "lr_018", "lr_025", "lr_028", "lr_017", "lr_001"]
+)
+def test_a_leave_page_gives_nothing_to_work_out_a_reason_from(client, request_id):
+    for path in (f"/cases/{request_id}.html", f"/api/cases/{request_id}.json"):
+        text = client.get(path).text.replace("&quot;", '"')
+        assert not [d for d in DERIVING if d in text], (path, [d for d in DERIVING if d in text])
+
+
+def test_the_leave_lists_show_no_role_needed_or_reasons(client):
+    for path in ("/queue.html", "/cases.html", "/api/leave_requests.json", "/api/leave_queue.json"):
+        text = client.get(path).text
+        assert '"reasons"' not in text and "Needs at least" not in text, path
+        # The staff member who decided is shown ("hr:hrs-101"); the role a request needs isn't.
+        assert '"decided_by": "hr_' not in text and '"decided_by":"hr_' not in text, path
+
+
+def test_a_refusal_naming_a_rule_is_shown_only_as_refused_by_a_leave_rule():
+    shown = views.shown_payload(
+        "leave_decision_refused",
+        {
+            "refused_because": (
+                "this request needs a hr_director or above; hrs-101 is a leave_specialist"
+            )
+        },
+    )["refused_because"]
+    assert shown == views.REFUSED_BY_A_RULE
+    kept = views.shown_payload(
+        "leave_decision_refused",
+        {"refused_because": "the audit log shows lr_001 was already decided"},
+    )["refused_because"]
+    assert kept == "the audit log shows lr_001 was already decided"
+    odd = views.shown_payload(
+        "leave_decision_refused",
+        {"refused_because": "the audit log shows <b>x</b> was already decided"},
+    )["refused_because"]
+    assert odd == views.WITHHELD
+
+
+def test_an_unreadable_pack_is_reported_not_a_crash(tmp_path, demo_data):
+    import hashlib
+
+    out, _ = demo_data
+    db = tmp_path / "audit.sqlite"
+    shutil.copy(out / "audit.sqlite", db)
+    shutil.copy(out / "audit.key", tmp_path / "audit.key")
+    body = "not json"
+    digest = hashlib.sha256(body.encode()).hexdigest()
+    log = AuditLog(db)
+    log._db.execute("INSERT INTO evidence VALUES (?, ?)", (digest, body))
+    log.append("claim_zz", "evidence_pack", "pipeline", {"evidence_sha256": digest})
+    log.close()
+    src = views.Sources(registry_dir=out / "registry", audit_db=db)
+    client = TestClient(create_app(src), base_url="http://localhost")
+    for path in (
+        "/index.html",
+        "/queue.html",
+        "/audit.html",
+        "/api/leave_requests.json",
+        "/cases/lr_001.html",
+    ):
+        assert client.get(path).status_code == 200, path
+    assert any("can't be read" in p for p in views.audit_integrity(src)["problems"])
+
+
+def test_every_hr_stop_kind_is_shown_not_withheld(tmp_path):
+    import anthropic
+    import httpx
+
+    from hall_monitor.hr.data import load_company, load_employees, load_messages
+    from hall_monitor.hr.models import LeaveIntake
+    from hall_monitor.hr.pipeline import prepare
+    from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
+    from hall_monitor.registry import Registry
+    from tests.fakes import TEST_REGISTRY_DIR
+    from tests.test_hr_agents import _client, _intake_for
+
+    messages = {m.id: m for m in load_messages()}
+    company, employees = load_company(), load_employees()
+    log = AuditLog(tmp_path / "audit.sqlite")
+
+    def registry_with(change):
+        path = tmp_path / f"registry-{change}"
+        shutil.copytree(TEST_REGISTRY_DIR, path)
+        if change == "stop_intake":
+            add_stop(path / STOPS_FILENAME, agent="leave_intake", by="own-401", reason="x")
+        elif change == "stop_explainer":
+            add_stop(path / STOPS_FILENAME, agent="leave_explainer", by="own-401", reason="x")
+        return Registry.from_dir(path)
+
+    def run(request_id, registry, client):
+        prepare(
+            messages[request_id],
+            employees=employees,
+            company=company,
+            registry=registry,
+            client=client,
+            audit=log,
+        )
+
+    def api_error(kwargs):
+        raise anthropic.APIConnectionError(request=httpx.Request("POST", "https://x"))
+
+    def invalid(kwargs):
+        from datetime import date
+
+        return _intake_for(kwargs).model_copy(update={"end": date(2026, 1, 1)})
+
+    base = Registry.from_dir(TEST_REGISTRY_DIR)
+    run("lr_001", registry_with("stop_intake"), _client())
+    run("lr_002", registry_with("stop_explainer"), _client())
+    run("lr_003", base, _client({LeaveIntake: api_error}))
+    run("lr_004", base, _client({LeaveIntake: invalid}))
+    broken = tmp_path / "registry-broken"
+    shutil.copytree(TEST_REGISTRY_DIR, broken)
+    reg = Registry.from_dir(broken)
+    (broken / STOPS_FILENAME).write_text("stops: [oops\n")
+    run("lr_005", reg, _client())
+    log.close()
+    shown = [
+        views.shown_payload(e["event"], e["payload"])
+        for e in AuditLog(tmp_path / "audit.sqlite", read_only=True).entries()
+        if e["event"] == "leave_prepared"
+    ]
+    values = [p.get("stopped_reason") for p in shown] + [
+        p.get("explanation_problem") for p in shown
+    ]
+    assert views.WITHHELD not in values and sum(v is not None for v in values) >= 5
+
+
+def test_a_role_name_in_another_case_is_refused(tmp_path):
+    from hall_monitor.hr.signoff import load_staff
+
+    bad = tmp_path / "hr_staff.yaml"
+    bad.write_text("staff:\n  - {id: x, name: X, role: Hr_Manager, public_key: k}\n")
+    with pytest.raises(ValueError, match="role"):
+        load_staff(bad)
+
+
+def test_a_changed_pack_takes_the_request_out_of_the_queue_and_is_flagged(tmp_path, demo_data):
+    from hall_monitor.hr import signoff
+
+    out, _ = demo_data
+    db = tmp_path / "audit.sqlite"
+    shutil.copy(out / "audit.sqlite", db)
+    shutil.copy(out / "audit.key", tmp_path / "audit.key")
+    log = AuditLog(db)
+    digest = signoff.evidence(log, "lr_024")[0]
+    log._db.execute("DROP TRIGGER evidence_no_update")
+    log._db.execute("UPDATE evidence SET body = body || ' ' WHERE sha256 = ?", (digest,))
+    log.close()
+    src = views.Sources(registry_dir=out / "registry", audit_db=db)
+    req = next(r for r in views.leave_requests(src) if r["request_id"] == "lr_024")
+    assert req["state"] == "evidence pack erased or changed"
+    page = TestClient(create_app(src), base_url="http://localhost").get("/index.html").text
+    assert "evidence pack that was erased or changed" in page
+
+
+def test_a_leave_request_missing_its_submitted_entry_is_still_a_leave_request(tmp_path):
+    log = AuditLog(tmp_path / "audit.sqlite")
+    log.append("lr_t", "leave_prepared", "pipeline", {"route": "hr_review"})
+    log.append("lr_t", "leave_evidence", "pipeline", {"evidence_sha256": "0" * 64})
+    log.close()
+    src = views.Sources(audit_db=tmp_path / "audit.sqlite")
+    assert [r["request_id"] for r in views.leave_requests(src)] == ["lr_t"]
+    assert views.cases(src) == []
+
+
+def test_the_cost_per_request_counts_every_preparation(tmp_path):
+    log = AuditLog(tmp_path / "audit.sqlite")
+    for request_id, extra in (("lr_a", True), ("lr_b", False)):
+        log.append(request_id, "leave_request_submitted", "employee", {})
+        log.append(
+            request_id, "leave_prepared", "pipeline", {"route": "hr_review", "cost_usd": 0.01}
+        )
+        if extra:
+            log.append(request_id, "leave_evidence", "pipeline", {"evidence_sha256": "0" * 64})
+    log.close()
+    m = next(
+        w
+        for w in views.overview(views.Sources(audit_db=tmp_path / "audit.sqlite"))["workflows"]
+        if w["id"] == "hr_leave"
+    )["metrics"]
+    assert m["cost_per_request_usd"] == 0.01
