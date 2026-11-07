@@ -54,16 +54,17 @@ from hall_monitor.registry import DEFAULT_REGISTRY_DIR, Registry
 
 DEFAULT_PORT = 8766  # the panel is on 8765
 DEMO_DIR = demo.DEFAULT_OUT
-MAX_BODY = 32 * 1024  # a message is at most 10,000 characters
 MAX_TEXT = LeaveMessage.model_fields["text"].metadata[-1].max_length
+# Room for the longest message the form allows: URL-encoding makes a character up to 9 bytes.
+MAX_BODY = 9 * MAX_TEXT + 1024
 # The panel's headers, except that a browser must send this app its origin when it posts the
 # form: under "no-referrer" it sends "Origin: null", which the origin check refuses.
 HEADERS = SECURITY_HEADERS | {"Referrer-Policy": "same-origin"}
 STATES = {
     "waiting for HR": "waiting for HR",
     "stopped before the rules ran; can be prepared again": (
-        "stopped before the rules ran (the model call failed or an agent is stopped); nothing "
-        "was kept of the message, so submit it again once that is fixed"
+        "stopped before the rules ran (the model call failed or an agent is stopped); the "
+        "message itself wasn't kept, so submit it again once that is fixed"
     ),
     "decided": "decided by HR",
 }
@@ -246,7 +247,8 @@ def create_app(
                 raise _Refused(400, "Pick one of the synthetic messages.")
             employee_id, text = chosen.employee_id, chosen.text
         else:
-            employee_id, text = fields["employee_id"], fields["text"]
+            # A browser sends a textarea's line breaks as CRLF; its maxlength counts each as one.
+            employee_id, text = fields["employee_id"], fields["text"].replace("\r\n", "\n")
             if employee_id not in employees:
                 raise _Refused(400, "Pick one of the synthetic employees.")
             if not text.strip():

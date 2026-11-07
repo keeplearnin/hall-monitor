@@ -1087,8 +1087,9 @@ controls:
       answers only requests addressed to localhost or 127.0.0.1 and listens only on loopback; a
       submission must carry the form's token, which another site can't read, and come from the
       form's own origin (the browser's Origin header, and Sec-Fetch-Site when sent), so a page
-      elsewhere can't post to it through the browser. Bodies over 32 KB are refused before they
-      are read, and a message over 10,000 characters or for an unknown employee is refused
+      elsewhere can't post to it through the browser. Only a form post is taken, each field
+      once; a body over the room the longest message needs (about 91 KB, URL-encoded) is refused
+      while it is read, and a message over 10,000 characters or for an unknown employee is refused
       before anything is logged. Pages carry the panel's policy (no scripts, nothing from other
       origins, every value escaped) with a same-origin referrer policy, so the browser sends the
       form its origin.
@@ -1104,6 +1105,10 @@ controls:
       - tests/test_hr_submit.py::test_a_submission_from_another_site_is_refused
       - tests/test_hr_submit.py::test_only_requests_addressed_to_this_machine_are_answered
       - tests/test_hr_submit.py::test_a_large_body_is_refused_before_it_is_read
+      - tests/test_hr_submit.py::test_a_chunked_body_over_the_limit_is_refused
+      - tests/test_hr_submit.py::test_a_message_within_the_limit_is_never_too_large_to_send
+      - tests/test_hr_submit.py::test_only_a_form_post_is_taken
+      - tests/test_hr_submit.py::test_a_refused_submission_doesn_t_use_up_the_spend_cap
       - tests/test_hr_submit.py::test_live_mode_stops_at_its_spend_cap
       - tests/test_hr_submit.py::test_the_result_page_shows_only_requests_submitted_here
       - tests/test_hr_submit.py::test_the_result_page_shows_no_reasons_or_route
@@ -1111,21 +1116,23 @@ controls:
       - tests/test_hr_submit.py::test_the_routes_are_the_form_the_submission_and_the_result
       - tests/test_hr_submit.py::test_the_cli_needs_a_mode_and_a_loopback_host
     evidence: []
-    nist: [GOVERN 1.6, MANAGE 4.1]
+    nist: [MANAGE 4.1]
     finos:
       risks: [RI-22]
       mitigations: [MI-04, MI-21]
     gaps: >-
-      No sign-in: anyone who can use a browser on this machine can submit as any synthetic
-      employee, and nothing ties a submission to the employee it names. The spend cap is per run
+      No sign-in: the token and origin check stop another site posting through a browser, not
+      a user or process on this machine, which can read the form's token and send any origin;
+      so anyone on this machine can submit as any synthetic employee (in live mode, up to the
+      cap), and nothing ties a submission to the employee it names. The spend cap is per run
       of the form, in memory: restarting it resets the count, and it caps submissions, not
       dollars. Live mode has not been run against the real API in this repo's tests or CI; the
       tests use a fake client. The "synthetic data only" banner is a notice, not a check: free
       text in live mode goes to the Claude API, so a real name or condition typed there leaves
       this machine (redaction removes labelled identifiers, not names or conditions). Demo mode
       reuses the demo builder's scripted model, which matches a message by its opening words, so
-      it can't take edited text. A request that stops before the rules ran keeps no message, so
-      the submitter has to type it again. The result page reports only on requests this run of
+      it can't take edited text. A request that stops before the rules ran keeps no message (the
+      log has only its keyed hash), so the submitter has to type it again. The result page reports only on requests this run of
       the form added, from memory, so after a restart it no longer finds them (the panel still
       does).
 

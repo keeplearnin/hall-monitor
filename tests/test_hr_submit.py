@@ -142,9 +142,66 @@ def test_only_requests_addressed_to_this_machine_are_answered(tmp_path):
 
 def test_a_large_body_is_refused_before_it_is_read(tmp_path):
     client = _app(tmp_path, live=True, client=_client())
-    response = _submit(client, employee_id="e101", text="x" * 40_000)
+    response = _submit(client, employee_id="e101", text="x" * (submit.MAX_BODY + 1))
     assert response.status_code == 413
     assert _entries(tmp_path) == []
+
+
+def test_a_chunked_body_over_the_limit_is_refused(tmp_path):
+    """With no declared length, the limit is enforced while the body is read."""
+    client = _app(tmp_path, live=True, client=_client())
+    token = _token(client)
+
+    def body():
+        yield f"token={token}&employee_id=e101&text=".encode()
+        for _ in range(submit.MAX_BODY // 1024 + 1):
+            yield b"x" * 1024
+
+    response = client.post(
+        "/submit",
+        content=body(),
+        headers=SAME_ORIGIN | {"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == 413
+    assert _entries(tmp_path) == []
+
+
+def test_a_message_within_the_limit_is_never_too_large_to_send(tmp_path):
+    """URL-encoding makes a non-ASCII character up to 9 bytes, and a browser sends a textarea's
+    line breaks as CRLF, which its maxlength counts as one character."""
+    client = _app(tmp_path, live=True, client=_client(), max_requests=5)
+    _request_id(_submit(client, employee_id="e101", text="é" * 6_000))
+    lead = MESSAGES["lr_001"].text
+    text = lead + "\r\n" * 10 + "x" * (10_000 - len(lead) - 10)
+    _request_id(_submit(client, employee_id="e101", text=text))
+
+
+def test_only_a_form_post_is_taken(tmp_path):
+    """A text/plain post needs no preflight from another site; it is refused whatever it holds."""
+    client = _app(tmp_path)
+    token = _token(client)
+    plain = client.post(
+        "/submit",
+        content=f"token={token}&message_id=lr_001",
+        headers=SAME_ORIGIN | {"Content-Type": "text/plain"},
+    )
+    assert plain.status_code == 415
+    repeated = client.post(
+        "/submit",
+        content=f"token={token}&token={token}&message_id=lr_001",
+        headers=SAME_ORIGIN | {"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert repeated.status_code == 400
+    assert _entries(tmp_path) == []
+
+
+def test_a_refused_submission_doesn_t_use_up_the_spend_cap(tmp_path):
+    client = _app(tmp_path, live=True, client=_client(), max_requests=1)
+    message = MESSAGES["lr_001"]
+    wrong = {"token": "not-the-token", "employee_id": message.employee_id, "text": message.text}
+    assert client.post("/submit", data=wrong, headers=SAME_ORIGIN).status_code == 403
+    assert _submit(client, employee_id="e999", text=message.text).status_code == 400
+    _request_id(_submit(client, employee_id=message.employee_id, text=message.text))
 
 
 def test_live_mode_stops_at_its_spend_cap(tmp_path):
@@ -162,6 +219,7 @@ def test_a_request_that_stops_before_the_rules_says_to_submit_it_again(tmp_path)
     response = _submit(client, employee_id=message.employee_id, text=message.text)
     page = client.get(response.headers["location"]).text
     assert "stopped before the rules ran" in page and "submit it again" in page
+    assert "nothing was kept" not in page  # the log keeps its keyed hash and redaction counts
 
 
 def test_the_result_page_shows_only_requests_submitted_here(tmp_path):

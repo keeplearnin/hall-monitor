@@ -43,7 +43,9 @@ change anything: every route is GET and it opens the audit log read-only
 
 ## Consequences
 
-Anyone who can use a browser on this machine can submit as any synthetic employee, and in live
+The token and origin check stop another site posting through a browser, not a user or process
+on this machine, which can read the token and send any origin; so anyone on this machine can
+submit as any synthetic employee, and in live
 mode free text goes to the Claude API, so the "synthetic data only" notice matters: redaction
 removes labelled identifiers, not names or conditions. The spend cap is per run, in memory. Live
 mode is tested only with a fake client.
