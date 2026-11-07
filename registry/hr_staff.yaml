@@ -1,0 +1,24 @@
+# HR staff who may decide leave requests (fictional).
+# role: leave_specialist, hr_manager or hr_director. The routing rule (hall_monitor/hr/routing.py)
+#   names the least senior role that may decide a request; a decision by anyone less senior is
+#   refused. Denying needs an HR manager or above; extending past the entitlement needs a director.
+# public_key: their Ed25519 public key (base64); a decision counts only if signed with the
+#   matching private key (governance/signing.py).
+# demo_key: true marks a key derived from the staff ID so the demo runs. It is public by
+#   construction; a real key comes from the firm's identity system.
+staff:
+  - id: hrs-101
+    name: Alex Moreno
+    role: leave_specialist
+    public_key: JaH2ge5YhWmWUTQVjC7N9xMKk5qVPcSGceZkJEEsO9o=
+    demo_key: true
+  - id: hrs-201
+    name: Jamie Okoro
+    role: hr_manager
+    public_key: QzXlSqonAull1ujD2SmsxqYP2usnIzs2+xsTLDNrjaI=
+    demo_key: true
+  - id: hrs-301
+    name: Taylor Brooks
+    role: hr_director
+    public_key: v8tRMz7FOINrJIOV8WS1n9Nq0aBoASTf69sKmIJKmsQ=
+    demo_key: true

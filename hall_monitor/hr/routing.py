@@ -8,8 +8,8 @@ the least senior role that may decide it. From the sign-off table in the design 
 (a Claude Doc, not in this repo): a leave specialist may approve within the entitlement or ask
 for more; denying or finding an employee ineligible needs an HR manager or above; extending
 past the entitlement or deciding a case with a retaliation risk needs an HR director. The roles
-for the other flags are this module's choice. Nothing enforces the role yet: there is no
-sign-off step for this workflow, so `decided_by` is what that step will have to check.
+for the other flags are this module's choice. The sign-off (hr/signoff.py) enforces the role:
+a decision by anyone less senior is refused.
 """
 
 from __future__ import annotations

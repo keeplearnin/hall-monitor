@@ -771,8 +771,8 @@ controls:
       from the panel are the next phase and aren't built. It reads the SQLite audit log and the
       registry files on one machine, so it shows only what that machine's runs wrote; there is
       no shared store. The overview covers travel claims only: the HR leave workflow has its rules
-      in code (HM-21) and its agents (HM-22) but no sign-off step yet, so the panel shows no HR
-      cases and says so rather than showing numbers. It can't anchor audit
+      in code (HM-21), its agents (HM-22) and its signed sign-off (HM-23), but the panel doesn't
+      read HR cases yet, so it says so rather than showing numbers. It can't anchor audit
       heads itself: verifying against an anchor needs a head someone copied out. The demo's model is
       scripted from the answer key, so its routing, cost and override numbers show the controls
       working, not how well the agents perform. Routing and stop reasons the code writes name
@@ -849,9 +849,8 @@ controls:
       risks: [RI-22, RI-24]
       mitigations: []
     gaps: >-
-      No sign-off step, no signed decisions and no panel cases for this workflow yet, so status is
-      partial (the agents and the audit trail of preparation are HM-22), and nothing enforces the named role yet:
-      `decided_by` is what the sign-off step will have to check. The rules are our reading of the
+      No panel cases for this workflow yet, so status is partial (the agents are HM-22 and the
+      signed sign-off HM-23, which enforces the role the rule names). The rules are our reading of the
       federal regulations (29 CFR Part 825), not reviewed by HR or an employment lawyer, and not
       legal advice. The sign-off table comes from the design for HR review, which is a Claude Doc
       outside this repo; the roles for an adult child, an accommodation, a state law, a key
@@ -887,7 +886,9 @@ controls:
       route or the role. Text in the message aimed at the AI (the injection detector, run on the
       message as sent and as redacted) sends the request to HR review whatever the agents say.
       Any failure of intake or the rules stops the request and sends it to a person, keeping the
-      code's reasons if it had routed: a refusal, a stopped or unapproved intake agent, an API
+      code's reasons if it had routed (a failure of the intake call itself leaves no evidence
+      pack, so the request is listed as stopped and can be prepared again once the cause is
+      fixed): a refusal, a stopped or unapproved intake agent, an API
       error, any unexpected error, an extraction without dates, with an end before its start or
       with a date outside 1900 to 2199, no employee record, or a cost that can't be shown. A failed or
       stopped explanation agent doesn't stop the request: it goes to the same person without a
@@ -941,8 +942,8 @@ controls:
       the CI gate. An intake error the rules can't see (a wrong date, the wrong family member,
       a missed accommodation sign) changes the result without a flag; the eval measures it and
       the specialist checks the message, but nothing in code catches it. There is no critic and
-      no risk agent from the design, no sign-off step and no signed decision for this workflow
-      yet, and its cases don't appear in the panel. The injection detector's phrases were written
+      no risk agent from the design, and its cases don't appear in the panel; the signed
+      sign-off is HM-23. The injection detector's phrases were written
       for claims; it now also knows the HR tags and a few HR phrasings (approval claimed from HR,
       keeping a leave specialist out, role play as an HR director or manager), but it is a phrase
       list, so other phrasings get through, and the detector is shared, so those phrases can
@@ -951,6 +952,93 @@ controls:
       name and condition: redaction removes identifiers, not health details, which the reason
       category needs. The explanation is free text checked only for which checks it covers, not
       for whether each sentence is true.
+
+  - id: HM-23
+    name: Signed HR sign-off within the role the rules name (HR example)
+    what: >-
+      A person decides each leave request that is prepared into the audit log (python -m
+      hall_monitor.hr.run, which calls the API, then python -m hall_monitor.hr.review). Each
+      prepared request leaves an evidence pack in the audit database, stored once under its hash
+      (the redacted message, the structured request, the code's checks and route, the
+      explanation, and a random nonce so the hash can't be confirmed by guessing); preparing a
+      request again is refused, and the chain check reports a pack that was changed or erased. A decision
+      counts only if the staff member is in registry/hr_staff.yaml, it is signed with their
+      Ed25519 key over the request, every decision field and the evidence hash, and code finds it
+      within their role: at least the role the routing rule named; approving FMLA leave only for
+      an eligible employee with a qualifying reason, for more than 0 weeks and no more than are
+      left, were asked or qualify (bonding weeks after the 12 months don't); approving fewer weeks
+      than asked (for intermittent leave, than are left) only by an HR manager or above, with a
+      reason, since it refuses the rest;
+      denying only by an HR manager or above, with a reason; extending only by an HR director,
+      with a reason, for an eligible employee whose request is past the entitlement, granting more
+      weeks in total than are left and no more than were asked; approving a request the rule sent
+      to HR review only with a reason. Asking for more information is open to anyone registered
+      and isn't a decision: it is signed, stored and logged once, and the request keeps waiting. The audit log decides whether a request was decided: one final
+      decision per request, checked inside the write. Every refusal that reaches these rules, for
+      a request in the log, is logged with why, including one that lost a race or met a changed
+      or erased pack, and names the staff member only if they signed it; the CLI's refusals of
+      malformed input (weeks out of range, an unreadable key, a bad staff file) aren't decisions
+      and aren't logged. The log keeps the staff ID and role, the
+      outcome and weeks, the code's route, and keyed hashes of the reason and the signed
+      decision; the signed decision, with its reason and signature, is stored before the log entry
+      is written (so a logged decision always has it, and one that lost a race is removed) beside
+      the evidence pack in the store that can be erased, not in the chain, so no signature in the
+      chain can confirm a guessed reason. What HR is shown comes from the pack, so a run that
+      lost the race to prepare a request can't change it.
+    status: built
+    code:
+      - hall_monitor/hr/signoff.py::validate
+      - hall_monitor/hr/signoff.py::decide
+      - hall_monitor/hr/signoff.py::record_evidence
+      - hall_monitor/hr/review.py::main
+      - hall_monitor/hr/run.py::run
+      - registry/hr_staff.yaml
+    tests:
+      - tests/test_hr_signoff.py::test_the_role_the_rules_name_is_enforced
+      - tests/test_hr_signoff.py::test_only_a_manager_or_above_may_deny_even_on_a_specialist_case
+      - tests/test_hr_signoff.py::test_extending_needs_a_director_even_on_a_specialist_s_case
+      - tests/test_hr_signoff.py::test_fmla_leave_is_approved_only_for_an_eligible_employee_with_a_qualifying_reason
+      - tests/test_hr_signoff.py::test_approved_weeks_fit_what_is_left_and_what_was_asked
+      - tests/test_hr_signoff.py::test_a_reason_is_needed_to_deny_extend_or_approve_against_the_route
+      - tests/test_hr_signoff.py::test_an_unsigned_or_wrongly_signed_decision_is_refused_and_logged
+      - tests/test_hr_signoff.py::test_a_decision_on_other_evidence_is_refused
+      - tests/test_hr_signoff.py::test_changed_evidence_is_refused_and_nothing_is_recorded
+      - tests/test_hr_signoff.py::test_two_decisions_at_once_record_one
+      - tests/test_hr_signoff.py::test_the_log_keeps_no_reason_and_no_signature_but_the_store_can_prove_them
+      - tests/test_hr_signoff.py::test_approving_fewer_weeks_than_asked_is_a_partial_denial
+      - tests/test_hr_signoff.py::test_asking_for_information_leaves_the_request_waiting
+      - tests/test_hr_signoff.py::test_an_extension_is_only_past_the_entitlement_and_up_to_what_was_asked
+      - tests/test_hr_signoff.py::test_bonding_weeks_after_the_12_months_can_t_be_approved
+      - tests/test_hr_signoff.py::test_the_chain_check_reports_a_changed_or_erased_leave_pack
+      - tests/test_hr_signoff.py::test_every_refusal_of_a_prepared_request_is_logged
+      - tests/test_hr_signoff.py::test_approving_intermittent_leave_for_less_than_is_left_is_a_partial_denial
+      - tests/test_hr_signoff.py::test_a_logged_decision_always_has_its_signed_record
+      - tests/test_hr_signoff.py::test_a_preparation_that_stopped_before_the_rules_can_be_prepared_again
+      - tests/test_hr_signoff.py::test_an_information_request_is_kept_and_can_t_be_replayed
+    evidence: []
+    nist: [GOVERN 3.2, MAP 3.5, MEASURE 2.8]
+    finos:
+      risks: [RI-22, RI-24]
+      mitigations: [MI-21, MI-24]
+    gaps: >-
+      The three fictional staff use public demo keys derived from their IDs, so a demo decision
+      proves nothing about who made it (each logged decision says so); a real deployment issues
+      keys from the firm's identity system. The sign-off is a command-line step on one machine's
+      audit log: no sign-in, no shared store, and the panel doesn't show HR cases yet. Requests
+      get into the log only through hr.run, which prepares the synthetic messages with the live
+      model; a preparation that stopped because the intake call failed leaves no pack, so it can
+      be run again, and the review CLI lists it as stopped. "Approve" and "extend" cover FMLA leave only; leave under company policy or state law
+      for someone the rules find ineligible is decided outside this step. After a request for
+      more information the request keeps waiting, but the employee's answer isn't added to the
+      evidence: the person decides on the same pack. The
+      roles and limits are the design's guess and this code's choices (HM-21), not confirmed by
+      HR. The evidence pack holds personal and health information an auditor with the database
+      can read: the redacted message (with the employee's name and condition), the structured
+      request (dates, the reason category, the family relationship, whether an adult child can't
+      care for themselves, signs of an accommodation need, a birth or placement date), the hours,
+      service and leave already used behind each check, and the explanation. It can be erased
+      under a data-protection request, and the log still shows its hash was recorded. A run that
+      lost the race to prepare a request leaves its unreferenced pack in the store.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
@@ -1017,3 +1105,7 @@ audit_events:
   leave_request_submitted: [HM-22, HM-10, HM-09]
   leave_assessed: [HM-21, HM-22]
   leave_prepared: [HM-22, HM-16]
+  leave_evidence: [HM-23]
+  leave_decision: [HM-23]
+  leave_decision_refused: [HM-23]
+  leave_information_requested: [HM-23]

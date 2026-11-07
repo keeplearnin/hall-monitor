@@ -253,8 +253,9 @@ def overview_page(data: dict) -> str:
                     tag(
                         "p",
                         "Eligibility, entitlement and routing are code (HM-21); intake and "
-                        "explanation agents prepare each request (HM-22). No sign-off step yet, "
-                        "so no cases are shown here.",
+                        "explanation agents prepare each request (HM-22); a person signs each "
+                        "decision within their role (HM-23). The panel doesn't read HR cases "
+                        "yet, so none are shown here.",
                         class_="empty",
                     ),
                     class_="card",

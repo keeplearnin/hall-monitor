@@ -45,14 +45,14 @@ Agents get supporting records only through governed MCP tools (`policy_lookup`, 
 
 All data in this repository is synthetic. No real customer, policy or claims data from any company is used.
 
-## The second example: leave of absence (rules and agents; sign-off next)
+## The second example: leave of absence (rules, agents and signed sign-off)
 
 The same pattern on an HR workflow: an employee asks for leave, and someone has to decide whether federal FMLA rules make them eligible and how much leave is left. A wrong denial harms an employee, and the request touches health information an AI must not collect. The rules came first, as code with no model (`python -m hall_monitor.hr`):
 
 - **Eligibility:** whether the employer is covered, and whether the employee has 52 weeks on the payroll, 1,250 hours in the last 12 months, and 50 employees within 75 miles.
 - **Reason and entitlement:** whether the reason qualifies, and whether the leave fits in the weeks left, counted in workdays, under each of the four leave-year methods.
 - **Nothing guessed:** a fact the records don't hold is "can't decide", never a failure.
-- **Routing:** a code rule sends every check that didn't pass and every flag to HR review, and names the least senior role that may decide. Denying needs an HR manager or above; extending past the entitlement or deciding a case with a retaliation risk needs an HR director. Even a clean request is a draft for a leave specialist to sign. Nothing enforces the role until a sign-off step exists.
+- **Routing:** a code rule sends every check that didn't pass and every flag to HR review, and names the least senior role that may decide. Denying needs an HR manager or above; extending past the entitlement or deciding a case with a retaliation risk needs an HR director. Even a clean request is a draft for a leave specialist to sign.
 
 Then two agents, through the same registry, approvals, kill switch, data-class check and audit log as the claims agents:
 
@@ -63,7 +63,9 @@ Then two agents, through the same registry, approvals, kill switch, data-class c
 
 The rules run on what intake extracts, so a wrong extraction changes the result; an eval measures that. Text aimed at the AI sends the request to a person whatever the agents say, and any failure of intake or the rules stops it and sends it to a person (a failed explanation only leaves the note out). Each step goes to the audit log as IDs, keyed hashes, codes and costs.
 
-28 synthetic requests sit on the boundaries, each with an employee's message and hand-worked answer keys ([`data/synthetic/hr/`](data/synthetic/hr/README.md)). The rules are our reading of the regulations, not reviewed by HR or a lawyer; state laws aren't modelled. The agents are tested only with a scripted model so far: no live run, so their accuracy on real messages is unmeasured. The signed sign-off and the panel's HR cases come next.
+28 synthetic requests sit on the boundaries, each with an employee's message and hand-worked answer keys ([`data/synthetic/hr/`](data/synthetic/hr/README.md)). The rules are our reading of the regulations, not reviewed by HR or a lawyer; state laws aren't modelled. The agents are tested only with a scripted model so far: no live run, so their accuracy on real messages is unmeasured.
+
+Then a person decides (`python -m hall_monitor.hr.run` prepares requests into the audit log with the live model; `python -m hall_monitor.hr.review` lists and decides them). A decision counts only if it is signed with the staff member's key over the evidence pack the audit log recorded, and code finds it within their role: at least the role the rule named; approving FMLA leave only for an eligible employee within the weeks left, asked and qualifying; approving fewer weeks than asked, or denying, only by an HR manager or above; extending only by a director, past the entitlement; a reason for any partial or full denial, extension or approval against the route. Asking for more information leaves the request waiting. One decision per request. The log keeps no reason and no signature, only keyed hashes; the signed decision sits in the erasable evidence store. The panel's HR cases come next.
 
 ## Architecture
 
@@ -102,7 +104,7 @@ Every model call goes through one function that checks the agent's approved hall
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
 - [`docs/business-summary.md`](docs/business-summary.md), a one-page business summary in plain English
 - [`docs/board-brief.md`](docs/board-brief.md), one page for a board or risk committee: the risks, the evidence, what isn't proven and the decisions a pilot would need
-- [`docs/adr/`](docs/adr/README.md), 18 architecture decision records: why each design choice was made and what it costs
+- [`docs/adr/`](docs/adr/README.md), 19 architecture decision records: why each design choice was made and what it costs
 - [`docs/review/`](docs/review/README.md), the external review package and a log of every review so far and what it changed
 
 GitHub shows HTML files as source, so download them and open them in a browser.
@@ -129,10 +131,11 @@ Each control's NIST AI RMF and FINOS AIGF mapping is in the [controls register](
 | Fairness checks | Counterfactual runner: each claim re-run under names associated with six groups, swapped everywhere the name appears, counting outcome flips and per-group payment rates (`evals.fairness`). | HM-14 | Built; results need a live run (milestone 8) |
 | Adversarial test suite | Ten attacks planted in real claims (instruction override, forged reviewer tags, claimed prior approval, data exfiltration, forged documents, PII) and scored on whether any worked (`evals.adversarial`). Defences: escaped claim text, a code detector that sends flagged claims to a person, and tool lookups limited to the claim's own policy. | HM-15 | Built; results need a live run (milestone 8) |
 | CI eval gate | Every PR runs `evals.gate`: published results must meet the thresholds in `evals/gate.yaml` (accuracy, hallucination, unsafe routes, critic catch rate; attacks and fairness once run), and results scored on agent versions or prompts that are no longer approved, or that don't record them, are flagged. Live evals run on demand from a manual workflow. | HM-17 | Built (milestone 9); stale results warn until a fresh baseline |
-| Leave rules in code (HR) | FMLA eligibility, entitlement in workweeks under each leave-year method, and routing to the least senior HR role that may decide, all in code with no model, against 28 boundary requests with hand-worked answer keys. A missing fact is "can't decide", never a failure; every check that didn't pass and every flag goes to a person; even a clean request is a draft for a leave specialist to sign. No agents, sign-off step or audit trail for this workflow yet, so the named role isn't enforced; the rules aren't reviewed by HR or a lawyer, and state laws aren't modelled. | HM-21 | Partial: rules only (HR example) |
+| Leave rules in code (HR) | FMLA eligibility, entitlement in workweeks under each leave-year method, and routing to the least senior HR role that may decide, all in code with no model, against 28 boundary requests with hand-worked answer keys. A missing fact is "can't decide", never a failure; every check that didn't pass and every flag goes to a person; even a clean request is a draft for a leave specialist to sign. The agents (HM-22) and the signed sign-off (HM-23), which enforces the named role, are separate controls; the rules aren't reviewed by HR or a lawyer, and state laws aren't modelled. | HM-21 | Partial: rules only (HR example) |
 | Control panel | A read-only web panel and JSON API (`python -m hall_monitor.panel serve`): an overview per workflow with what needs attention first, the agent inventory with each agent's owner, approval, stops and eval results, the review queue, each case's full audit trace, audit-chain verification against an anchored head, the eval gate and the controls register. Each view asks the code that enforces the control (an agent's state is the registry's own run-time check). Every route is GET, the audit log is opened read-only and the checkpoints are never opened. Case traces show an allow-list of each audit event's fields, so no free text the model wrote (tool arguments, policy numbers it read) reaches a page, and no page shows claim text, kill-switch stop reasons, adjusters' reasons or signatures. No sign-in yet, so it serves this machine only; stopping and deciding stay in their CLIs. `snapshot` saves it as static files; `demo` builds demo data offline with a scripted model, labelled on every page. | HM-20 | Built, read-only (control panel phase 1) |
-| Leave agents (HR) | A leave intake agent extracts dates and categories from the employee's redacted message, with no free-text field for a diagnosis; the rules in code decide on what it extracts; a leave explanation agent that never sees the message writes an advisory note. Same registry, approvals, kill switch, data-class check and audit log as the claims agents. Text aimed at the AI and any failure of intake or the rules send the request to a person. An eval scores intake against the answer keys; it hasn't been run live. No sign-off step yet. | HM-22 | Partial: agents built, not run live (HR example) |
-| Framework mapping | 22 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (16 have none yet: 12 list none, and HM-09, HM-14, HM-15 and HM-22 list only live runs still to be made), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
+| Leave agents (HR) | A leave intake agent extracts dates and categories from the employee's redacted message, with no free-text field for a diagnosis; the rules in code decide on what it extracts; a leave explanation agent that never sees the message writes an advisory note. Same registry, approvals, kill switch, data-class check and audit log as the claims agents. Text aimed at the AI and any failure of intake or the rules send the request to a person. An eval scores intake against the answer keys; it hasn't been run live. A failure of the intake call leaves no evidence pack, so the request can be prepared again; any other failure goes to HR with what was found. | HM-22 | Partial: agents built, not run live (HR example) |
+| HR sign-off | A person decides each prepared leave request, signed with their Ed25519 key over the evidence pack the audit log recorded. Code enforces their role against the one the rule named, approves FMLA leave only for an eligible employee within the weeks left, asked and qualifying, lets only HR managers deny (fully or in part, including approving fewer weeks than asked) and only directors extend past the entitlement, and needs a reason for any denial, extension or approval against the route. Asking for more information leaves the request waiting. One decision per request; every refusal that reaches the rules is logged, naming staff only if they signed it. The log keeps keyed hashes, not the reason or signature. Fictional staff use public demo keys. | HM-23 | Built (HR example) |
+| Framework mapping | 23 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (17 have none yet: 13 list none, and HM-09, HM-14, HM-15 and HM-22 list only live runs still to be made), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
 
 ## Results
 
@@ -168,7 +171,8 @@ The two baseline rows use the same code; the second runs on a larger claim set. 
 15. Control panel write actions and access: sign-in with four roles (viewer, reviewer, owner, approver), stopping an agent and signing a decision from the panel, a shared store for the audit log and stops
 16. ~~HR leave example, rules first: FMLA eligibility, entitlement and routing in code, with boundary answer keys~~ (done; agents, approval gate and audit trail next)
 17. ~~HR leave agents: intake and explanation, checked against the rules, inside the shared controls~~ (done; not run live)
-18. HR sign-off: a signed decision that enforces the role the rules name, the evidence it was made on, and HR cases in the panel
+18. ~~HR sign-off: a signed decision that enforces the role the rules name, on the evidence the log recorded~~ (done)
+19. HR cases in the panel, with demo data
 
 Daily progress notes are in [`docs/devlog/`](docs/devlog/).
 
@@ -203,6 +207,8 @@ uv run python -m hall_monitor.panel demo                   # demo data offline, 
 uv run python -m hall_monitor.panel serve --demo           # the panel over the demo data
 uv run python -m hall_monitor.hr                           # leave rules on 28 synthetic requests; no API calls
 uv run python -m hall_monitor.hr.evals --out evals/results/hr-intake  # leave agents, 28 requests, under $0.10
+uv run python -m hall_monitor.hr.run --all                 # prepare the 28 requests into the audit log, under $0.10
+uv run python -m hall_monitor.hr.review list              # leave requests waiting for HR; no API calls
 ```
 
 ## Repository layout

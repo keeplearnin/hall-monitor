@@ -25,9 +25,10 @@ SCHEMA_FILENAME = "agent_manifest.schema.json"
 APPROVALS_FILENAME = "approvals.yaml"
 ADJUSTERS_FILENAME = "adjusters.yaml"
 OWNERS_FILENAME = "owners.yaml"
+HR_STAFF_FILENAME = "hr_staff.yaml"
 # Files in registry/ that are not agent manifests.
 NON_MANIFEST_FILES = frozenset(
-    {APPROVALS_FILENAME, ADJUSTERS_FILENAME, OWNERS_FILENAME, STOPS_FILENAME}
+    {APPROVALS_FILENAME, ADJUSTERS_FILENAME, OWNERS_FILENAME, STOPS_FILENAME, HR_STAFF_FILENAME}
 )
 
 

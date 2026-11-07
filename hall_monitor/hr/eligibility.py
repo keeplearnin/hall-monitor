@@ -65,6 +65,9 @@ class Assessment(BaseModel):
     used_weeks: float | None  # None when the records can't say
     remaining_weeks: float | None
     requested_weeks: float | None  # None for intermittent or reduced-schedule leave
+    # The part of the requested weeks that can qualify: less than requested only for bonding
+    # leave running past its 12 months. None for intermittent leave.
+    qualifying_weeks: float | None = None
     notice_due: date
 
 
@@ -308,6 +311,19 @@ def requested_weeks(request: LeaveRequest, employee: Employee) -> float | None:
     return _workweeks(days, employee)
 
 
+def qualifying_weeks(request: LeaveRequest, employee: Employee) -> float | None:
+    """The requested workweeks that fall before bonding leave stops qualifying; all of them for
+    any other reason."""
+    if request.intermittent:
+        return None
+    expires = bonding_expires(request) if request.reason in BONDING else None
+    last = request.end if expires is None else min(request.end, expires - ONE_DAY)
+    if last < request.start:
+        return 0.0
+    days = sum(1 for d in _days(request.start, last) if d.weekday() in employee.workdays)
+    return _workweeks(days, employee)
+
+
 def leave_year_start(employer: Employer, employee: Employee, start: date) -> date | None:
     """Where the 12-month period that holds `start` begins, by the employer's method; None for
     a method the rules don't know. Caregiver leave has its own period and isn't counted here."""
@@ -445,5 +461,6 @@ def assess(request: LeaveRequest, employee: Employee, company: Company) -> Asses
         used_weeks=used,
         remaining_weeks=remaining,
         requested_weeks=requested_weeks(request, employee),
+        qualifying_weeks=qualifying_weeks(request, employee),
         notice_due=notice_due(request.notice_date),
     )

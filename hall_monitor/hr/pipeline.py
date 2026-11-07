@@ -14,7 +14,8 @@ or unapproved agent, an API error, an unusable answer) stops the request and sen
 person, with what was recorded so far.
 
 Each step is written to the audit log as it happens, when one is given: IDs, hashes, counts,
-codes and costs, never the message, the extraction's values or the explanation's text.
+codes and costs, never the message, the extraction's values or the explanation's text. The
+evidence pack a person signs against is stored at the end (hr/signoff.py).
 """
 
 from __future__ import annotations
@@ -43,6 +44,7 @@ from hall_monitor.hr.models import (
     LeaveRequest,
 )
 from hall_monitor.hr.routing import REASONS, LeaveRoute, Role, route_leave
+from hall_monitor.hr.signoff import record_evidence
 from hall_monitor.models import AgentCall
 from hall_monitor.registry import Registry, RegistryError
 
@@ -54,6 +56,9 @@ class LeavePreparation(BaseModel):
 
     request_id: str
     employee_id: str
+    # The message as the intake agent read it, identifiers redacted: for the person who decides,
+    # to check the extraction against. It goes into the erasable evidence pack, never the log.
+    message_redacted: str
     intake: LeaveIntake | None
     request: LeaveRequest | None
     assessment: Assessment | None
@@ -201,6 +206,10 @@ def prepare(
     client: anthropic.Anthropic | None = None,
     audit: AuditLog | None = None,
 ) -> LeavePreparation:
+    if audit is not None and audit.has(message.id, "leave_evidence"):
+        # The log, not anything else, says whether a request was prepared: it isn't prepared,
+        # and decided, twice.
+        raise ValueError(f"the audit log shows {message.id} was already prepared")
     record = _Recorder(audit, message.id)
     counts: Counter[str] = Counter()
     text = redact_text(message.text, counts)
@@ -214,7 +223,7 @@ def prepare(
     explanation_problem = None
     flags = ["text_addresses_ai"] if signals else []
 
-    def finish(final: LeaveRoute, reason: str | None) -> LeavePreparation:
+    def finish(final: LeaveRoute, reason: str | None, pack: bool = True) -> LeavePreparation:
         nonlocal explanation_problem
         cost, unknown = _cost(calls)
         if unknown is not None:  # a cost that can't be shown is a failure too; keeps the reasons
@@ -225,6 +234,7 @@ def prepare(
         prepared = LeavePreparation(
             request_id=message.id,
             employee_id=message.employee_id,
+            message_redacted=text,
             intake=intake,
             request=request,
             assessment=assessment,
@@ -238,11 +248,15 @@ def prepare(
             cost_usd=cost,
         )
         record.prepared(prepared)
+        if audit is not None and pack:  # what the person signs against (hr/signoff.py)
+            record_evidence(audit, prepared)
         return prepared
 
-    def stop(reason: str, reasons: list[str]) -> LeavePreparation:
-        """A stop before the code has routed: HR review, with any text-aimed-at-the-AI flag."""
-        return finish(_person(reasons + flags), reason)
+    def stop(reason: str, reasons: list[str], pack: bool = True) -> LeavePreparation:
+        """A stop before the code has routed: HR review, with any text-aimed-at-the-AI flag.
+        pack=False for a failure of the intake call itself (an outage, a stopped agent): no
+        evidence pack is stored, so the request can be prepared again once it is fixed."""
+        return finish(_person(reasons + flags), reason, pack)
 
     def keep(call: AgentCall | None) -> None:
         if call is not None:
@@ -253,16 +267,18 @@ def prepare(
         run = run_leave_intake(message, text, registry, client)
     except AgentRefusedError as exc:
         keep(exc.call)
-        return stop(f"agent refused or returned no usable output: {exc}", ["pipeline_stopped"])
+        return stop(
+            f"agent refused or returned no usable output: {exc}", ["pipeline_stopped"], False
+        )
     except RegistryError as exc:
         keep(getattr(exc, "partial_call", None))
-        return stop(f"hall pass refused: {exc}", ["pipeline_stopped"])
+        return stop(f"hall pass refused: {exc}", ["pipeline_stopped"], False)
     except (anthropic.APIError, ValidationError) as exc:
         keep(getattr(exc, "partial_call", None))
-        return stop(f"{type(exc).__name__} from the model call", ["pipeline_stopped"])
+        return stop(f"{type(exc).__name__} from the model call", ["pipeline_stopped"], False)
     except Exception as exc:  # anything unforeseen goes to a person; the type only
         keep(getattr(exc, "partial_call", None))
-        return stop(f"unexpected {type(exc).__name__}", ["pipeline_stopped"])
+        return stop(f"unexpected {type(exc).__name__}", ["pipeline_stopped"], False)
     keep(run.call)
     intake = run.output
 
