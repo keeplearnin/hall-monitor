@@ -5,8 +5,10 @@
             -> code: eligibility, entitlement, who decides (hr/eligibility.py, hr/routing.py)
             -> explanation agent: a note for the specialist, advisory only
 
-The agents can't change the result: the route and the role come from code, and text that
-addresses the AI sends the request to a person whatever the agents say. Every outcome is for a
+The route and the role come from code. The intake agent's answer is what the rules run on, so
+a wrong extraction changes the result (the eval measures that); the explanation agent can't
+change it, and text that addresses the AI sends the request to a person whatever the agents
+say. Every outcome is for a
 person to sign; nothing here approves or denies leave. Any failure (an agent refusing, a stopped
 or unapproved agent, an API error, an unusable answer) stops the request and sends it to a
 person, with what was recorded so far.
@@ -17,7 +19,6 @@ codes and costs, never the message, the extraction's values or the explanation's
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections import Counter
 
@@ -66,16 +67,23 @@ class LeavePreparation(BaseModel):
     cost_usd: float
 
 
-def _sha256(value: object) -> str:
-    text = value if isinstance(value, str) else json.dumps(value, sort_keys=True, default=str)
-    return hashlib.sha256(text.encode()).hexdigest()
+def _canonical(value: object) -> str:
+    return value if isinstance(value, str) else json.dumps(value, sort_keys=True, default=str)
 
 
 class _Recorder:
-    """Writes the request's steps to the audit log as they happen, if there is one."""
+    """Writes the request's steps to the audit log as they happen, if there is one.
+
+    The message, the extraction, the code's result and the note are logged as keyed hashes
+    (HMAC), never plain ones: an extraction has few possible values (dates, a handful of
+    categories), so a plain hash could be confirmed by guessing, revealing the reason category.
+    """
 
     def __init__(self, audit: AuditLog | None, request_id: str):
         self.audit, self.request_id = audit, request_id
+
+    def _hmac(self, value: object) -> str:
+        return self.audit.keyed_hash(_canonical(value))
 
     def submitted(self, message: LeaveMessage, redactions: dict, signals: list[str]) -> None:
         if self.audit:
@@ -86,7 +94,7 @@ class _Recorder:
                 {
                     "employee_id": message.employee_id,
                     "submitted_at": message.submitted_at.isoformat(),
-                    "message_sha256": _sha256(message.text),
+                    "message_hmac": self._hmac(message.text),
                     "identifiers_redacted": redactions,
                     "injection_signals": signals,
                 },
@@ -105,8 +113,8 @@ class _Recorder:
                 "leave_assessed",
                 "pipeline",
                 {
-                    "intake_sha256": _sha256(intake.model_dump(mode="json")),
-                    "assessment_sha256": _sha256(assessment.model_dump(mode="json")),
+                    "intake_hmac": self._hmac(intake.model_dump(mode="json")),
+                    "assessment_hmac": self._hmac(assessment.model_dump(mode="json")),
                     "eligible": assessment.eligible,
                     "failed_checks": sorted(c.id for c in assessment.checks if c.passed is False),
                     "unknown_checks": sorted(c.id for c in assessment.checks if c.passed is None),
@@ -130,8 +138,8 @@ class _Recorder:
                     "decided_by": prepared.route.decided_by,
                     "reasons": prepared.route.reasons,
                     "stopped_reason": prepared.stopped_reason,
-                    "explanation_sha256": (
-                        None if explanation is None else _sha256(explanation.model_dump())
+                    "explanation_hmac": (
+                        None if explanation is None else self._hmac(explanation.model_dump())
                     ),
                     "explanation_problem": prepared.explanation_problem,
                     "cost_usd": prepared.cost_usd,
@@ -168,11 +176,9 @@ def _with(route: LeaveRoute, extra: list[str]) -> LeaveRoute:
 
 def _explanation_problem(explanation: LeaveExplanation, assessment: Assessment) -> str | None:
     """The note is only kept if it explains exactly the checks the code made."""
-    expected = {c.id for c in assessment.checks}
-    if set(explanation.checks) != expected:
+    ids = [note.id for note in explanation.checks]
+    if sorted(ids) != sorted(c.id for c in assessment.checks):
         return "the explanation didn't cover exactly the checks the code made"
-    if any(len(text) > 400 for text in explanation.checks.values()):
-        return "an explanation sentence was too long"
     return None
 
 
@@ -202,29 +208,37 @@ def prepare(
     record.submitted(message, redactions, signals)
 
     calls: list[AgentCall] = []
-    intake = request = assessment = explanation = None
-    explanation_problem = stopped = None
+    intake = request = assessment = explanation = route = None
+    explanation_problem = None
     flags = ["text_addresses_ai"] if signals else []
 
-    def stop(reason: str, reasons: list[str]) -> LeavePreparation:
+    def finish(final: LeaveRoute, reason: str | None) -> LeavePreparation:
         cost, unknown = _cost(calls)
+        if unknown is not None:  # a cost that can't be shown is a failure too
+            final = _with(final, ["pipeline_stopped"])
+            reason = unknown if reason is None else f"{reason}; {unknown}"
         prepared = LeavePreparation(
             request_id=message.id,
             employee_id=message.employee_id,
             intake=intake,
             request=request,
             assessment=assessment,
-            route=_person(reasons + flags),
-            explanation=None,
-            explanation_problem=None,
+            route=final,
+            explanation=explanation if reason is None else None,
+            explanation_problem=explanation_problem,
             agent_calls=calls,
             redactions=redactions,
             injection_signals=signals,
-            stopped_reason=reason if unknown is None else f"{reason}; {unknown}",
+            stopped_reason=reason,
             cost_usd=cost,
         )
         record.prepared(prepared)
         return prepared
+
+    def stop(reason: str, reasons: list[str]) -> LeavePreparation:
+        # A stop after the code routed keeps that route's reasons, so the role never drops.
+        final = _person(reasons + flags) if route is None else _with(route, reasons)
+        return finish(final, reason)
 
     def keep(call: AgentCall | None) -> None:
         if call is not None:
@@ -242,6 +256,9 @@ def prepare(
     except (anthropic.APIError, ValidationError) as exc:
         keep(getattr(exc, "partial_call", None))
         return stop(f"{type(exc).__name__} from the model call", ["pipeline_stopped"])
+    except Exception as exc:  # anything unforeseen goes to a person; the type only
+        keep(getattr(exc, "partial_call", None))
+        return stop(f"unexpected {type(exc).__name__}", ["pipeline_stopped"])
     keep(run.call)
     intake = run.output
 
@@ -260,9 +277,12 @@ def prepare(
     except ValidationError as exc:  # an end before the start, say: the type only, no values
         kinds = ", ".join(sorted({e["type"] for e in exc.errors()}))
         return stop(f"the extracted request isn't valid ({kinds})", ["facts_missing"])
-
-    assessment = assess(request, employee, company)
-    route = _with(route_leave(assessment, request, employee, company), flags)
+    try:
+        assessment = assess(request, employee, company)
+        route = _with(route_leave(assessment, request, employee, company), flags)
+    except Exception as exc:  # a date the arithmetic can't handle, say
+        assessment = None
+        return stop(f"unexpected {type(exc).__name__}", ["pipeline_stopped"])
     record.assessed(intake, assessment, route)
 
     try:
@@ -273,7 +293,8 @@ def prepare(
         if explanation_problem:
             explanation = None
     except AgentRefusedError as exc:
-        # The note is advisory: without it the request still goes to the same person.
+        # The note is advisory: without it the request still goes to the same person, and the
+        # log records why it is missing.
         keep(exc.call)
         explanation_problem = "the explanation agent gave no usable answer"
     except RegistryError as exc:
@@ -282,22 +303,7 @@ def prepare(
     except (anthropic.APIError, ValidationError) as exc:
         keep(getattr(exc, "partial_call", None))
         explanation_problem = f"{type(exc).__name__} from the model call"
-
-    cost, unknown = _cost(calls)
-    prepared = LeavePreparation(
-        request_id=message.id,
-        employee_id=message.employee_id,
-        intake=intake,
-        request=request,
-        assessment=assessment,
-        route=route,
-        explanation=explanation,
-        explanation_problem=explanation_problem,
-        agent_calls=calls,
-        redactions=redactions,
-        injection_signals=signals,
-        stopped_reason=stopped if unknown is None else unknown,
-        cost_usd=cost,
-    )
-    record.prepared(prepared)
-    return prepared
+    except Exception as exc:
+        keep(getattr(exc, "partial_call", None))
+        explanation_problem = f"unexpected {type(exc).__name__}"
+    return finish(route, None)

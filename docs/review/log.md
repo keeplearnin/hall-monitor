@@ -512,3 +512,21 @@ test; the 2 that weren't now are.
 | The docs said a child's age is only under 18 or not, though bonding requests carry the birth date; "18 problems, all fixed" though two were logged; boundary tests on both sides that were on one; an "11-year break" that is almost 11 | Low | Corrected |
 | An unknown leave-year method was treated as forward-from-first-leave | Low | It can't be decided |
 | Bonding from 29 February ended a day early (plausible) | Low | It runs to the end of 28 February |
+
+## Review 9: the HR leave agents (HM-22)
+
+**Reviewer:** the governance-reviewer agent, on the hr-agents branch before its pull request,
+with offline probes against the fake model client. 9 findings: 8 confirmed, 1 plausible. All
+fixed, test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| `leave_assessed` logged plain SHA-256 hashes of the extraction and the result; with so few possible values, a guess found the full extraction (reason category, family member, dates) in 2.3 seconds | High | Keyed hashes (HMAC) for the message, extraction, result and note; a test checks the logged value isn't the plain hash |
+| No catch-all: an unexpected error, or an extreme date from the model (year 1, year 9999), crashed the pipeline with no route and no `leave_prepared` entry, and aborted the eval | High | Every step after intake and both agent calls catch any error and send the request to a person, keeping the code's reasons if it had routed; implausible dates are refused when the answer is parsed |
+| The explanation's `dict[str, str]` became an object with no properties in the schema the API is sent, so a live model could only answer `{}` and every note would be dropped | Medium | A list of notes with a fixed set of check ids; a test runs the SDK's schema transform on it |
+| The docs said neither agent can change the result, but the rules run on what intake extracts | Medium | They say intake's facts shape the result and the eval measures it; the explanation can't change it |
+| A model with no price set `stopped_reason` without stopping the request | Low | A cost that can't be shown stops it |
+| The injection detector didn't know the HR tags or HR phrasings | Low | It knows the HR tags and a few HR phrasings; the gap says it is still a phrase list |
+| "Each agent's hall pass allows exactly the data classes it is sent" and "never the employee" overstated: the test compared each manifest with a hand-written constant, and the explanation's input holds employment facts no class covers | Low, plausible | Reworded to what is checked; the employment facts are named |
+| The eval didn't load `.env` or flush traces, unlike every other eval | Low | It does both |
+| Explanation failures weren't counted anywhere, and a stopped explanation agent was described as stopping the request | Low | The eval counts them; the docs say a failed explanation only leaves the note out |

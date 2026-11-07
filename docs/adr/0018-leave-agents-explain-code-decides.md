@@ -20,14 +20,22 @@ that no agent ever sees a diagnosis it doesn't need and that none can approve or
   and fenced as untrusted; the agent's answer is dates, a reason category and yes-or-no facts,
   with no free-text field, so a condition can't travel downstream even if the model writes one.
 - **Code decides; the explanation can't change it.** The rules run on the extraction and set
-  the route and the role. The explanation agent reads only that result (no message, no
-  employee, no request ID) and its note is kept only if it covers exactly the checks the code
-  made. If it fails, the request goes to the same person without a note.
+  the route and the role, so intake's facts do shape the result: a wrong date or family member
+  changes it, which is why the eval exists. The explanation agent reads only the code's result
+  (no message, no employee ID, no request ID); its note, one per check, is kept only if it
+  covers exactly the checks the code made, and is shaped as a list because the API's structured
+  output can't express a map with free keys. If it fails or is stopped, the request goes to the
+  same person without a note, and the log says why.
 - **Text aimed at the AI goes to a person,** whatever the agents return, by the same detector
   the claims use, on the message as sent and as redacted.
 - **Failures go to a person,** as in claims ([ADR 0007](0007-failures-stop-the-claim.md)): a
-  refusal, a stopped or unapproved agent, an API error, an extraction without dates or with an
-  end before its start, or no employee record.
+  refusal, a stopped or unapproved intake agent, an API error, any unexpected error, an
+  extraction without dates, with an end before its start or with an implausible date, no
+  employee record, or a cost that can't be shown. A stop after the code routed keeps its
+  reasons, so the role never drops.
+- **Keyed hashes only.** The log ties the message, extraction, result and note to the request
+  by keyed hash (HMAC): an extraction has so few possible values that a plain hash could be
+  confirmed by guessing, which would reveal the reason category.
 - **An eval for what the rules can't see.** A wrong date or the wrong family member changes the
   result without any rule noticing, so `hall_monitor.hr.evals` scores intake field by field and
   the end-to-end result against the answer keys. It costs money to run and hasn't been run.
@@ -53,5 +61,5 @@ that no agent ever sees a diagnosis it doesn't need and that none can approve or
 `tests/test_hr_agents.py`: with a scripted model, every message reaches the answer key's
 result; an intake error the rules can't see shows up in the eval; text aimed at the AI goes to
 a person; identifiers are redacted before intake; the explanation agent sees no message or
-identity; every failure stops the request; the audit log holds nothing the employee or a model
-wrote.
+identity; every failure of intake or the rules stops the request; the audit log holds nothing
+the employee or a model wrote, and no plain hash. Review 9 in docs/review/log.md.

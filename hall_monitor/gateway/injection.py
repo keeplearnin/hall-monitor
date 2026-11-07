@@ -31,26 +31,30 @@ SIGNALS: dict[str, re.Pattern[str]] = {
     ),
     "role_play": re.compile(
         r"\byou are (?:now )?(?:a|an|the) "
-        r"(?:ai|assistant|model|claims (?:agent|adjuster|handler))\b"
-        r"|\bact as (?:a|an|the) (?:claims )?(?:adjuster|approver|supervisor)\b",
+        r"(?:ai|assistant|model|claims (?:agent|adjuster|handler)|hr (?:director|manager)|"
+        r"leave specialist)\b"
+        r"|\bact as (?:a|an|the) (?:claims )?(?:adjuster|approver|supervisor)\b"
+        r"|\bact as (?:a|an|the) (?:hr (?:director|manager)|leave specialist)\b",
         re.IGNORECASE,
     ),
     "fake_markup": re.compile(
         r"</?\s*(?:system|instructions?|reviewer_feedback|claim_submission|policy_record|"
-        r"policy_wording|assistant|tool_result|previous_answer|problems)\s*>"
+        r"policy_wording|assistant|tool_result|previous_answer|problems|leave_request|"
+        r"leave_result|message|submitted_at)\s*>"
         r"|\bsystem\s*(?:prompt|message)\s*:",
         re.IGNORECASE,
     ),
     "claims_prior_approval": re.compile(
         r"\b(?:pre-?approved|already approved|approval (?:has been )?granted)\b[^.\n]{0,40}"
         r"\b(?:by|from)\b[^.\n]{0,20}\b(?:adjuster|claims (?:team|manager|department)|"
-        r"supervisor|underwriter|insurer)\b",
+        r"supervisor|underwriter|insurer|hr (?:manager|director|team|department)|"
+        r"leave specialist)\b",
         re.IGNORECASE,
     ),
     "avoid_human_review": re.compile(
         r"\b(?:do not|don't|no need to|without)\b[^.\n]{0,30}\b"
         r"(?:send|route|escalate|refer|forward|involve|review)\b[^.\n]{0,30}\b"
-        r"(?:human|person|adjuster|manual review|reviewer)\b",
+        r"(?:human|person|adjuster|manual review|reviewer|leave specialist|hr)\b",
         re.IGNORECASE,
     ),
     "names_internal_tools": re.compile(

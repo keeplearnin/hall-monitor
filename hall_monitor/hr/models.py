@@ -12,8 +12,9 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import StrEnum
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 ID = r"^[a-z0-9][a-z0-9_-]{0,63}$"
 
@@ -281,14 +282,31 @@ class LeaveIntake(BaseModel):
         description="Signs the employee may need a disability or pregnancy accommodation."
     )
 
+    @field_validator("start", "end", "event_date")
+    @classmethod
+    def _a_plausible_date(cls, value: date | None) -> date | None:
+        # A date the rules can do arithmetic on; anything else is a bad extraction.
+        if value is not None and not date(1900, 1, 1) <= value <= date(2199, 12, 31):
+            raise ValueError("date out of range")
+        return value
+
+
+CheckId = Literal["employer", "service", "hours", "worksite", "reason", "entitlement"]
+
+
+class CheckNote(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: CheckId
+    text: str = Field(max_length=400, description="One plain sentence explaining the result.")
+
 
 class LeaveExplanation(BaseModel):
     """The explanation agent's note for the leave specialist: advisory text only. The code's
-    result decides; nothing here changes it."""
+    result decides; nothing here changes it. A list of notes, not a map: the API's structured
+    output can't express a map with free keys."""
 
     model_config = ConfigDict(extra="forbid")
 
-    checks: dict[str, str] = Field(
-        description="For each check id given, one plain sentence explaining its result."
-    )
+    checks: list[CheckNote] = Field(description="One note for each check given, by its id.")
     summary: str = Field(max_length=800, description="Two or three sentences for the specialist.")

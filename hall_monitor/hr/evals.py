@@ -15,6 +15,9 @@ import argparse
 import json
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+from hall_monitor import tracing
 from hall_monitor.evals.meta import run_meta
 from hall_monitor.hr import __main__ as rules
 from hall_monitor.hr.data import (
@@ -66,6 +69,7 @@ def run(registry: Registry, client=None) -> dict:
             {
                 "request_id": message.id,
                 "score": score(prepared, requests[message.id], answers[message.id]),
+                "explanation_problem": prepared.explanation_problem,
                 "cost_usd": prepared.cost_usd,
             }
         )
@@ -79,6 +83,8 @@ def run(registry: Registry, client=None) -> dict:
         ),
         "route_accuracy": round(sum(r["score"]["route_matches"] for r in runs) / total, 4),
         "explanations_kept": sum(bool(r["score"].get("explanation_kept")) for r in runs),
+        # The note is advisory, so a failure doesn't stop the request; it is counted here.
+        "explanation_failures": sum(bool(r["explanation_problem"]) for r in runs),
         "errors": sum(bool(r["score"]["error"]) for r in runs),
         "cost_usd": round(sum(r["cost_usd"] for r in runs), 4),
     }
@@ -89,8 +95,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m hall_monitor.hr.evals")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
+    load_dotenv()
     registry = Registry.from_dir()
-    result = run(registry)
+    try:
+        result = run(registry)
+    finally:
+        tracing.flush()
     result["meta"] = run_meta(registry, ["leave_intake", "leave_explainer"])
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "results.json").write_text(json.dumps(result, indent=2) + "\n")
