@@ -141,7 +141,8 @@ def test_an_unsigned_or_wrongly_signed_decision_is_refused_and_logged(log):
     with pytest.raises(DecisionRefused, match="signed with hrs-101's key"):
         _decide(log, "lr_001", "hrs-101", "approve", weeks=4, key=demo_private_key("hrs-201"))
     refusal = log.entries("lr_001")[-1]
-    assert refusal["event"] == "leave_decision_refused" and refusal["actor"] == "hr:hrs-101"
+    # Not signed by hrs-101, so the log doesn't name them.
+    assert refusal["event"] == "leave_decision_refused" and refusal["actor"] == "hr:?"
     assert status(log, "lr_001")["refused_decisions"] == 1
 
 
@@ -492,3 +493,223 @@ def test_a_bad_staff_file_is_refused_naming_the_entry(tmp_path, body):
     bad.write_text(body)
     with pytest.raises(ValueError, match="x"):
         load_staff(bad)
+
+
+# --- Re-review of review 10 ------------------------------------------------------------------
+
+
+def test_a_partial_approval_needs_a_manager_even_with_a_reason(log):
+    with pytest.raises(DecisionRefused, match="needs an HR manager or above"):
+        _decide(log, "lr_001", "hrs-101", "approve", weeks=2, reason=REASON)
+
+
+def test_approving_intermittent_leave_for_less_than_is_left_is_a_partial_denial(log):
+    # lr_011: intermittent, 12 weeks left, a leave specialist's case.
+    with pytest.raises(DecisionRefused, match="needs an HR manager or above"):
+        _decide(log, "lr_011", "hrs-101", "approve", weeks=0.01, reason=REASON)
+    assert _decide(log, "lr_011", "hrs-101", "approve", weeks=12, reason=REASON)["weeks"] == 12
+
+
+def test_a_logged_decision_always_has_its_signed_record(log, monkeypatch):
+    def broken(pack):
+        raise sqlite3.OperationalError("disk full")
+
+    monkeypatch.setattr(log, "put_evidence", broken)
+    with pytest.raises(sqlite3.OperationalError):
+        _decide(log, "lr_001", "hrs-101", "approve", weeks=4)
+    assert not log.has("lr_001", "leave_decision")
+
+
+def test_a_losing_identical_decision_doesn_t_erase_the_winner_s_record(log, monkeypatch):
+    decision = _decision(log, "lr_001", "hrs-101", "approve", weeks=4)
+    decide(log, "lr_001", decision, STAFF)
+    monkeypatch.setattr(log, "has", lambda *a: False)
+    with pytest.raises(DecisionRefused):
+        decide(log, "lr_001", decision, STAFF)
+    logged = next(e for e in log.entries("lr_001") if e["event"] == "leave_decision")["payload"]
+    keys = [row[0] for row in log._db.execute("SELECT sha256 FROM evidence").fetchall()]
+    assert any(log.keyed_hash(k) == logged["decision_hmac"] for k in keys)
+
+
+def test_a_preparation_that_stopped_before_the_rules_can_be_prepared_again(tmp_path):
+    from types import SimpleNamespace
+
+    from hall_monitor.hr.models import LeaveExplanation, LeaveIntake
+    from tests.fakes import FakeMessages
+    from tests.test_hr_agents import _explanation, _intake_for
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    refusing = SimpleNamespace(
+        messages=FakeMessages({LeaveIntake: _intake_for}, {LeaveIntake: "refusal"})
+    )
+    args = {
+        "employees": EMPLOYEES,
+        "company": COMPANY,
+        "registry": Registry.from_dir(TEST_REGISTRY_DIR),
+        "audit": audit,
+    }
+    prepare(MESSAGES["lr_001"], client=refusing, **args)
+    assert status(audit, "lr_001")["state"] == "stopped before the rules ran; can be prepared again"
+    prepare(MESSAGES["lr_001"], client=_client(), **args)
+    assert status(audit, "lr_001")["route"] == "specialist_sign_off"
+    del LeaveExplanation, _explanation
+
+
+def test_a_refusal_names_staff_only_when_they_signed_it(log):
+    _decide(log, "lr_001", "hrs-101", "approve", weeks=4)
+    unsigned = LeaveDecision(
+        staff_id="hrs-301", outcome="approve", weeks=4, evidence_sha256=evidence(log, "lr_001")[0]
+    )
+    with pytest.raises(DecisionRefused):
+        decide(log, "lr_001", unsigned, STAFF)
+    assert log.entries("lr_001")[-1]["actor"] == "hr:?"
+
+
+def test_an_information_request_is_kept_and_can_t_be_replayed(log):
+    asked = _decision(
+        log, "lr_012", "hrs-101", "request_information", reason="Please send the dates."
+    )
+    decide(log, "lr_012", asked, STAFF)
+    with pytest.raises(DecisionRefused, match="already recorded"):
+        decide(log, "lr_012", asked, STAFF)
+    logged = [e for e in log.entries("lr_012") if e["event"] == "leave_information_requested"]
+    assert len(logged) == 1
+    keys = [row[0] for row in log._db.execute("SELECT sha256 FROM evidence").fetchall()]
+    assert any(log.keyed_hash(k) == logged[0]["payload"]["request_hmac"] for k in keys)
+
+
+def test_show_and_list_report_an_erased_pack_instead_of_failing(log, capsys):
+    import json
+
+    erased = evidence(log, "lr_003")[0]
+    log._db.execute("DELETE FROM evidence WHERE sha256 = ?", (erased,))
+    db = ["--audit-db", str(log.path)]
+    assert review_cli.main([*db, "show", "lr_003"]) == 0
+    assert "no longer stored" in json.loads(capsys.readouterr().out)["evidence_problem"]
+    assert review_cli.main([*db, "list"]) == 0
+    listed = json.loads(capsys.readouterr().out)
+    assert "lr_003" not in listed["waiting_for_hr"] and "lr_003" in listed["evidence_problems"]
+    assert "no longer stored" in status(log, "lr_003")["evidence_problem"]
+
+
+def test_the_run_command_skips_requests_already_prepared_and_goes_on(tmp_path):
+    from hall_monitor.hr import run as hr_run
+
+    db = tmp_path / "audit.sqlite"
+    hr_run.run(["lr_002"], db, client=_client())
+    results = hr_run.run(["lr_004", "lr_002", "lr_005"], db, client=_client())
+    assert [r.get("skipped") for r in results] == [None, "already prepared", None]
+    assert status(AuditLog(db), "lr_005")["state"] == "waiting for HR"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "staff:\n  - {id: x, name: X, role: hr_manager, public_key: k, email: pat@example.com}\n",
+        "staff: [unclosed\n",
+        "people: []\n",
+    ],
+    ids=["extra field", "bad yaml", "no staff key"],
+)
+def test_a_bad_staff_file_is_refused_without_echoing_it(tmp_path, body):
+    bad = tmp_path / "hr_staff.yaml"
+    bad.write_text(body)
+    with pytest.raises(ValueError) as refused:
+        load_staff(bad)
+    assert "pat@example.com" not in str(refused.value)
+
+
+def test_an_extension_grants_more_than_is_left(log):
+    # lr_009: 2 weeks left, 3 asked; extend gives the total.
+    with pytest.raises(DecisionRefused, match="more weeks than are left"):
+        _decide(log, "lr_009", "hrs-301", "extend", weeks=0.5, reason=REASON)
+
+
+def test_an_extension_when_nothing_is_left():
+    from hall_monitor.hr.signoff import validate
+
+    pack = {
+        "route": {
+            "route": "hr_review",
+            "decided_by": "hr_director",
+            "reasons": ["past_entitlement"],
+        },
+        "assessment": {
+            "remaining_weeks": 0.0,
+            "requested_weeks": None,
+            "qualifying_weeks": None,
+            "checks": [
+                {"id": c, "passed": True}
+                for c in ("employer", "service", "hours", "worksite", "reason", "entitlement")
+            ],
+        },
+    }
+    decision = LeaveDecision(
+        staff_id="hrs-301", outcome="extend", weeks=2, reason=REASON, evidence_sha256="e"
+    ).signed("lr_z", demo_private_key("hrs-301"))
+    assert validate(decision, "lr_z", "e", pack, STAFF).id == "hrs-301"
+
+
+def test_a_decision_on_a_request_without_a_pack_is_refused_and_logged(tmp_path):
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    audit.append("lr_q", "leave_request_submitted", "employee", {})
+    decision = LeaveDecision(staff_id="hrs-101", outcome="approve", weeks=1, evidence_sha256="e")
+    with pytest.raises(DecisionRefused, match="no evidence pack"):
+        decide(audit, "lr_q", decision.signed("lr_q", demo_private_key("hrs-101")), STAFF)
+    assert audit.entries("lr_q")[-1]["event"] == "leave_decision_refused"
+
+
+def test_the_qualifying_weeks_stop_the_day_before_the_bonding_year_ends(log):
+    assert evidence(log, "lr_017")[1]["assessment"]["qualifying_weeks"] == 2.2
+
+
+def test_the_cli_refuses_a_bad_staff_file(log, capsys, monkeypatch):
+    from hall_monitor.hr import signoff
+
+    def broken(*a, **k):
+        raise ValueError("x is listed twice")
+
+    monkeypatch.setattr(review_cli, "load_staff", broken)
+    del signoff
+    args = [
+        "--audit-db",
+        str(log.path),
+        "decide",
+        "lr_001",
+        "--staff",
+        "hrs-101",
+        "--outcome",
+        "approve",
+        "--weeks",
+        "4",
+        "--evidence-sha256",
+        "e",
+    ]
+    assert review_cli.main(args) == 2
+    assert "staff file" in capsys.readouterr().err
+
+
+def test_intermittent_bonding_leave_past_its_year_isn_t_approved_here():
+    from hall_monitor.hr.signoff import validate
+
+    pack = {
+        "route": {
+            "route": "hr_review",
+            "decided_by": "hr_manager",
+            "reasons": ["bonding_window", "intermittent"],
+        },
+        "assessment": {
+            "remaining_weeks": 12.0,
+            "requested_weeks": None,
+            "qualifying_weeks": None,
+            "checks": [
+                {"id": c, "passed": True}
+                for c in ("employer", "service", "hours", "worksite", "reason", "entitlement")
+            ],
+        },
+    }
+    decision = LeaveDecision(
+        staff_id="hrs-201", outcome="approve", weeks=12, reason=REASON, evidence_sha256="e"
+    ).signed("lr_z", demo_private_key("hrs-201"))
+    with pytest.raises(DecisionRefused, match="intermittent bonding leave"):
+        validate(decision, "lr_z", "e", pack, STAFF)

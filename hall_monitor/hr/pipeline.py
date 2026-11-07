@@ -223,7 +223,7 @@ def prepare(
     explanation_problem = None
     flags = ["text_addresses_ai"] if signals else []
 
-    def finish(final: LeaveRoute, reason: str | None) -> LeavePreparation:
+    def finish(final: LeaveRoute, reason: str | None, pack: bool = True) -> LeavePreparation:
         nonlocal explanation_problem
         cost, unknown = _cost(calls)
         if unknown is not None:  # a cost that can't be shown is a failure too; keeps the reasons
@@ -248,13 +248,15 @@ def prepare(
             cost_usd=cost,
         )
         record.prepared(prepared)
-        if audit is not None:  # what the person signs against (hr/signoff.py)
+        if audit is not None and pack:  # what the person signs against (hr/signoff.py)
             record_evidence(audit, prepared)
         return prepared
 
-    def stop(reason: str, reasons: list[str]) -> LeavePreparation:
-        """A stop before the code has routed: HR review, with any text-aimed-at-the-AI flag."""
-        return finish(_person(reasons + flags), reason)
+    def stop(reason: str, reasons: list[str], pack: bool = True) -> LeavePreparation:
+        """A stop before the code has routed: HR review, with any text-aimed-at-the-AI flag.
+        pack=False for a failure of the intake call itself (an outage, a stopped agent): no
+        evidence pack is stored, so the request can be prepared again once it is fixed."""
+        return finish(_person(reasons + flags), reason, pack)
 
     def keep(call: AgentCall | None) -> None:
         if call is not None:
@@ -265,16 +267,18 @@ def prepare(
         run = run_leave_intake(message, text, registry, client)
     except AgentRefusedError as exc:
         keep(exc.call)
-        return stop(f"agent refused or returned no usable output: {exc}", ["pipeline_stopped"])
+        return stop(
+            f"agent refused or returned no usable output: {exc}", ["pipeline_stopped"], False
+        )
     except RegistryError as exc:
         keep(getattr(exc, "partial_call", None))
-        return stop(f"hall pass refused: {exc}", ["pipeline_stopped"])
+        return stop(f"hall pass refused: {exc}", ["pipeline_stopped"], False)
     except (anthropic.APIError, ValidationError) as exc:
         keep(getattr(exc, "partial_call", None))
-        return stop(f"{type(exc).__name__} from the model call", ["pipeline_stopped"])
+        return stop(f"{type(exc).__name__} from the model call", ["pipeline_stopped"], False)
     except Exception as exc:  # anything unforeseen goes to a person; the type only
         keep(getattr(exc, "partial_call", None))
-        return stop(f"unexpected {type(exc).__name__}", ["pipeline_stopped"])
+        return stop(f"unexpected {type(exc).__name__}", ["pipeline_stopped"], False)
     keep(run.call)
     intake = run.output
 

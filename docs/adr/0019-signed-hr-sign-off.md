@@ -25,12 +25,19 @@ two differences the claims gate taught.
 - **Role and outcome rules in code.** The staff member's role, read from
   `registry/hr_staff.yaml`, must be at least the one the routing rule named. Approving FMLA leave
   needs an eligible employee, a qualifying reason, and weeks within what is left, was asked and
-  qualifies; approving fewer weeks than asked refuses the rest, so it is a partial denial and
-  needs an HR manager and a reason. Denying needs an HR manager or above; extending needs a
-  director, an eligible employee and a request past the entitlement, up to the weeks asked;
+  qualifies; approving fewer weeks than asked (for intermittent leave, than are left) refuses
+  the rest, so it is a partial denial and needs an HR manager and a reason. Denying needs an HR
+  manager or above; extending needs a director, an eligible employee and a request past the
+  entitlement, granting more weeks in total than are left and no more than were asked;
   denying, extending, or approving a request the rule sent to HR review needs a written reason.
-- **Asking for more information isn't a decision.** Anyone registered may ask; it is logged and
-  the request keeps waiting, so a specialist can't close a case the rule kept for a director.
+- **Asking for more information isn't a decision.** Anyone registered may ask; it is signed,
+  stored and logged once, and the request keeps waiting, so a specialist can't close a case the
+  rule kept for a director.
+- **Record first, then the log.** The signed decision goes to the store before its log entry,
+  so a logged decision always has its record; a decision that lost a race has its record
+  removed and its refusal logged, naming the staff member only if they signed it.
+- **A failed intake call can be retried.** It leaves no evidence pack, so an outage doesn't
+  leave a request stuck with a pack the rules never ran on.
 - **No signature in the chain.** The claims log keeps each decision's signature, and with the
   public key a signature can confirm a guessed reason (HM-06 gap). The HR log keeps the staff
   ID, role, outcome, weeks, the code's route and keyed hashes of the reason and of the signed

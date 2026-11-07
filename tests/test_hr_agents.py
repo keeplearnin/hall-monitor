@@ -330,7 +330,8 @@ def test_an_unexpected_error_in_an_agent_goes_to_a_person(registry, tmp_path):
     prepared = _prepare(MESSAGES["lr_001"], registry, _client({LeaveIntake: broken}), audit=log)
     assert prepared.route.reasons == ["pipeline_stopped"]
     assert prepared.stopped_reason == "unexpected KeyError"
-    assert log.entries("lr_001")[-2]["event"] == "leave_prepared"
+    # An intake failure leaves no evidence pack, so the request can be prepared again.
+    assert log.entries("lr_001")[-1]["event"] == "leave_prepared"
     explained = _prepare(MESSAGES["lr_012"], registry, _client({LeaveExplanation: broken}))
     assert explained.explanation is None and explained.explanation_problem == "unexpected KeyError"
     assert explained.route.reasons == ["retaliation_risk"]

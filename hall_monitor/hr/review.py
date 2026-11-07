@@ -36,9 +36,21 @@ def _print(data) -> None:
     print(json.dumps(data, indent=2, default=str))
 
 
-def _waiting(audit: AuditLog) -> list[str]:
-    ids = sorted({e["claim_id"] for e in audit.entries() if e["event"] == "leave_evidence"})
-    return [i for i in ids if status(audit, i)["state"] == "waiting for HR"]
+def _requests(audit: AuditLog) -> dict[str, list[str]]:
+    """Leave requests by where they stand: waiting for HR, waiting but with a pack that was
+    changed or erased, and stopped before the rules ran (they can be prepared again)."""
+    leave = {"leave_request_submitted", "leave_evidence", "leave_prepared"}
+    ids = sorted({e["claim_id"] for e in audit.entries() if e["event"] in leave})
+    out: dict[str, list[str]] = {"waiting_for_hr": [], "evidence_problems": [], "stopped": []}
+    for request_id in ids:
+        state = status(audit, request_id)
+        if state["state"] == "waiting for HR":
+            out["evidence_problems" if state.get("evidence_problem") else "waiting_for_hr"].append(
+                request_id
+            )
+        elif state["state"].startswith("stopped"):
+            out["stopped"].append(request_id)
+    return out
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -64,16 +76,20 @@ def main(argv: list[str] | None = None) -> int:
     audit = AuditLog(args.audit_db)
     try:
         if args.command == "list":
-            _print({"waiting_for_hr": _waiting(audit)})
+            _print(_requests(audit))
             return 0
         if args.command == "show":
             state = status(audit, args.request_id)
             if state["state"] == "unknown":
                 print(f"no request {args.request_id} in the audit log", file=sys.stderr)
                 return 1
-            found = evidence(audit, args.request_id)
-            if found is not None:
-                state |= {"evidence_sha256": found[0], "evidence": found[1]}
+            if not state.get("evidence_problem") and state["state"] != "decided":
+                try:
+                    found = evidence(audit, args.request_id)
+                except (EvidenceChanged, DecisionRefused) as exc:
+                    found, state["evidence_problem"] = None, str(exc)
+                if found is not None:
+                    state |= {"evidence_sha256": found[0], "evidence": found[1]}
             _print(state)
             return 0
         try:

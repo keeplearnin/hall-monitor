@@ -886,7 +886,9 @@ controls:
       route or the role. Text in the message aimed at the AI (the injection detector, run on the
       message as sent and as redacted) sends the request to HR review whatever the agents say.
       Any failure of intake or the rules stops the request and sends it to a person, keeping the
-      code's reasons if it had routed: a refusal, a stopped or unapproved intake agent, an API
+      code's reasons if it had routed (a failure of the intake call itself leaves no evidence
+      pack, so the request is listed as stopped and can be prepared again once the cause is
+      fixed): a refusal, a stopped or unapproved intake agent, an API
       error, any unexpected error, an extraction without dates, with an end before its start or
       with a date outside 1900 to 2199, no employee record, or a cost that can't be shown. A failed or
       stopped explanation agent doesn't stop the request: it goes to the same person without a
@@ -965,18 +967,22 @@ controls:
       within their role: at least the role the routing rule named; approving FMLA leave only for
       an eligible employee with a qualifying reason, for more than 0 weeks and no more than are
       left, were asked or qualify (bonding weeks after the 12 months don't); approving fewer weeks
-      than asked only by an HR manager or above, with a reason, since it refuses the rest;
+      than asked (for intermittent leave, than are left) only by an HR manager or above, with a
+      reason, since it refuses the rest;
       denying only by an HR manager or above, with a reason; extending only by an HR director,
-      with a reason, for an eligible employee whose request is past the entitlement, up to the
-      weeks asked; approving a request the rule sent to HR review only with a reason. Asking for
-      more information is open to anyone registered and isn't a decision: it is logged and the
-      request keeps waiting. The audit log decides whether a request was decided: one final
-      decision per request, checked inside the write. Every refused decision on a prepared
-      request is logged with why, including one that lost a race or met a changed or erased
-      pack. The log keeps the staff ID and role, the
+      with a reason, for an eligible employee whose request is past the entitlement, granting more
+      weeks in total than are left and no more than were asked; approving a request the rule sent
+      to HR review only with a reason. Asking for more information is open to anyone registered
+      and isn't a decision: it is signed, stored and logged once, and the request keeps waiting. The audit log decides whether a request was decided: one final
+      decision per request, checked inside the write. Every refusal that reaches these rules, for
+      a request in the log, is logged with why, including one that lost a race or met a changed
+      or erased pack, and names the staff member only if they signed it; the CLI's refusals of
+      malformed input (weeks out of range, an unreadable key, a bad staff file) aren't decisions
+      and aren't logged. The log keeps the staff ID and role, the
       outcome and weeks, the code's route, and keyed hashes of the reason and the signed
-      decision; the signed decision that won, with its reason and signature, is kept beside the
-      evidence pack in the store that can be erased, not in the chain, so no signature in the
+      decision; the signed decision, with its reason and signature, is stored before the log entry
+      is written (so a logged decision always has it, and one that lost a race is removed) beside
+      the evidence pack in the store that can be erased, not in the chain, so no signature in the
       chain can confirm a guessed reason. What HR is shown comes from the pack, so a run that
       lost the race to prepare a request can't change it.
     status: built
@@ -1005,6 +1011,10 @@ controls:
       - tests/test_hr_signoff.py::test_bonding_weeks_after_the_12_months_can_t_be_approved
       - tests/test_hr_signoff.py::test_the_chain_check_reports_a_changed_or_erased_leave_pack
       - tests/test_hr_signoff.py::test_every_refusal_of_a_prepared_request_is_logged
+      - tests/test_hr_signoff.py::test_approving_intermittent_leave_for_less_than_is_left_is_a_partial_denial
+      - tests/test_hr_signoff.py::test_a_logged_decision_always_has_its_signed_record
+      - tests/test_hr_signoff.py::test_a_preparation_that_stopped_before_the_rules_can_be_prepared_again
+      - tests/test_hr_signoff.py::test_an_information_request_is_kept_and_can_t_be_replayed
     evidence: []
     nist: [GOVERN 3.2, MAP 3.5, MEASURE 2.8]
     finos:
@@ -1016,7 +1026,8 @@ controls:
       keys from the firm's identity system. The sign-off is a command-line step on one machine's
       audit log: no sign-in, no shared store, and the panel doesn't show HR cases yet. Requests
       get into the log only through hr.run, which prepares the synthetic messages with the live
-      model. "Approve" and "extend" cover FMLA leave only; leave under company policy or state law
+      model; a preparation that stopped because the intake call failed leaves no pack, so it can
+      be run again, and the review CLI lists it as stopped. "Approve" and "extend" cover FMLA leave only; leave under company policy or state law
       for someone the rules find ineligible is decided outside this step. After a request for
       more information the request keeps waiting, but the employee's answer isn't added to the
       evidence: the person decides on the same pack. The

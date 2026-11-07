@@ -565,3 +565,21 @@ with offline probes and a mutation run. 14 findings, all confirmed; all fixed or
 | The HM-23 gap understated what the pack holds | Low | It lists every kind of personal and health information in it |
 | `status` crashed when a request had evidence but no `leave_prepared` entry | Low | It reads the pack, not that entry |
 | The review CLI crashed on bad input, echoing it, and a duplicate staff ID silently changed a role | Low | Clear refusals without the values; a duplicate ID or unknown role refuses the file, naming the entry |
+
+**Re-review of those fixes:** 13 findings, all confirmed; all fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The partial-denial rule only applied when weeks were asked, so a leave specialist could approve 0.01 weeks of intermittent leave as a final decision | High | For intermittent leave, approving fewer weeks than are left is the partial denial; intermittent bonding leave past its year isn't approved in this step |
+| The partial-denial test passed with the manager check deleted | Medium | A test where a specialist gives a reason and is still refused |
+| The signed decision was stored after its log entry, so a failure between them left a logged decision with no record | Medium | Stored first; a decision that lost a race has its record removed, unless it is the winner's identical record |
+| An outage during `hr.run` left every request with a pack the rules never ran on, permanently, since preparation is once-only | Medium | A failure of the intake call leaves no pack; the request is listed as stopped and can be prepared again |
+| Refusals named a staff member without checking their signature | Low | Named only if they signed it |
+| An information request could be replayed, and nothing kept what was asked or who signed | Low | Stored, signed, and recorded once |
+| `show` failed and `list` kept an erased request waiting forever | Low | Both report the evidence problem; `list` separates such requests and stopped ones |
+| `hr.run` stopped at the first request already prepared, without saying what it had done | Low | It skips it and goes on, reporting each |
+| A bad staff file echoed its values or crashed | Low | Refused naming the problem, without values |
+| An extension could grant fewer weeks than were left | Low | An extension's weeks are the total granted and must exceed what is left |
+| Five changes went unnoticed by every test (the empty-entitlement extension, the no-pack refusal, the erased-pack status, the bonding year's last day, the CLI's staff-file refusal) | Low | A test for each |
+| README rows for HM-21 and HM-22 still said there was no sign-off | Low | Corrected |
+| "Every refused decision is logged" covered the CLI's input refusals too | Low | It says those aren't decisions and aren't logged |

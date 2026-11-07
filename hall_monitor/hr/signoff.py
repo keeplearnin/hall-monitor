@@ -15,13 +15,14 @@ with their key over the request, every decision field and that evidence hash
   a request past the entitlement, for no more weeks than were asked;
 - approving a request the rule sent to HR review needs a reason;
 - asking for more information is open to anyone registered, and isn't a decision: the request
-  keeps waiting.
+  keeps waiting; each request for information is stored, signed, and recorded once.
 
 The audit log, not any other file, says whether a request was decided: one final decision per
-request, refused if there is one already. Every refused decision on a prepared request is
-logged with why. What the log keeps of a decision is impersonal: the
-staff ID and role, the outcome, the weeks, and keyed hashes of the reason and of the signed
-decision. The signed decision itself (with its reason and signature) is stored beside the
+request, refused if there is one already. Every refusal that reaches these rules, for a
+request in the log, is logged with why (under the staff ID only if they signed it). What the
+log keeps of a decision is impersonal: the staff ID and role, the outcome, the weeks, and keyed
+hashes of the reason and of the signed decision. The signed decision itself (with its reason
+and signature) is stored, before the log entry is written, beside the
 evidence pack, in the store that can be erased, not in the chain: a signature in the chain
 could confirm a guessed reason to anyone with the public key.
 """
@@ -35,7 +36,7 @@ from pathlib import Path
 
 import yaml
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from hall_monitor.governance import signing
 from hall_monitor.governance.audit import (
@@ -43,8 +44,6 @@ from hall_monitor.governance.audit import (
     AuditLog,
     EvidenceChanged,
     canonical,
-    evidence_body,
-    sha256,
 )
 from hall_monitor.hr.routing import Role
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, HR_STAFF_FILENAME
@@ -67,13 +66,23 @@ class StaffMember(BaseModel):
 
 
 def load_staff(path: Path = DEFAULT_REGISTRY_DIR / HR_STAFF_FILENAME) -> dict[str, StaffMember]:
-    """The staff file, refused whole if any entry names a role the rules don't know or an ID
-    twice (the later entry could otherwise change someone's role)."""
-    members = [StaffMember.model_validate(m) for m in yaml.safe_load(path.read_text())["staff"]]
+    """The staff file, refused whole (ValueError, without the file's values) if it doesn't
+    parse, an entry has a field it shouldn't, names a role the rules don't know, or an ID is
+    listed twice (the later entry could otherwise change someone's role)."""
+    try:
+        entries = yaml.safe_load(path.read_text())["staff"]
+        members = [StaffMember.model_validate(m) for m in entries]
+    except yaml.YAMLError:
+        raise ValueError(f"{path.name} isn't valid YAML") from None
+    except (KeyError, TypeError):
+        raise ValueError(f"{path.name} has no list of staff") from None
+    except ValidationError as exc:
+        fields = ", ".join(sorted({".".join(map(str, e["loc"])) for e in exc.errors()}))
+        raise ValueError(f"{path.name} has an entry that isn't valid ({fields})") from None
     seen: dict[str, StaffMember] = {}
     for member in members:
         if member.role.upper() not in Role.__members__:
-            raise ValueError(f"{member.id}: role {member.role!r} isn't one the rules know")
+            raise ValueError(f"{member.id}: its role isn't one the rules know")
         if member.id in seen:
             raise ValueError(f"{member.id} is listed twice in {path.name}")
         seen[member.id] = member
@@ -232,8 +241,15 @@ def validate(
             raise DecisionRefused("approved weeks can't be more than were asked for")
         if qualifying is not None and weeks > qualifying + 1e-9:
             raise DecisionRefused("approved weeks must be no more than qualify")
-        if requested is not None and weeks < requested - 1e-9:
-            # Approving less than was asked refuses the rest: a partial denial.
+        if requested is None and "bonding_window" in route["reasons"]:
+            raise DecisionRefused(
+                "intermittent bonding leave running past its 12 months can't be measured "
+                "against them here; a person decides it outside this step"
+            )
+        # Approving less than was asked (or, for intermittent leave, than is left) refuses the
+        # rest: a partial denial.
+        asked = requested if requested is not None else remaining
+        if weeks < asked - 1e-9:
             needs_manager("approving fewer weeks than asked is a partial denial: it")
             needs_reason("a partial denial")
         if route["route"] != "specialist_sign_off":
@@ -257,18 +273,30 @@ def validate(
         )
         if not past:
             raise DecisionRefused("an extension is only for leave past the entitlement")
-        if weeks <= 0:
-            raise DecisionRefused("an extension needs the weeks it grants")
+        # weeks is the total granted for this request, entitlement included.
+        if weeks <= max(remaining, 0) + 1e-9:
+            raise DecisionRefused(
+                "an extension needs the weeks it grants, more weeks than are left; approving "
+                "within what is left is an approval"
+            )
         if requested is not None and weeks > requested + 1e-9:
             raise DecisionRefused("extended weeks can't be more than were asked for")
     return member
 
 
-def _refuse(audit: AuditLog, request_id: str, decision: LeaveDecision, known: bool, why: str):
+def _signed_by(decision: LeaveDecision, request_id: str, staff: dict[str, StaffMember]) -> bool:
+    """The decision names registered staff and carries their valid signature."""
+    member = staff.get(decision.staff_id)
+    message = signing.decision_message(request_id, decision.model_dump(mode="json"))
+    return member is not None and signing.verify(message, decision.signature, member.public_key)
+
+
+def _refuse(audit: AuditLog, request_id: str, decision: LeaveDecision, signed: bool, why: str):
+    """Log the refusal (under the staff ID only if they signed it) and raise."""
     audit.append(
         request_id,
         "leave_decision_refused",
-        f"hr:{decision.staff_id}" if known else "hr:?",
+        f"hr:{decision.staff_id}" if signed else "hr:?",
         {
             "refused_because": why,
             "submitted_hmac": audit.keyed_hash(canonical(decision.model_dump(mode="json"))),
@@ -284,35 +312,34 @@ def decide(
     staff: dict[str, StaffMember] | None = None,
 ) -> dict:
     """Check the decision and record it: the request's one final decision, or, for a request
-    for more information, a step that leaves it waiting. Every refusal of a prepared request is
-    logged with why, and raises DecisionRefused."""
+    for more information, a step that leaves it waiting. Every refusal that reaches these rules,
+    for a request in the log, is logged with why and raises DecisionRefused."""
     staff = load_staff() if staff is None else staff
-    known = decision.staff_id in staff
+    signed = _signed_by(decision, request_id, staff)
     if not audit.entries(request_id):
         raise DecisionRefused(f"{request_id} isn't in the audit log: it wasn't prepared")
+    already = f"the audit log shows {request_id} was already decided"
     if audit.has(request_id, "leave_decision"):
-        _refuse(
-            audit,
-            request_id,
-            decision,
-            known,
-            f"the audit log shows {request_id} was already decided",
-        )
+        _refuse(audit, request_id, decision, signed, already)
     try:
         found = evidence(audit, request_id)
     except EvidenceChanged:
         _refuse(
-            audit, request_id, decision, known, "the evidence pack was changed after it was stored"
+            audit, request_id, decision, signed, "the evidence pack was changed after it was stored"
         )
     except DecisionRefused as exc:
-        _refuse(audit, request_id, decision, known, str(exc))
+        _refuse(audit, request_id, decision, signed, str(exc))
     if found is None:
-        _refuse(audit, request_id, decision, known, f"{request_id} has no evidence pack yet")
+        _refuse(audit, request_id, decision, signed, f"{request_id} has no evidence pack yet")
     digest, pack = found
     try:
         member = validate(decision, request_id, digest, pack, staff)
     except DecisionRefused as exc:
-        _refuse(audit, request_id, decision, known, str(exc))
+        _refuse(audit, request_id, decision, signed, str(exc))
+    # The signed record, with its reason and signature, goes to the erasable store first, so a
+    # logged decision always has it; the log keeps only its keyed hash.
+    record = decision.model_dump(mode="json") | {"request_id": request_id}
+    stored = audit.put_evidence(record)
     base = {
         "decided_by": f"hr:{member.id}",
         "role": member.role,
@@ -323,10 +350,21 @@ def decide(
         "decided_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     if decision.outcome is Outcome.REQUEST_INFORMATION:
-        audit.append(request_id, "leave_information_requested", f"hr:{member.id}", base)
-        return base
-    signed = decision.model_dump(mode="json") | {"request_id": request_id}
-    stored = sha256(evidence_body(signed))  # its store key, known before it is stored
+        request_hmac = audit.keyed_hash(stored)
+        asked = [
+            e for e in audit.entries(request_id) if e["event"] == "leave_information_requested"
+        ]
+        if any(e["payload"].get("request_hmac") == request_hmac for e in asked):
+            _refuse(
+                audit,
+                request_id,
+                decision,
+                signed,
+                "this request for information is already recorded",
+            )
+        payload = base | {"request_hmac": request_hmac}
+        audit.append(request_id, "leave_information_requested", f"hr:{member.id}", payload)
+        return payload
     route = pack["route"]
     payload = base | {
         "weeks": decision.weeks,
@@ -338,15 +376,10 @@ def decide(
     try:
         audit.append(request_id, "leave_decision", f"hr:{member.id}", payload, once=True)
     except AlreadyRecorded:
-        _refuse(
-            audit,
-            request_id,
-            decision,
-            known,
-            f"the audit log shows {request_id} was already decided",
-        )
-    # Only the decision that won is stored: reason and signature, erasable, not in the chain.
-    audit.put_evidence(signed)
+        winner = next(e for e in audit.entries(request_id) if e["event"] == "leave_decision")
+        if winner["payload"].get("decision_hmac") != payload["decision_hmac"]:
+            audit.erase_evidence(stored)  # the loser's record: nothing refers to it
+        _refuse(audit, request_id, decision, signed, already)
     return payload
 
 
@@ -361,7 +394,12 @@ def status(audit: AuditLog, request_id: str) -> dict:
     if decided is not None:
         return {"request_id": request_id, "state": "decided", "decision": decided["payload"]}
     if "leave_evidence" not in events:
-        return {"request_id": request_id, "state": "being prepared, or stopped before it finished"}
+        if "leave_prepared" in events:
+            return {
+                "request_id": request_id,
+                "state": "stopped before the rules ran; can be prepared again",
+            }
+        return {"request_id": request_id, "state": "being prepared"}
     waiting = {
         "request_id": request_id,
         "state": "waiting for HR",

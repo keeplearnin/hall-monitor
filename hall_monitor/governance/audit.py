@@ -230,6 +230,12 @@ class AuditLog:
         return digest
 
     @_locked
+    def erase_evidence(self, digest: str) -> None:
+        """Delete a stored record: an erasure, or one whose write lost a race and that no entry
+        refers to. The chain is untouched; verify reports a referenced pack as erased."""
+        self._db.execute("DELETE FROM evidence WHERE sha256 = ?", (digest,))
+
+    @_locked
     def get_evidence(self, digest: str) -> dict | None:
         """The stored pack, or None if it isn't stored. Raises EvidenceChanged if it no longer
         matches its hash."""

@@ -5,7 +5,9 @@
 
 Each message in data/synthetic/hr/messages.json goes through the leave agents and the rules
 (hr/pipeline.py) and leaves its evidence pack in the audit log; `python -m hall_monitor.hr.review`
-then lists the requests waiting for HR. A request already prepared is refused.
+then lists the requests waiting for HR. A request already prepared is skipped and the rest go
+on. One that stopped before the rules ran (an outage, a stopped agent) leaves no evidence pack,
+so running it again prepares it once the cause is fixed.
 """
 
 from __future__ import annotations
@@ -35,6 +37,9 @@ def run(request_ids: list[str], audit_db: Path, client=None) -> list[dict]:
     results = []
     try:
         for request_id in request_ids:
+            if audit.has(request_id, "leave_evidence"):
+                results.append({"request_id": request_id, "skipped": "already prepared"})
+                continue
             prepared = prepare(
                 messages[request_id],
                 employees=employees,
@@ -70,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv()
     try:
         results = run(ids, args.audit_db)
-    except ValueError as exc:  # already prepared
+    except ValueError as exc:  # prepared by another run at the same moment
         print(str(exc), file=sys.stderr)
         return 1
     finally:
