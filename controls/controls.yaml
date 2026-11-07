@@ -295,7 +295,10 @@ controls:
       an entry it can't parse, as tampered with (exit 3), not missing (exit 1), and a log
       another process holds locked as busy (exit 4). A model answer that fails validation
       inside the SDK's parse call is billed but raises before its usage is read, so that
-      request is missing from the agent's record and its cost.
+      request is missing from the agent's record and its cost. The claims
+      agents' calls log and trace input_sha256, a plain hash of what each agent was sent; for the
+      recommendation agent, whose input is a structured summary, a guess could confirm it. The HR
+      agents log it keyed and keep it out of traces (HM-22).
 
   - id: HM-07
     name: Critic review with revision history
@@ -886,7 +889,7 @@ controls:
       Any failure of intake or the rules stops the request and sends it to a person, keeping the
       code's reasons if it had routed: a refusal, a stopped or unapproved intake agent, an API
       error, any unexpected error, an extraction without dates, with an end before its start or
-      with an implausible date, no employee record, or a cost that can't be shown. A failed or
+      with a date outside 1900 to 2199, no employee record, or a cost that can't be shown. A failed or
       stopped explanation agent doesn't stop the request: it goes to the same person without a
       note, the log says why, and the eval counts it. Each agent's input is declared with the
       data classes it carries and checked against its hall pass before the model is called:
@@ -894,8 +897,10 @@ controls:
       explanation, whose input also holds the employee's employment facts (hours, weeks of
       service, worksite), which no data class covers. Each step is written to the audit log as it
       happens: IDs, keyed hashes (HMAC), counts, codes and costs, never the message, the
-      extraction's values or the explanation's text, and no plain hash that a guess could
-      confirm. An eval (python -m hall_monitor.hr.evals) scores intake field by field
+      extraction's values or the explanation's text. The only plain hashes are of the published
+      prompt templates: each agent call's hash of what the agent was sent is logged keyed, and
+      kept out of traces, because the explanation's input has so few possible values that a
+      plain hash could be confirmed by guessing. An eval (python -m hall_monitor.hr.evals) scores intake field by field
       and the end-to-end result against the answer keys, including the intake errors the rules
       can't see.
     status: partial
@@ -921,6 +926,9 @@ controls:
       - tests/test_hr_agents.py::test_an_extreme_date_from_the_model_goes_to_a_person
       - tests/test_hr_agents.py::test_the_explanation_s_shape_survives_the_schema_the_api_is_sent
       - tests/test_hr_agents.py::test_hr_phrasings_and_tags_aimed_at_the_ai_are_caught
+      - tests/test_hr_agents.py::test_no_plain_hash_of_what_an_agent_was_sent_is_logged
+      - tests/test_hr_agents.py::test_no_plain_hash_of_an_hr_agent_s_input_reaches_a_trace
+      - tests/test_hr_agents.py::test_implausible_dates_are_refused_when_the_answer_is_parsed
     evidence:
       - "pending: uv run python -m hall_monitor.hr.evals --out evals/results/hr-intake"
     nist: [GOVERN 1.6, MAP 3.5, MEASURE 2.10, MANAGE 2.4]
@@ -937,7 +945,9 @@ controls:
       yet, and its cases don't appear in the panel. The injection detector's phrases were written
       for claims; it now also knows the HR tags and a few HR phrasings (approval claimed from HR,
       keeping a leave specialist out, role play as an HR director or manager), but it is a phrase
-      list, so other phrasings get through. The message itself still goes to the model provider with the employee's
+      list, so other phrasings get through, and the detector is shared, so those phrases can
+      also flag claim text ("already approved by my HR manager" in a business-travel claim),
+      which sends it to a person: the safe side. The message itself still goes to the model provider with the employee's
       name and condition: redaction removes identifiers, not health details, which the reason
       category needs. The explanation is free text checked only for which checks it covers, not
       for whether each sentence is true.

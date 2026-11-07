@@ -30,12 +30,14 @@ that no agent ever sees a diagnosis it doesn't need and that none can approve or
   the claims use, on the message as sent and as redacted.
 - **Failures go to a person,** as in claims ([ADR 0007](0007-failures-stop-the-claim.md)): a
   refusal, a stopped or unapproved intake agent, an API error, any unexpected error, an
-  extraction without dates, with an end before its start or with an implausible date, no
-  employee record, or a cost that can't be shown. A stop after the code routed keeps its
-  reasons, so the role never drops.
-- **Keyed hashes only.** The log ties the message, extraction, result and note to the request
-  by keyed hash (HMAC): an extraction has so few possible values that a plain hash could be
-  confirmed by guessing, which would reveal the reason category.
+  extraction without dates, with an end before its start or with a date outside 1900 to 2199,
+  no employee record, or a cost that can't be shown. A cost that can't be shown after the code
+  routed keeps its reasons, so the role never drops.
+- **Keyed hashes only.** The log ties the message, extraction, result, note and each agent's
+  input to the request by keyed hash (HMAC), and the plain input hash stays out of traces: an
+  extraction, or the result the explanation agent reads, has so few possible values that a
+  plain hash could be confirmed by guessing, which would reveal the reason category. Only the
+  published prompt templates are hashed plainly.
 - **An eval for what the rules can't see.** A wrong date or the wrong family member changes the
   result without any rule noticing, so `hall_monitor.hr.evals` scores intake field by field and
   the end-to-end result against the answer keys. It costs money to run and hasn't been run.
@@ -62,4 +64,5 @@ that no agent ever sees a diagnosis it doesn't need and that none can approve or
 result; an intake error the rules can't see shows up in the eval; text aimed at the AI goes to
 a person; identifiers are redacted before intake; the explanation agent sees no message or
 identity; every failure of intake or the rules stops the request; the audit log holds nothing
-the employee or a model wrote, and no plain hash. Review 9 in docs/review/log.md.
+the employee or a model wrote, and no plain hash but the prompt templates'. Review 9 in
+docs/review/log.md.

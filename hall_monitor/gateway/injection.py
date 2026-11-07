@@ -40,7 +40,7 @@ SIGNALS: dict[str, re.Pattern[str]] = {
     "fake_markup": re.compile(
         r"</?\s*(?:system|instructions?|reviewer_feedback|claim_submission|policy_record|"
         r"policy_wording|assistant|tool_result|previous_answer|problems|leave_request|"
-        r"leave_result|message|submitted_at)\s*>"
+        r"leave_result|submitted_at)\s*>"
         r"|\bsystem\s*(?:prompt|message)\s*:",
         re.IGNORECASE,
     ),
@@ -54,7 +54,7 @@ SIGNALS: dict[str, re.Pattern[str]] = {
     "avoid_human_review": re.compile(
         r"\b(?:do not|don't|no need to|without)\b[^.\n]{0,30}\b"
         r"(?:send|route|escalate|refer|forward|involve|review)\b[^.\n]{0,30}\b"
-        r"(?:human|person|adjuster|manual review|reviewer|leave specialist|hr)\b",
+        r"(?:human|person|adjuster|manual review|reviewer|leave specialist)\b",
         re.IGNORECASE,
     ),
     "names_internal_tools": re.compile(

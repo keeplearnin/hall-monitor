@@ -102,9 +102,11 @@ class _Recorder:
 
     def agent_call(self, call: AgentCall) -> None:
         if self.audit:
-            self.audit.append(
-                self.request_id, "agent_call", call.agent_id, call.model_dump(mode="json")
-            )
+            # The call's plain input hash is keyed before it is logged: the explanation's input
+            # has so few possible values that a guess could confirm it.
+            payload = call.model_dump(mode="json")
+            payload["input_hmac"] = self._hmac(payload.pop("input_sha256"))
+            self.audit.append(self.request_id, "agent_call", call.agent_id, payload)
 
     def assessed(self, intake: LeaveIntake, assessment: Assessment, route: LeaveRoute) -> None:
         if self.audit:
@@ -213,10 +215,13 @@ def prepare(
     flags = ["text_addresses_ai"] if signals else []
 
     def finish(final: LeaveRoute, reason: str | None) -> LeavePreparation:
+        nonlocal explanation_problem
         cost, unknown = _cost(calls)
-        if unknown is not None:  # a cost that can't be shown is a failure too
+        if unknown is not None:  # a cost that can't be shown is a failure too; keeps the reasons
             final = _with(final, ["pipeline_stopped"])
             reason = unknown if reason is None else f"{reason}; {unknown}"
+        if reason is not None and explanation is not None and explanation_problem is None:
+            explanation_problem = "the request stopped, so the note was left out"
         prepared = LeavePreparation(
             request_id=message.id,
             employee_id=message.employee_id,
@@ -236,9 +241,8 @@ def prepare(
         return prepared
 
     def stop(reason: str, reasons: list[str]) -> LeavePreparation:
-        # A stop after the code routed keeps that route's reasons, so the role never drops.
-        final = _person(reasons + flags) if route is None else _with(route, reasons)
-        return finish(final, reason)
+        """A stop before the code has routed: HR review, with any text-aimed-at-the-AI flag."""
+        return finish(_person(reasons + flags), reason)
 
     def keep(call: AgentCall | None) -> None:
         if call is not None:

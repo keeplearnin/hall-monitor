@@ -74,4 +74,5 @@ def run_leave_explainer(
         prompt_version=PROMPT_VERSION,
         claim_id=request_id,
         carries=CARRIES,
+        trace_input_hash=False,  # its plain hash goes to the audit log keyed, never to a trace
     )

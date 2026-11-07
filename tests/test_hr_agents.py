@@ -419,3 +419,57 @@ def test_the_eval_counts_explanation_failures(registry):
     )
     summary = hr_evals.run(registry, client)["summary"]
     assert summary["explanation_failures"] == 28 and summary["explanations_kept"] == 0
+
+
+# --- Re-review of review 9 -------------------------------------------------------------------
+
+PROMPT_HASHES = {"system_prompt_sha256", "prompt_template_sha256"}  # fixed, published templates
+
+
+def test_no_plain_hash_of_what_an_agent_was_sent_is_logged(registry, tmp_path):
+    """input_sha256 is a plain hash of an agent's input; the explanation's input has so few
+    possible values that a guess could confirm the reason category."""
+    log = AuditLog(tmp_path / "audit.sqlite")
+    _prepare(MESSAGES["lr_018"], registry, audit=log)
+    for entry in log.entries("lr_018"):
+        hashes = {k for k in entry["payload"] if k.endswith("sha256")}
+        assert hashes <= PROMPT_HASHES, (entry["event"], hashes)
+    calls = [e["payload"] for e in log.entries("lr_018") if e["event"] == "agent_call"]
+    assert all(len(c["input_hmac"]) == 64 for c in calls)
+
+
+def test_no_plain_hash_of_an_hr_agent_s_input_reaches_a_trace(registry, monkeypatch):
+    from hall_monitor import tracing
+
+    sent = []
+    monkeypatch.setattr(tracing, "update_span", lambda **kw: sent.append(kw))
+    _prepare(MESSAGES["lr_018"], registry)
+    assert sent and all("input_sha256" not in kw["metadata"] for kw in sent)
+
+
+def test_implausible_dates_are_refused_when_the_answer_is_parsed():
+    from pydantic import ValidationError
+
+    base = REQUESTS["lr_001"].model_dump(mode="json", include=set(LeaveIntake.model_fields))
+    for bad in ("0001-01-01", "1899-12-31", "2200-01-01"):
+        with pytest.raises(ValidationError):
+            LeaveIntake.model_validate(base | {"start": bad})
+    assert LeaveIntake.model_validate(base | {"start": "1900-01-01"}).start == date(1900, 1, 1)
+
+
+def test_a_privacy_request_isn_t_taken_for_text_aimed_at_the_ai():
+    from hall_monitor.gateway.injection import detect_in_texts
+
+    for text in (
+        "Please do not forward my doctor's note to HR, only to the benefits team.",
+        "The email thread is below. <message>Booked for the 12th</message>",
+    ):
+        assert detect_in_texts([text]) == [], text
+
+
+def test_a_stop_that_drops_a_good_note_says_why(registry, monkeypatch):
+    from hall_monitor.gateway import cost
+
+    monkeypatch.setattr(cost, "PRICES_PER_MTOK", {})
+    prepared = _prepare(MESSAGES["lr_003"], registry)
+    assert prepared.explanation is None and prepared.explanation_problem
