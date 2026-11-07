@@ -155,4 +155,31 @@ tr:last-child td { border-bottom: none; }
   color: #fff;
   cursor: pointer;
 }
+/* The leave submission form (hall_monitor/hr/submit.py), a separate app that shares this sheet. */
+.submit-form { display: grid; gap: 8px; max-width: 760px; }
+.submit-form label { color: var(--muted); margin-top: 6px; }
+.submit-form select,
+.submit-form textarea {
+  font: inherit;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  text-overflow: ellipsis;
+}
+.submit-form button {
+  justify-self: start;
+  margin-top: 8px;
+  font: inherit;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
 footer { max-width: 1240px; margin: 0 auto; padding: 8px 24px 32px; color: var(--muted); font-size: 13px; }

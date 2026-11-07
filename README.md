@@ -67,6 +67,8 @@ The rules run on what intake extracts, so a wrong extraction changes the result;
 
 Then a person decides (`python -m hall_monitor.hr.run` prepares requests into the audit log with the live model; `python -m hall_monitor.hr.review` lists and decides them). A decision counts only if it is signed with the staff member's key over the evidence pack the audit log recorded, and code finds it within their role: at least the role the rule named; approving FMLA leave only for an eligible employee within the weeks left, asked and qualifying; approving fewer weeks than asked, or denying, only by an HR manager or above; extending only by a director, past the entitlement; a reason for any partial or full denial, extension or approval against the route. Asking for more information leaves the request waiting. One decision per request. The log keeps no reason and no signature, only keyed hashes; the signed decision sits in the erasable evidence store. The control panel shows each leave request's state, route, outcome and audit trace, never its reasons, the role it needs, its checks or weeks (together they could tell what it is about), and counts reasons only across requests.
 
+Requests can also be added from a small form, a separate app so the panel stays read-only (`python -m hall_monitor.hr.submit --demo` or `--live`). It feeds the same pipeline and decides nothing; the submitter sees only the request's ID and state. Demo mode offers the synthetic messages with the scripted model and calls no API; live mode takes free text, calls the Claude API for each submission and stops at a per-run cap. It serves this machine only and takes a submission only from its own page.
+
 ## Architecture
 
 How a claim moves through the system today (after milestone 11 and Phase B so far):
@@ -134,8 +136,9 @@ Each control's NIST AI RMF and FINOS AIGF mapping is in the [controls register](
 | Leave rules in code (HR) | FMLA eligibility, entitlement in workweeks under each leave-year method, and routing to the least senior HR role that may decide, all in code with no model, against 28 boundary requests with hand-worked answer keys. A missing fact is "can't decide", never a failure; every check that didn't pass and every flag goes to a person; even a clean request is a draft for a leave specialist to sign. The agents (HM-22) and the signed sign-off (HM-23), which enforces the named role, are separate controls; the rules aren't reviewed by HR or a lawyer, and state laws aren't modelled. | HM-21 | Partial: rules only (HR example) |
 | Control panel | A read-only web panel and JSON API (`python -m hall_monitor.panel serve`): an overview per workflow (claims and leave requests) with what needs attention first, the agent inventory with each agent's owner, approval, stops and eval results, the review queues for claims and leave requests, each case's and leave request's full audit trace (for a leave request: its state, route, outcome and who decided, never its reasons, checks or weeks, or anything from its evidence pack), audit-chain verification against an anchored head, the eval gate and the controls register. Each view asks the code that enforces the control (an agent's state is the registry's own run-time check). Every route is GET, the audit log is opened read-only and the checkpoints are never opened. Case traces show an allow-list of each audit event's fields, so no free text the model wrote (tool arguments, policy numbers it read) reaches a page, and no page shows claim text, kill-switch stop reasons, adjusters' reasons or signatures. No sign-in yet, so it serves this machine only; stopping and deciding stay in their CLIs. `snapshot` saves it as static files; `demo` builds demo data offline with a scripted model, labelled on every page. | HM-20 | Built, read-only (control panel phase 1) |
 | Leave agents (HR) | A leave intake agent extracts dates and categories from the employee's redacted message, with no free-text field for a diagnosis; the rules in code decide on what it extracts; a leave explanation agent that never sees the message writes an advisory note. Same registry, approvals, kill switch, data-class check and audit log as the claims agents. Text aimed at the AI and any failure of intake or the rules send the request to a person. An eval scores intake against the answer keys; it hasn't been run live. A failure of the intake call leaves no evidence pack, so the request can be prepared again; any other failure goes to HR with what was found. | HM-22 | Partial: agents built, not run live (HR example) |
+| Leave submission form (HR) | A separate local form (`python -m hall_monitor.hr.submit`) adds leave requests to HR's queue through the same pipeline as `hr.run`, so the panel stays read-only. It decides nothing and shows the submitter only the request's ID and state. Demo mode uses the scripted model on the synthetic messages and calls no API; live mode takes free text and calls the Claude API, up to a per-run cap. No sign-in, so it serves this machine only, and a submission must carry the form's token and come from its own origin. Live mode is tested only with a fake client. | HM-24 | Built (HR example) |
 | HR sign-off | A person decides each prepared leave request, signed with their Ed25519 key over the evidence pack the audit log recorded. Code enforces their role against the one the rule named, approves FMLA leave only for an eligible employee within the weeks left, asked and qualifying, lets only HR managers deny (fully or in part, including approving fewer weeks than asked) and only directors extend past the entitlement, and needs a reason for any denial, extension or approval against the route. Asking for more information leaves the request waiting. One decision per request; every refusal that reaches the rules is logged, naming staff only if they signed it. The log keeps keyed hashes, not the reason or signature. Fictional staff use public demo keys. | HM-23 | Built (HR example) |
-| Framework mapping | 23 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (17 have none yet: 13 list none, and HM-09, HM-14, HM-15 and HM-22 list only live runs still to be made), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
+| Framework mapping | 24 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (18 have none yet: 14 list none, and HM-09, HM-14, HM-15 and HM-22 list only live runs still to be made), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
 
 ## Results
 
@@ -173,6 +176,7 @@ The two baseline rows use the same code; the second runs on a larger claim set. 
 17. ~~HR leave agents: intake and explanation, checked against the rules, inside the shared controls~~ (done; not run live)
 18. ~~HR sign-off: a signed decision that enforces the role the rules name, on the evidence the log recorded~~ (done)
 19. ~~HR cases in the panel, with demo data~~ (done)
+20. ~~A form that adds leave requests to HR's queue, outside the read-only panel~~ (done; live mode not run against the API)
 
 Daily progress notes are in [`docs/devlog/`](docs/devlog/).
 
@@ -209,6 +213,8 @@ uv run python -m hall_monitor.hr                           # leave rules on 28 s
 uv run python -m hall_monitor.hr.evals --out evals/results/hr-intake  # leave agents, 28 requests, under $0.10
 uv run python -m hall_monitor.hr.run --all                 # prepare the 28 requests into the audit log, under $0.10
 uv run python -m hall_monitor.hr.review list              # leave requests waiting for HR; no API calls
+uv run python -m hall_monitor.hr.submit --demo             # form at http://127.0.0.1:8766: add a synthetic request; no API calls
+uv run python -m hall_monitor.hr.submit --live             # the form with free text; about $0.003 a submission, 20 per run
 ```
 
 ## Repository layout
@@ -223,7 +229,7 @@ hall-monitor/
 │   ├── governance/          # Routing rule, approval gate, audit log
 │   ├── evals/               # Scoring, baseline, critic seeded test, override, adversarial, fairness
 │   ├── panel/               # Read-only control panel: views, pages, app, snapshot, demo data
-│   ├── hr/                  # Leave example: FMLA eligibility, entitlement and routing in code
+│   ├── hr/                  # Leave example: rules in code, agents, signed sign-off, submission form
 │   ├── pipeline.py          # Claim triage
 │   ├── workflow.py          # LangGraph workflow with the approval gate
 │   ├── run.py, review.py, audit.py  # CLIs: submit a claim, review as an adjuster, verify the log
