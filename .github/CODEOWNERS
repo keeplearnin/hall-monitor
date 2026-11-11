@@ -8,6 +8,7 @@
 /controls/                @keeplearnin
 /evals/                   @keeplearnin
 /data/synthetic/          @keeplearnin
+/data/cfpb/               @keeplearnin
 # Stopping an agent needs no review: no code owner for the stop list. Restarting one is a change
 # to approvals.yaml, which the /registry/ rule above covers.
 /registry/stops.yaml

@@ -1,0 +1,2210 @@
+{
+ "data_status": {
+  "has_data_issue": false,
+  "is_data_stale": false,
+  "last_updated": "2026-11-11T12:00:00-05:00"
+ },
+ "hits": [
+  {
+   "cursor": "1790823524000_28743044",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Untimely response",
+    "complaint_id": "28743044",
+    "date_received": "2026-10-01T02:58:44.000Z",
+    "date_sent_to_company": "2026-10-01T03:01:17.000Z",
+    "issue": "Trouble during payment process",
+    "product": "Mortgage",
+    "state": "GA",
+    "sub_issue": "Trying to communicate with the company to fix an issue while managing or servicing your loan",
+    "sub_product": "Conventional home mortgage",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "No",
+    "zip_code": "302XX"
+   }
+  },
+  {
+   "cursor": "1790823530000_28743389",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company believes it acted appropriately as authorized by contract or law",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28743389",
+    "date_received": "2026-10-01T02:58:50.000Z",
+    "date_sent_to_company": "2026-10-01T03:12:11.000Z",
+    "issue": "False statements or representation",
+    "product": "Debt collection",
+    "state": "TX",
+    "sub_issue": "Attempted to collect wrong amount",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "798XX"
+   }
+  },
+  {
+   "cursor": "1790823655000_28744057",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28744057",
+    "date_received": "2026-10-01T03:00:55.000Z",
+    "date_sent_to_company": "2026-10-01T03:22:31.000Z",
+    "issue": "False statements or representation",
+    "product": "Debt collection",
+    "state": "AL",
+    "sub_issue": "Attempted to collect wrong amount",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "368XX"
+   }
+  },
+  {
+   "cursor": "1790823691000_28746906",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28746906",
+    "date_received": "2026-10-01T03:01:31.000Z",
+    "date_sent_to_company": "2026-10-01T04:05:22.000Z",
+    "issue": "Managing an account",
+    "product": "Checking or savings account",
+    "state": "AZ",
+    "sub_issue": "Problem using a debit or ATM card",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": "Older American",
+    "timely": "Yes",
+    "zip_code": "856XX"
+   }
+  },
+  {
+   "cursor": "1790823697000_28743144",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28743144",
+    "date_received": "2026-10-01T03:01:37.000Z",
+    "date_sent_to_company": "2026-10-01T03:05:07.000Z",
+    "issue": "Written notification about debt",
+    "product": "Debt collection",
+    "state": "TX",
+    "sub_issue": "Didn't receive enough information to verify debt",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "766XX"
+   }
+  },
+  {
+   "cursor": "1790823873000_28743503",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28743503",
+    "date_received": "2026-10-01T03:04:33.000Z",
+    "date_sent_to_company": "2026-10-01T03:13:27.000Z",
+    "issue": "Struggling to pay mortgage",
+    "product": "Mortgage",
+    "state": "HI",
+    "sub_issue": "Applying for or obtaining a modification, forbearance plan, short sale, or deed-in-lieu",
+    "sub_product": "FHA mortgage",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "967XX"
+   }
+  },
+  {
+   "cursor": "1790823952000_28744927",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28744927",
+    "date_received": "2026-10-01T03:05:52.000Z",
+    "date_sent_to_company": "2026-10-01T03:29:26.000Z",
+    "issue": "False statements or representation",
+    "product": "Debt collection",
+    "state": "LA",
+    "sub_issue": "Attempted to collect wrong amount",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "710XX"
+   }
+  },
+  {
+   "cursor": "1790824017000_28743494",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28743494",
+    "date_received": "2026-10-01T03:06:57.000Z",
+    "date_sent_to_company": "2026-10-01T03:13:23.000Z",
+    "issue": "Opening an account",
+    "product": "Checking or savings account",
+    "state": "NC",
+    "sub_issue": "Unable to open an account",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "280XX"
+   }
+  },
+  {
+   "cursor": "1790824195000_28743745",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28743745",
+    "date_received": "2026-10-01T03:09:55.000Z",
+    "date_sent_to_company": "2026-10-01T03:18:25.000Z",
+    "issue": "Written notification about debt",
+    "product": "Debt collection",
+    "state": "TX",
+    "sub_issue": "Didn't receive notice of right to dispute",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "774XX"
+   }
+  },
+  {
+   "cursor": "1790824248000_28743795",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28743795",
+    "date_received": "2026-10-01T03:10:48.000Z",
+    "date_sent_to_company": "2026-10-01T03:19:42.000Z",
+    "issue": "False statements or representation",
+    "product": "Debt collection",
+    "state": "AL",
+    "sub_issue": "Attempted to collect wrong amount",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "352XX"
+   }
+  },
+  {
+   "cursor": "1790824263000_28743755",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28743755",
+    "date_received": "2026-10-01T03:11:03.000Z",
+    "date_sent_to_company": "2026-10-01T03:18:51.000Z",
+    "issue": "Struggling to pay mortgage",
+    "product": "Mortgage",
+    "state": "CA",
+    "sub_issue": "Trying to communicate with the company to fix an issue related to modification, forbearance, short sale, deed-in-lieu, bankruptcy, or foreclosure",
+    "sub_product": "Home equity loan or line of credit (HELOC)",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "908XX"
+   }
+  },
+  {
+   "cursor": "1790824295000_28744860",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28744860",
+    "date_received": "2026-10-01T03:11:35.000Z",
+    "date_sent_to_company": "2026-10-01T03:25:44.000Z",
+    "issue": "Written notification about debt",
+    "product": "Debt collection",
+    "state": "GA",
+    "sub_issue": "Didn't receive enough information to verify debt",
+    "sub_product": "Rental debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "303XX"
+   }
+  },
+  {
+   "cursor": "1790824331000_28743842",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28743842",
+    "date_received": "2026-10-01T03:12:11.000Z",
+    "date_sent_to_company": "2026-10-01T03:20:08.000Z",
+    "issue": "Closing an account",
+    "product": "Checking or savings account",
+    "state": "FL",
+    "sub_issue": "Can't close your account",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "330XX"
+   }
+  },
+  {
+   "cursor": "1790824452000_28743670",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28743670",
+    "date_received": "2026-10-01T03:14:12.000Z",
+    "date_sent_to_company": "2026-10-01T03:17:32.000Z",
+    "issue": "False statements or representation",
+    "product": "Debt collection",
+    "state": "CA",
+    "sub_issue": "Attempted to collect wrong amount",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "923XX"
+   }
+  },
+  {
+   "cursor": "1790824490000_28745012",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28745012",
+    "date_received": "2026-10-01T03:14:50.000Z",
+    "date_sent_to_company": "2026-10-01T03:33:33.000Z",
+    "issue": "Closing an account",
+    "product": "Checking or savings account",
+    "state": "CA",
+    "sub_issue": "Company closed your account",
+    "sub_product": "Other banking product or service",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "950XX"
+   }
+  },
+  {
+   "cursor": "1790824542000_28743793",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with monetary relief",
+    "complaint_id": "28743793",
+    "date_received": "2026-10-01T03:15:42.000Z",
+    "date_sent_to_company": "2026-10-01T03:19:27.000Z",
+    "issue": "Advertising and marketing, including promotional offers",
+    "product": "Credit card",
+    "state": "CA",
+    "sub_issue": "Didn't receive advertised or promotional terms",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "926XX"
+   }
+  },
+  {
+   "cursor": "1790824736000_28745085",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28745085",
+    "date_received": "2026-10-01T03:18:56.000Z",
+    "date_sent_to_company": "2026-10-01T03:36:49.000Z",
+    "issue": "Written notification about debt",
+    "product": "Debt collection",
+    "state": "TX",
+    "sub_issue": "Didn't receive notice of right to dispute",
+    "sub_product": "Telecommunications debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "784XX"
+   }
+  },
+  {
+   "cursor": "1790824944000_28744894",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28744894",
+    "date_received": "2026-10-01T03:22:24.000Z",
+    "date_sent_to_company": "2026-10-01T03:27:39.000Z",
+    "issue": "Incorrect information on your report",
+    "product": "Credit card",
+    "state": "AL",
+    "sub_issue": "Information belongs to someone else",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "352XX"
+   }
+  },
+  {
+   "cursor": "1790825006000_28745021",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28745021",
+    "date_received": "2026-10-01T03:23:26.000Z",
+    "date_sent_to_company": "2026-10-01T03:34:05.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "TX",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "770XX"
+   }
+  },
+  {
+   "cursor": "1790825069000_28744938",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28744938",
+    "date_received": "2026-10-01T03:24:29.000Z",
+    "date_sent_to_company": "2026-10-01T03:29:48.000Z",
+    "issue": "Other transaction problem",
+    "product": "Money transfer, virtual currency, or money service",
+    "state": "WA",
+    "sub_issue": null,
+    "sub_product": "Domestic (US) money transfer",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "980XX"
+   }
+  },
+  {
+   "cursor": "1790825163000_28744983",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28744983",
+    "date_received": "2026-10-01T03:26:03.000Z",
+    "date_sent_to_company": "2026-10-01T03:32:04.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "NY",
+    "sub_issue": "Debt was result of identity theft",
+    "sub_product": "Credit card debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "100XX"
+   }
+  },
+  {
+   "cursor": "1790825315000_28745585",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with monetary relief",
+    "complaint_id": "28745585",
+    "date_received": "2026-10-01T03:28:35.000Z",
+    "date_sent_to_company": "2026-10-01T03:47:41.000Z",
+    "issue": "Fees or interest",
+    "product": "Credit card",
+    "state": "NV",
+    "sub_issue": "Problem with fees",
+    "sub_product": "Store credit card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "890XX"
+   }
+  },
+  {
+   "cursor": "1790825395000_28745014",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28745014",
+    "date_received": "2026-10-01T03:29:55.000Z",
+    "date_sent_to_company": "2026-10-01T03:33:40.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "GA",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "300XX"
+   }
+  },
+  {
+   "cursor": "1790825467000_28745660",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28745660",
+    "date_received": "2026-10-01T03:31:07.000Z",
+    "date_sent_to_company": "2026-10-01T03:49:13.000Z",
+    "issue": "Written notification about debt",
+    "product": "Debt collection",
+    "state": "FL",
+    "sub_issue": "Didn't receive enough information to verify debt",
+    "sub_product": "Credit card debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "331XX"
+   }
+  },
+  {
+   "cursor": "1790825534000_28746212",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28746212",
+    "date_received": "2026-10-01T03:32:14.000Z",
+    "date_sent_to_company": "2026-10-01T03:51:53.000Z",
+    "issue": "False statements or representation",
+    "product": "Debt collection",
+    "state": "VA",
+    "sub_issue": "Attempted to collect wrong amount",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "201XX"
+   }
+  },
+  {
+   "cursor": "1790825561000_28745077",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28745077",
+    "date_received": "2026-10-01T03:32:41.000Z",
+    "date_sent_to_company": "2026-10-01T03:36:08.000Z",
+    "issue": "Took or threatened to take negative or legal action",
+    "product": "Debt collection",
+    "state": "TX",
+    "sub_issue": "Threatened or suggested your credit would be damaged",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "770XX"
+   }
+  },
+  {
+   "cursor": "1790825609000_28745225",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with monetary relief",
+    "complaint_id": "28745225",
+    "date_received": "2026-10-01T03:33:29.000Z",
+    "date_sent_to_company": "2026-10-01T03:40:45.000Z",
+    "issue": "Fraud or scam",
+    "product": "Money transfer, virtual currency, or money service",
+    "state": "TX",
+    "sub_issue": null,
+    "sub_product": "Mobile or digital wallet",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "774XX"
+   }
+  },
+  {
+   "cursor": "1790825617000_28745067",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28745067",
+    "date_received": "2026-10-01T03:33:37.000Z",
+    "date_sent_to_company": "2026-10-01T03:35:51.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "GA",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "300XX"
+   }
+  },
+  {
+   "cursor": "1790825749000_28745095",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28745095",
+    "date_received": "2026-10-01T03:35:49.000Z",
+    "date_sent_to_company": "2026-10-01T03:37:19.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "GA",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "300XX"
+   }
+  },
+  {
+   "cursor": "1790825769000_28746754",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28746754",
+    "date_received": "2026-10-01T03:36:09.000Z",
+    "date_sent_to_company": "2026-10-01T03:57:32.000Z",
+    "issue": "Managing an account",
+    "product": "Checking or savings account",
+    "state": "TX",
+    "sub_issue": "Banking errors",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "786XX"
+   }
+  },
+  {
+   "cursor": "1790825780000_28745683",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28745683",
+    "date_received": "2026-10-01T03:36:20.000Z",
+    "date_sent_to_company": "2026-10-01T03:50:07.000Z",
+    "issue": "Took or threatened to take negative or legal action",
+    "product": "Debt collection",
+    "state": "MI",
+    "sub_issue": "Collected or attempted to collect exempt funds",
+    "sub_product": "Credit card debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "482XX"
+   }
+  },
+  {
+   "cursor": "1790825786000_28746723",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with monetary relief",
+    "complaint_id": "28746723",
+    "date_received": "2026-10-01T03:36:26.000Z",
+    "date_sent_to_company": "2026-10-01T03:55:45.000Z",
+    "issue": "Closing an account",
+    "product": "Checking or savings account",
+    "state": "MI",
+    "sub_issue": "Can't close your account",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "Yes",
+    "zip_code": "486XX"
+   }
+  },
+  {
+   "cursor": "1790825814000_28746682",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28746682",
+    "date_received": "2026-10-01T03:36:54.000Z",
+    "date_sent_to_company": "2026-10-01T03:53:54.000Z",
+    "issue": "Getting the loan",
+    "product": "Payday loan, title loan, personal loan, or advance loan",
+    "state": "TX",
+    "sub_issue": null,
+    "sub_product": "Installment loan",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "Yes",
+    "zip_code": "773XX"
+   }
+  },
+  {
+   "cursor": "1790825835000_28745191",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28745191",
+    "date_received": "2026-10-01T03:37:15.000Z",
+    "date_sent_to_company": "2026-10-01T03:39:56.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "GA",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "300XX"
+   }
+  },
+  {
+   "cursor": "1790825839000_28747409",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28747409",
+    "date_received": "2026-10-01T03:37:19.000Z",
+    "date_sent_to_company": "2026-10-01T04:17:19.000Z",
+    "issue": "Problem with a purchase shown on your statement",
+    "product": "Credit card",
+    "state": "FL",
+    "sub_issue": "Credit card company isn't resolving a dispute about a purchase on your statement",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "331XX"
+   }
+  },
+  {
+   "cursor": "1790825988000_28746738",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28746738",
+    "date_received": "2026-10-01T03:39:48.000Z",
+    "date_sent_to_company": "2026-10-01T03:56:25.000Z",
+    "issue": "Managing the loan or lease",
+    "product": "Vehicle loan or lease",
+    "state": "NE",
+    "sub_issue": "Billing problem",
+    "sub_product": "Loan",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "681XX"
+   }
+  },
+  {
+   "cursor": "1790826072000_28746214",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28746214",
+    "date_received": "2026-10-01T03:41:12.000Z",
+    "date_sent_to_company": "2026-10-01T03:51:59.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "FL",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "331XX"
+   }
+  },
+  {
+   "cursor": "1790826327000_28746903",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28746903",
+    "date_received": "2026-10-01T03:45:27.000Z",
+    "date_sent_to_company": "2026-10-01T04:04:55.000Z",
+    "issue": "Problem with a purchase shown on your statement",
+    "product": "Credit card",
+    "state": "CA",
+    "sub_issue": "Credit card company isn't resolving a dispute about a purchase on your statement",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "902XX"
+   }
+  },
+  {
+   "cursor": "1790826394000_28746705",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with monetary relief",
+    "complaint_id": "28746705",
+    "date_received": "2026-10-01T03:46:34.000Z",
+    "date_sent_to_company": "2026-10-01T03:54:48.000Z",
+    "issue": "Managing an account",
+    "product": "Checking or savings account",
+    "state": "GA",
+    "sub_issue": "Deposits and withdrawals",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "308XX"
+   }
+  },
+  {
+   "cursor": "1790826494000_28748442",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company believes it acted appropriately as authorized by contract or law",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28748442",
+    "date_received": "2026-10-01T03:48:14.000Z",
+    "date_sent_to_company": "2026-10-01T04:25:56.000Z",
+    "issue": "Managing an account",
+    "product": "Checking or savings account",
+    "state": "CA",
+    "sub_issue": "Funds not handled or disbursed as instructed",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "958XX"
+   }
+  },
+  {
+   "cursor": "1790826584000_28746712",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with monetary relief",
+    "complaint_id": "28746712",
+    "date_received": "2026-10-01T03:49:44.000Z",
+    "date_sent_to_company": "2026-10-01T03:55:17.000Z",
+    "issue": "Problem with a lender or other company charging your account",
+    "product": "Checking or savings account",
+    "state": "TX",
+    "sub_issue": "Transaction was not authorized",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "775XX"
+   }
+  },
+  {
+   "cursor": "1790826675000_28750571",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28750571",
+    "date_received": "2026-10-01T03:51:15.000Z",
+    "date_sent_to_company": "2026-10-01T05:07:10.000Z",
+    "issue": "Problem with a lender or other company charging your account",
+    "product": "Checking or savings account",
+    "state": "TX",
+    "sub_issue": "Can't stop withdrawals from your account",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "780XX"
+   }
+  },
+  {
+   "cursor": "1790826735000_28746777",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28746777",
+    "date_received": "2026-10-01T03:52:15.000Z",
+    "date_sent_to_company": "2026-10-01T03:59:02.000Z",
+    "issue": "Improper use of your report",
+    "product": "Credit card",
+    "state": "CA",
+    "sub_issue": "Credit inquiries on your report that you don't recognize",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "917XX"
+   }
+  },
+  {
+   "cursor": "1790826795000_28746894",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28746894",
+    "date_received": "2026-10-01T03:53:15.000Z",
+    "date_sent_to_company": "2026-10-01T04:04:12.000Z",
+    "issue": "False statements or representation",
+    "product": "Debt collection",
+    "state": "LA",
+    "sub_issue": "Attempted to collect wrong amount",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "710XX"
+   }
+  },
+  {
+   "cursor": "1790826875000_28748595",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Untimely response",
+    "complaint_id": "28748595",
+    "date_received": "2026-10-01T03:54:35.000Z",
+    "date_sent_to_company": "2026-10-01T04:32:13.000Z",
+    "issue": "Took or threatened to take negative or legal action",
+    "product": "Debt collection",
+    "state": "FL",
+    "sub_issue": "Threatened or suggested your credit would be damaged",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "No",
+    "zip_code": "322XX"
+   }
+  },
+  {
+   "cursor": "1790826933000_28746893",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28746893",
+    "date_received": "2026-10-01T03:55:33.000Z",
+    "date_sent_to_company": "2026-10-01T04:04:08.000Z",
+    "issue": "Written notification about debt",
+    "product": "Debt collection",
+    "state": "TX",
+    "sub_issue": "Notification didn't disclose it was an attempt to collect a debt",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "770XX"
+   }
+  },
+  {
+   "cursor": "1790827144000_28750598",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28750598",
+    "date_received": "2026-10-01T03:59:04.000Z",
+    "date_sent_to_company": "2026-10-01T05:08:23.000Z",
+    "issue": "Problem with a purchase shown on your statement",
+    "product": "Credit card",
+    "state": "NY",
+    "sub_issue": "Credit card company isn't resolving a dispute about a purchase on your statement",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "112XX"
+   }
+  },
+  {
+   "cursor": "1790827158000_28747134",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28747134",
+    "date_received": "2026-10-01T03:59:18.000Z",
+    "date_sent_to_company": "2026-10-01T04:10:16.000Z",
+    "issue": "Trouble during payment process",
+    "product": "Mortgage",
+    "state": "WA",
+    "sub_issue": "Payment process",
+    "sub_product": "Conventional home mortgage",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "986XX"
+   }
+  },
+  {
+   "cursor": "1790827373000_28748391",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with monetary relief",
+    "complaint_id": "28748391",
+    "date_received": "2026-10-01T04:02:53.000Z",
+    "date_sent_to_company": "2026-10-01T04:23:06.000Z",
+    "issue": "Managing an account",
+    "product": "Checking or savings account",
+    "state": "CA",
+    "sub_issue": "Banking errors",
+    "sub_product": "CD (Certificate of Deposit)",
+    "submitted_via": "Web",
+    "tags": "Older American",
+    "timely": "Yes",
+    "zip_code": "900XX"
+   }
+  },
+  {
+   "cursor": "1790827474000_28748440",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28748440",
+    "date_received": "2026-10-01T04:04:34.000Z",
+    "date_sent_to_company": "2026-10-01T04:25:44.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "NJ",
+    "sub_issue": "Debt was paid",
+    "sub_product": "Credit card debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "081XX"
+   }
+  },
+  {
+   "cursor": "1790827491000_28750334",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28750334",
+    "date_received": "2026-10-01T04:04:51.000Z",
+    "date_sent_to_company": "2026-10-01T04:58:19.000Z",
+    "issue": "Advertising and marketing, including promotional offers",
+    "product": "Credit card",
+    "state": "NM",
+    "sub_issue": "Didn't receive advertised or promotional terms",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "875XX"
+   }
+  },
+  {
+   "cursor": "1790827506000_28747285",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28747285",
+    "date_received": "2026-10-01T04:05:06.000Z",
+    "date_sent_to_company": "2026-10-01T04:14:41.000Z",
+    "issue": "Written notification about debt",
+    "product": "Debt collection",
+    "state": "TX",
+    "sub_issue": "Notification didn't disclose it was an attempt to collect a debt",
+    "sub_product": "Credit card debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "770XX"
+   }
+  },
+  {
+   "cursor": "1790827580000_28747959",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28747959",
+    "date_received": "2026-10-01T04:06:20.000Z",
+    "date_sent_to_company": "2026-10-19T17:35:18.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "TX",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "Other debt",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "Yes",
+    "zip_code": "773XX"
+   }
+  },
+  {
+   "cursor": "1790827608000_28747144",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28747144",
+    "date_received": "2026-10-01T04:06:48.000Z",
+    "date_sent_to_company": "2026-10-01T04:10:58.000Z",
+    "issue": "Repossession",
+    "product": "Vehicle loan or lease",
+    "state": "CA",
+    "sub_issue": "Loan balance remaining after the vehicle is repossessed and sold",
+    "sub_product": "Loan",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "945XX"
+   }
+  },
+  {
+   "cursor": "1790827668000_28747167",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28747167",
+    "date_received": "2026-10-01T04:07:48.000Z",
+    "date_sent_to_company": "2026-10-01T04:11:53.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "FL",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "Other debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "349XX"
+   }
+  },
+  {
+   "cursor": "1790827697000_28747373",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28747373",
+    "date_received": "2026-10-01T04:08:17.000Z",
+    "date_sent_to_company": "2026-10-01T04:16:38.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "NC",
+    "sub_issue": "Debt was result of identity theft",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "283XX"
+   }
+  },
+  {
+   "cursor": "1790827736000_28747417",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28747417",
+    "date_received": "2026-10-01T04:08:56.000Z",
+    "date_sent_to_company": "2026-10-01T04:18:08.000Z",
+    "issue": "Written notification about debt",
+    "product": "Debt collection",
+    "state": "VA",
+    "sub_issue": "Didn't receive enough information to verify debt",
+    "sub_product": "Telecommunications debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "201XX"
+   }
+  },
+  {
+   "cursor": "1790827801000_28747200",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28747200",
+    "date_received": "2026-10-01T04:10:01.000Z",
+    "date_sent_to_company": "2026-10-01T04:12:18.000Z",
+    "issue": "Closing your account",
+    "product": "Credit card",
+    "state": "NJ",
+    "sub_issue": "Can't close your account",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "Yes",
+    "zip_code": "073XX"
+   }
+  },
+  {
+   "cursor": "1790827807000_28751167",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28751167",
+    "date_received": "2026-10-01T04:10:07.000Z",
+    "date_sent_to_company": "2026-10-01T05:20:16.000Z",
+    "issue": "Struggling to pay mortgage",
+    "product": "Mortgage",
+    "state": "GA",
+    "sub_issue": "Trying to communicate with the company to fix an issue related to modification, forbearance, short sale, deed-in-lieu, bankruptcy, or foreclosure",
+    "sub_product": "Conventional home mortgage",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "300XX"
+   }
+  },
+  {
+   "cursor": "1790827869000_28748637",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28748637",
+    "date_received": "2026-10-01T04:11:09.000Z",
+    "date_sent_to_company": "2026-10-01T04:33:56.000Z",
+    "issue": "Dealing with your lender or servicer",
+    "product": "Student loan",
+    "state": "CA",
+    "sub_issue": "Received bad information about your loan",
+    "sub_product": "Private student loan",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "917XX"
+   }
+  },
+  {
+   "cursor": "1790827900000_28752487",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28752487",
+    "date_received": "2026-10-01T04:11:40.000Z",
+    "date_sent_to_company": "2026-10-01T05:36:50.000Z",
+    "issue": "Money was not available when promised",
+    "product": "Money transfer, virtual currency, or money service",
+    "state": "AR",
+    "sub_issue": null,
+    "sub_product": "Virtual currency",
+    "submitted_via": "Web",
+    "tags": "Older American",
+    "timely": "Yes",
+    "zip_code": "727XX"
+   }
+  },
+  {
+   "cursor": "1790827926000_28747336",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28747336",
+    "date_received": "2026-10-01T04:12:06.000Z",
+    "date_sent_to_company": "2026-10-01T04:16:01.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "FL",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "Credit card debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "349XX"
+   }
+  },
+  {
+   "cursor": "1790827928000_28748555",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with monetary relief",
+    "complaint_id": "28748555",
+    "date_received": "2026-10-01T04:12:08.000Z",
+    "date_sent_to_company": "2026-10-01T04:30:33.000Z",
+    "issue": "Problem with a purchase shown on your statement",
+    "product": "Credit card",
+    "state": "WA",
+    "sub_issue": "Credit card company isn't resolving a dispute about a purchase on your statement",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "984XX"
+   }
+  },
+  {
+   "cursor": "1790827934000_28748430",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28748430",
+    "date_received": "2026-10-01T04:12:14.000Z",
+    "date_sent_to_company": "2026-10-01T04:25:12.000Z",
+    "issue": "Charged fees or interest you didn't expect",
+    "product": "Payday loan, title loan, personal loan, or advance loan",
+    "state": "MO",
+    "sub_issue": null,
+    "sub_product": "Personal line of credit",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "Yes",
+    "zip_code": "631XX"
+   }
+  },
+  {
+   "cursor": "1790827970000_28750724",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28750724",
+    "date_received": "2026-10-01T04:12:50.000Z",
+    "date_sent_to_company": "2026-10-01T05:10:35.000Z",
+    "issue": "Charged fees or interest you didn't expect",
+    "product": "Payday loan, title loan, personal loan, or advance loan",
+    "state": "CA",
+    "sub_issue": null,
+    "sub_product": "Installment loan",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "951XX"
+   }
+  },
+  {
+   "cursor": "1790828084000_28748551",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28748551",
+    "date_received": "2026-10-01T04:14:44.000Z",
+    "date_sent_to_company": "2026-10-01T04:30:22.000Z",
+    "issue": "Written notification about debt",
+    "product": "Debt collection",
+    "state": "TX",
+    "sub_issue": "Notification didn't disclose it was an attempt to collect a debt",
+    "sub_product": "Credit card debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "770XX"
+   }
+  },
+  {
+   "cursor": "1790828138000_28747339",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28747339",
+    "date_received": "2026-10-01T04:15:38.000Z",
+    "date_sent_to_company": "2026-10-01T04:16:01.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "FL",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "Credit card debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "349XX"
+   }
+  },
+  {
+   "cursor": "1790828253000_28748485",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28748485",
+    "date_received": "2026-10-01T04:17:33.000Z",
+    "date_sent_to_company": "2026-10-01T04:27:37.000Z",
+    "issue": "Struggling to pay mortgage",
+    "product": "Mortgage",
+    "state": "TX",
+    "sub_issue": "Applying for or obtaining a modification, forbearance plan, short sale, or deed-in-lieu",
+    "sub_product": "FHA mortgage",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "750XX"
+   }
+  },
+  {
+   "cursor": "1790828354000_28748401",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28748401",
+    "date_received": "2026-10-01T04:19:14.000Z",
+    "date_sent_to_company": "2026-10-01T04:23:53.000Z",
+    "issue": "Took or threatened to take negative or legal action",
+    "product": "Debt collection",
+    "state": "CA",
+    "sub_issue": "Threatened or suggested your credit would be damaged",
+    "sub_product": "Telecommunications debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "945XX"
+   }
+  },
+  {
+   "cursor": "1790828366000_28748700",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28748700",
+    "date_received": "2026-10-01T04:19:26.000Z",
+    "date_sent_to_company": "2026-10-01T04:37:16.000Z",
+    "issue": "Problem with a purchase shown on your statement",
+    "product": "Credit card",
+    "state": "CA",
+    "sub_issue": "Overcharged for something you did purchase with the card",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "902XX"
+   }
+  },
+  {
+   "cursor": "1790828483000_28749038",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company believes it acted appropriately as authorized by contract or law",
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28749038",
+    "date_received": "2026-10-01T04:21:23.000Z",
+    "date_sent_to_company": "2026-10-08T11:25:05.000Z",
+    "issue": "False statements or representation",
+    "product": "Debt collection",
+    "state": "WA",
+    "sub_issue": "Attempted to collect wrong amount",
+    "sub_product": "Other debt",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "980XX"
+   }
+  },
+  {
+   "cursor": "1790828484000_28750979",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with monetary relief",
+    "complaint_id": "28750979",
+    "date_received": "2026-10-01T04:21:24.000Z",
+    "date_sent_to_company": "2026-10-01T05:16:35.000Z",
+    "issue": "Opening an account",
+    "product": "Checking or savings account",
+    "state": "PA",
+    "sub_issue": "Didn't receive terms that were advertised",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": "Older American",
+    "timely": "Yes",
+    "zip_code": "189XX"
+   }
+  },
+  {
+   "cursor": "1790828550000_28750365",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28750365",
+    "date_received": "2026-10-01T04:22:30.000Z",
+    "date_sent_to_company": "2026-10-01T04:59:34.000Z",
+    "issue": "Problem with the payoff process at the end of the loan",
+    "product": "Payday loan, title loan, personal loan, or advance loan",
+    "state": "OH",
+    "sub_issue": null,
+    "sub_product": "Title loan",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "444XX"
+   }
+  },
+  {
+   "cursor": "1790828733000_28748798",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28748798",
+    "date_received": "2026-10-01T04:25:33.000Z",
+    "date_sent_to_company": "2026-10-01T04:41:13.000Z",
+    "issue": "Managing an account",
+    "product": "Checking or savings account",
+    "state": "TX",
+    "sub_issue": "Deposits and withdrawals",
+    "sub_product": "Other banking product or service",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "761XX"
+   }
+  },
+  {
+   "cursor": "1790828839000_28753093",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28753093",
+    "date_received": "2026-10-01T04:27:19.000Z",
+    "date_sent_to_company": "2026-10-01T05:53:20.000Z",
+    "issue": "Problem with a lender or other company charging your account",
+    "product": "Checking or savings account",
+    "state": "TX",
+    "sub_issue": "Transaction was not authorized",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "750XX"
+   }
+  },
+  {
+   "cursor": "1790828878000_28752320",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28752320",
+    "date_received": "2026-10-01T04:27:58.000Z",
+    "date_sent_to_company": "2026-10-01T05:30:25.000Z",
+    "issue": "Vehicle was damaged or destroyed the vehicle",
+    "product": "Payday loan, title loan, personal loan, or advance loan",
+    "state": "LA",
+    "sub_issue": null,
+    "sub_product": "Title loan",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "Yes",
+    "zip_code": "704XX"
+   }
+  },
+  {
+   "cursor": "1790828944000_28749175",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company believes it acted appropriately as authorized by contract or law",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28749175",
+    "date_received": "2026-10-01T04:29:04.000Z",
+    "date_sent_to_company": "2026-10-01T04:48:38.000Z",
+    "issue": "Problem with a lender or other company charging your account",
+    "product": "Checking or savings account",
+    "state": "MD",
+    "sub_issue": "Money was taken from your account on the wrong day or for the wrong amount",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "212XX"
+   }
+  },
+  {
+   "cursor": "1790829008000_28749215",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28749215",
+    "date_received": "2026-10-01T04:30:08.000Z",
+    "date_sent_to_company": "2026-10-01T04:49:20.000Z",
+    "issue": "Repossession",
+    "product": "Vehicle loan or lease",
+    "state": "NJ",
+    "sub_issue": "Company communicating payment assistance or payment extension options",
+    "sub_product": "Lease",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "076XX"
+   }
+  },
+  {
+   "cursor": "1790829240000_28749506",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28749506",
+    "date_received": "2026-10-01T04:34:00.000Z",
+    "date_sent_to_company": "2026-10-01T04:53:46.000Z",
+    "issue": "False statements or representation",
+    "product": "Debt collection",
+    "state": "DC",
+    "sub_issue": "Attempted to collect wrong amount",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "200XX"
+   }
+  },
+  {
+   "cursor": "1790829270000_28748759",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28748759",
+    "date_received": "2026-10-01T04:34:30.000Z",
+    "date_sent_to_company": "2026-10-01T04:39:53.000Z",
+    "issue": "Other features, terms, or problems",
+    "product": "Credit card",
+    "state": "CA",
+    "sub_issue": "Problem with rewards from credit card",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "950XX"
+   }
+  },
+  {
+   "cursor": "1790829356000_28749084",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28749084",
+    "date_received": "2026-10-01T04:35:56.000Z",
+    "date_sent_to_company": "2026-10-01T04:46:48.000Z",
+    "issue": "Managing an account",
+    "product": "Checking or savings account",
+    "state": null,
+    "sub_issue": "Problem using a debit or ATM card",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": null
+   }
+  },
+  {
+   "cursor": "1790829595000_28749304",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28749304",
+    "date_received": "2026-10-01T04:39:55.000Z",
+    "date_sent_to_company": "2026-10-01T04:51:13.000Z",
+    "issue": "Managing an account",
+    "product": "Checking or savings account",
+    "state": "CA",
+    "sub_issue": "Problem using a debit or ATM card",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "917XX"
+   }
+  },
+  {
+   "cursor": "1790829722000_28749050",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28749050",
+    "date_received": "2026-10-01T04:42:02.000Z",
+    "date_sent_to_company": "2026-10-01T04:46:45.000Z",
+    "issue": "Took or threatened to take negative or legal action",
+    "product": "Debt collection",
+    "state": "FL",
+    "sub_issue": "Threatened or suggested your credit would be damaged",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "322XX"
+   }
+  },
+  {
+   "cursor": "1790829745000_28749336",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28749336",
+    "date_received": "2026-10-01T04:42:25.000Z",
+    "date_sent_to_company": "2026-10-01T04:53:11.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "CA",
+    "sub_issue": "Debt was result of identity theft",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "923XX"
+   }
+  },
+  {
+   "cursor": "1790829749000_28749653",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28749653",
+    "date_received": "2026-10-01T04:42:29.000Z",
+    "date_sent_to_company": "2026-10-01T04:54:14.000Z",
+    "issue": "Problem with customer service",
+    "product": "Debt or credit management",
+    "state": "TX",
+    "sub_issue": null,
+    "sub_product": "Debt settlement",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "Yes",
+    "zip_code": "775XX"
+   }
+  },
+  {
+   "cursor": "1790829861000_28750455",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28750455",
+    "date_received": "2026-10-01T04:44:21.000Z",
+    "date_sent_to_company": "2026-10-01T05:03:46.000Z",
+    "issue": "Took or threatened to take negative or legal action",
+    "product": "Debt collection",
+    "state": "FL",
+    "sub_issue": "Threatened or suggested your credit would be damaged",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "320XX"
+   }
+  },
+  {
+   "cursor": "1790829983000_28750457",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28750457",
+    "date_received": "2026-10-01T04:46:23.000Z",
+    "date_sent_to_company": "2026-10-01T05:03:43.000Z",
+    "issue": "Advertising and marketing, including promotional offers",
+    "product": "Credit card",
+    "state": "TX",
+    "sub_issue": "Didn't receive advertised or promotional terms",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "Yes",
+    "zip_code": "770XX"
+   }
+  },
+  {
+   "cursor": "1790830009000_28749503",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28749503",
+    "date_received": "2026-10-01T04:46:49.000Z",
+    "date_sent_to_company": "2026-10-01T04:53:46.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "NV",
+    "sub_issue": "Debt was result of identity theft",
+    "sub_product": "Credit card debt",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "Yes",
+    "zip_code": "890XX"
+   }
+  },
+  {
+   "cursor": "1790830235000_28750072",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28750072",
+    "date_received": "2026-10-01T04:50:35.000Z",
+    "date_sent_to_company": "2026-10-01T04:55:26.000Z",
+    "issue": "False statements or representation",
+    "product": "Debt collection",
+    "state": "CA",
+    "sub_issue": "Attempted to collect wrong amount",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "914XX"
+   }
+  },
+  {
+   "cursor": "1790830398000_28750361",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "In progress",
+    "complaint_id": "28750361",
+    "date_received": "2026-10-01T04:53:18.000Z",
+    "date_sent_to_company": "2026-10-01T04:59:20.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "CA",
+    "sub_issue": "Debt was result of identity theft",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "923XX"
+   }
+  },
+  {
+   "cursor": "1790830471000_28751373",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28751373",
+    "date_received": "2026-10-01T04:54:31.000Z",
+    "date_sent_to_company": "2026-10-01T05:21:45.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "NV",
+    "sub_issue": "Debt was result of identity theft",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "Yes",
+    "zip_code": "890XX"
+   }
+  },
+  {
+   "cursor": "1790830476000_28750360",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28750360",
+    "date_received": "2026-10-01T04:54:36.000Z",
+    "date_sent_to_company": "2026-10-01T04:59:01.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "AR",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "724XX"
+   }
+  },
+  {
+   "cursor": "1790830669000_28750686",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28750686",
+    "date_received": "2026-10-01T04:57:49.000Z",
+    "date_sent_to_company": "2026-10-01T05:10:23.000Z",
+    "issue": "Fraud or scam",
+    "product": "Money transfer, virtual currency, or money service",
+    "state": "CA",
+    "sub_issue": null,
+    "sub_product": "Virtual currency",
+    "submitted_via": "Web",
+    "tags": "Older American",
+    "timely": "Yes",
+    "zip_code": "917XX"
+   }
+  },
+  {
+   "cursor": "1790830795000_28750379",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company disputes the facts presented in the complaint",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28750379",
+    "date_received": "2026-10-01T04:59:55.000Z",
+    "date_sent_to_company": "2026-10-01T05:00:27.000Z",
+    "issue": "False statements or representation",
+    "product": "Debt collection",
+    "state": "MD",
+    "sub_issue": "Attempted to collect wrong amount",
+    "sub_product": "Other debt",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "No",
+    "zip_code": "207XX"
+   }
+  },
+  {
+   "cursor": "1790830817000_28750967",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with non-monetary relief",
+    "complaint_id": "28750967",
+    "date_received": "2026-10-01T05:00:17.000Z",
+    "date_sent_to_company": "2026-10-01T05:16:17.000Z",
+    "issue": "Attempts to collect debt not owed",
+    "product": "Debt collection",
+    "state": "CA",
+    "sub_issue": "Debt is not yours",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": "Servicemember",
+    "timely": "Yes",
+    "zip_code": "920XX"
+   }
+  },
+  {
+   "cursor": "1790830926000_28751385",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": "Company has responded to the consumer and the CFPB and chooses not to provide a public response",
+    "company_response": "Closed with explanation",
+    "complaint_id": "28751385",
+    "date_received": "2026-10-01T05:02:06.000Z",
+    "date_sent_to_company": "2026-10-01T05:22:14.000Z",
+    "issue": "Managing an account",
+    "product": "Checking or savings account",
+    "state": "VA",
+    "sub_issue": "Deposits and withdrawals",
+    "sub_product": "Checking account",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "228XX"
+   }
+  },
+  {
+   "cursor": "1790830942000_28751384",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28751384",
+    "date_received": "2026-10-01T05:02:22.000Z",
+    "date_sent_to_company": "2026-10-01T05:22:11.000Z",
+    "issue": "Trouble using your card",
+    "product": "Credit card",
+    "state": "AZ",
+    "sub_issue": "Can't use card to make purchases",
+    "sub_product": "General-purpose credit card or charge card",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "852XX"
+   }
+  },
+  {
+   "cursor": "1790831089000_28751074",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with monetary relief",
+    "complaint_id": "28751074",
+    "date_received": "2026-10-01T05:04:49.000Z",
+    "date_sent_to_company": "2026-10-01T05:18:03.000Z",
+    "issue": "Unauthorized transactions or other transaction problem",
+    "product": "Money transfer, virtual currency, or money service",
+    "state": "SC",
+    "sub_issue": null,
+    "sub_product": "Mobile or digital wallet",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "295XX"
+   }
+  },
+  {
+   "cursor": "1790831156000_28750726",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28750726",
+    "date_received": "2026-10-01T05:05:56.000Z",
+    "date_sent_to_company": "2026-10-01T05:10:40.000Z",
+    "issue": "Problem when making payments",
+    "product": "Payday loan, title loan, personal loan, or advance loan",
+    "state": "TN",
+    "sub_issue": null,
+    "sub_product": "Installment loan",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "372XX"
+   }
+  },
+  {
+   "cursor": "1790831218000_28750823",
+   "dropped_fields": [
+    "company"
+   ],
+   "source": {
+    "company_public_response": null,
+    "company_response": "Closed with explanation",
+    "complaint_id": "28750823",
+    "date_received": "2026-10-01T05:06:58.000Z",
+    "date_sent_to_company": "2026-10-01T05:12:58.000Z",
+    "issue": "Took or threatened to take negative or legal action",
+    "product": "Debt collection",
+    "state": "FL",
+    "sub_issue": "Threatened or suggested your credit would be damaged",
+    "sub_product": "I do not know",
+    "submitted_via": "Web",
+    "tags": null,
+    "timely": "Yes",
+    "zip_code": "320XX"
+   }
+  }
+ ],
+ "total": 56396
+}

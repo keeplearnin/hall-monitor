@@ -34,6 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 READ_ONLY_TOOLS: dict[str, str] = {
     "policy_lookup": "reads a synthetic travel policy record",
     "claims_history": "reads the insured's earlier synthetic claims",
+    "cfpb_complaint_search": "reads public CFPB complaints with GET (complaints/cfpb.py)",
 }
 
 # Words that mean sending wherever they appear in a name ("emailcustomer", "replyto").

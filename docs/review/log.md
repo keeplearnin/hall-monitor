@@ -695,3 +695,38 @@ and 1 plausible; the confirmed ones fixed, test-first.
 | The shipped-policy check ran only when a client was made, so a policy swapped onto it afterwards was used | Low | It is checked again on every request |
 | Matching send words anywhere refuses harmless names (`consent_lookup`, `delivery_status_lookup`) | Low, plausible | Kept: the intended direction of error, stated in HM-25's gaps |
 
+
+## Review 15: complaint ingestion from CFPB (HM-26)
+
+**Reviewer:** the governance-reviewer agent, on the complaint desk's second slice before its pull
+request, with offline repros against the tests' fake CFPB (no network, no API). Retries,
+argument checks, write-before-process snapshots, idempotent quarantine, transactional upserts and
+minimisation by allow-list held. 13 findings, 10 confirmed and 3 plausible; all fixed or stated,
+test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The README and HM-18 said all data in the repo is synthetic; the branch commits 500 real complaints. CLAUDE.md's "Synthetic data only" rule says the same | High | The README and HM-18 name the one exception, `data/cfpb/`, minimised and labelled real; a test checks the README. CLAUDE.md is the project's own rule, left for Hari to change |
+| CFPB's metadata (`last_updated`, the total) and its field names reached the `complaint_pull` audit entry unchecked: a value of any text was logged | Medium | Only a timestamp, booleans and a count pass; an unknown field name is logged as a placeholder |
+| A naive or numeric receipt date passed validation, then every later load failed comparing dates | Medium | Dates must be ISO text with a time zone; others are quarantined |
+| A cursor CFPB supplied out of range was stored, and every later pull crashed before its error handling | Medium | Cursors outside 2011 to 2100 are not used, and the cursor is read inside the pull's error handling |
+| Nothing checked a page moved the cursor forward: an API that ignored `search_after` would refetch one page until capacity, looking like a backlog | Medium | The pull fails with `cursor_did_not_advance` |
+| The late-publication gap was understated: CFPB publishes once the company responds or after about 15 days, so missing complaints behind the cursor is the normal case | Medium, plausible | HM-26 and ADR 0022 say so and name the remedy (a restart at least 15 days back), which nothing schedules yet; resuming reads from the day before the cursor's |
+| Nothing pinned the pinned snapshot's manifest: a page and its manifest entry edited together loaded | Medium | The manifest's hash is recorded in code and checked when the snapshot loads |
+| HM-25 still said nothing calls the CFPB API | Low | Removed |
+| Each pull reported the process's running request and retry counts | Low | Each pull reports its own |
+| A restart date was dropped after a failed first pull | Low, plausible | It applies until a pull succeeds |
+| `Retry-After: ²` raised a `ValueError` carrying the header into the log | Low | Only ASCII digits count; anything else is ignored |
+| A quarantine reason could name an unknown key from a replayed snapshot | Low | Only the model's own field names are named; others are `unknown_field` |
+| `pin` copied files the manifest didn't list and took any pull ID | Low, plausible | It copies the manifest and its pages only, and checks the pull ID |
+
+**Re-review of those fixes:** each new test fails with its fix undone. 4 findings, 3 confirmed
+and 1 plausible, all Low; all fixed, test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The pinned-manifest check failed open for a snapshot not listed in code | Low | A pinned snapshot with no recorded hash is refused; a test checks every pinned folder has one |
+| A bad cursor already in a store failed every pull as `ValueError` | Low | The stored cursor is checked first and fails as `stored_cursor_invalid`; `--since` replaces it |
+| A page with no usable cursor and an API ignoring the cursor shared one error code | Low | `no_usable_cursor` and `cursor_did_not_advance` |
+| If CFPB orders IDs as text within a millisecond, IDs of different lengths would look like going backwards | Low, plausible | Another ID in the same millisecond counts as moving forward |
+

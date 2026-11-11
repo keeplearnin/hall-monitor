@@ -1,0 +1,56 @@
+{
+ "capacity": 500,
+ "cfpb_total_since_date_min": 56396,
+ "cursor_after": "1790840769000_28760194",
+ "cursor_before": null,
+ "data_status": {
+  "has_data_issue": false,
+  "is_data_stale": false,
+  "last_updated": "2026-11-11T12:00:00-05:00"
+ },
+ "date_min": "2026-10-01",
+ "dropped_fields": [
+  "company"
+ ],
+ "error": null,
+ "fetched": 500,
+ "finished_at": "2026-11-11T17:51:09.440834+00:00",
+ "new": 500,
+ "pages": [
+  {
+   "file": "page-0001.json",
+   "records": 100,
+   "sha256": "2560835399f76ce6469d5f629f4d94d7dddcff7fc327f21f820e8dbdd5bfd313"
+  },
+  {
+   "file": "page-0002.json",
+   "records": 100,
+   "sha256": "3c09579344ec1ec72000c61c58cf6a5c94eda48c3eb52652f61374d8d9da8947"
+  },
+  {
+   "file": "page-0003.json",
+   "records": 100,
+   "sha256": "5fda2b1a184fbcf15433a03cebc63fc350d3cab587a3c7b57710879b75258077"
+  },
+  {
+   "file": "page-0004.json",
+   "records": 100,
+   "sha256": "ede5262633e31046657a90f037c654d63f0a52d6e0afa5710d8379858e97ad01"
+  },
+  {
+   "file": "page-0005.json",
+   "records": 100,
+   "sha256": "5416514623bbed14fb88040966f02416904373491d7647e90afd77dce04c144c"
+  }
+ ],
+ "pull_id": "pull-20261111T175104Z-c4d6bf",
+ "quarantined": 0,
+ "quarantined_again": 0,
+ "requests": 5,
+ "retries": 0,
+ "seconds": 5.165,
+ "started_at": "2026-11-11T17:51:04.275621+00:00",
+ "status": "at_capacity",
+ "unchanged": 0,
+ "updated": 0
+}

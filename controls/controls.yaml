@@ -616,7 +616,9 @@ controls:
   - id: HM-18
     name: Synthetic data and documented limits
     what: >-
-      All data is synthetic, with answer keys whose changes are dated and justified. Each
+      All data is synthetic, with answer keys whose changes are dated and justified, except the
+      complaint desk's pinned CFPB snapshot (data/cfpb/): real, public complaints, minimised
+      (no company, ZIP prefix only) and labelled as real. Each
       published run states what it can't show: sample size, one author, run-to-run variation.
     status: built
     code:
@@ -1210,8 +1212,91 @@ controls:
       library that sends as a side effect); it catches the honest mistake, and
       review is still the control for the rest. There is no network sandbox or firewall: process
       isolation is outside the repo (MI-22 is not covered). The send-word list can refuse a
-      harmless tool name, which is the intended direction of error. Until the ingestion slice
-      lands, nothing in the repo calls the CFPB API yet.
+      harmless tool name, which is the intended direction of error.
+
+  - id: HM-26
+    name: Complaint ingestion from CFPB
+    what: >-
+      The complaint desk reads public CFPB complaints through one MCP tool,
+      cfpb_complaint_search, behind the tool gateway: only the pipeline may call it, its
+      arguments are checked (a date, a digit cursor, a page size up to 100) and every call is in
+      the audit log. Under it, CfpbClient (egress.py) makes GET requests through the egress
+      guard (HM-25), spaced one a second by default, retrying timeouts, network errors, 429 and
+      5xx with exponential backoff, jitter and Retry-After up to a cap; any other failure stops
+      the pull, which records failed with the error's type and keeps what it stored. The tool
+      keeps an allow-list of fields, so the company name never enters the system and new
+      fields are dropped and named; ZIP codes are cut to three digits. Pulls take the desk's
+      products, oldest first, resume after a stored cursor (CFPB pages by search_after) that
+      moves only after a page is processed, and stop at the desk's capacity, saying whether they
+      caught up. Records are validated strictly and kept by complaint ID: a repeat is skipped, a
+      change is a new version, a failure is quarantined once with field names and error types
+      only. Each page is written to disk with a manifest of hashes before it is processed; a
+      snapshot replays offline, a changed one is refused, and the pinned snapshot under
+      data/cfpb/snapshots/ (its manifest hash recorded in code) is what evals and demos run on.
+      CFPB's metadata reaches the audit log only in the expected shape (a timestamp, booleans, a
+      count) and unknown field names only as a placeholder; a page that doesn't move the cursor
+      forward fails the pull. Pulls log JSON lines and one
+      complaint_pull audit entry with counts, cursor, retries and status.
+    status: built
+    code:
+      - hall_monitor/complaints/cfpb.py::build_complaint_server
+      - hall_monitor/complaints/cfpb.py::minimise_hit
+      - hall_monitor/egress.py::CfpbClient
+      - hall_monitor/complaints/models.py::Complaint
+      - hall_monitor/complaints/store.py::ComplaintStore
+      - hall_monitor/complaints/ingest.py::pull
+      - hall_monitor/complaints/ingest.py::replay
+      - hall_monitor/complaints/ingest.py::load_snapshot
+      - data/cfpb/README.md
+    tests:
+      - tests/test_complaint_ingest.py::test_the_tool_minimises_each_record_at_the_door
+      - tests/test_complaint_ingest.py::test_the_tool_asks_cfpb_for_the_desk_s_products_oldest_first
+      - tests/test_complaint_ingest.py::test_no_agent_may_call_the_cfpb_tool
+      - tests/test_complaint_ingest.py::test_the_tool_refuses_arguments_outside_its_shape
+      - tests/test_complaint_ingest.py::test_requests_are_spaced_by_the_rate_limit
+      - tests/test_complaint_ingest.py::test_429_and_5xx_are_retried_with_backoff_honouring_retry_after
+      - tests/test_complaint_ingest.py::test_retries_run_out_and_another_4xx_is_never_retried
+      - tests/test_complaint_ingest.py::test_timeouts_are_retried
+      - tests/test_complaint_ingest.py::test_a_pull_stores_validated_minimised_complaints
+      - tests/test_complaint_ingest.py::test_a_second_pull_resumes_after_the_cursor_and_repeats_nothing
+      - tests/test_complaint_ingest.py::test_the_same_records_again_are_skipped_and_a_changed_one_is_a_new_version
+      - tests/test_complaint_ingest.py::test_a_bad_record_is_quarantined_and_the_pull_goes_on
+      - tests/test_complaint_ingest.py::test_a_pull_stops_at_the_desk_s_capacity
+      - tests/test_complaint_ingest.py::test_a_failed_pull_keeps_what_it_did_and_says_why
+      - tests/test_complaint_ingest.py::test_a_snapshot_replays_offline_to_the_same_store
+      - tests/test_complaint_ingest.py::test_a_changed_snapshot_is_refused
+      - tests/test_complaint_ingest.py::test_the_pinned_snapshot_loads_and_is_minimised
+      - tests/test_complaint_ingest.py::test_the_schedule_pulls_every_interval_until_its_runs_are_done
+      - tests/test_complaint_ingest.py::test_pull_logs_are_json_lines_with_counts
+      - tests/test_complaint_ingest.py::test_cfpb_metadata_and_field_names_reach_the_audit_log_only_as_codes
+      - tests/test_complaint_ingest.py::test_a_naive_or_numeric_date_is_quarantined
+      - tests/test_complaint_ingest.py::test_a_cursor_out_of_range_is_refused_not_stored
+      - tests/test_complaint_ingest.py::test_a_page_that_does_not_advance_the_cursor_fails_the_pull
+      - tests/test_complaint_ingest.py::test_an_egress_refusal_is_never_retried
+      - tests/test_complaint_ingest.py::test_a_quarantine_reason_never_echoes_an_unknown_key
+      - tests/test_complaint_ingest.py::test_the_pinned_snapshot_matches_its_recorded_manifest_hash
+      - tests/test_complaint_ingest.py::test_every_pinned_snapshot_has_a_recorded_manifest_hash
+      - tests/test_complaint_ingest.py::test_a_bad_stored_cursor_fails_with_its_own_code
+      - tests/test_complaint_ingest.py::test_a_page_with_no_usable_cursor_fails_with_its_own_code
+    evidence:
+      - data/cfpb/snapshots/2026-10-01/manifest.json
+    nist: [MEASURE 2.1, MANAGE 3.1]
+    finos:
+      risks: [RI-19]
+      mitigations: [MI-06]
+    gaps: >-
+      Tested against a fake CFPB; one live pull (500 records, 2026-11-11) made the pinned
+      snapshot, and nothing checks the live API's shape on a schedule. CFPB publishes a complaint
+      once the company responds or after about 15 days, so many are published after later ones
+      were: once a pull has caught up, a complaint published afterwards with an earlier receipt
+      time is behind the cursor and missed, unless a pull restarts from a date at least 15 days
+      back (--since; dedupe makes the repeats cheap). This is the normal case, not a rare one,
+      and nothing schedules the restart. Resuming reads from the day before the cursor's in
+      case CFPB's date filter isn't in UTC (not checked).
+      The schedule is a foreground loop, not a supervised service, and there is no alert on a
+      failed pull beyond the log and the audit entry. The store and snapshots are local,
+      unencrypted SQLite and JSON. The pinned snapshot is real published data (minimised), not
+      synthetic. Validation catches shape, not meaning: a mislabelled issue passes.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
@@ -1284,3 +1369,5 @@ audit_events:
   leave_information_requested: [HM-23]
   egress_refused: [HM-25]
   draft_stored: [HM-25, HM-06]
+  complaint_pull: [HM-26]
+  complaint_quarantined: [HM-26]
