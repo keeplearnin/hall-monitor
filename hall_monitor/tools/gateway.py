@@ -22,7 +22,15 @@ from fastmcp import Client, FastMCP
 
 from hall_monitor.gateway.redaction import redact_value
 from hall_monitor.models import PolicyRecord, ToolCall
-from hall_monitor.registry import ALL_DATA_CLASSES, RESERVED_AGENT_ID, Registry, RegistryError
+from hall_monitor.no_send import tool_problems
+from hall_monitor.registry import (
+    ALL_DATA_CLASSES,
+    RESERVED_AGENT_ID,
+    DataClass,
+    Registry,
+    RegistryError,
+    SendCapabilityError,
+)
 from hall_monitor.tools.server import POLICY_LOOKUP, TOOL_DATA_CLASSES, build_server
 
 PIPELINE_ACTOR = RESERVED_AGENT_ID  # no agent may take this ID (Registry refuses it)
@@ -42,10 +50,32 @@ def _run[T](coro: Coroutine[Any, Any, T]) -> T:
 
 
 class ToolGateway:
-    def __init__(self, registry: Registry, server: FastMCP | None = None):
+    def __init__(
+        self,
+        registry: Registry,
+        server: FastMCP | None = None,
+        *,
+        tool_data_classes: dict[str, frozenset[DataClass]] | None = None,
+        pipeline_tools: frozenset[str] | None = None,
+    ):
+        """server defaults to the claims records server; another example passes its own, with
+        what each tool returns (tool_data_classes) and the tools its pipeline may call. The
+        gateway refuses to start on a server exposing any tool that could send (HM-25)."""
         self.registry = registry
+        if server is not None and type(server) is not FastMCP:
+            # fastmcp's Client would treat a URL or a command as a remote server and post tool
+            # calls to it, and a proxy (a FastMCP subclass) forwards them (HM-25): only a plain
+            # in-process server is taken.
+            raise TypeError("the tool gateway takes only an in-process FastMCP server")
         self.server = server or build_server()
+        self.tool_data_classes = (
+            TOOL_DATA_CLASSES if tool_data_classes is None else tool_data_classes
+        )
+        self.pipeline_tools = PIPELINE_TOOLS if pipeline_tools is None else pipeline_tools
         self._definitions = _run(self._list_tools())
+        problems = tool_problems(sorted(self._definitions))
+        if problems:
+            raise SendCapabilityError("the tool server may never send: " + "; ".join(problems))
 
     async def _list_tools(self) -> dict[str, dict]:
         async with Client(self.server) as client:
@@ -69,7 +99,7 @@ class ToolGateway:
             self._definitions[name]
             for name in manifest.allowed_tools
             if name in self._definitions
-            and TOOL_DATA_CLASSES.get(name, ALL_DATA_CLASSES) <= may_see
+            and self.tool_data_classes.get(name, ALL_DATA_CLASSES) <= may_see
         ]
 
     def call(
@@ -83,12 +113,14 @@ class ToolGateway:
         """scope_policy: the claim's own policy number. A lookup for any other is refused."""
         started = time.perf_counter()
         try:
+            if tool_problems([tool]):
+                raise SendCapabilityError(f"tool {tool!r} may never be called: it could send")
             if actor == PIPELINE_ACTOR:
-                if tool not in PIPELINE_TOOLS:
+                if tool not in self.pipeline_tools:
                     raise RegistryError(f"pipeline may not call tool {tool!r}")
             else:
                 self.registry.check_tool(actor, tool)
-                self.registry.check_data(actor, TOOL_DATA_CLASSES.get(tool, ALL_DATA_CLASSES))
+                self.registry.check_data(actor, self.tool_data_classes.get(tool, ALL_DATA_CLASSES))
             asked = str(arguments.get("policy_number", "")).strip().upper()
             if scope_policy is not None and asked != scope_policy.strip().upper():
                 raise RegistryError(

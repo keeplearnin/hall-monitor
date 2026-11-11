@@ -18,6 +18,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
+from hall_monitor.no_send import tool_problems
 
 RESERVED_AGENT_ID = "pipeline"  # the tool gateway's PIPELINE_ACTOR
 DEFAULT_REGISTRY_DIR = Path(__file__).resolve().parents[1] / "registry"
@@ -122,6 +123,17 @@ class AgentStoppedError(RegistryError):
     pass
 
 
+class SendCapabilityError(RegistryError):
+    """A tool that could send, or one not in the read-only catalogue (HM-25)."""
+
+
+def check_no_send(manifest: AgentManifest) -> None:
+    """Refuse a manifest that lists any tool outside the read-only catalogue (no_send.py)."""
+    problems = tool_problems(manifest.allowed_tools)
+    if problems:
+        raise SendCapabilityError(f"agent {manifest.id!r} may never send: " + "; ".join(problems))
+
+
 class StopListError(RegistryError):
     """The stop list can't be trusted, so every agent is refused until it is fixed."""
 
@@ -216,6 +228,7 @@ class Registry:
         manifest = self.get(agent_id)
         if manifest.status is not AgentStatus.ACTIVE:
             raise AgentNotActiveError(f"agent {agent_id!r} is {manifest.status}, not active")
+        check_no_send(manifest)
         self._check_stops(agent_id)
         if self._approved is not None and self._approved.get(agent_id) != manifest.digest():
             raise UnapprovedManifestError(

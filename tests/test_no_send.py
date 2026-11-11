@@ -1,0 +1,435 @@
+"""HM-25: the system never replies to, contacts or sends anything to anyone.
+
+Each test proves one point of the rule: one outbound data path (GET, one host, one API path),
+refusals recorded; no send-capable tool can be declared, granted or served; drafts are kept and
+marked never-sent with no field that could address them; and a static check, run in CI, fails
+when a sending capability is added. No network: every transport here is a mock.
+"""
+
+import json
+import textwrap
+from pathlib import Path
+
+import anthropic
+import httpx
+import httpx2
+import pytest
+from fastmcp import FastMCP
+from pydantic import ValidationError
+
+from hall_monitor import no_send
+from hall_monitor.approvals import current_approvals
+from hall_monitor.complaints.drafts import DraftResponse, store_draft
+from hall_monitor.egress import (
+    CFPB_API_HOST,
+    CFPB_API_PATH,
+    CFPB_POLICY,
+    MODEL_API_POLICY,
+    EgressRefused,
+    audit_refusals,
+    guarded_client,
+    model_client,
+)
+from hall_monitor.governance.audit import AuditLog
+from hall_monitor.governance.controls import ROOT
+from hall_monitor.registry import AgentManifest, Registry, SendCapabilityError
+from hall_monitor.tools.gateway import ToolGateway
+from tests.fakes import TEST_REGISTRY_DIR
+
+CFPB = f"https://{CFPB_API_HOST}{CFPB_API_PATH}"
+
+
+def _mock(seen: list[httpx.Request], response=None):
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return response(request) if response else httpx.Response(200, json={"hits": {}})
+
+    return httpx.MockTransport(handler)
+
+
+# 1. One outbound data path: GET, the CFPB host, the complaint API path.
+
+
+def test_a_get_to_the_cfpb_complaint_api_goes_through():
+    seen: list[httpx.Request] = []
+    with guarded_client(CFPB_POLICY, transport=_mock(seen)) as client:
+        assert client.get(f"{CFPB}?size=1").status_code == 200
+        assert client.get(f"{CFPB}32464970").status_code == 200
+    assert [r.method for r in seen] == ["GET", "GET"]
+
+
+@pytest.mark.parametrize(
+    ("method", "url"),
+    [
+        ("POST", CFPB),  # a write to the API itself
+        ("PUT", CFPB),
+        ("DELETE", CFPB),
+        ("PATCH", CFPB),
+        ("GET", "https://example.com/data-research/consumer-complaints/search/api/v1/"),
+        ("GET", f"https://{CFPB_API_HOST}/complaint/"),  # CFPB's own complaint form
+        ("GET", f"https://{CFPB_API_HOST}/data-research/consumer-complaints/"),
+        ("GET", f"http://{CFPB_API_HOST}{CFPB_API_PATH}"),  # not TLS
+        ("GET", f"https://{CFPB_API_HOST}:8443{CFPB_API_PATH}"),  # another port
+        ("GET", f"https://{CFPB_API_HOST}@evil.example{CFPB_API_PATH}"),  # userinfo trick
+        ("GET", f"https://{CFPB_API_HOST}.evil.example{CFPB_API_PATH}"),
+        ("GET", f"https://{CFPB_API_HOST}{CFPB_API_PATH}../../complaint/"),  # path traversal
+        ("GET", "https://hooks.slack.com/services/T000/B000/XXXX"),  # a webhook
+    ],
+)
+def test_anything_else_is_refused_before_it_leaves_and_recorded(tmp_path, method, url):
+    seen: list[httpx.Request] = []
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    with guarded_client(CFPB_POLICY, transport=_mock(seen), on_refused=audit_refusals(audit)) as c:
+        with pytest.raises(EgressRefused):
+            c.request(method, url, content=b"hello" if method != "GET" else None)
+    assert seen == [], "the request reached the transport"
+    [entry] = audit.entries()
+    assert entry["event"] == "egress_refused" and entry["actor"] == "pipeline"
+    payload = entry["payload"]
+    assert payload["method"] == method and payload["policy"] == "cfpb_complaint_api"
+    assert len(payload["url_sha256"]) == 64
+    assert "hello" not in json.dumps(payload)  # never the body
+    assert audit.verify().ok
+
+
+def test_a_redirect_is_never_followed():
+    seen: list[httpx.Request] = []
+    redirect = lambda r: httpx.Response(302, headers={"location": "https://evil.example/"})  # noqa: E731
+    with guarded_client(CFPB_POLICY, transport=_mock(seen, redirect)) as client:
+        assert client.get(CFPB).status_code == 302
+        # Even asked to follow it, the next hop is checked again and refused.
+        with pytest.raises(EgressRefused):
+            client.get(CFPB, follow_redirects=True)
+    assert [str(r.url) for r in seen] == [CFPB, CFPB]
+
+
+def test_the_model_client_reaches_only_the_messages_endpoint(tmp_path):
+    seen: list[httpx.Request] = []
+    message = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-haiku-5-5",
+        "content": [{"type": "text", "text": "ok"}],
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "usage": {"input_tokens": 1, "output_tokens": 1},
+    }
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    client = model_client(
+        api_key="test-key",
+        transport=httpx2.MockTransport(
+            lambda r: seen.append(r) or httpx2.Response(200, json=message)
+        ),
+        on_refused=audit_refusals(audit),
+    )
+    ask = {
+        "model": "claude-haiku-5-5",
+        "max_tokens": 10,
+        "messages": [{"role": "user", "content": "hi"}],
+    }
+    assert client.messages.create(**ask).content[0].text == "ok"
+    assert [(r.method, r.url.path) for r in seen] == [("POST", "/v1/messages")]
+    # Pointed anywhere else, the same client is refused before anything is sent.
+    with pytest.raises(anthropic.APIConnectionError):
+        client.with_options(base_url="https://collector.example").messages.create(**ask)
+    assert len(seen) == 1
+    assert [e["payload"]["policy"] for e in audit.entries()] == ["model_api"]
+
+
+def test_the_policies_allow_one_method_each():
+    assert {r.method for r in CFPB_POLICY.rules} == {"GET"}
+    assert {r.method for r in MODEL_API_POLICY.rules} == {"POST"}
+
+
+# 2. No send-capable tool can be declared, granted or served.
+
+
+def _manifest(**changes) -> AgentManifest:
+    fields = {
+        "id": "complaint_probe",
+        "name": "Probe",
+        "version": "0.1.0",
+        "owner": "own-301",
+        "purpose": "test",
+        "risk_tier": "low",
+        "status": "active",
+        "model": "claude-haiku-5-5",
+    }
+    return AgentManifest(**(fields | changes))
+
+
+@pytest.mark.parametrize(
+    "tool",
+    [
+        "send_email",
+        "reply_to_consumer",
+        "post_webhook",
+        "notify_company",
+        "submit_to_cfpb",
+        "sms_customer",
+        "ticket_update",
+    ],  # the last isn't in the read-only catalogue
+)
+def test_a_manifest_asking_for_a_send_capable_tool_is_refused_at_run_time(tool):
+    registry = Registry([_manifest(allowed_tools=("policy_lookup", tool))])
+    with pytest.raises(SendCapabilityError, match=tool):
+        registry.require("complaint_probe")
+    with pytest.raises(SendCapabilityError):
+        registry.check_tool("complaint_probe", "policy_lookup")
+
+
+def test_a_manifest_with_read_only_tools_still_runs():
+    registry = Registry([_manifest(allowed_tools=("policy_lookup", "claims_history"))])
+    assert registry.require("complaint_probe").allowed_tools == ("policy_lookup", "claims_history")
+
+
+def test_a_send_capable_manifest_cannot_be_approved():
+    with pytest.raises(SendCapabilityError):
+        current_approvals(previous={}, manifests=[_manifest(allowed_tools=("send_email",))])
+
+
+def test_the_gateway_refuses_to_start_on_a_server_exposing_a_send_tool():
+    server = FastMCP("probe")
+
+    @server.tool(name="send_reply")
+    def send_reply(text: str) -> dict:
+        return {}
+
+    with pytest.raises(SendCapabilityError, match="send_reply"):
+        ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR), server)
+
+
+def test_every_tool_the_shipped_servers_expose_is_in_the_read_only_catalogue():
+    gateway = ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR))
+    assert set(gateway._definitions) <= set(no_send.READ_ONLY_TOOLS)
+    assert not [t for t in no_send.READ_ONLY_TOOLS if no_send.SEND_WORDS.search(t)]
+
+
+# 3. Drafts are kept inside the system, marked never-sent, with no delivery path.
+
+
+def test_a_draft_has_no_field_that_could_address_or_deliver_it():
+    fields = set(DraftResponse.model_fields)
+    assert fields == {"complaint_id", "text", "never_sent", "written_by", "prompt_version"}
+    draft = DraftResponse(
+        complaint_id="c1", text="Thank you.", written_by="complaint_triage", prompt_version="v1"
+    )
+    assert draft.never_sent is True
+    with pytest.raises(ValidationError):
+        DraftResponse(**draft.model_dump() | {"never_sent": False})
+    for extra in ("recipient", "to", "email", "channel", "send_at", "webhook_url"):
+        with pytest.raises(ValidationError):
+            DraftResponse(**draft.model_dump(), **{extra: "x"})
+
+
+def test_a_stored_draft_is_kept_by_hash_and_logged_as_never_sent(tmp_path):
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    draft = DraftResponse(
+        complaint_id="c1",
+        text="We are looking into it.",
+        written_by="complaint_triage",
+        prompt_version="v1",
+    )
+    digest = store_draft(audit, draft)
+    assert audit.get_evidence(digest)["text"] == "We are looking into it."
+    [entry] = audit.entries("c1")
+    assert entry["event"] == "draft_stored"
+    assert entry["payload"] == {
+        "evidence_sha256": digest,
+        "never_sent": True,
+        "delivery": "none",
+        "written_by": "complaint_triage",
+        "prompt_version": "v1",
+    }
+
+
+def test_verify_reports_a_swapped_or_erased_draft(tmp_path):
+    """Review 14: verify didn't check stored drafts, so one could be swapped unnoticed."""
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    draft = DraftResponse(
+        complaint_id="c1", text="Draft.", written_by="complaint_triage", prompt_version="v1"
+    )
+    digest = store_draft(audit, draft)
+    assert audit.verify().ok
+    swapped = json.dumps({"text": "We have SENT you a refund", "never_sent": False})
+    audit.erase_evidence(digest)
+    result = audit.verify()
+    assert result.ok and result.evidence_erased == [digest]  # an erasure shows as one
+    audit._db.execute("INSERT INTO evidence VALUES (?, ?)", (digest, swapped))
+    assert not audit.verify().ok  # a swapped draft is a problem
+    audit.erase_evidence(digest)
+    result = audit.verify()
+    assert result.ok and result.evidence_erased == [digest]
+
+
+# 4. A static check, run in CI, fails when a sending capability is added.
+
+
+def test_the_repo_has_no_sending_capability():
+    assert no_send.scan(ROOT) == []
+
+
+@pytest.mark.parametrize(
+    ("source", "rule"),
+    [
+        ("import smtplib\n", "banned_import"),
+        ("from email.mime.text import MIMEText\n", "banned_import"),
+        ("import requests\n", "banned_import"),
+        ("import urllib.request\n", "banned_import"),
+        ("from urllib import request\n", "banned_import"),
+        ("import socket\n", "banned_import"),
+        ("from http.client import HTTPSConnection\n", "banned_import"),
+        ("import aiohttp\n", "banned_import"),
+        ("from slack_sdk import WebClient\n", "banned_import"),
+        ("import twilio.rest\n", "banned_import"),
+        ("import boto3\n", "banned_import"),
+        ("import webbrowser\n", "banned_import"),
+        ("import httpx\n", "httpx_outside_egress"),
+        ("from httpx2 import Client\n", "httpx_outside_egress"),
+        ("x = __import__('smtplib')\n", "dynamic_import"),
+        ("import importlib\nimportlib.import_module('requests')\n", "dynamic_import"),
+        ("def f(c):\n    return c.post('https://example.com')\n", "send_method"),
+        ("def f(c):\n    return c.request('POST', 'https://example.com')\n", "send_method"),
+        ("def f(c):\n    return c.sendmail('a', 'b', 'c')\n", "send_method"),
+        ("import subprocess\nsubprocess.run(['curl', 'x'])\n", "banned_import"),
+        ("import os\nos.system('mail x')\n", "shell_command"),
+        # Review 14: ways past the first version of the check.
+        ("def f(c):\n    return c.request(method='POST', url='u')\n", "send_method"),
+        ("def f(c):\n    return c.stream('POST', 'u')\n", "send_method"),
+        ("def f(c):\n    return c.send(c.build_request('POST', 'u'))\n", "send_method"),
+        ("def f(c):\n    return c.delete('u')\n", "send_method"),
+        ("def f(c):\n    return getattr(c, 'post')('u')\n", "send_method"),
+        ("import asyncio\nasyncio.open_connection('h', 25)\n", "raw_connection"),
+        ("def f(loop):\n    return loop.create_connection(None, 'h', 25)\n", "raw_connection"),
+        ("from importlib import import_module as im\n", "dynamic_import"),
+        ("from os import system\n", "shell_command"),
+        ("import os as o\no.posix_spawn('/bin/sh', [], {})\n", "shell_command"),
+        ("import os\nos.execvpe('mail', [], {})\n", "shell_command"),
+        ("from hall_monitor.egress import httpx\n", "egress_internals"),
+        ("from hall_monitor.egress import EgressPolicy\n", "egress_internals"),
+        ("from hall_monitor import egress\nc = egress.httpx.Client()\n", "egress_internals"),
+        ("from fastmcp import Client\nClient('https://evil.example/mcp')\n", "remote_mcp"),
+        ("from fastmcp.client.transports import StreamableHttpTransport\n", "remote_mcp"),
+        # Re-review of Review 14: other spellings of the same.
+        ("import hall_monitor.egress as e\ne.httpx.Client()\n", "egress_internals"),
+        ("from hall_monitor import egress as eg\neg.EgressPolicy('x', ())\n", "egress_internals"),
+        ("import hall_monitor.egress\nhall_monitor.egress.httpx.Client()\n", "egress_internals"),
+        ("from .egress import httpx\n", "egress_internals"),
+        ("import fastmcp\nfastmcp.Client(URL)\n", "remote_mcp"),
+        ("from fastmcp import Client\nClient(URL)\n", "remote_mcp"),
+        ("from fastmcp.server import create_proxy\ncreate_proxy(URL)\n", "remote_mcp"),
+    ],
+)
+def test_the_static_check_catches_each_kind_of_sending_capability(tmp_path, source, rule):
+    package = tmp_path / "hall_monitor"
+    package.mkdir()
+    (package / "added.py").write_text(source)
+    (tmp_path / "pyproject.toml").write_text('[project]\ndependencies = ["pydantic>=2"]\n')
+    findings = no_send.scan(tmp_path)
+    assert [f.rule for f in findings] == [rule], findings
+    assert findings[0].path == "hall_monitor/added.py"
+
+
+def test_reading_a_request_body_is_not_sending(tmp_path):
+    package = tmp_path / "hall_monitor"
+    package.mkdir()
+    (package / "ok.py").write_text(
+        "async def f(request, c):\n"
+        "    async for chunk in request.stream():\n"
+        "        pass\n"
+        "    return c.get('u'), c.request('GET', 'u'), c.build_request(method='GET', url='u')\n"
+    )
+    (tmp_path / "pyproject.toml").write_text("[project]\ndependencies = []\n")
+    assert no_send.scan(tmp_path) == []
+
+
+def test_only_the_two_shipped_policies_can_make_a_client():
+    """Review 14: a policy built anywhere else opened a new outbound path."""
+    from hall_monitor.egress import EgressPolicy, Rule
+
+    mine = EgressPolicy("mine", (Rule("GET", "evil.example", "/"),))
+    with pytest.raises(ValueError, match="not a shipped egress policy"):
+        guarded_client(mine)
+    copy = EgressPolicy(CFPB_POLICY.name, CFPB_POLICY.rules)  # equal, but not the shipped one
+    with pytest.raises(ValueError):
+        guarded_client(copy)
+
+
+@pytest.mark.parametrize(
+    "path", ["/v1/messages/batches", "/v1/messagesXYZ", "/v1/messages/count_tokens", "/v1/files"]
+)
+def test_the_model_policy_allows_only_the_messages_endpoint_itself(path):
+    request = httpx.Request("POST", f"https://api.anthropic.com{path}")
+    assert MODEL_API_POLICY.refusal(request) is not None
+    assert (
+        MODEL_API_POLICY.refusal(httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "tool", ["sendEmail", "send-email", "emailcustomer", "replyto", "NotifyUser", "postToSlack"]
+)
+def test_send_words_are_found_in_any_naming_style(tool):
+    assert no_send.tool_problems([tool]) == [f"{tool!r} reads as a sending tool"]
+
+
+def test_a_swapped_policy_is_refused_at_request_time():
+    from hall_monitor.egress import EgressPolicy, Rule
+
+    seen: list[httpx.Request] = []
+    client = guarded_client(CFPB_POLICY, transport=_mock(seen))
+    client._transport.policy = EgressPolicy("mine", (Rule("GET", "evil.example", "/"),))
+    with pytest.raises((EgressRefused, ValueError, AttributeError)):
+        client.get("https://evil.example/x")
+    assert seen == []
+
+
+def test_the_gateway_refuses_a_proxy_server():
+    """Re-review: a proxy is a FastMCP subclass that forwards tool calls to a remote server."""
+    from fastmcp.server.providers.proxy import FastMCPProxy
+
+    proxy = FastMCPProxy.__new__(FastMCPProxy)  # never started: no network
+    with pytest.raises(TypeError, match="in-process"):
+        ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR), proxy)
+
+
+def test_the_gateway_takes_only_an_in_process_server():
+    """Review 14: a URL would make fastmcp post tool calls off the machine."""
+    with pytest.raises(TypeError, match="in-process"):
+        ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR), "https://evil.example/mcp")
+
+
+@pytest.mark.parametrize("package", ["sendgrid>=6", "twilio", "slack-sdk==3.0", "Requests"])
+def test_the_static_check_catches_a_sending_dependency(tmp_path, package):
+    (tmp_path / "hall_monitor").mkdir()
+    (tmp_path / "pyproject.toml").write_text(
+        textwrap.dedent(f"""\
+        [project]
+        dependencies = ["pydantic>=2", "{package}"]
+        """)
+    )
+    assert [f.rule for f in no_send.scan(tmp_path)] == ["sending_dependency"]
+
+
+def test_the_cli_exits_non_zero_on_a_finding(tmp_path, capsys):
+    (tmp_path / "hall_monitor").mkdir()
+    (tmp_path / "hall_monitor" / "x.py").write_text("import smtplib\n")
+    (tmp_path / "pyproject.toml").write_text("[project]\ndependencies = []\n")
+    assert no_send.main(["check", "--root", str(tmp_path)]) == 1
+    assert "smtplib" in capsys.readouterr().out
+    assert no_send.main(["check"]) == 0
+
+
+def test_ci_runs_the_no_send_check():
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    assert "uv run python -m hall_monitor.no_send check" in ci
+
+
+@pytest.mark.parametrize(
+    "page", ["README.md", "docs/complaint-desk-design.md", "docs/adr/0021-no-reply-no-send.md"]
+)
+def test_the_docs_state_the_rule(page):
+    text = " ".join(Path(ROOT / page).read_text().split())
+    assert "never replies to, contacts or sends anything to anyone" in text

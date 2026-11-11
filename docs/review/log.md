@@ -662,3 +662,36 @@ body checks. 5 findings, 4 confirmed and 1 plausible; all fixed.
 content-type and repeated-field checks, the spend cap's place and its increment, the line-break
 handling, the old limit) fails a test; probes found no way past the 10,000-character limit, with
 the worst-case 9-byte characters and with line breaks. Not checked: live mode against the API.
+
+## Review 14: the no-reply, no-send rule (HM-25)
+
+**Reviewer:** the governance-reviewer agent, on the complaint desk's first slice before its pull
+request, with probes run against the static check and the egress guard (no network, no API).
+The URL guard held: case, trailing dots, encoded and plain dot segments, ports, userinfo, http
+and redirect hops were all refused, and a model client re-pointed elsewhere was refused before
+anything was sent. 7 findings, 5 confirmed (2 split confirmed and plausible); all fixed,
+test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| egress.py's policy and rule types, and the httpx it imports, could be used from any module: a policy built elsewhere sent a GET with data to another host through the guard, and "two policies exist, and no others" was false | High | A client can be made only with the two shipped policies (an equal copy is refused); importing egress's internals elsewhere fails the static check |
+| HTTP writes got past the check: `request(method="POST")`, `stream("POST")`, `build_request("POST")` with `send`, `.delete`, `getattr(c, "post")` | High | Each is flagged; reading a request body (`request.stream()`) and GET calls are not |
+| Plain ways past the raw-network, dynamic-import and shell rules: `asyncio.open_connection`, an aliased `import_module`, `from os import system`, `os.posix_spawn` and `os.execvpe` | High | Raw connection calls are flagged; importing `import_module` is flagged; any `os` function that runs a program is flagged however it is imported |
+| fastmcp's `Client` can reach a remote MCP server, and the gateway took a URL as its server (a test run tried a DNS lookup) | Medium | The gateway takes only an in-process `FastMCP` server; an MCP client pointed at a URL, or fastmcp's client transports, fail the check |
+| `verify` never checked a stored draft, so a draft swapped for one saying a refund was sent passed | Medium | A draft is an evidence entry (`evidence_sha256`): verify reports a changed draft and an erased one |
+| The model policy matched by prefix, allowing `/v1/messages/batches` and `/v1/messagesXYZ` | Low | It allows the messages path exactly |
+| Send words weren't found in camelCase, hyphenated or run-together names | Low | Names are split into words first, and the strongest words match anywhere in a name |
+
+The docs now call the static check a tripwire for the honest mistake, not a proof: a method name
+held in a variable or `getattr` with a computed name still gets past it (in HM-25's gaps).
+
+**Re-review of those fixes:** each new test fails with its fix undone. 4 findings, 3 confirmed
+and 1 plausible; the confirmed ones fixed, test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The egress-internals rule saw only the literal name `egress` and absolute imports: `import hall_monitor.egress as e`, `from hall_monitor import egress as eg`, the full dotted name and `from .egress import httpx` scanned clean | High (docs claim false) | The check tracks every name bound to egress.py, dotted names and relative imports |
+| A fastmcp proxy is a `FastMCP` subclass that forwards tool calls to a remote server, and passed the gateway's check; `fastmcp.Client(url)` and `Client(URL)` with a variable scanned clean | Medium | The gateway takes only a plain `FastMCP`; fastmcp's client, proxies and client transports fail the check anywhere but the gateway, however they are imported |
+| The shipped-policy check ran only when a client was made, so a policy swapped onto it afterwards was used | Low | It is checked again on every request |
+| Matching send words anywhere refuses harmless names (`consent_lookup`, `delivery_status_lookup`) | Low, plausible | Kept: the intended direction of error, stated in HM-25's gaps |
+

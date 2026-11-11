@@ -28,6 +28,7 @@ from hall_monitor.registry import (
     DEFAULT_REGISTRY_DIR,
     NON_MANIFEST_FILES,
     AgentManifest,
+    check_no_send,
     load_approvals,
 )
 
@@ -43,18 +44,22 @@ def prompt_sha256(module: ModuleType) -> str:
 
 
 def current_approvals(
-    previous: dict[str, dict] | None = None, resume: dict[str, str] | None = None
+    previous: dict[str, dict] | None = None,
+    resume: dict[str, str] | None = None,
+    manifests: list[AgentManifest] | None = None,
 ) -> dict[str, dict]:
     """Approvals for the current manifests and prompts.
 
     previous (default: the approvals file) supplies stops already cleared, which are kept;
-    resume maps an agent ID to one more stop to clear.
+    resume maps an agent ID to one more stop to clear. manifests defaults to those in the
+    registry directory. A manifest granting any tool that could send is never approved (HM-25).
     """
     if previous is None:
         previous = load_approvals()
     resume = resume or {}
     agents = {}
-    for manifest in _manifests():
+    for manifest in manifests if manifests is not None else _manifests():
+        check_no_send(manifest)
         entry = {"manifest_digest": manifest.digest(), "version": manifest.version}
         module = AGENT_MODULES.get(manifest.id)
         if module is not None:
