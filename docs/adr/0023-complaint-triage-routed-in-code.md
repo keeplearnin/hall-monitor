@@ -20,12 +20,16 @@ while code decides ([ADR 0018](0018-leave-agents-explain-code-decides.md)).
 
 - **No automatic path.** Every complaint ends with a person. The code chooses between
   specialist review and the standard queue, and an urgency floor.
-- **The must-route list is code on CFPB's labels.** Fraud, a scam or an unauthorised transaction;
-  identity theft or an account or debt the consumer says isn't theirs; foreclosure, a mortgage
+- **The must-route list is code on CFPB's labels.** Fraud, a scam, or a transaction or charge
+  the consumer didn't authorise or make; identity theft or an account, loan, debt or credit
+  inquiry the consumer says isn't theirs; foreclosure, a mortgage
   the consumer is struggling to pay, a short sale or deed-in-lieu; discrimination; the Older
   American and Servicemember tags. Each goes to specialist review at high urgency, with the
   agent's answer or without it. Matching is deliberately broad: a wrong referral costs a
-  person's time, a missed one can cost a home.
+  person's time, a missed one can cost a home. The patterns are tested against a hand-written
+  table of every label in the pinned snapshot, never against themselves: review 16 found the
+  first version missed "Debt is not yours" and "Transaction was not authorized", 72 of 500
+  complaints.
 - **The agent can only add.** It may raise a concern the labels don't show, or a higher urgency;
   it can't remove a reason or lower the urgency below the code's floor. Low confidence, an
   unclear category, an urgency below the floor and a concern the code didn't find each send the

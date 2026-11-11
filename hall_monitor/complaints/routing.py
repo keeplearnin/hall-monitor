@@ -22,8 +22,10 @@ from hall_monitor.complaints.triage_agent import ComplaintTriage, Confidence, Ur
 
 # Every reason the rule gives, and what it means.
 REASONS: dict[str, str] = {
-    "fraud": "fraud, a scam or an unauthorised transaction is named",
-    "identity_theft": "identity theft, or an account or debt the consumer says isn't theirs",
+    "fraud": "fraud, a scam, or a transaction or charge the consumer didn't authorise or make",
+    "identity_theft": (
+        "identity theft, or an account, loan, debt or inquiry the consumer says isn't theirs"
+    ),
     "foreclosure": "foreclosure, or a mortgage the consumer is struggling to pay",
     "discrimination": "discrimination is named",
     "older_american": "tagged Older American",
@@ -41,10 +43,16 @@ PIPELINE_REASONS = frozenset({"text_addresses_ai", "agent_failed"})
 # Concerns read from CFPB's labels. Each pattern is matched against the product, sub-product,
 # issue and sub-issue.
 CONCERN_PATTERNS: dict[str, re.Pattern[str]] = {
-    "fraud": re.compile(r"\bfraud\b|\bscam\b|unauthori[sz]ed (?:transaction|charge|use)", re.I),
+    "fraud": re.compile(
+        r"\bfraud|\bscam\b|unauthori[sz]ed|not authori[sz]ed|"
+        r"(?:did not|didn't) (?:make|purchase)",
+        re.I,
+    ),
     "identity_theft": re.compile(
-        r"identity theft|belongs to someone else|opened without (?:my|your|the consumer's) "
-        r"consent|not (?:my|your) (?:debt|account)",
+        r"identity theft|belongs to someone else|"
+        r"opened without (?:my|your|the consumer's) consent|"
+        r"\bis not (?:mine|yours)\b|not (?:my|your) (?:debt|account|loan)|"
+        r"(?:didn't|did not) apply for|(?:don't|do not) recognize",
         re.I,
     ),
     "foreclosure": re.compile(
@@ -52,6 +60,8 @@ CONCERN_PATTERNS: dict[str, re.Pattern[str]] = {
     ),
     "discrimination": re.compile(r"discriminat", re.I),
 }
+# Checked against every label in the pinned snapshot by a hand-written table
+# (tests/test_complaint_triage.py EXPECTED_LABEL_REASONS), not by these patterns themselves.
 # These always raise the floor to high.
 HIGH_REASONS = frozenset(
     {"fraud", "identity_theft", "foreclosure", "discrimination", "older_american", "servicemember"}

@@ -730,3 +730,24 @@ and 1 plausible, all Low; all fixed, test-first.
 | A page with no usable cursor and an API ignoring the cursor shared one error code | Low | `no_usable_cursor` and `cursor_did_not_advance` |
 | If CFPB orders IDs as text within a millisecond, IDs of different lengths would look like going backwards | Low, plausible | Another ID in the same millisecond counts as moving forward |
 
+## Review 16: complaint triage (HM-27)
+
+**Reviewer:** the governance-reviewer agent, on the complaint desk's third slice before its pull
+request, with offline repros against the pinned snapshot (no network, no API). The agent could
+not lower urgency or remove a reason, every failure path gave `agent_failed` with nothing
+invented, and the model was sent no complaint ID, state or ZIP. 7 findings, all confirmed (one
+in part plausible); all fixed, test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| 72 of the 500 pinned complaints that should reach specialist review at high urgency didn't: the patterns missed CFPB's own "Debt is not yours" (65) and "Transaction was not authorized" (7); 66 got no reason at all | High | The patterns cover them, and "didn't make", "didn't apply for", "don't recognize" and "fraudulent" |
+| "Fraudulent loan", "Unauthorized withdrawals or charges" and "Card was charged for something you did not purchase" were missed too (the first two from the reviewer's memory of CFPB's lists) | High, in part plausible | Covered |
+| The only test over real labels was circular: it defined "must route" by the patterns under test | Medium | A hand-written table of every label in the snapshot, with its expected reason, tests each label and the whole snapshot end to end |
+| Two workers on one complaint: the second called the model and wrote an agent call and a draft before failing, and the failure stopped the batch | Medium | The received entry is written once, before the model is called; the second worker stops there, and the batch skips it |
+| The draft check missed "we'll credit", "will be waived", "within 15 days", "we will correct", bare domains and international numbers | Medium | Caught; the docs name what the pattern list covers |
+| The design page's routing table contradicted the code (uncertainty on "not high", discrimination wording, foreclosure, a missing reason) | Medium | The table is the code's, and a test checks its codes match `REASONS` |
+| `submitted_via` was sent to the model but not scanned; demo answers were indistinguishable from the model's in a log they shared; `--limit 0` triaged everything | Low | Every field sent is scanned; the routed entry records `scripted`, and the demo refuses the main audit log; a limit must be at least 1 |
+
+With the fixes, 197 of the 500 pinned complaints go to specialist review on their labels or tags
+alone.
+

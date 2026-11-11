@@ -40,23 +40,29 @@ from hall_monitor.complaints.triage_agent import (
 from hall_monitor.gateway.cost import UnpricedModelError, call_cost
 from hall_monitor.gateway.injection import detect_in_texts
 from hall_monitor.gateway.redaction import redact_text
-from hall_monitor.governance.audit import AuditLog
+from hall_monitor.governance.audit import AlreadyRecorded, AuditLog
 from hall_monitor.models import AgentCall
 from hall_monitor.registry import Registry, RegistryError
 
 ROUTED = "complaint_routed"
+RECEIVED = "complaint_received"
 
 # A draft is for a person to adapt, not a commitment: one that promises money or an outcome, or
 # carries a way to reach someone, is not kept.
 _DRAFT_PROBLEMS: dict[str, re.Pattern[str]] = {
     "promises_an_outcome": re.compile(
-        r"\b(?:refund|reimburs|compensat|guarantee|we will (?:pay|credit|remove|delete|waive|"
-        r"close|reverse|fix)|has been (?:resolved|refunded|credited))",
+        r"\b(?:refund|reimburs|compensat|guarantee|"
+        r"(?:we will|we'll|we shall|we are going to) (?!review|look|be in touch)\w+|"
+        r"will be (?:credited|waived|removed|refunded|reversed|corrected|deleted|closed|paid|"
+        r"fixed|resolved)|has been (?:resolved|refunded|credited|waived|corrected)|"
+        r"within \d+ (?:business |working )?(?:days?|hours?|weeks?))",
         re.I,
     ),
-    "has_a_link": re.compile(r"https?://|www\.", re.I),
+    "has_a_link": re.compile(
+        r"https?://|www\.|\b[a-z0-9-]+\.(?:com|org|net|gov|io|co|us|uk|info|biz)\b", re.I
+    ),
     "has_an_email_address": re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b"),
-    "has_a_phone_number": re.compile(r"\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b"),
+    "has_a_phone_number": re.compile(r"(?:\+\d{1,3}[\s.-]?)?\(?\d{2,4}\)?(?:[\s.-]?\d{3,4}){2}\b"),
 }
 
 
@@ -102,9 +108,12 @@ def triage_complaint(
     registry: Registry,
     client: anthropic.Anthropic,
     audit: AuditLog | None = None,
+    scripted: bool = False,
 ) -> ComplaintResult:
+    """scripted: the client is the scripted stand-in (complaints/scripted.py); the routed entry
+    says so, so a log never shows its answers as the model's."""
     scope = scope_id(complaint.complaint_id)
-    if audit is not None and audit.has(scope, ROUTED):
+    if audit is not None and audit.has(scope, RECEIVED):
         raise AlreadyTriaged(f"the audit log shows {scope} was already triaged")
     counts: Counter[str] = Counter()
     narrative = redact_text(complaint.narrative, counts) if complaint.narrative else None
@@ -114,22 +123,35 @@ def triage_complaint(
         else None
     )
     redactions = {k: v for k, v in sorted(counts.items()) if v}
-    labels = [complaint.product, complaint.sub_product, complaint.issue, complaint.sub_issue]
+    # Every field the agent is sent is scanned, fixed-list labels included.
+    labels = [
+        complaint.product,
+        complaint.sub_product,
+        complaint.issue,
+        complaint.sub_issue,
+        complaint.submitted_via,
+    ]
     raw = [t for t in [*labels, complaint.narrative, complaint.company_public_response] if t]
     redacted = [t for t in [narrative, public] if t]
     signals = sorted(set(detect_in_texts(raw)) | set(detect_in_texts(redacted)))
     if audit is not None:
-        audit.append(
-            scope,
-            "complaint_received",
-            "pipeline",
-            {
-                "complaint_id": complaint.complaint_id,
-                "content_sha256": complaint.content_sha256(),
-                "identifiers_redacted": redactions,
-                "injection_signals": signals,
-            },
-        )
+        # Written once, inside the log's write lock, before the model is called: a second worker
+        # on the same complaint stops here, with no model call and nothing else written.
+        try:
+            audit.append(
+                scope,
+                "complaint_received",
+                "pipeline",
+                {
+                    "complaint_id": complaint.complaint_id,
+                    "content_sha256": complaint.content_sha256(),
+                    "identifiers_redacted": redactions,
+                    "injection_signals": signals,
+                },
+                once=True,
+            )
+        except AlreadyRecorded:
+            raise AlreadyTriaged(f"the audit log shows {scope} was already triaged") from None
 
     calls: list[AgentCall] = []
     pipeline_reasons = {"text_addresses_ai"} if signals else set()
@@ -220,6 +242,7 @@ def triage_complaint(
                 "stopped_reason": stopped,
                 "cost_usd": cost,
                 "models": sorted({f"{c.agent_id}:{c.model}" for c in calls}),
+                "scripted": scripted,
             },
             once=True,
         )

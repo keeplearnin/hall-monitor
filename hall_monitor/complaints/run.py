@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 from hall_monitor import tracing
 from hall_monitor.complaints.ingest import PINNED_NAME, load_pinned
 from hall_monitor.complaints.models import Complaint
-from hall_monitor.complaints.pipeline import ROUTED, scope_id, triage_complaint
+from hall_monitor.complaints.pipeline import RECEIVED, AlreadyTriaged, scope_id, triage_complaint
 from hall_monitor.complaints.scripted import scripted_client
 from hall_monitor.complaints.store import DEFAULT_STORE, ComplaintStore
 from hall_monitor.egress import audit_refusals, model_client
@@ -34,7 +34,14 @@ DEMO_AUDIT_DB = DEFAULT_AUDIT_DB.parent / "demo" / "complaints-audit.sqlite"
 MAX_LIVE = 500
 
 
-def run(complaints: list[Complaint], audit: AuditLog, client, registry: Registry) -> dict:
+def run(
+    complaints: list[Complaint],
+    audit: AuditLog,
+    client,
+    registry: Registry,
+    *,
+    scripted: bool = False,
+) -> dict:
     """Triage each complaint not already in the log; a summary of what happened."""
     summary = {
         "triaged": 0,
@@ -45,10 +52,16 @@ def run(complaints: list[Complaint], audit: AuditLog, client, registry: Registry
         "cost_usd": 0.0,
     }
     for complaint in complaints:
-        if audit.has(scope_id(complaint.complaint_id), ROUTED):
+        if audit.has(scope_id(complaint.complaint_id), RECEIVED):
             summary["skipped"] += 1
             continue
-        result = triage_complaint(complaint, registry=registry, client=client, audit=audit)
+        try:
+            result = triage_complaint(
+                complaint, registry=registry, client=client, audit=audit, scripted=scripted
+            )
+        except AlreadyTriaged:  # another run took it between the check and the write
+            summary["skipped"] += 1
+            continue
         summary["triaged"] += 1
         summary[result.route.queue] += 1
         summary["agent_failed"] += "agent_failed" in result.route.reasons
@@ -68,12 +81,20 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.live and (args.limit is None or not 1 <= args.limit <= MAX_LIVE):
         parser.error(f"--live needs --limit between 1 and {MAX_LIVE}")
+    if args.limit is not None and args.limit < 1:
+        parser.error("--limit must be at least 1")
+    if (
+        args.demo
+        and args.audit_db is not None
+        and (args.audit_db.resolve() == DEFAULT_AUDIT_DB.resolve())
+    ):
+        parser.error("--demo never writes to the main audit log: scripted answers stay apart")
     if args.from_store:
         with ComplaintStore(args.from_store) as store:
             complaints = store.complaints()
     else:
         complaints = load_pinned(args.snapshot)
-    complaints = complaints[: args.limit] if args.limit else complaints
+    complaints = complaints[: args.limit] if args.limit is not None else complaints
     audit = AuditLog(args.audit_db or (DEMO_AUDIT_DB if args.demo else DEFAULT_AUDIT_DB))
     try:
         if args.demo:
@@ -81,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             load_dotenv()
             client = model_client(on_refused=audit_refusals(audit))
-        summary = run(complaints, audit, client, Registry.from_dir())
+        summary = run(complaints, audit, client, Registry.from_dir(), scripted=args.demo)
     finally:
         audit.close()
         tracing.flush()
