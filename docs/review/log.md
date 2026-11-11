@@ -719,3 +719,14 @@ test-first.
 | `Retry-After: ²` raised a `ValueError` carrying the header into the log | Low | Only ASCII digits count; anything else is ignored |
 | A quarantine reason could name an unknown key from a replayed snapshot | Low | Only the model's own field names are named; others are `unknown_field` |
 | `pin` copied files the manifest didn't list and took any pull ID | Low, plausible | It copies the manifest and its pages only, and checks the pull ID |
+
+**Re-review of those fixes:** each new test fails with its fix undone. 4 findings, 3 confirmed
+and 1 plausible, all Low; all fixed, test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The pinned-manifest check failed open for a snapshot not listed in code | Low | A pinned snapshot with no recorded hash is refused; a test checks every pinned folder has one |
+| A bad cursor already in a store failed every pull as `ValueError` | Low | The stored cursor is checked first and fails as `stored_cursor_invalid`; `--since` replaces it |
+| A page with no usable cursor and an API ignoring the cursor shared one error code | Low | `no_usable_cursor` and `cursor_did_not_advance` |
+| If CFPB orders IDs as text within a millisecond, IDs of different lengths would look like going backwards | Low, plausible | Another ID in the same millisecond counts as moving forward |
+

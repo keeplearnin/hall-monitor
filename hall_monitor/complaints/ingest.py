@@ -37,7 +37,12 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from hall_monitor.complaints.cfpb import CFPB_SEARCH, UNRECOGNISED_FIELD, complaint_gateway
+from hall_monitor.complaints.cfpb import (
+    CFPB_SEARCH,
+    CURSOR_MS_RANGE,
+    UNRECOGNISED_FIELD,
+    complaint_gateway,
+)
 from hall_monitor.complaints.models import CfpbSource, Complaint
 from hall_monitor.complaints.store import DEFAULT_STORE, ComplaintStore
 from hall_monitor.egress import CFPB_POLICY, CfpbClient, audit_refusals, guarded_client
@@ -198,9 +203,20 @@ def _date_min(since: date | None, cursor: str | None, started: datetime) -> date
     return started.date() - timedelta(days=2)
 
 
-def _cursor_key(cursor: str) -> tuple[int, int]:
-    ms, complaint_id = cursor.split("_")
-    return int(ms), int(complaint_id)
+def _advances(new: str, old: str | None) -> bool:
+    """A later receipt time, or another complaint in the same millisecond: CFPB's order within
+    a millisecond isn't known (it may sort IDs as text), so any other ID counts."""
+    if old is None:
+        return True
+    new_ms, new_id = new.split("_")
+    old_ms, old_id = old.split("_")
+    return int(new_ms) > int(old_ms) or (new_ms == old_ms and new_id != old_id)
+
+
+def _valid_cursor(cursor: str) -> bool:
+    if not re.fullmatch(r"\d{10,16}_\d{1,12}", cursor):
+        return False
+    return CURSOR_MS_RANGE[0] <= int(cursor.split("_")[0]) <= CURSOR_MS_RANGE[1]
 
 
 def snapshot_sha256(directory: Path) -> str:
@@ -235,6 +251,8 @@ def pull(
     date_min = started.date()
     recorder = TriageRecorder(audit, pull_id) if audit is not None else None
     try:
+        if cursor_before is not None and not _valid_cursor(cursor_before):
+            raise PullError("stored_cursor_invalid")  # --since restarts and replaces it
         date_min = _date_min(since, cursor_before, started)
         _event(
             "pull_started",
@@ -263,9 +281,9 @@ def pull(
             if page.get("hits"):
                 # CFPB already ignores frm; if it ignored search_after too, the same page would
                 # come back until capacity ran out, looking like a backlog.
-                if advanced is None or (
-                    cursor is not None and _cursor_key(advanced) <= _cursor_key(cursor)
-                ):
+                if advanced is None:
+                    raise PullError("no_usable_cursor")
+                if not _advances(advanced, cursor):
                     raise PullError("cursor_did_not_advance")
                 cursor = advanced
                 store.set_cursor(cursor)
@@ -325,10 +343,14 @@ def replay(directory: Path, store: ComplaintStore, audit: AuditLog | None = None
     return {"pull_id": manifest["pull_id"], **_public_counts(counts)}
 
 
-def load_pinned(name: str, root: Path = PINNED_SNAPSHOTS) -> list[Complaint]:
+def load_pinned(
+    name: str, root: Path = PINNED_SNAPSHOTS, manifests: dict[str, str] | None = None
+) -> list[Complaint]:
     """Every complaint in a pinned snapshot, replayed into memory: what evals and demos use."""
-    expected = PINNED_MANIFESTS.get(name)
-    if expected is not None and snapshot_sha256(root / name) != expected:
+    expected = (PINNED_MANIFESTS if manifests is None else manifests).get(name)
+    if expected is None:
+        raise SnapshotError(f"{name}: no recorded manifest hash (add it to PINNED_MANIFESTS)")
+    if snapshot_sha256(root / name) != expected:
         raise SnapshotError(f"{name}: the manifest isn't the pinned one")
     store = ComplaintStore(Path(":memory:"))
     try:

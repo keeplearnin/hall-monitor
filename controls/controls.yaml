@@ -1275,6 +1275,9 @@ controls:
       - tests/test_complaint_ingest.py::test_an_egress_refusal_is_never_retried
       - tests/test_complaint_ingest.py::test_a_quarantine_reason_never_echoes_an_unknown_key
       - tests/test_complaint_ingest.py::test_the_pinned_snapshot_matches_its_recorded_manifest_hash
+      - tests/test_complaint_ingest.py::test_every_pinned_snapshot_has_a_recorded_manifest_hash
+      - tests/test_complaint_ingest.py::test_a_bad_stored_cursor_fails_with_its_own_code
+      - tests/test_complaint_ingest.py::test_a_page_with_no_usable_cursor_fails_with_its_own_code
     evidence:
       - data/cfpb/snapshots/2026-10-01/manifest.json
     nist: [MEASURE 2.1, MANAGE 3.1]

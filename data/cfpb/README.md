@@ -21,7 +21,9 @@ Each snapshot is a pull exactly as the desk's CFPB tool returned it
 - the ZIP code cut to its first three digits (`752XX`).
 
 `manifest.json` records the query, the counts and each page's SHA-256; loading a snapshot
-(`ingest.load_snapshot`) refuses one whose pages don't match.
+(`ingest.load_snapshot`) refuses one whose pages don't match. Each pinned snapshot's manifest
+hash is recorded in `ingest.PINNED_MANIFESTS`, and `load_pinned` refuses a snapshot without one
+or with another, so a page and its manifest entry edited together still fail.
 
 ## Snapshots
 

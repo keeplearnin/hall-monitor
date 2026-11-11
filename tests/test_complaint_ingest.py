@@ -350,7 +350,9 @@ def test_pinning_copies_a_checked_snapshot_and_never_overwrites(store, tmp_path)
     gateway, _ = desk(FakeCfpb([record(1)]))
     summary = ingest.pull(store, gateway, snapshots=tmp_path / "s", since=date(2026, 10, 1))
     target = ingest.pin(summary["pull_id"], "demo", tmp_path / "s", tmp_path / "pinned")
-    assert [c.complaint_id for c in ingest.load_pinned("demo", tmp_path / "pinned")] == ["30000001"]
+    recorded = {"demo": ingest.snapshot_sha256(target)}
+    loaded = ingest.load_pinned("demo", tmp_path / "pinned", recorded)
+    assert [c.complaint_id for c in loaded] == ["30000001"]
     with pytest.raises(SystemExit):
         ingest.pin(summary["pull_id"], "demo", tmp_path / "s", tmp_path / "pinned")
     assert target.exists()
@@ -452,17 +454,9 @@ def test_a_page_that_does_not_advance_the_cursor_fails_the_pull(store, tmp_path)
 
 def test_resuming_reads_from_the_day_before_the_cursor():
     """CFPB's date filter may not be in UTC: a day's margin, and search_after does the rest."""
-    hits = [record(1)]
-    fake = FakeCfpb(hits)
-
-    class Store:
-        def cursor(self):
-            return hits[0]["sort"][0].__str__() + "_30000001"
-
-    assert ingest._date_min(None, Store().cursor(), datetime(2026, 11, 11, tzinfo=UTC)) == date(
-        2026, 9, 30
-    )
-    del fake
+    cursor = f"{record(1)['sort'][0]}_30000001"
+    started = datetime(2026, 11, 11, tzinfo=UTC)
+    assert ingest._date_min(None, cursor, started) == date(2026, 9, 30)
 
 
 def test_each_pull_reports_its_own_requests_and_retries(store, tmp_path):
@@ -563,3 +557,54 @@ def test_the_readme_says_which_data_is_real():
     readme = (ROOT / "README.md").read_text()
     assert "All data in this repository is synthetic." not in readme
     assert "data/cfpb/" in readme
+
+
+# Re-review of Review 15.
+
+
+def test_every_pinned_snapshot_has_a_recorded_manifest_hash(tmp_path):
+    names = {p.name for p in ingest.PINNED_SNAPSHOTS.iterdir() if p.is_dir()}
+    assert names == set(ingest.PINNED_MANIFESTS)
+    import shutil
+
+    shutil.copytree(ingest.PINNED_SNAPSHOTS / ingest.PINNED_NAME, tmp_path / "unlisted")
+    with pytest.raises(ingest.SnapshotError, match="no recorded manifest hash"):
+        ingest.load_pinned("unlisted", tmp_path)
+
+
+def test_a_bad_stored_cursor_fails_with_its_own_code(store, tmp_path):
+    store.set_cursor("9999999999999999_1")
+    gateway, _ = desk(FakeCfpb([record(1)]))
+    summary = ingest.pull(store, gateway, snapshots=tmp_path)
+    assert summary["status"] == "failed" and summary["error"] == "stored_cursor_invalid"
+    assert ingest.pull(store, gateway, snapshots=tmp_path, since=date(2026, 10, 1))["new"] == 1
+
+
+def test_a_page_with_no_usable_cursor_fails_with_its_own_code(store, tmp_path):
+    hit = record(1)
+    hit["sort"] = [1, "1"]
+    gateway, _ = desk(FakeCfpb([hit]))
+    summary = ingest.pull(store, gateway, snapshots=tmp_path, since=date(2026, 10, 1))
+    assert summary["error"] == "no_usable_cursor" and summary["new"] == 1
+
+
+def test_ids_of_different_lengths_in_one_millisecond_still_advance(store, tmp_path, monkeypatch):
+    """If CFPB breaks ties by sorting IDs as text, "9000000" comes before "900001"."""
+    first, second = record(1), record(1)
+    first["_source"]["complaint_id"], first["sort"][1] = "9000000", "9000000"
+    second["_source"]["complaint_id"], second["sort"][1] = "900001", "900001"
+
+    class TextOrder(FakeCfpb):
+        def __call__(self, request):
+            self.requests.append(request)
+            page = self.hits[: int(request.url.params["size"])]
+            if request.url.params.get("search_after"):
+                page = self.hits[1:2]
+            if len(self.requests) > 2:
+                page = []
+            return httpx.Response(200, json={"hits": {"hits": page}})
+
+    monkeypatch.setattr(ingest, "PAGE_SIZE", 1)
+    gateway, _ = desk(TextOrder([first, second]))
+    summary = ingest.pull(store, gateway, snapshots=tmp_path, since=date(2026, 10, 1), capacity=3)
+    assert summary["status"] != "failed" and summary["new"] == 2
