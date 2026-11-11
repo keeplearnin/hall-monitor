@@ -1,6 +1,6 @@
 # Complaint desk eval (scripted)
 
-Snapshot `2026-10-01` (500 public CFPB complaints, manifest `be882cd30552`), run 2026-11-11 18:31 UTC.
+Snapshot `2026-10-01` (500 public CFPB complaints, manifest `be882cd30552`), run 2026-11-11 18:35 UTC.
 
 **The agent here is a scripted stand-in with fixed rules, not the model.** This run measures the desk's code: routing, drafts, the audit log and the counterfactual check. It says nothing about the model's summaries, categories or urgency.
 
