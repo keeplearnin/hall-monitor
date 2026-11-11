@@ -1,0 +1,28 @@
+# Answer key for the complaint desk's routing: CFPB labels (issue or sub-issue) that call for
+# specialist review, and why, read by hand. Labels not listed call for none. It covers every
+# issue and sub-issue label in the pinned snapshot data/cfpb/snapshots/2026-10-01, plus a few
+# CFPB labels from its published lists. The routing code is tested and scored against this file,
+# never against its own patterns. Changes are logged with the reason in data/cfpb/README.md.
+labels:
+  Account opened without my consent or knowledge: identity_theft
+  Applying for or obtaining a modification, forbearance plan, short sale, or deed-in-lieu: foreclosure
+  Card opened without my consent or knowledge: identity_theft
+  Card was charged for something you did not purchase with the card: fraud
+  Charged for a purchase or transfer you did not make with the card: fraud
+  Credit inquiries on your report that you don't recognize: identity_theft
+  Debt is not yours: identity_theft
+  Debt was result of identity theft: identity_theft
+  Discrimination: discrimination
+  Foreclosure: foreclosure
+  Fraud or scam: fraud
+  Fraudulent loan: fraud
+  Information belongs to someone else: identity_theft
+  Lender made a payment you did not authorize: fraud
+  Loan opened without my consent or knowledge: identity_theft
+  Received a loan you didn't apply for: identity_theft
+  Struggling to pay mortgage: foreclosure
+  Transaction was not authorized: fraud
+  ? Trying to communicate with the company to fix an issue related to modification, forbearance, short sale, deed-in-lieu, bankruptcy, or foreclosure
+  : foreclosure
+  Unauthorized transactions or other transaction problem: fraud
+  Unauthorized withdrawals or charges: fraud

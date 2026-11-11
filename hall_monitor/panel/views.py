@@ -690,6 +690,17 @@ def _cases(entries: list[dict]) -> dict[str, dict]:
 
 # Events only the leave pipeline writes: a decision or refusal can't make an ID a leave request.
 _PIPELINE_LEAVE_EVENTS = frozenset({"leave_request_submitted", "leave_prepared", "leave_evidence"})
+# Events the complaint desk writes (panel/desk.py shows them): never shown as claims.
+DESK_EVENTS = frozenset(
+    {
+        "complaint_received",
+        "complaint_routed",
+        "complaint_pull",
+        "complaint_quarantined",
+        "egress_refused",
+        "draft_stored",
+    }
+)
 
 
 def _leave_ids(entries: list[dict]) -> set[str]:
@@ -699,8 +710,8 @@ def _leave_ids(entries: list[dict]) -> set[str]:
 
 
 def _claims_only(entries: list[dict]) -> list[dict]:
-    leave = _leave_ids(entries)
-    return [e for e in entries if e["claim_id"] not in leave]
+    other = _leave_ids(entries) | {e["claim_id"] for e in entries if e["event"] in DESK_EVENTS}
+    return [e for e in entries if e["claim_id"] not in other]
 
 
 def cases(src: Sources) -> list[dict]:

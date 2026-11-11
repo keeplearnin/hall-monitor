@@ -156,6 +156,28 @@ def _leave_demo(registry_dir: Path, audit_db: Path) -> dict:
     return {"leave_requests": len(prepared), "leave_outcomes": outcomes, "leave_waiting": waiting}
 
 
+def _complaint_demo(registry_dir: Path, audit_db: Path, limit: int = 60) -> dict:
+    """The first complaints in the pinned CFPB snapshot, triaged with the scripted stand-in
+    (complaints/scripted.py), which labels every answer as scripted. No pull: the demo has no
+    network, so the panel's pull table is empty."""
+    from hall_monitor.complaints.ingest import PINNED_NAME, load_pinned
+    from hall_monitor.complaints.run import run as triage_complaints
+    from hall_monitor.complaints.scripted import scripted_client
+    from hall_monitor.governance.audit import AuditLog
+
+    audit = AuditLog(audit_db)
+    try:
+        summary = triage_complaints(
+            load_pinned(PINNED_NAME)[:limit],
+            audit,
+            scripted_client(),
+            Registry.from_dir(registry_dir),
+        )
+    finally:
+        audit.close()
+    return {"complaints": summary["triaged"]}
+
+
 def _registry_copy(out: Path) -> Path:
     registry = out / "registry"
     shutil.copytree(
@@ -258,9 +280,13 @@ def build(
             else:
                 outcomes[claim_id] = _decide(workflow, claim_id, "adj-201")
         still_waiting = workflow.waiting()
-    return {
-        "out": str(out),
-        "claims": len(claims),
-        "decided_by_adjusters": sum(s == "decided" for s in outcomes.values()),
-        "waiting": still_waiting,
-    } | _leave_demo(registry_dir, audit_db)
+    return (
+        {
+            "out": str(out),
+            "claims": len(claims),
+            "decided_by_adjusters": sum(s == "decided" for s in outcomes.values()),
+            "waiting": still_waiting,
+        }
+        | _leave_demo(registry_dir, audit_db)
+        | _complaint_demo(registry_dir, audit_db)
+    )

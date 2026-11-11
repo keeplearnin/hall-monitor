@@ -14,6 +14,7 @@ import yaml
 from hall_monitor.complaints import pipeline as complaint_pipeline
 from hall_monitor.complaints import run as complaint_run
 from hall_monitor.complaints.cfpb import CFPB_SEARCH
+from hall_monitor.complaints.evals import load_label_key
 from hall_monitor.complaints.ingest import PINNED_NAME, load_pinned
 from hall_monitor.complaints.models import Complaint, Tag
 from hall_monitor.complaints.pipeline import AlreadyTriaged, draft_problems, triage_complaint
@@ -295,35 +296,9 @@ def test_the_pipeline_module_names_its_routed_event():
 
 # Review 16: a hand-checked table of CFPB's labels, independent of the routing patterns.
 
-# Every label in the pinned snapshot that calls for specialist review, and why, read by hand.
-# Labels not listed must give no must-route reason. "Fraudulent loan" and "Unauthorized
-# withdrawals or charges" aren't in the snapshot; they are CFPB labels from its published lists.
-EXPECTED_LABEL_REASONS = {
-    "Fraud or scam": "fraud",
-    "Unauthorized transactions or other transaction problem": "fraud",
-    "Transaction was not authorized": "fraud",
-    "Card was charged for something you did not purchase with the card": "fraud",
-    "Charged for a purchase or transfer you did not make with the card": "fraud",
-    "Fraudulent loan": "fraud",
-    "Lender made a payment you did not authorize": "fraud",
-    "Unauthorized withdrawals or charges": "fraud",
-    "Debt was result of identity theft": "identity_theft",
-    "Debt is not yours": "identity_theft",
-    "Information belongs to someone else": "identity_theft",
-    "Account opened without my consent or knowledge": "identity_theft",
-    "Card opened without my consent or knowledge": "identity_theft",
-    "Loan opened without my consent or knowledge": "identity_theft",
-    "Received a loan you didn't apply for": "identity_theft",
-    "Credit inquiries on your report that you don't recognize": "identity_theft",
-    "Struggling to pay mortgage": "foreclosure",
-    "Foreclosure": "foreclosure",
-    "Applying for or obtaining a modification, forbearance plan, short sale, or deed-in-lieu": (
-        "foreclosure"
-    ),
-    "Trying to communicate with the company to fix an issue related to modification, "
-    "forbearance, short sale, deed-in-lieu, bankruptcy, or foreclosure": "foreclosure",
-    "Discrimination": "discrimination",
-}
+# Every label in the pinned snapshot that calls for specialist review, and why, read by hand:
+# the answer key in data/cfpb/label_reasons.yaml. Labels not listed must give no must-route reason.
+EXPECTED_LABEL_REASONS = load_label_key()
 MUST_ROUTE = {"fraud", "identity_theft", "foreclosure", "discrimination"}
 
 

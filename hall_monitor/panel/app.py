@@ -20,7 +20,7 @@ from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Re
 from starlette.routing import Route
 
 from hall_monitor.governance.audit import ChainHead
-from hall_monitor.panel import pages, views
+from hall_monitor.panel import desk, pages, views
 from hall_monitor.panel.pages import CSP
 
 # Names a browser on this machine uses for it. (The snapshot's client sends "localhost".)
@@ -105,6 +105,9 @@ def create_app(src: views.Sources | None = None) -> Starlette:
     async def evals(request: Request) -> Response:
         return html(pages.evals_page(views.evals(src), demo=src.demo))
 
+    async def complaints(request: Request) -> Response:
+        return html(desk.complaints_page(desk.complaint_desk(src), demo=src.demo))
+
     async def controls(request: Request) -> Response:
         return html(pages.controls_page(views.controls(src), demo=src.demo))
 
@@ -119,6 +122,7 @@ def create_app(src: views.Sources | None = None) -> Starlette:
             "leave_requests": views.leave_requests,
             "evals": views.evals,
             "controls": views.controls,
+            "complaints": desk.complaint_desk,
         }
         if name == "audit":
             anchor = _anchor(request)
@@ -149,6 +153,7 @@ def create_app(src: views.Sources | None = None) -> Starlette:
         Route("/audit.html", audit),
         Route("/evals.html", evals),
         Route("/controls.html", controls),
+        Route("/complaints.html", complaints),
         Route("/api/agents/{agent_id}.json", api_agent),
         Route("/api/cases/{claim_id}.json", api_case),
         Route("/api/{name}.json", api),
