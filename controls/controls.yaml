@@ -1404,7 +1404,10 @@ controls:
       the queue, what went to specialist review and why in the code's words, urgency, cost per
       complaint, pulls with their counts, retries and status, and the no-send control's status:
       the static check run against the checkout, egress refusals logged, and drafts not marked
-      never sent; never a summary or a draft's text. A complaint claimed but never routed is listed as such.
+      never sent; never a summary or a draft's text. Each complaint says who answered it (the scripted
+      stand-in, the model, or unknown when the log doesn't say; never assumed to be the model),
+      with a banner whenever any answer shown is scripted, and the page names the audit log it
+      reads. A complaint claimed but never routed is listed as such.
       Complaints never appear as claims, and their scopes have no case page.
     status: built
     code:
@@ -1433,6 +1436,10 @@ controls:
       - tests/test_complaint_evals.py::test_complaint_scopes_have_no_claim_page
       - tests/test_complaint_evals.py::test_the_desk_page_shows_a_received_but_unrouted_complaint
       - tests/test_complaint_evals.py::test_the_page_says_check_failed_when_a_file_wont_parse
+      - tests/test_complaint_evals.py::test_the_desk_page_marks_scripted_answers_and_says_so_in_a_banner
+      - tests/test_complaint_evals.py::test_a_model_answer_is_marked_as_the_model_s
+      - tests/test_complaint_evals.py::test_an_entry_without_the_label_is_shown_as_unknown_not_as_the_model
+      - tests/test_complaint_evals.py::test_the_page_names_the_log_it_reads
     evidence:
       - evals/results/complaints-scripted/report.md
       - "pending: uv run python -m hall_monitor.complaints.evals --live --limit 50"

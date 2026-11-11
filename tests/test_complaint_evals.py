@@ -254,3 +254,47 @@ def test_the_label_key_log_counts_the_key():
 
     readme = (ROOT / "data" / "cfpb" / "README.md").read_text()
     assert f"Created: {len(evals.load_label_key())} labels" in readme
+
+
+# The desk page says which answers came from the scripted stand-in, and which log it reads.
+
+
+def test_the_desk_page_marks_scripted_answers_and_says_so_in_a_banner(desk_src):
+    data = desk.complaint_desk(desk_src)
+    assert data["scripted"] == 30 and all(c["source"] == "scripted" for c in data["complaints"])
+    text = desk.complaints_page(data, demo=False)  # served without --demo
+    assert "Scripted answers." in text
+    assert text.count(">scripted<") == 30
+
+
+def test_a_model_answer_is_marked_as_the_model_s(tmp_path):
+    from hall_monitor.complaints.pipeline import triage_complaint
+    from tests.test_complaint_triage import _client, complaint
+
+    db = tmp_path / "audit.sqlite"
+    audit = AuditLog(db)
+    triage_complaint(complaint(), registry=REGISTRY, client=_client(), audit=audit)
+    audit.close()
+    src = views.Sources(registry_dir=TEST_REGISTRY_DIR, audit_db=db)
+    data = desk.complaint_desk(src)
+    assert data["scripted"] == 0 and data["complaints"][0]["source"] == "model"
+    assert "Scripted answers." not in desk.complaints_page(data, demo=False)
+
+
+def test_an_entry_without_the_label_is_shown_as_unknown_not_as_the_model(tmp_path):
+    db = tmp_path / "audit.sqlite"
+    audit = AuditLog(db)
+    audit.append(
+        "cfpb-1", "complaint_routed", "pipeline", {"queue": "standard_queue", "reasons": []}
+    )
+    audit.close()
+    src = views.Sources(registry_dir=TEST_REGISTRY_DIR, audit_db=db)
+    [c] = desk.complaint_desk(src)["complaints"]
+    assert c["source"] == "unknown"
+
+
+def test_the_page_names_the_log_it_reads(desk_src):
+    data = desk.complaint_desk(desk_src)
+    assert data["audit_log"] == "audit.sqlite"
+    text = desk.complaints_page(data, demo=False)
+    assert "audit.sqlite" in text and "--audit-db" in text
