@@ -616,7 +616,9 @@ controls:
   - id: HM-18
     name: Synthetic data and documented limits
     what: >-
-      All data is synthetic, with answer keys whose changes are dated and justified. Each
+      All data is synthetic, with answer keys whose changes are dated and justified, except the
+      complaint desk's pinned CFPB snapshot (data/cfpb/): real, public complaints, minimised
+      (no company, ZIP prefix only) and labelled as real. Each
       published run states what it can't show: sample size, one author, run-to-run variation.
     status: built
     code:
@@ -1210,8 +1212,7 @@ controls:
       library that sends as a side effect); it catches the honest mistake, and
       review is still the control for the rest. There is no network sandbox or firewall: process
       isolation is outside the repo (MI-22 is not covered). The send-word list can refuse a
-      harmless tool name, which is the intended direction of error. Until the ingestion slice
-      lands, nothing in the repo calls the CFPB API yet.
+      harmless tool name, which is the intended direction of error.
 
   - id: HM-26
     name: Complaint ingestion from CFPB
@@ -1231,7 +1232,10 @@ controls:
       change is a new version, a failure is quarantined once with field names and error types
       only. Each page is written to disk with a manifest of hashes before it is processed; a
       snapshot replays offline, a changed one is refused, and the pinned snapshot under
-      data/cfpb/snapshots/ is what evals and demos run on. Pulls log JSON lines and one
+      data/cfpb/snapshots/ (its manifest hash recorded in code) is what evals and demos run on.
+      CFPB's metadata reaches the audit log only in the expected shape (a timestamp, booleans, a
+      count) and unknown field names only as a placeholder; a page that doesn't move the cursor
+      forward fails the pull. Pulls log JSON lines and one
       complaint_pull audit entry with counts, cursor, retries and status.
     status: built
     code:
@@ -1264,6 +1268,13 @@ controls:
       - tests/test_complaint_ingest.py::test_the_pinned_snapshot_loads_and_is_minimised
       - tests/test_complaint_ingest.py::test_the_schedule_pulls_every_interval_until_its_runs_are_done
       - tests/test_complaint_ingest.py::test_pull_logs_are_json_lines_with_counts
+      - tests/test_complaint_ingest.py::test_cfpb_metadata_and_field_names_reach_the_audit_log_only_as_codes
+      - tests/test_complaint_ingest.py::test_a_naive_or_numeric_date_is_quarantined
+      - tests/test_complaint_ingest.py::test_a_cursor_out_of_range_is_refused_not_stored
+      - tests/test_complaint_ingest.py::test_a_page_that_does_not_advance_the_cursor_fails_the_pull
+      - tests/test_complaint_ingest.py::test_an_egress_refusal_is_never_retried
+      - tests/test_complaint_ingest.py::test_a_quarantine_reason_never_echoes_an_unknown_key
+      - tests/test_complaint_ingest.py::test_the_pinned_snapshot_matches_its_recorded_manifest_hash
     evidence:
       - data/cfpb/snapshots/2026-10-01/manifest.json
     nist: [MEASURE 2.1, MANAGE 3.1]
@@ -1272,8 +1283,13 @@ controls:
       mitigations: [MI-06]
     gaps: >-
       Tested against a fake CFPB; one live pull (500 records, 2026-11-11) made the pinned
-      snapshot, and nothing checks the live API's shape on a schedule. A complaint CFPB indexes
-      late, with a receipt time before the cursor, is missed unless a pull restarts from a date.
+      snapshot, and nothing checks the live API's shape on a schedule. CFPB publishes a complaint
+      once the company responds or after about 15 days, so many are published after later ones
+      were: once a pull has caught up, a complaint published afterwards with an earlier receipt
+      time is behind the cursor and missed, unless a pull restarts from a date at least 15 days
+      back (--since; dedupe makes the repeats cheap). This is the normal case, not a rare one,
+      and nothing schedules the restart. Resuming reads from the day before the cursor's in
+      case CFPB's date filter isn't in UTC (not checked).
       The schedule is a foreground loop, not a supervised service, and there is no alert on a
       failed pull beyond the log and the audit entry. The store and snapshots are local,
       unencrypted SQLite and JSON. The pinned snapshot is real published data (minimised), not

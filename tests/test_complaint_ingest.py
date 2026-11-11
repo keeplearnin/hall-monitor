@@ -383,3 +383,183 @@ def test_pull_logs_are_json_lines_with_counts(store, tmp_path, caplog):
     events = [json.loads(r.message) for r in caplog.records]
     finished = [e for e in events if e["event"] == "pull_finished"]
     assert finished and finished[0]["new"] == 1 and "seconds" in finished[0]
+
+
+# Review 15.
+
+
+def test_cfpb_metadata_and_field_names_reach_the_audit_log_only_as_codes(store, tmp_path):
+    personal = "Jane Q Public, 12 Elm St, SSN 123-45-6789"
+    hit = record(1)
+    hit["_source"][personal] = "x"
+
+    class Odd(FakeCfpb):
+        def __call__(self, request):
+            response = super().__call__(request)
+            body = response.json()
+            body["_meta"]["last_updated"] = personal
+            body["_meta"]["is_data_stale"] = personal
+            body["hits"]["total"] = {"value": personal}
+            return httpx.Response(200, json=body)
+
+    gateway, _ = desk(Odd([hit]))
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    summary = ingest.pull(
+        store, gateway, snapshots=tmp_path / "s", since=date(2026, 10, 1), audit=audit
+    )
+    assert personal not in json.dumps(audit.entries()) and personal not in json.dumps(summary)
+    assert summary["dropped_fields"] == ["company", "date_indexed", "unrecognised_field"]
+
+
+def test_a_naive_or_numeric_date_is_quarantined(store, tmp_path):
+    fake = FakeCfpb(
+        [
+            record(1, date_received="2026-10-01T00:05:00"),
+            record(2, date_received=1790812920),
+            record(3),
+        ]
+    )
+    gateway, _ = desk(fake)
+    summary = ingest.pull(store, gateway, snapshots=tmp_path, since=date(2026, 10, 1))
+    assert (summary["new"], summary["quarantined"]) == (1, 2)
+    assert len(store.complaints()) == 1
+
+
+def test_a_cursor_out_of_range_is_refused_not_stored(store, tmp_path):
+    hit = record(1)
+    hit["sort"] = [9999999999999999, "30000001"]
+    gateway, _ = desk(FakeCfpb([hit]))
+    ingest.pull(store, gateway, snapshots=tmp_path, since=date(2026, 10, 1))
+    assert store.cursor() is None
+    ingest.pull(store, gateway, snapshots=tmp_path)  # doesn't raise
+
+
+def test_a_page_that_does_not_advance_the_cursor_fails_the_pull(store, tmp_path):
+    class IgnoresCursor(FakeCfpb):
+        def __call__(self, request):
+            self.requests.append(request)
+            size = int(request.url.params["size"])
+            return httpx.Response(
+                200, json={"hits": {"total": {"value": 9}, "hits": self.hits[:size]}}
+            )
+
+    fake = IgnoresCursor([record(n) for n in range(150)])
+    gateway, _ = desk(fake)
+    summary = ingest.pull(store, gateway, snapshots=tmp_path, since=date(2026, 10, 1), capacity=400)
+    assert summary["status"] == "failed" and summary["error"] == "cursor_did_not_advance"
+    assert len(fake.requests) == 2 and summary["new"] == 100
+
+
+def test_resuming_reads_from_the_day_before_the_cursor():
+    """CFPB's date filter may not be in UTC: a day's margin, and search_after does the rest."""
+    hits = [record(1)]
+    fake = FakeCfpb(hits)
+
+    class Store:
+        def cursor(self):
+            return hits[0]["sort"][0].__str__() + "_30000001"
+
+    assert ingest._date_min(None, Store().cursor(), datetime(2026, 11, 11, tzinfo=UTC)) == date(
+        2026, 9, 30
+    )
+    del fake
+
+
+def test_each_pull_reports_its_own_requests_and_retries(store, tmp_path):
+    fake = FakeCfpb([record(1)], fail=[503, 503])
+    gateway, client = desk(fake)
+    first = ingest.pull(store, gateway, snapshots=tmp_path, since=date(2026, 10, 1), client=client)
+    second = ingest.pull(store, gateway, snapshots=tmp_path, client=client)
+    assert (first["requests"], first["retries"]) == (3, 2)
+    assert (second["requests"], second["retries"]) == (1, 0)
+
+
+def test_a_restart_date_is_kept_until_a_pull_succeeds(store, tmp_path, monkeypatch):
+    seen = []
+
+    def fake_pull(store, gateway, *, since, **kwargs):
+        seen.append(since)
+        return {"status": "failed" if len(seen) == 1 else "caught_up"}
+
+    monkeypatch.setattr(ingest, "pull", fake_pull)
+    once = ingest.scheduled_pull(store, None, since=date(2026, 9, 1))
+    ingest.run_schedule(once, 3600.0, 3, lambda s: None)
+    assert seen == [date(2026, 9, 1), date(2026, 9, 1), None]
+
+
+@pytest.mark.parametrize("header", ["²", "Wed, 21 Oct 2026 07:28:00 GMT", "-5"])
+def test_an_odd_retry_after_is_ignored_not_an_error(header):
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(
+                429, headers=[(b"retry-after", header.encode("latin-1", "replace"))]
+            )
+        return httpx.Response(200, json={"hits": {"hits": []}})
+
+    client = CfpbClient(_client(handler), sleep=lambda s: None, min_interval=0.0)
+    client.search([("size", 1)])
+    assert client.retries == 1
+
+
+def test_an_egress_refusal_is_never_retried():
+    from hall_monitor.egress import EgressRefused
+
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        raise EgressRefused("refused")
+
+    client = CfpbClient(_client(handler), sleep=lambda s: None, min_interval=0.0)
+    with pytest.raises(EgressRefused):
+        client.search([("size", 1)])
+    assert len(calls) == 1 and client.retries == 0
+
+
+def test_a_quarantine_reason_never_echoes_an_unknown_key(store, tmp_path):
+    hit = minimise_hit(record(1))
+    hit["source"]["Jane Q Public"] = "x"  # a snapshot written by hand, say
+    page = {"hits": [hit]}
+    directory = tmp_path / "snap"
+    directory.mkdir()
+    entry = ingest._write_page(directory, 1, page)
+    (directory / "manifest.json").write_text(json.dumps({"pull_id": "p", "pages": [entry]}))
+    ingest.replay(directory, store)
+    [held] = store.quarantined()
+    assert "Jane" not in held["reason"] and "unknown_field:extra_forbidden" in held["reason"]
+
+
+def test_the_pinned_snapshot_matches_its_recorded_manifest_hash(tmp_path):
+    import shutil
+
+    copy = tmp_path / ingest.PINNED_NAME
+    shutil.copytree(ingest.PINNED_SNAPSHOTS / ingest.PINNED_NAME, copy)
+    page = copy / "page-0001.json"
+    page.write_text(page.read_text().replace("Credit card", "Mortgage"))
+    manifest = json.loads((copy / "manifest.json").read_text())
+    manifest["pages"][0]["sha256"] = ingest._sha256(page.read_text())
+    (copy / "manifest.json").write_text(json.dumps(manifest))
+    ingest.load_snapshot(copy)  # consistent with itself
+    with pytest.raises(ingest.SnapshotError, match="pinned"):
+        ingest.load_pinned(ingest.PINNED_NAME, tmp_path)
+
+
+def test_pin_copies_only_what_the_manifest_lists_and_checks_the_pull_id(store, tmp_path):
+    gateway, _ = desk(FakeCfpb([record(1)]))
+    summary = ingest.pull(store, gateway, snapshots=tmp_path / "s", since=date(2026, 10, 1))
+    (tmp_path / "s" / summary["pull_id"] / "extra.txt").write_text("not listed")
+    target = ingest.pin(summary["pull_id"], "demo", tmp_path / "s", tmp_path / "pinned")
+    assert sorted(p.name for p in target.iterdir()) == ["manifest.json", "page-0001.json"]
+    with pytest.raises(SystemExit):
+        ingest.pin("../s", "x", tmp_path / "s", tmp_path / "pinned")
+
+
+def test_the_readme_says_which_data_is_real():
+    from hall_monitor.governance.controls import ROOT
+
+    readme = (ROOT / "README.md").read_text()
+    assert "All data in this repository is synthetic." not in readme
+    assert "data/cfpb/" in readme

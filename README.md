@@ -43,7 +43,7 @@ The agents never deny a claim or approve a large payout on their own. A routing 
 
 Agents get supporting records only through governed MCP tools (`policy_lookup`, `claims_history`). Every call goes through a gateway that checks the agent's allow-list and records the call. The policy wording is reference text and is still passed in directly.
 
-All data in this repository is synthetic. No real customer, policy or claims data from any company is used.
+All data in this repository is synthetic, except one folder: the complaint desk's pinned snapshot in [`data/cfpb/`](data/cfpb/README.md) holds 500 real complaints from CFPB's public database, minimised (no company name, ZIP prefix only). No real customer, policy or claims data from any company is used.
 
 ## The second example: leave of absence (rules, agents and signed sign-off)
 

@@ -74,7 +74,15 @@ KEPT_FIELDS = frozenset(
 )
 
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_TIMESTAMP = re.compile(
+    r"^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?$"
+)
 _CURSOR = re.compile(r"^\d{10,16}_\d{1,12}$")
+# CFPB's database starts in 2011; a cursor outside 2011 to 2100 isn't a real receipt time.
+CURSOR_MS_RANGE = (1_293_840_000_000, 4_102_444_800_000)
+# A field name CFPB adds is reported by name only if it looks like one of its own.
+_FIELD_NAME = re.compile(r"^[a-z][a-z_]{0,39}$")
+UNRECOGNISED_FIELD = "unrecognised_field"
 _ZIP = re.compile(r"^(\d{3})(?:\d{2}|XX)$")
 
 
@@ -86,7 +94,11 @@ def minimise_hit(hit: object) -> dict:
     cursor = None
     if isinstance(sort, list) and len(sort) == 2:
         cursor = f"{sort[0]}_{sort[1]}"
-        cursor = cursor if _CURSOR.match(cursor) else None
+        valid = (
+            _CURSOR.match(cursor)
+            and CURSOR_MS_RANGE[0] <= int(cursor.split("_")[0]) <= (CURSOR_MS_RANGE[1])
+        )
+        cursor = cursor if valid else None
     if not isinstance(source, dict):
         return {"source": None, "cursor": cursor, "dropped_fields": []}
     kept = {k: v for k, v in source.items() if k in KEPT_FIELDS}
@@ -95,7 +107,9 @@ def minimise_hit(hit: object) -> dict:
         match = _ZIP.match(str(zip_code))
         # A ZIP that isn't five digits (or CFPB's "123XX") is dropped, not guessed at.
         kept["zip_code"] = f"{match.group(1)}XX" if match else None
-    dropped = sorted(k for k in source if k not in KEPT_FIELDS)
+    dropped = sorted(
+        {k if _FIELD_NAME.match(str(k)) else UNRECOGNISED_FIELD for k in source} - KEPT_FIELDS
+    )
     return {"source": kept, "cursor": cursor, "dropped_fields": dropped}
 
 
@@ -129,13 +143,23 @@ def build_complaint_server(client: CfpbClient) -> FastMCP:
         data = client.search(params)
         meta = data.get("_meta") if isinstance(data.get("_meta"), dict) else {}
         total = data["hits"].get("total")
+        total = total.get("value") if isinstance(total, dict) else None
+        updated = meta.get("last_updated")
+        # Only values of the expected shape pass: CFPB's metadata is data, and the pull's audit
+        # entry carries it.
         return {
-            "total": total.get("value") if isinstance(total, dict) else None,
+            "total": total if type(total) is int and total >= 0 else None,
             "hits": [minimise_hit(h) for h in data["hits"]["hits"]],
             "data_status": {
-                "last_updated": meta.get("last_updated"),
-                "is_data_stale": meta.get("is_data_stale"),
-                "has_data_issue": meta.get("has_data_issue"),
+                "last_updated": updated
+                if isinstance(updated, str) and _TIMESTAMP.match(updated)
+                else None,
+                "is_data_stale": meta.get("is_data_stale")
+                if isinstance(meta.get("is_data_stale"), bool)
+                else None,
+                "has_data_issue": meta.get("has_data_issue")
+                if isinstance(meta.get("has_data_issue"), bool)
+                else None,
             },
         }
 

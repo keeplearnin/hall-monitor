@@ -226,8 +226,9 @@ class CfpbClient:
 
     def _delay(self, attempt: int, retry_after: str | None) -> float:
         delay = min(self.max_backoff, self.backoff * 2**attempt) * (0.5 + self._jitter() / 2)
-        if retry_after and retry_after.strip().isdigit():
-            delay = max(delay, min(float(retry_after), self.max_backoff))
+        # Seconds only, in ASCII digits; a date or anything else is ignored, not an error.
+        if retry_after and retry_after.strip().isascii() and retry_after.strip().isdecimal():
+            delay = max(delay, min(float(int(retry_after.strip())), self.max_backoff))
         return delay
 
     def search(self, params: dict) -> dict:

@@ -15,12 +15,23 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
 # Text fields CFPB fills from fixed lists are short; a narrative, if CFPB restores them, isn't.
 Label = Annotated[str, StringConstraints(strict=True, min_length=1, max_length=300)]
 LongText = Annotated[str, StringConstraints(strict=True, min_length=1, max_length=2000)]
 Narrative = Annotated[str, StringConstraints(strict=True, max_length=50_000)]
+
+
+def _text_only(value: object) -> object:
+    if not isinstance(value, str):
+        raise ValueError("a date must be text")
+    return value
+
+
+# An ISO date-time with its time zone, as CFPB writes them ("...Z"): a naive time or a number
+# would sort wrongly against the rest, so either is quarantined.
+IsoTime = Annotated[AwareDatetime, BeforeValidator(_text_only)]
 
 
 class Tag(StrEnum):
@@ -38,8 +49,8 @@ class CfpbSource(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     complaint_id: Annotated[str, StringConstraints(strict=True, pattern=r"^\d{1,12}$")]
-    date_received: datetime
-    date_sent_to_company: datetime | None = None
+    date_received: IsoTime
+    date_sent_to_company: IsoTime | None = None
     product: Label
     sub_product: Label | None = None
     issue: Label

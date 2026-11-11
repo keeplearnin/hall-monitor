@@ -53,8 +53,12 @@ Two facts about the API, found while building: it ignores `frm` and pages with `
 
 ## Consequences
 
-A complaint CFPB indexes late, with a receipt time before the cursor, is missed; a periodic
-re-pull from a date (`--since`) catches it, and dedupe keeps that cheap. The schedule is a
+CFPB publishes a complaint once the company responds or after about 15 days, so a complaint
+published after a pull caught up, with an earlier receipt time, is behind the cursor and
+missed. That is the normal case, not a rare one: a periodic re-pull from a date at least 15 days
+back (`--since`) catches them, and dedupe keeps that cheap, but nothing schedules it yet. A page
+that doesn't move the cursor forward fails the pull, so an API that stopped honouring the cursor
+shows as a failure, not a backlog. The schedule is a
 foreground loop (`--every`), not a service: production would run it under cron or a scheduler.
 The store and snapshots under `var/` are local, unencrypted SQLite and JSON. The pinned snapshot
 is real, published complaint data, not synthetic; it is minimised as above.

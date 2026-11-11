@@ -37,8 +37,8 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from hall_monitor.complaints.cfpb import CFPB_SEARCH, complaint_gateway
-from hall_monitor.complaints.models import Complaint
+from hall_monitor.complaints.cfpb import CFPB_SEARCH, UNRECOGNISED_FIELD, complaint_gateway
+from hall_monitor.complaints.models import CfpbSource, Complaint
 from hall_monitor.complaints.store import DEFAULT_STORE, ComplaintStore
 from hall_monitor.egress import CFPB_POLICY, CfpbClient, audit_refusals, guarded_client
 from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog, TriageRecorder
@@ -49,8 +49,13 @@ from hall_monitor.tools.gateway import PIPELINE_ACTOR, ToolGateway
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SNAPSHOTS = ROOT / "var" / "complaints" / "snapshots"
 PINNED_SNAPSHOTS = ROOT / "data" / "cfpb" / "snapshots"
-# The snapshot every eval and demo runs from.
+# The snapshot every eval and demo runs from, and the hash of each pinned snapshot's manifest:
+# a page and its manifest entry edited together still fail against this.
 PINNED_NAME = "2026-10-01"
+PINNED_MANIFESTS = {
+    "2026-10-01": "be882cd30552a7d503acde001b50fea4d8c33dd3e8f0d7ad63a6f04f1f510647",
+}
+_PULL_ID = re.compile(r"^pull-\d{8}T\d{6}Z-[0-9a-f]{6}$")
 DEFAULT_CAPACITY = 200
 PAGE_SIZE = 100
 MANIFEST = "manifest.json"
@@ -74,15 +79,24 @@ class SnapshotError(ValueError):
     """A snapshot on disk doesn't match its manifest."""
 
 
+class PullError(RuntimeError):
+    """A pull can't go on; the message is a code, never a value from CFPB."""
+
+
 # --- Processing a page (shared by pull and replay) -----------------------------------------
 
 
 def _reason(exc: Exception) -> str:
     """Field names and error types only: never a value from the record."""
     if isinstance(exc, ValidationError):
-        parts = sorted(
-            {f"{'.'.join(str(p) for p in e['loc']) or 'record'}:{e['type']}" for e in exc.errors()}
-        )
+        known = set(CfpbSource.model_fields)
+
+        def where(loc: tuple) -> str:
+            # A key from the record is named only if it is one of the model's own fields.
+            parts = [str(p) if p in known or isinstance(p, int) else "unknown_field" for p in loc]
+            return ".".join(parts) or "record"
+
+        parts = sorted({f"{where(e['loc'])}:{e['type']}" for e in exc.errors()})
         return ", ".join(parts)[:500]
     if str(exc) == "unknown tag":
         return "tags:unknown_tag"
@@ -123,8 +137,8 @@ def _process_page(
         else:
             counts[store.upsert(complaint, pull_id)] += 1
         for name in hit.get("dropped_fields") or []:
-            if isinstance(name, str):
-                counts.setdefault("dropped_fields", set()).add(name[:60])
+            ok = isinstance(name, str) and re.fullmatch(r"[a-z][a-z_]{0,39}", name)
+            counts.setdefault("dropped_fields", set()).add(name if ok else UNRECOGNISED_FIELD)
         if isinstance(hit.get("cursor"), str):
             cursor = hit["cursor"]
     return cursor
@@ -173,6 +187,22 @@ def load_snapshot(directory: Path) -> tuple[dict, list[dict]]:
     return manifest, pages
 
 
+def _date_min(since: date | None, cursor: str | None, started: datetime) -> date:
+    """Where a pull's date filter starts. Resuming, it is the day before the cursor's: CFPB's
+    filter may not be in UTC, and search_after skips what was already read."""
+    if since is not None:
+        return since
+    if cursor is not None:
+        received = datetime.fromtimestamp(int(cursor.split("_")[0]) / 1000, UTC)
+        return received.date() - timedelta(days=1)
+    return started.date() - timedelta(days=2)
+
+
+def _cursor_key(cursor: str) -> tuple[int, int]:
+    ms, complaint_id = cursor.split("_")
+    return int(ms), int(complaint_id)
+
+
 def snapshot_sha256(directory: Path) -> str:
     return _sha256((directory / MANIFEST).read_text())
 
@@ -198,19 +228,21 @@ def pull(
     directory = snapshots / pull_id
     directory.mkdir(parents=True)
     cursor_before = None if since is not None else store.cursor()
-    if since is not None:
-        date_min = since
-    elif cursor_before is not None:
-        date_min = datetime.fromtimestamp(int(cursor_before.split("_")[0]) / 1000, UTC).date()
-    else:
-        date_min = started.date() - timedelta(days=2)
     cursor, counts, pages = cursor_before, _new_counts(), []
     status, error, total, data_status = "caught_up", None, None, None
+    requests_before = None if client is None else client.requests
+    retries_before = None if client is None else client.retries
+    date_min = started.date()
     recorder = TriageRecorder(audit, pull_id) if audit is not None else None
-    _event(
-        "pull_started", pull_id=pull_id, date_min=date_min, cursor=cursor_before, capacity=capacity
-    )
     try:
+        date_min = _date_min(since, cursor_before, started)
+        _event(
+            "pull_started",
+            pull_id=pull_id,
+            date_min=date_min,
+            cursor=cursor_before,
+            capacity=capacity,
+        )
         while counts["fetched"] < capacity:
             size = min(PAGE_SIZE, capacity - counts["fetched"])
             arguments: dict = {"date_received_min": date_min.isoformat(), "size": size}
@@ -227,8 +259,15 @@ def pull(
                 raise PermissionError("the gateway refused the CFPB tool")
             pages.append(_write_page(directory, len(pages) + 1, page))
             total, data_status = page.get("total"), page.get("data_status")
-            cursor = _process_page(page, store, pull_id, audit, counts) or cursor
-            if cursor:
+            advanced = _process_page(page, store, pull_id, audit, counts)
+            if page.get("hits"):
+                # CFPB already ignores frm; if it ignored search_after too, the same page would
+                # come back until capacity ran out, looking like a backlog.
+                if advanced is None or (
+                    cursor is not None and _cursor_key(advanced) <= _cursor_key(cursor)
+                ):
+                    raise PullError("cursor_did_not_advance")
+                cursor = advanced
                 store.set_cursor(cursor)
             _event(
                 "page_processed",
@@ -240,6 +279,8 @@ def pull(
                 break
         else:
             status = "at_capacity"
+    except PullError as exc:
+        status, error = "failed", str(exc)
     except Exception as exc:  # CFPB down, refused, a bad response: the type only
         status, error = "failed", type(exc).__name__
     finished = now()
@@ -256,8 +297,8 @@ def pull(
         "capacity": capacity,
         "cfpb_total_since_date_min": total,
         "data_status": data_status,
-        "requests": None if client is None else client.requests,
-        "retries": None if client is None else client.retries,
+        "requests": None if client is None else client.requests - requests_before,
+        "retries": None if client is None else client.retries - retries_before,
         "pages": pages,
         **_public_counts(counts),
     }
@@ -286,6 +327,9 @@ def replay(directory: Path, store: ComplaintStore, audit: AuditLog | None = None
 
 def load_pinned(name: str, root: Path = PINNED_SNAPSHOTS) -> list[Complaint]:
     """Every complaint in a pinned snapshot, replayed into memory: what evals and demos use."""
+    expected = PINNED_MANIFESTS.get(name)
+    if expected is not None and snapshot_sha256(root / name) != expected:
+        raise SnapshotError(f"{name}: the manifest isn't the pinned one")
     store = ComplaintStore(Path(":memory:"))
     try:
         replay(root / name, store)
@@ -300,12 +344,17 @@ def pin(
     """Copy a checked snapshot into data/cfpb/snapshots/<name>, to commit."""
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", name):
         raise SystemExit("a pinned snapshot's name is letters, digits, dots, dashes")
+    if not _PULL_ID.match(pull_id):
+        raise SystemExit("not a pull ID")
     source = snapshots / pull_id
-    load_snapshot(source)
+    manifest, _ = load_snapshot(source)
     target = root / name
     if target.exists():
         raise SystemExit(f"{target} exists: pinned snapshots are never overwritten")
-    shutil.copytree(source, target)
+    target.mkdir(parents=True)
+    # Only what the manifest lists, already checked against it.
+    for file in [MANIFEST, *(entry["file"] for entry in manifest["pages"])]:
+        shutil.copyfile(source / file, target / file)
     return target
 
 
@@ -335,6 +384,20 @@ def run_schedule(
         if every is None or (runs is not None and len(summaries) >= runs):
             return summaries
         sleep(every)
+
+
+def scheduled_pull(store: ComplaintStore, gateway: ToolGateway, *, since: date | None, **kwargs):
+    """One pull per call, for run_schedule. A restart date applies until a pull succeeds;
+    later pulls resume from the cursor."""
+    pending = [since]
+
+    def once() -> dict:
+        summary = pull(store, gateway, since=pending[0], **kwargs)
+        if summary["status"] != "failed":
+            pending[0] = None
+        return summary
+
+    return once
 
 
 def _desk(audit: AuditLog) -> tuple[ToolGateway, CfpbClient]:
@@ -389,21 +452,15 @@ def main(argv: list[str] | None = None) -> int:
         audit = AuditLog(args.audit_db)
         try:
             gateway, client = _desk(audit)
-            since = [args.since]  # the first pull only: later ones resume from the cursor
-
-            def once() -> dict:
-                summary = pull(
-                    store,
-                    gateway,
-                    snapshots=args.snapshots,
-                    since=since[0],
-                    capacity=args.capacity,
-                    audit=audit,
-                    client=client,
-                )
-                since[0] = None
-                return summary
-
+            once = scheduled_pull(
+                store,
+                gateway,
+                since=args.since,
+                snapshots=args.snapshots,
+                capacity=args.capacity,
+                audit=audit,
+                client=client,
+            )
             summaries = run_schedule(once, args.every, args.runs)
         finally:
             audit.close()
