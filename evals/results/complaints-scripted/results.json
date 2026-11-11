@@ -87,10 +87,10 @@
     "prompt_version": "complaint-triage-v1"
    }
   ],
-  "git_commit": "ec99aea8dedae6532b5093d55611cda5dc1afe2c",
-  "git_dirty": true,
+  "git_commit": "5d0c8873a0edc025084db040e5f24924e558bc2c",
+  "git_dirty": false,
   "mode": "scripted",
-  "run_at": "2026-11-11 18:42 UTC",
+  "run_at": "2026-11-11 18:44 UTC",
   "snapshot": "2026-10-01",
   "snapshot_manifest_sha256": "be882cd30552a7d503acde001b50fea4d8c33dd3e8f0d7ad63a6f04f1f510647",
   "snapshot_path": "data/cfpb/snapshots/2026-10-01"
