@@ -95,10 +95,16 @@ gap in the register.
 ## Ingestion (HM-26)
 
 - **Incremental, on a schedule.** `python -m hall_monitor.complaints.ingest pull` asks for
-  complaints received since the last watermark (the newest `date_received` already stored, less
-  one day of overlap, because CFPB indexes late). `--every 6h` repeats it; a cron entry or a
-  scheduled task runs it in production. No scheduled job runs in CI: CI never touches the
-  network.
+  complaints oldest first and resumes after the stored cursor. (As built: CFPB's API ignores
+  `frm` and pages with `search_after`, a cursor of `<epoch ms>_<complaint id>` from each hit's
+  sort value, so the cursor replaces the planned date watermark and a pull resumes exactly where
+  the last one stopped. A complaint CFPB indexes late, with a receipt time before the cursor,
+  is missed.) Each pull takes up to the desk's capacity (200 by default) and says whether it
+  caught up. `--every 6h` repeats it; a cron entry or a scheduled task runs it in production.
+  No scheduled job runs in CI: CI never touches the network.
+- **The desk's products.** The simulated company is a consumer lender and bank, so its desk
+  asks CFPB only for the products such a company offers. Credit reporting, over 90% of CFPB's
+  volume, goes to consumer reporting agencies and isn't on this desk.
 - **Retries, backoff and rate limiting** in the egress client: at most one request a second by
   default, up to four retries on timeouts, 429 and 5xx, with exponential backoff and jitter, and
   `Retry-After` honoured up to a cap. A 4xx other than 429 is not retried.
@@ -108,11 +114,12 @@ gap in the register.
 - **Schema validation, with quarantine.** Each record is validated against a strict pydantic
   model. One that fails is quarantined with the reason (field names and error types only) and
   its hash, and the pull goes on.
-- **Snapshots.** Every pull writes the raw page responses and a manifest (query, counts, hashes)
-  to `var/complaints/snapshots/<pull_id>/`. A pinned snapshot is committed under
+- **Snapshots.** Every pull writes each page as the tool returned it (already minimised) and a
+  manifest (query, counts, hashes) to `var/complaints/snapshots/<pull_id>/`. A pinned snapshot is committed under
   `data/cfpb/snapshots/` and every eval and demo runs from it, so results are reproducible
   without the network.
-- **Minimisation at the door.** The company name is dropped on ingestion and never stored: the
+- **Minimisation at the door.** The tool keeps an allow-list of fields, so the company name (and
+  anything CFPB adds later) is dropped before a record leaves the tool and never stored: the
   desk is one simulated company, and keeping real company names next to triage results invites
   reading them as findings. ZIP codes are cut to their first three digits (enough for the
   fairness check). The pinned snapshot in git is stored after this step.
@@ -157,8 +164,9 @@ The claims example must keep passing unchanged. The changes to shared code are:
   defaulting to the claims server, so the complaint desk passes its own.
 - The registry learns the no-send rule (every manifest's tools must be in the read-only
   catalogue), which every example inherits.
-- A new data class, `public_record`, for data already published, so a complaint agent needs no
-  approval for PII or financial data it doesn't receive.
+- No new data class (changed while building): a complaint is published, but it is still one
+  person's account of their finances with a state and ZIP prefix, so the CFPB tool is declared
+  as returning PII and financial data, and a complaint agent needs approval for both.
 - The panel gains a complaint desk page, read from the audit log alone, as the HR page is.
 
 Everything else (hall pass, approvals, the hash-chained log, the kill switch, redaction, the

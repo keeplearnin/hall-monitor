@@ -1213,6 +1213,72 @@ controls:
       harmless tool name, which is the intended direction of error. Until the ingestion slice
       lands, nothing in the repo calls the CFPB API yet.
 
+  - id: HM-26
+    name: Complaint ingestion from CFPB
+    what: >-
+      The complaint desk reads public CFPB complaints through one MCP tool,
+      cfpb_complaint_search, behind the tool gateway: only the pipeline may call it, its
+      arguments are checked (a date, a digit cursor, a page size up to 100) and every call is in
+      the audit log. Under it, CfpbClient (egress.py) makes GET requests through the egress
+      guard (HM-25), spaced one a second by default, retrying timeouts, network errors, 429 and
+      5xx with exponential backoff, jitter and Retry-After up to a cap; any other failure stops
+      the pull, which records failed with the error's type and keeps what it stored. The tool
+      keeps an allow-list of fields, so the company name never enters the system and new
+      fields are dropped and named; ZIP codes are cut to three digits. Pulls take the desk's
+      products, oldest first, resume after a stored cursor (CFPB pages by search_after) that
+      moves only after a page is processed, and stop at the desk's capacity, saying whether they
+      caught up. Records are validated strictly and kept by complaint ID: a repeat is skipped, a
+      change is a new version, a failure is quarantined once with field names and error types
+      only. Each page is written to disk with a manifest of hashes before it is processed; a
+      snapshot replays offline, a changed one is refused, and the pinned snapshot under
+      data/cfpb/snapshots/ is what evals and demos run on. Pulls log JSON lines and one
+      complaint_pull audit entry with counts, cursor, retries and status.
+    status: built
+    code:
+      - hall_monitor/complaints/cfpb.py::build_complaint_server
+      - hall_monitor/complaints/cfpb.py::minimise_hit
+      - hall_monitor/egress.py::CfpbClient
+      - hall_monitor/complaints/models.py::Complaint
+      - hall_monitor/complaints/store.py::ComplaintStore
+      - hall_monitor/complaints/ingest.py::pull
+      - hall_monitor/complaints/ingest.py::replay
+      - hall_monitor/complaints/ingest.py::load_snapshot
+      - data/cfpb/README.md
+    tests:
+      - tests/test_complaint_ingest.py::test_the_tool_minimises_each_record_at_the_door
+      - tests/test_complaint_ingest.py::test_the_tool_asks_cfpb_for_the_desk_s_products_oldest_first
+      - tests/test_complaint_ingest.py::test_no_agent_may_call_the_cfpb_tool
+      - tests/test_complaint_ingest.py::test_the_tool_refuses_arguments_outside_its_shape
+      - tests/test_complaint_ingest.py::test_requests_are_spaced_by_the_rate_limit
+      - tests/test_complaint_ingest.py::test_429_and_5xx_are_retried_with_backoff_honouring_retry_after
+      - tests/test_complaint_ingest.py::test_retries_run_out_and_another_4xx_is_never_retried
+      - tests/test_complaint_ingest.py::test_timeouts_are_retried
+      - tests/test_complaint_ingest.py::test_a_pull_stores_validated_minimised_complaints
+      - tests/test_complaint_ingest.py::test_a_second_pull_resumes_after_the_cursor_and_repeats_nothing
+      - tests/test_complaint_ingest.py::test_the_same_records_again_are_skipped_and_a_changed_one_is_a_new_version
+      - tests/test_complaint_ingest.py::test_a_bad_record_is_quarantined_and_the_pull_goes_on
+      - tests/test_complaint_ingest.py::test_a_pull_stops_at_the_desk_s_capacity
+      - tests/test_complaint_ingest.py::test_a_failed_pull_keeps_what_it_did_and_says_why
+      - tests/test_complaint_ingest.py::test_a_snapshot_replays_offline_to_the_same_store
+      - tests/test_complaint_ingest.py::test_a_changed_snapshot_is_refused
+      - tests/test_complaint_ingest.py::test_the_pinned_snapshot_loads_and_is_minimised
+      - tests/test_complaint_ingest.py::test_the_schedule_pulls_every_interval_until_its_runs_are_done
+      - tests/test_complaint_ingest.py::test_pull_logs_are_json_lines_with_counts
+    evidence:
+      - data/cfpb/snapshots/2026-10-01/manifest.json
+    nist: [MEASURE 2.1, MANAGE 3.1]
+    finos:
+      risks: [RI-19]
+      mitigations: [MI-06]
+    gaps: >-
+      Tested against a fake CFPB; one live pull (500 records, 2026-11-11) made the pinned
+      snapshot, and nothing checks the live API's shape on a schedule. A complaint CFPB indexes
+      late, with a receipt time before the cursor, is missed unless a pull restarts from a date.
+      The schedule is a foreground loop, not a supervised service, and there is no alert on a
+      failed pull beyond the log and the audit entry. The store and snapshots are local,
+      unencrypted SQLite and JSON. The pinned snapshot is real published data (minimised), not
+      synthetic. Validation catches shape, not meaning: a mislabelled issue passes.
+
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
   - ref: GOVERN 1.1
@@ -1284,3 +1350,5 @@ audit_events:
   leave_information_requested: [HM-23]
   egress_refused: [HM-25]
   draft_stored: [HM-25, HM-06]
+  complaint_pull: [HM-26]
+  complaint_quarantined: [HM-26]

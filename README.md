@@ -82,6 +82,8 @@ A simulated company complaint desk that triages complaints from the public [CFPB
 
 What still leaves the machine: model calls to the Claude API, and metadata-only traces to Langfuse when its keys are set (Langfuse's client isn't behind the egress guard). Neither reaches a consumer, a company or CFPB.
 
+**Ingestion** (HM-26, [ADR 0022](docs/adr/0022-cfpb-ingestion-and-snapshots.md)): `python -m hall_monitor.complaints.ingest pull` reads complaints about the simulated company's products (a consumer lender and bank, so not credit reporting) through one read-only MCP tool behind the tool gateway, which only the pipeline may call. Pulls go oldest first and resume after a stored cursor, stop at the desk's capacity and say whether they caught up; `--every 6h` repeats them. Requests are spaced and retried with backoff; records are minimised at the door (no company name, ZIP prefix only), validated strictly, kept by complaint ID (a repeat skipped, a change a new version) or quarantined with field names and error types only. Every pull is snapshotted to disk with a manifest of hashes and replays offline; the pinned snapshot ([`data/cfpb/`](data/cfpb/README.md), 500 real complaints received on 1 October 2026) is what evals and demos run on. Tested against a fake CFPB, plus the one live pull that made the snapshot.
+
 **A finding that changed the design:** as checked on 2026-11-11, CFPB's API and bulk download no longer publish consumer narratives, so the desk triages on the structured fields (product, issue, sub-issue, tags, state, ZIP prefix, how it was submitted), keeps the narrative optional in case it returns, and tests the injection and redaction paths with a labelled synthetic set.
 
 ## Architecture
@@ -154,7 +156,8 @@ Each control's NIST AI RMF and FINOS AIGF mapping is in the [controls register](
 | Leave submission form (HR) | A separate local form (`python -m hall_monitor.hr.submit`) adds leave requests to HR's queue through the same pipeline as `hr.run`, so the panel stays read-only. It decides nothing and shows the submitter only the request's ID and state. Demo mode uses the scripted model on the synthetic messages and calls no API; live mode takes free text and calls the Claude API, up to a per-run cap. No sign-in, so it serves this machine only, and a submission must carry the form's token and come from its own origin. Live mode is tested only with a fake client. | HM-24 | Built (HR example) |
 | HR sign-off | A person decides each prepared leave request, signed with their Ed25519 key over the evidence pack the audit log recorded. Code enforces their role against the one the rule named, approves FMLA leave only for an eligible employee within the weeks left, asked and qualifying, lets only HR managers deny (fully or in part, including approving fewer weeks than asked) and only directors extend past the entitlement, and needs a reason for any denial, extension or approval against the route. Asking for more information leaves the request waiting. One decision per request; every refusal that reaches the rules is logged, naming staff only if they signed it. The log keeps keyed hashes, not the reason or signature. Fictional staff use public demo keys. | HM-23 | Built (HR example) |
 | No reply, no send | The system never replies to, contacts or sends anything to anyone. One outbound data path (`hall_monitor/egress.py`): GET over https to the CFPB complaint API only, every other request refused before it leaves and logged, redirects never followed; the desk's model client is guarded to the Claude messages endpoint. A read-only tool catalogue: a manifest granting any other tool is refused at run time and for approval, and the gateway won't serve one. Drafts have no delivery field and are logged as never sent. A static check in CI fails on the sending capabilities it knows (a tripwire, not a proof). The Anthropic SDK and Langfuse are third-party code the check doesn't read; Langfuse's client isn't behind the guard. | HM-25 | Built (complaint desk, slice 1) |
-| Framework mapping | 25 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (19 have none yet: 15 list none, and HM-09, HM-14, HM-15 and HM-22 list only live runs still to be made), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
+| Complaint ingestion | Public CFPB complaints through one read-only MCP tool behind the gateway, pipeline only, every call logged; GET only, through the egress guard, spaced and retried with backoff. Minimised at the door (no company, ZIP prefix), validated strictly, deduplicated by complaint ID with versions for changes, bad records quarantined with field names and error types only. Pulls resume after a cursor, stop at the desk's capacity, and snapshot every page with hashes; the pinned snapshot reproduces evals offline. Tested against a fake CFPB and one live pull. | HM-26 | Built (complaint desk, slice 2) |
+| Framework mapping | 26 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (19 have none yet: 15 list none, and HM-09, HM-14, HM-15 and HM-22 list only live runs still to be made), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
 
 ## Results
 
@@ -193,7 +196,7 @@ The two baseline rows use the same code; the second runs on a larger claim set. 
 18. ~~HR sign-off: a signed decision that enforces the role the rules name, on the evidence the log recorded~~ (done)
 19. ~~HR cases in the panel, with demo data~~ (done)
 20. ~~A form that adds leave requests to HR's queue, outside the read-only panel~~ (done; live mode not run against the API)
-21. Complaint desk on live CFPB data ([design](docs/complaint-desk-design.md)): ~~the no-reply, no-send rule in code~~ (done); ingestion with snapshots; triage with routing in code; evals, fairness and the panel page
+21. Complaint desk on live CFPB data ([design](docs/complaint-desk-design.md)): ~~the no-reply, no-send rule in code~~ (done); ~~ingestion with snapshots~~ (done); triage with routing in code; evals, fairness and the panel page
 
 Daily progress notes are in [`docs/devlog/`](docs/devlog/).
 
@@ -247,7 +250,7 @@ hall-monitor/
 │   ├── evals/               # Scoring, baseline, critic seeded test, override, adversarial, fairness
 │   ├── panel/               # Read-only control panel: views, pages, app, snapshot, demo data
 │   ├── hr/                  # Leave example: rules in code, agents, signed sign-off, submission form
-│   ├── complaints/          # Complaint desk on CFPB data: never-sent drafts (more in later slices)
+│   ├── complaints/          # Complaint desk on CFPB data: CFPB tool, ingestion, store, snapshots, never-sent drafts
 │   ├── egress.py            # The one outbound HTTP path, guarded: CFPB GET and the model API only
 │   ├── no_send.py           # Read-only tool catalogue and the CI check for sending capabilities
 │   ├── pipeline.py          # Claim triage
@@ -261,6 +264,7 @@ hall-monitor/
 │   ├── ground_truth/        # Expected extraction, coverage, risk, next step and route
 │   ├── claims_history.json  # Earlier claims, served by claims_history
 │   └── adversarial/         # Attack cases
+├── data/cfpb/snapshots/     # Pinned CFPB complaint snapshots (real, public, minimised; not synthetic)
 ├── controls/                # Controls register and the verified framework identifiers
 ├── evals/                   # gate.yaml thresholds; results/ holds published runs with findings
 ├── docs/                    # controls.md (generated), one-pagers, board brief, ADRs, review package, devlog

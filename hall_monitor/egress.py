@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import hashlib
 import posixpath
+import random
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -31,7 +33,9 @@ import httpx2
 
 CFPB_API_HOST = "www.consumerfinance.gov"
 CFPB_API_PATH = "/data-research/consumer-complaints/search/api/v1/"
+CFPB_URL = f"https://{CFPB_API_HOST}{CFPB_API_PATH}"
 MODEL_API_HOST = "api.anthropic.com"
+RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 
 class EgressRefused(PermissionError):
@@ -177,3 +181,82 @@ def audit_refusals(audit) -> OnRefused:
         audit.append("egress", "egress_refused", "pipeline", refusal)
 
     return record
+
+
+class CfpbError(RuntimeError):
+    """CFPB answered with something the desk can't use: a status, a body or a shape."""
+
+
+class CfpbClient:
+    """GET requests to the complaint API, spaced, retried and validated. http is a client from
+    guarded_client(CFPB_POLICY), so a request it isn't allowed never leaves.
+
+    Requests are spaced min_interval seconds apart. Timeouts, network errors, 429 and 5xx are
+    retried up to max_retries times with exponential backoff and jitter, honouring a numeric
+    Retry-After up to max_backoff; any other non-200 status, a body that isn't JSON or one
+    without a list of hits raises CfpbError at once. An egress refusal is never retried."""
+
+    def __init__(
+        self,
+        http: httpx.Client,
+        *,
+        min_interval: float = 1.0,
+        max_retries: int = 4,
+        backoff: float = 1.0,
+        max_backoff: float = 60.0,
+        sleep: Callable[[float], None] = time.sleep,
+        clock: Callable[[], float] = time.monotonic,
+        jitter: Callable[[], float] = random.random,
+    ):
+        self.http = http
+        self.min_interval, self.max_retries = min_interval, max_retries
+        self.backoff, self.max_backoff = backoff, max_backoff
+        self._sleep, self._clock, self._jitter = sleep, clock, jitter
+        self._last: float | None = None
+        self.requests = self.retries = 0
+
+    def _wait_turn(self) -> None:
+        now = self._clock()
+        if self._last is not None:
+            wait = self.min_interval - (now - self._last)
+            if wait > 0:
+                self._sleep(wait)
+                now += wait
+        self._last = now
+
+    def _delay(self, attempt: int, retry_after: str | None) -> float:
+        delay = min(self.max_backoff, self.backoff * 2**attempt) * (0.5 + self._jitter() / 2)
+        if retry_after and retry_after.strip().isdigit():
+            delay = max(delay, min(float(retry_after), self.max_backoff))
+        return delay
+
+    def search(self, params: dict) -> dict:
+        """One page of results, as CFPB sent it. Raises CfpbError when retries run out."""
+        for attempt in range(self.max_retries + 1):
+            self._wait_turn()
+            self.requests += 1
+            try:
+                response = self.http.get(CFPB_URL, params=params)
+            except (httpx.TimeoutException, httpx.NetworkError) as exc:
+                if attempt == self.max_retries:
+                    raise CfpbError(f"{type(exc).__name__} after {attempt + 1} tries") from None
+                self.retries += 1
+                self._sleep(self._delay(attempt, None))
+                continue
+            if response.status_code in RETRY_STATUSES:
+                if attempt == self.max_retries:
+                    raise CfpbError(f"HTTP {response.status_code} after {attempt + 1} tries")
+                self.retries += 1
+                self._sleep(self._delay(attempt, response.headers.get("retry-after")))
+                continue
+            if response.status_code != 200:
+                raise CfpbError(f"HTTP {response.status_code}")
+            try:
+                data = response.json()
+            except ValueError:
+                raise CfpbError("the response isn't JSON") from None
+            hits = data.get("hits") if isinstance(data, dict) else None
+            if not isinstance(hits, dict) or not isinstance(hits.get("hits"), list):
+                raise CfpbError("the response has no list of hits")
+            return data
+        raise CfpbError("no attempts made")  # max_retries < 0

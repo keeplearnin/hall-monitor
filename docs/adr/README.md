@@ -28,6 +28,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0019](0019-signed-hr-sign-off.md) | A person signs each leave decision, within the role the rules name | HM-23 |
 | [0020](0020-leave-submission-form.md) | Leave requests are added through a separate form, not the panel | HM-24 |
 | [0021](0021-no-reply-no-send.md) | The complaint desk never sends anything, enforced in code | HM-25 |
+| [0022](0022-cfpb-ingestion-and-snapshots.md) | Complaints come in through the gateway, minimised, with a snapshot of every pull | HM-26 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".
