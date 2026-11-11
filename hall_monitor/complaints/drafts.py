@@ -2,9 +2,10 @@
 
 A DraftResponse has no field that could hold an address, a recipient, a channel or a send time,
 and never_sent can only be True. It is stored in the audit log's evidence store by its hash; the
-log entry records that hash, never_sent and delivery "none", never the text. No code reads a
-draft for delivery, and the static check (hall_monitor/no_send.py) fails the build if a way to
-send one is added.
+log entry records that hash (as evidence_sha256, so the log's verify checks the stored draft
+hasn't been changed), never_sent and delivery "none", never the text. No code reads a draft for
+delivery; the static check (hall_monitor/no_send.py) is a tripwire for adding a way to send one,
+not a proof that none can be written.
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ def store_draft(audit: AuditLog, draft: DraftResponse) -> str:
         "draft_stored",
         draft.written_by,
         {
-            "draft_sha256": digest,
+            "evidence_sha256": digest,
             "never_sent": True,
             "delivery": "none",
             "written_by": draft.written_by,

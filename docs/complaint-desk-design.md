@@ -76,14 +76,15 @@ places:
    check` reads every module's syntax tree and fails on imports of mail, messaging and raw
    network libraries (`smtplib`, `socket`, `urllib.request`, `http.client`, `requests`,
    `aiohttp`, `ftplib`, `xmlrpc`, `twilio`, `sendgrid`, `slack_sdk` and others), on any `httpx`
-   use outside `egress.py`, on any HTTP method other than GET in `egress.py`'s data path, and on
-   send-capable packages in `pyproject.toml`. It runs in CI and in the tests.
+   use outside `egress.py`, on HTTP write calls, and on
+   send-capable packages in `pyproject.toml`. It runs in CI and in the tests. (As built, it
+   checks HTTP methods everywhere, not only in `egress.py`: see HM-25.)
 
 **Drafts are kept, never sent.** A draft acknowledgement is a `DraftResponse` with
 `never_sent: Literal[True]` and no field that could hold an address, a recipient or a channel.
 It is stored in the evidence store by its hash; the audit log records the hash and `never_sent`.
-There is no code that reads a draft for delivery, and the static check stops one being added
-quietly.
+There is no code that reads a draft for delivery, and the static check is a tripwire for
+adding one.
 
 **What still leaves the machine, stated plainly.** Model calls go to the Claude API (a `POST`
 carrying the redacted structured fields), and traces go to Langfuse when its keys are set

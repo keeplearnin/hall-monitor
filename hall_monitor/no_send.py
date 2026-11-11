@@ -36,19 +36,27 @@ READ_ONLY_TOOLS: dict[str, str] = {
     "claims_history": "reads the insured's earlier synthetic claims",
 }
 
-SEND_WORDS = re.compile(
-    r"(?:^|_)(?:send|sends|sent|e?mail|reply|replies|respond|post|notify|notification|webhook|"
-    r"submit|publish|sms|text|message|messages|dispatch|deliver|forward|upload|tweet|call|"
-    r"contact|escalate|push|broadcast|fax|page|ticket)(?:_|$)",
-    re.IGNORECASE,
+# Words that mean sending wherever they appear in a name ("emailcustomer", "replyto").
+_SEND_ANYWHERE = (
+    r"send|sent|e?mail|reply|replies|respond|notif|webhook|submit|publish|sms|dispatch|deliver|"
+    r"forward|upload|tweet|broadcast|escalat|outreach|contact"
 )
+# Words that mean sending only as a whole word ("post", not "postal" or "postcode").
+_SEND_WORDS = r"post|text|message|messages|call|push|fax|page|ticket"
+SEND_WORDS = re.compile(rf"(?:{_SEND_ANYWHERE})|(?:^|_)(?:{_SEND_WORDS})(?:_|$)", re.IGNORECASE)
+
+
+def _words(name: str) -> str:
+    """A tool name in snake case whatever style it was written in: sendEmail and send-email
+    both become send_email."""
+    return re.sub(r"[^A-Za-z0-9]+", "_", re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", name)).lower()
 
 
 def tool_problems(tools: tuple[str, ...] | list[str]) -> list[str]:
     """Why each tool may not be granted or served: empty when every tool is read-only."""
     problems = []
     for tool in tools:
-        if SEND_WORDS.search(tool):
+        if SEND_WORDS.search(_words(tool)):
             problems.append(f"{tool!r} reads as a sending tool")
         elif tool not in READ_ONLY_TOOLS:
             problems.append(f"{tool!r} is not in the read-only tool catalogue")
@@ -125,6 +133,7 @@ SEND_METHODS = frozenset(
         "post",
         "put",
         "patch",
+        "delete",
         "sendmail",
         "send_message",
         "send_mail",
@@ -133,8 +142,41 @@ SEND_METHODS = frozenset(
         "urlopen",
     }
 )
-HTTP_WRITES = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-SHELL_CALLS = frozenset({"system", "popen", "spawnl", "spawnv", "execv", "execl", "execvp"})
+# Calls that take the HTTP method as their first argument or method=: allowed only with "GET".
+METHOD_FIRST = frozenset({"request", "stream", "build_request"})
+# Calls that open a raw connection, whatever module they come from (asyncio, an event loop).
+RAW_CONNECTIONS = frozenset(
+    {
+        "open_connection",
+        "open_unix_connection",
+        "create_connection",
+        "create_unix_connection",
+        "sock_connect",
+        "create_datagram_endpoint",
+    }
+)
+# os functions that run another program, which could send.
+SHELL_CALL = re.compile(r"^(?:system|popen|posix_spawnp?|spawn\w*|exec\w*|startfile)$")
+# What other modules may import from egress.py. Its httpx, its policy and rule types and its
+# transport stay inside it, so a new outbound policy can't be built elsewhere.
+EGRESS_PUBLIC = frozenset(
+    {
+        "CFPB_API_HOST",
+        "CFPB_API_PATH",
+        "CFPB_URL",
+        "CFPB_POLICY",
+        "MODEL_API_HOST",
+        "MODEL_API_POLICY",
+        "EgressRefused",
+        "OnRefused",
+        "guarded_client",
+        "model_client",
+        "audit_refusals",
+        "CfpbClient",
+        "CfpbError",
+    }
+)
+EGRESS_INTERNALS = frozenset({"httpx", "httpx2", "Rule", "EgressPolicy", "GuardedTransport"})
 
 # Packages that exist to send: mail, SMS, chat, webhooks, or general HTTP clients beside httpx.
 SENDING_PACKAGES = frozenset(
@@ -186,17 +228,30 @@ def _banned(module: str) -> bool:
     return any(module == b or module.startswith(b + ".") for b in BANNED_MODULES)
 
 
+def _method_arg(call: ast.Call) -> ast.expr | None:
+    """The HTTP method a request-style call names: its first argument or method=."""
+    for keyword in call.keywords:
+        if keyword.arg == "method":
+            return keyword.value
+    return call.args[0] if call.args else None
+
+
 def _scan_file(file: Path, rel: str) -> list[Finding]:
     tree = ast.parse(file.read_text(), filename=rel)
     found: list[Finding] = []
+    in_egress = rel == EGRESS_MODULE
+    # Names this file binds to the os module or to fastmcp's Client.
+    os_names, mcp_clients = {"os"}, set()
 
     def flag(node: ast.AST, rule: str, detail: str) -> None:
         found.append(Finding(rel, getattr(node, "lineno", 0), rule, detail))
 
     def check_module(node: ast.AST, module: str) -> None:
         if module.split(".")[0] in ("httpx", "httpx2"):
-            if rel != EGRESS_MODULE:
+            if not in_egress:
                 flag(node, "httpx_outside_egress", f"{module} is used only in {EGRESS_MODULE}")
+        elif module.startswith("fastmcp.client"):
+            flag(node, "remote_mcp", f"{module}: an MCP client can reach a remote server")
         elif _banned(module) and (rel, module.split(".")[0]) not in ALLOWED:
             flag(node, "banned_import", module)
 
@@ -204,31 +259,67 @@ def _scan_file(file: Path, rel: str) -> list[Finding]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 check_module(node, alias.name)
+                if alias.name == "os":
+                    os_names.add(alias.asname or "os")
         elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
             check_module(node, node.module)
+            names = {alias.name for alias in node.names}
             if not _banned(node.module):
-                for alias in node.names:
-                    if (node.module, alias.name) in BANNED_FROM:
-                        flag(node, "banned_import", f"{node.module}.{alias.name}")
+                for name in sorted(names):
+                    if (node.module, name) in BANNED_FROM:
+                        flag(node, "banned_import", f"{node.module}.{name}")
+            if node.module == "importlib" and "import_module" in names:
+                flag(node, "dynamic_import", "import_module can load a sending module")
+            if node.module == "os":
+                for name in sorted(n for n in names if SHELL_CALL.match(n)):
+                    flag(node, "shell_command", f"os.{name}")
+            if node.module == "hall_monitor.egress" and not in_egress:
+                for name in sorted(names - EGRESS_PUBLIC):
+                    flag(node, "egress_internals", f"{name} stays inside {EGRESS_MODULE}")
+            if node.module == "fastmcp":
+                mcp_clients |= {a.asname or a.name for a in node.names if a.name == "Client"}
+        elif (
+            isinstance(node, ast.Attribute)
+            and node.attr in EGRESS_INTERNALS
+            and not in_egress
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "egress"
+        ):
+            flag(node, "egress_internals", f"egress.{node.attr} stays inside {EGRESS_MODULE}")
         elif isinstance(node, ast.Call):
-            func = node.func
-            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
-            if name in ("__import__", "import_module"):
-                flag(node, "dynamic_import", f"{name}() can load a sending module")
-            elif isinstance(func, ast.Attribute) and name in SEND_METHODS:
-                flag(node, "send_method", f".{name}()")
-            elif isinstance(func, ast.Attribute) and name == "request" and node.args:
-                first = node.args[0]
-                if not (isinstance(first, ast.Constant) and first.value == "GET"):
-                    flag(node, "send_method", ".request() with a method other than GET")
-            elif (
-                isinstance(func, ast.Attribute)
-                and name in SHELL_CALLS
-                and isinstance(func.value, ast.Name)
-                and func.value.id == "os"
-            ):
-                flag(node, "shell_command", f"os.{name}()")
+            _check_call(node, flag, os_names, mcp_clients)
     return found
+
+
+def _check_call(node: ast.Call, flag, os_names: set[str], mcp_clients: set[str]) -> None:
+    func = node.func
+    name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+    if name in ("__import__", "import_module"):
+        flag(node, "dynamic_import", f"{name}() can load a sending module")
+    elif name == "getattr" and len(node.args) >= 2:
+        attr = node.args[1]
+        if isinstance(attr, ast.Constant) and attr.value in SEND_METHODS | METHOD_FIRST:
+            flag(node, "send_method", "getattr() can reach a sending method")
+    elif isinstance(func, ast.Attribute) and name in SEND_METHODS:
+        flag(node, "send_method", f".{name}()")
+    elif isinstance(func, ast.Attribute) and name in METHOD_FIRST:
+        method = _method_arg(node)
+        # stream() with no arguments reads a request body (Starlette); it sends nothing.
+        if method is not None and not (isinstance(method, ast.Constant) and method.value == "GET"):
+            flag(node, "send_method", f".{name}() with a method other than GET")
+    elif name in RAW_CONNECTIONS:
+        flag(node, "raw_connection", f"{name}() opens a network connection")
+    elif (
+        isinstance(func, ast.Attribute)
+        and SHELL_CALL.match(func.attr)
+        and isinstance(func.value, ast.Name)
+        and func.value.id in os_names
+    ):
+        flag(node, "shell_command", f"os.{func.attr}()")
+    elif isinstance(func, ast.Name) and func.id in mcp_clients and node.args:
+        target = node.args[0]
+        if isinstance(target, ast.Constant | ast.JoinedStr):
+            flag(node, "remote_mcp", "an MCP client pointed at a URL or command")
 
 
 def _dependency_name(spec: str) -> str:

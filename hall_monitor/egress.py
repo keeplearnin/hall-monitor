@@ -6,14 +6,16 @@ the method and the path. Anything else raises EgressRefused, and the refusal is 
 host, policy and a hash of the URL; never a body). Redirects are not followed, and if a caller
 asks to follow one, the next hop is checked again like any request.
 
-Two policies exist, and no others:
+Two policies exist, and a client can be made with no others (SHIPPED_POLICIES):
 
 - CFPB_POLICY: GET on the public complaint API, read-only. The data path.
-- MODEL_API_POLICY: POST to the Claude API's messages endpoint, for the desk's model client.
+- MODEL_API_POLICY: POST to the Claude API's messages endpoint (that path exactly), for the
+  desk's model client.
   It carries the redacted complaint to the model, never to a consumer, company or CFPB.
 
-The static check (hall_monitor/no_send.py) fails the build if httpx is used anywhere else, so a
-new outbound path can't be added without changing this file, in review.
+The static check (hall_monitor/no_send.py) fails the build if httpx is used anywhere else, or if
+another module imports this one's httpx, policy or rule types; and a client is refused at run
+time for any policy but the two shipped here. A new outbound path is a change to this file.
 """
 
 from __future__ import annotations
@@ -40,7 +42,8 @@ class EgressRefused(PermissionError):
 class Rule:
     method: str
     host: str
-    path_prefix: str
+    path: str
+    exact: bool = False  # the path itself only, not anything under it
 
 
 @dataclass(frozen=True)
@@ -65,14 +68,25 @@ class EgressPolicy:
             if (
                 request.method == rule.method
                 and url.host == rule.host
-                and path.startswith(rule.path_prefix)
+                and (path == rule.path if rule.exact else path.startswith(rule.path))
             ):
                 return None
         return "method_host_or_path_not_allowed"
 
 
 CFPB_POLICY = EgressPolicy("cfpb_complaint_api", (Rule("GET", CFPB_API_HOST, CFPB_API_PATH),))
-MODEL_API_POLICY = EgressPolicy("model_api", (Rule("POST", MODEL_API_HOST, "/v1/messages"),))
+MODEL_API_POLICY = EgressPolicy(
+    "model_api", (Rule("POST", MODEL_API_HOST, "/v1/messages", exact=True),)
+)
+# The only policies a client can be made with. A policy built anywhere else, even an equal
+# copy of one of these, is refused: a new outbound path is a change to this file, in review.
+SHIPPED_POLICIES = (CFPB_POLICY, MODEL_API_POLICY)
+
+
+def _require_shipped(policy: EgressPolicy) -> None:
+    if not any(policy is shipped for shipped in SHIPPED_POLICIES):
+        raise ValueError(f"{policy.name!r} is not a shipped egress policy")
+
 
 OnRefused = Callable[[dict], None]
 
@@ -85,6 +99,7 @@ def _guarded_transport_class(lib):  # lib: httpx or httpx2
         """Checks every request against the policy, then hands it to the real transport."""
 
         def __init__(self, policy: EgressPolicy, inner=None, on_refused: OnRefused | None = None):
+            _require_shipped(policy)
             self.policy = policy
             self._inner = inner or lib.HTTPTransport(retries=0)
             self._on_refused = on_refused

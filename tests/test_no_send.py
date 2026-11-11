@@ -236,12 +236,31 @@ def test_a_stored_draft_is_kept_by_hash_and_logged_as_never_sent(tmp_path):
     [entry] = audit.entries("c1")
     assert entry["event"] == "draft_stored"
     assert entry["payload"] == {
-        "draft_sha256": digest,
+        "evidence_sha256": digest,
         "never_sent": True,
         "delivery": "none",
         "written_by": "complaint_triage",
         "prompt_version": "v1",
     }
+
+
+def test_verify_reports_a_swapped_or_erased_draft(tmp_path):
+    """Review 14: verify didn't check stored drafts, so one could be swapped unnoticed."""
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    draft = DraftResponse(
+        complaint_id="c1", text="Draft.", written_by="complaint_triage", prompt_version="v1"
+    )
+    digest = store_draft(audit, draft)
+    assert audit.verify().ok
+    swapped = json.dumps({"text": "We have SENT you a refund", "never_sent": False})
+    audit.erase_evidence(digest)
+    result = audit.verify()
+    assert result.ok and result.evidence_erased == [digest]  # an erasure shows as one
+    audit._db.execute("INSERT INTO evidence VALUES (?, ?)", (digest, swapped))
+    assert not audit.verify().ok  # a swapped draft is a problem
+    audit.erase_evidence(digest)
+    result = audit.verify()
+    assert result.ok and result.evidence_erased == [digest]
 
 
 # 4. A static check, run in CI, fails when a sending capability is added.
@@ -275,6 +294,23 @@ def test_the_repo_has_no_sending_capability():
         ("def f(c):\n    return c.sendmail('a', 'b', 'c')\n", "send_method"),
         ("import subprocess\nsubprocess.run(['curl', 'x'])\n", "banned_import"),
         ("import os\nos.system('mail x')\n", "shell_command"),
+        # Review 14: ways past the first version of the check.
+        ("def f(c):\n    return c.request(method='POST', url='u')\n", "send_method"),
+        ("def f(c):\n    return c.stream('POST', 'u')\n", "send_method"),
+        ("def f(c):\n    return c.send(c.build_request('POST', 'u'))\n", "send_method"),
+        ("def f(c):\n    return c.delete('u')\n", "send_method"),
+        ("def f(c):\n    return getattr(c, 'post')('u')\n", "send_method"),
+        ("import asyncio\nasyncio.open_connection('h', 25)\n", "raw_connection"),
+        ("def f(loop):\n    return loop.create_connection(None, 'h', 25)\n", "raw_connection"),
+        ("from importlib import import_module as im\n", "dynamic_import"),
+        ("from os import system\n", "shell_command"),
+        ("import os as o\no.posix_spawn('/bin/sh', [], {})\n", "shell_command"),
+        ("import os\nos.execvpe('mail', [], {})\n", "shell_command"),
+        ("from hall_monitor.egress import httpx\n", "egress_internals"),
+        ("from hall_monitor.egress import EgressPolicy\n", "egress_internals"),
+        ("from hall_monitor import egress\nc = egress.httpx.Client()\n", "egress_internals"),
+        ("from fastmcp import Client\nClient('https://evil.example/mcp')\n", "remote_mcp"),
+        ("from fastmcp.client.transports import StreamableHttpTransport\n", "remote_mcp"),
     ],
 )
 def test_the_static_check_catches_each_kind_of_sending_capability(tmp_path, source, rule):
@@ -285,6 +321,56 @@ def test_the_static_check_catches_each_kind_of_sending_capability(tmp_path, sour
     findings = no_send.scan(tmp_path)
     assert [f.rule for f in findings] == [rule], findings
     assert findings[0].path == "hall_monitor/added.py"
+
+
+def test_reading_a_request_body_is_not_sending(tmp_path):
+    package = tmp_path / "hall_monitor"
+    package.mkdir()
+    (package / "ok.py").write_text(
+        "async def f(request, c):\n"
+        "    async for chunk in request.stream():\n"
+        "        pass\n"
+        "    return c.get('u'), c.request('GET', 'u'), c.build_request(method='GET', url='u')\n"
+    )
+    (tmp_path / "pyproject.toml").write_text("[project]\ndependencies = []\n")
+    assert no_send.scan(tmp_path) == []
+
+
+def test_only_the_two_shipped_policies_can_make_a_client():
+    """Review 14: a policy built anywhere else opened a new outbound path."""
+    from hall_monitor.egress import EgressPolicy, Rule
+
+    mine = EgressPolicy("mine", (Rule("GET", "evil.example", "/"),))
+    with pytest.raises(ValueError, match="not a shipped egress policy"):
+        guarded_client(mine)
+    copy = EgressPolicy(CFPB_POLICY.name, CFPB_POLICY.rules)  # equal, but not the shipped one
+    with pytest.raises(ValueError):
+        guarded_client(copy)
+
+
+@pytest.mark.parametrize(
+    "path", ["/v1/messages/batches", "/v1/messagesXYZ", "/v1/messages/count_tokens", "/v1/files"]
+)
+def test_the_model_policy_allows_only_the_messages_endpoint_itself(path):
+    request = httpx.Request("POST", f"https://api.anthropic.com{path}")
+    assert MODEL_API_POLICY.refusal(request) is not None
+    assert (
+        MODEL_API_POLICY.refusal(httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "tool", ["sendEmail", "send-email", "emailcustomer", "replyto", "NotifyUser", "postToSlack"]
+)
+def test_send_words_are_found_in_any_naming_style(tool):
+    assert no_send.tool_problems([tool]) == [f"{tool!r} reads as a sending tool"]
+
+
+def test_the_gateway_takes_only_an_in_process_server():
+    """Review 14: a URL would make fastmcp post tool calls off the machine."""
+    with pytest.raises(TypeError, match="in-process"):
+        ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR), "https://evil.example/mcp")
 
 
 @pytest.mark.parametrize("package", ["sendgrid>=6", "twilio", "slack-sdk==3.0", "Requests"])
