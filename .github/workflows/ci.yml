@@ -32,6 +32,12 @@ jobs:
       - name: Tests
         run: uv run pytest -q
 
+      # HM-25: the system never replies to, contacts or sends anything to anyone. Fails on any
+      # sending capability: mail or network libraries, HTTP clients outside egress.py, HTTP
+      # write calls, shell commands, sending dependencies.
+      - name: No sending capability
+        run: uv run python -m hall_monitor.no_send check
+
       # Kill switch: a pull request may add stops but never remove or edit one, so deleting a
       # stop can't restart an agent without the reviewed approval that clears it.
       - name: Stops are append-only

@@ -69,6 +69,21 @@ Then a person decides (`python -m hall_monitor.hr.run` prepares requests into th
 
 Requests can also be added from a small form, a separate app so the panel stays read-only (`python -m hall_monitor.hr.submit --demo` or `--live`). It feeds the same pipeline and decides nothing; the submitter sees only the request's ID and state. Demo mode offers the synthetic messages with the scripted model and calls no API; live mode takes free text, calls the Claude API for each submission and stops at a per-run cap. It serves this machine only, and takes a submission only from its own page, so another site can't post one through the browser; with no sign-in, anyone on this machine can still submit.
 
+## The third example: a complaint desk on live CFPB data (in progress)
+
+A simulated company complaint desk that triages complaints from the public [CFPB Consumer Complaint Database](https://www.consumerfinance.gov/data-research/consumer-complaints/) (free, keyless, read-only, updated daily), so the same controls face real input nobody wrote for them. It prepares each complaint for a person; it is not a CFPB system, it doesn't represent any company in the data, and nothing in it is a finding about a company. The design is in [`docs/complaint-desk-design.md`](docs/complaint-desk-design.md); it ships in slices, and this section says what each one has built.
+
+**Hard rule: the system never replies to, contacts or sends anything to anyone.** It is a check in code, built first (HM-25, [ADR 0021](docs/adr/0021-no-reply-no-send.md)):
+
+- **One outbound data path.** `hall_monitor/egress.py` is the only module allowed an HTTP client. Its transport refuses, before anything leaves, any request that isn't a `GET` over https to `www.consumerfinance.gov` under the complaint API path (another host, port, scheme or path, credentials in the URL, a path that normalises elsewhere), never follows a redirect, and logs each refusal to the audit log (method, host, a hash of the URL, never a body). The desk's model client is guarded the same way to `POST` on the Claude API's messages endpoint only.
+- **No send-capable tool.** Every tool is in one read-only catalogue (`hall_monitor/no_send.py`). A manifest that lists a tool outside it, or one whose name reads as sending, is refused at run time by the registry and refused for approval; the tool gateway refuses to start on a server exposing one, and refuses to call one.
+- **Drafts are kept, never sent.** A draft acknowledgement has no field for an address, recipient or channel, `never_sent` can only be true, and it is stored by its hash with a log entry saying `never_sent` and delivery `none`.
+- **CI fails if anyone adds a sending capability.** `python -m hall_monitor.no_send check` reads every module's syntax tree and the dependencies, and fails on mail, messaging and raw network libraries, HTTP clients outside `egress.py`, HTTP write calls, dynamic imports, shell commands and sending packages.
+
+What still leaves the machine: model calls to the Claude API, and metadata-only traces to Langfuse when its keys are set (Langfuse's client isn't behind the egress guard). Neither reaches a consumer, a company or CFPB.
+
+**A finding that changed the design:** as checked on 2026-11-11, CFPB's API and bulk download no longer publish consumer narratives, so the desk triages on the structured fields (product, issue, sub-issue, tags, state, ZIP prefix, how it was submitted), keeps the narrative optional in case it returns, and tests the injection and redaction paths with a labelled synthetic set.
+
 ## Architecture
 
 How a claim moves through the system today (after milestone 11 and Phase B so far):
@@ -138,7 +153,8 @@ Each control's NIST AI RMF and FINOS AIGF mapping is in the [controls register](
 | Leave agents (HR) | A leave intake agent extracts dates and categories from the employee's redacted message, with no free-text field for a diagnosis; the rules in code decide on what it extracts; a leave explanation agent that never sees the message writes an advisory note. Same registry, approvals, kill switch, data-class check and audit log as the claims agents. Text aimed at the AI and any failure of intake or the rules send the request to a person. An eval scores intake against the answer keys; it hasn't been run live. A failure of the intake call leaves no evidence pack, so the request can be prepared again; any other failure goes to HR with what was found. | HM-22 | Partial: agents built, not run live (HR example) |
 | Leave submission form (HR) | A separate local form (`python -m hall_monitor.hr.submit`) adds leave requests to HR's queue through the same pipeline as `hr.run`, so the panel stays read-only. It decides nothing and shows the submitter only the request's ID and state. Demo mode uses the scripted model on the synthetic messages and calls no API; live mode takes free text and calls the Claude API, up to a per-run cap. No sign-in, so it serves this machine only, and a submission must carry the form's token and come from its own origin. Live mode is tested only with a fake client. | HM-24 | Built (HR example) |
 | HR sign-off | A person decides each prepared leave request, signed with their Ed25519 key over the evidence pack the audit log recorded. Code enforces their role against the one the rule named, approves FMLA leave only for an eligible employee within the weeks left, asked and qualifying, lets only HR managers deny (fully or in part, including approving fewer weeks than asked) and only directors extend past the entitlement, and needs a reason for any denial, extension or approval against the route. Asking for more information leaves the request waiting. One decision per request; every refusal that reaches the rules is logged, naming staff only if they signed it. The log keeps keyed hashes, not the reason or signature. Fictional staff use public demo keys. | HM-23 | Built (HR example) |
-| Framework mapping | 24 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (18 have none yet: 14 list none, and HM-09, HM-14, HM-15 and HM-22 list only live runs still to be made), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
+| No reply, no send | The system never replies to, contacts or sends anything to anyone. One outbound data path (`hall_monitor/egress.py`): GET over https to the CFPB complaint API only, every other request refused before it leaves and logged, redirects never followed; the desk's model client is guarded to the Claude messages endpoint. A read-only tool catalogue: a manifest granting any other tool is refused at run time and for approval, and the gateway won't serve one. Drafts have no delivery field and are logged as never sent. A static check in CI fails on any sending capability. The Anthropic SDK and Langfuse are third-party code the check doesn't read; Langfuse's client isn't behind the guard. | HM-25 | Built (complaint desk, slice 1) |
+| Framework mapping | 25 controls in `controls/controls.yaml`, each with its code and tests, and its published evidence where there is any (19 have none yet: 15 list none, and HM-09, HM-14, HM-15 and HM-22 list only live runs still to be made), mapped to NIST AI RMF 1.0 subcategories and FINOS AIGF v3 risks and mitigations, with what isn't covered and why. Tests fail if a reference goes stale or an ID isn't in the locally checked list (`controls/frameworks.yaml`). Readable version: [`docs/controls.md`](docs/controls.md). | All | Built (milestone 9) |
 
 ## Results
 
@@ -177,6 +193,7 @@ The two baseline rows use the same code; the second runs on a larger claim set. 
 18. ~~HR sign-off: a signed decision that enforces the role the rules name, on the evidence the log recorded~~ (done)
 19. ~~HR cases in the panel, with demo data~~ (done)
 20. ~~A form that adds leave requests to HR's queue, outside the read-only panel~~ (done; live mode not run against the API)
+21. Complaint desk on live CFPB data ([design](docs/complaint-desk-design.md)): ~~the no-reply, no-send rule in code~~ (done); ingestion with snapshots; triage with routing in code; evals, fairness and the panel page
 
 Daily progress notes are in [`docs/devlog/`](docs/devlog/).
 
@@ -230,6 +247,9 @@ hall-monitor/
 │   ├── evals/               # Scoring, baseline, critic seeded test, override, adversarial, fairness
 │   ├── panel/               # Read-only control panel: views, pages, app, snapshot, demo data
 │   ├── hr/                  # Leave example: rules in code, agents, signed sign-off, submission form
+│   ├── complaints/          # Complaint desk on CFPB data: never-sent drafts (more in later slices)
+│   ├── egress.py            # The one outbound HTTP path, guarded: CFPB GET and the model API only
+│   ├── no_send.py           # Read-only tool catalogue and the CI check for sending capabilities
 │   ├── pipeline.py          # Claim triage
 │   ├── workflow.py          # LangGraph workflow with the approval gate
 │   ├── run.py, review.py, audit.py  # CLIs: submit a claim, review as an adjuster, verify the log

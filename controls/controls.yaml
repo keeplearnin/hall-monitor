@@ -1136,6 +1136,69 @@ controls:
       the form added, from memory, so after a restart it no longer finds them (the panel still
       does).
 
+  - id: HM-25
+    name: No reply, no send
+    what: >-
+      The system never replies to, contacts or sends anything to anyone. hall_monitor/egress.py
+      is the only module allowed an HTTP client; its transport refuses, before anything is sent,
+      any request that isn't GET over https to www.consumerfinance.gov under the complaint API
+      path (another host, port or scheme, credentials in the URL, a path that normalises
+      elsewhere), never follows a redirect, and logs each refusal to the audit log as policy,
+      method, host and a hash of the URL. The complaint desk's model client is guarded the same
+      way to POST on the Claude API's messages endpoint, with retries off. Every tool is in a
+      read-only catalogue (hall_monitor/no_send.py): the registry refuses at run time a manifest
+      listing any other tool, or one whose name reads as sending, approvals refuse to approve
+      one, and the tool gateway refuses to start on a server exposing one or to call one. A
+      draft acknowledgement has no field for an address, recipient, channel or send time, can
+      only be never_sent, and is stored by its hash with a log entry recording never_sent and
+      delivery none. A static check (python -m hall_monitor.no_send check), run in CI and in the
+      tests, fails on mail, messaging and raw network libraries, HTTP clients outside
+      egress.py, HTTP write calls, mail calls, dynamic imports, shell commands and sending
+      packages in pyproject.toml.
+    status: built
+    code:
+      - hall_monitor/egress.py::EgressPolicy
+      - hall_monitor/egress.py::guarded_client
+      - hall_monitor/egress.py::model_client
+      - hall_monitor/no_send.py::tool_problems
+      - hall_monitor/no_send.py::scan
+      - hall_monitor/registry.py::check_no_send
+      - hall_monitor/tools/gateway.py::ToolGateway
+      - hall_monitor/complaints/drafts.py::DraftResponse
+      - hall_monitor/complaints/drafts.py::store_draft
+      - .github/workflows/ci.yml
+    tests:
+      - tests/test_no_send.py::test_a_get_to_the_cfpb_complaint_api_goes_through
+      - tests/test_no_send.py::test_anything_else_is_refused_before_it_leaves_and_recorded
+      - tests/test_no_send.py::test_a_redirect_is_never_followed
+      - tests/test_no_send.py::test_the_model_client_reaches_only_the_messages_endpoint
+      - tests/test_no_send.py::test_a_manifest_asking_for_a_send_capable_tool_is_refused_at_run_time
+      - tests/test_no_send.py::test_a_send_capable_manifest_cannot_be_approved
+      - tests/test_no_send.py::test_the_gateway_refuses_to_start_on_a_server_exposing_a_send_tool
+      - tests/test_no_send.py::test_every_tool_the_shipped_servers_expose_is_in_the_read_only_catalogue
+      - tests/test_no_send.py::test_a_draft_has_no_field_that_could_address_or_deliver_it
+      - tests/test_no_send.py::test_a_stored_draft_is_kept_by_hash_and_logged_as_never_sent
+      - tests/test_no_send.py::test_the_repo_has_no_sending_capability
+      - tests/test_no_send.py::test_the_static_check_catches_each_kind_of_sending_capability
+      - tests/test_no_send.py::test_the_static_check_catches_a_sending_dependency
+      - tests/test_no_send.py::test_ci_runs_the_no_send_check
+    evidence: []
+    nist: [GOVERN 1.4, MAP 3.5, MANAGE 1.3, MEASURE 2.7]
+    finos:
+      risks: [RI-18, RI-24, RI-25]
+      mitigations: [MI-03, MI-17, MI-18, MI-19]
+    gaps: >-
+      The static check reads this repository's code only. Third-party libraries are not
+      scanned: the Anthropic SDK posts model requests (guarded for the complaint desk's client,
+      not where the claims and HR examples build their own), and Langfuse posts metadata-only
+      traces when its keys are set, without the egress guard. Neither reaches a consumer, a
+      company or CFPB. A static check can be defeated on purpose (code assembled from strings,
+      a C extension, a library that sends as a side effect); it catches the honest mistake, and
+      review is still the control for the rest. There is no network sandbox or firewall: process
+      isolation is outside the repo (MI-22 is not covered). The send-word list can refuse a
+      harmless tool name, which is the intended direction of error. Until the ingestion slice
+      lands, nothing in the repo calls the CFPB API yet.
+
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
   - ref: GOVERN 1.1
@@ -1205,3 +1268,5 @@ audit_events:
   leave_decision: [HM-23]
   leave_decision_refused: [HM-23]
   leave_information_requested: [HM-23]
+  egress_refused: [HM-25]
+  draft_stored: [HM-25]

@@ -32,6 +32,7 @@ Every hall-monitor control, mapped to the NIST AI Risk Management Framework 1.0 
 | [HM-22](#hm-22) | Leave agents inside the shared controls (HR example) | partial | GOVERN 1.6, MAP 3.5, MEASURE 2.10, MANAGE 2.4 | RI-01, RI-10, RI-24 | MI-18 |
 | [HM-23](#hm-23) | Signed HR sign-off within the role the rules name (HR example) | built | GOVERN 3.2, MAP 3.5, MEASURE 2.8 | RI-22, RI-24 | MI-21, MI-24 |
 | [HM-24](#hm-24) | Leave submission form outside the read-only panel | built | MANAGE 4.1 | RI-22 | MI-04, MI-21 |
+| [HM-25](#hm-25) | No reply, no send | built | GOVERN 1.4, MAP 3.5, MANAGE 1.3, MEASURE 2.7 | RI-18, RI-24, RI-25 | MI-03, MI-17, MI-18, MI-19 |
 
 ## Controls
 
@@ -354,12 +355,25 @@ A separate local web form (python -m hall_monitor.hr.submit) adds leave requests
 - **FINOS mitigations:** MI-04 AI System Observability; MI-21 Agent Decision Audit and Explainability
 - **Gaps:** No sign-in: the token and origin check stop another site posting through a browser, not a user or process on this machine, which can read the form's token and send any origin; so anyone on this machine can submit as any synthetic employee (in live mode, up to the cap), and nothing ties a submission to the employee it names. The spend cap is per run of the form, in memory: restarting it resets the count, and it caps submissions, not dollars. Live mode has not been run against the real API in this repo's tests or CI; the tests use a fake client. The "synthetic data only" banner is a notice, not a check: free text in live mode goes to the Claude API, so a real name or condition typed there leaves this machine (redaction removes labelled identifiers, not names or conditions). Demo mode reuses the demo builder's scripted model, which matches a message by its opening words, so it can't take edited text. A request that stops before the rules ran keeps no message (the log has only its keyed hash), so the submitter has to type it again. The result page reports only on requests this run of the form added, from memory, so after a restart it no longer finds them (the panel still does).
 
+### HM-25
+
+**No reply, no send** (built)
+
+The system never replies to, contacts or sends anything to anyone. hall_monitor/egress.py is the only module allowed an HTTP client; its transport refuses, before anything is sent, any request that isn't GET over https to www.consumerfinance.gov under the complaint API path (another host, port or scheme, credentials in the URL, a path that normalises elsewhere), never follows a redirect, and logs each refusal to the audit log as policy, method, host and a hash of the URL. The complaint desk's model client is guarded the same way to POST on the Claude API's messages endpoint, with retries off. Every tool is in a read-only catalogue (hall_monitor/no_send.py): the registry refuses at run time a manifest listing any other tool, or one whose name reads as sending, approvals refuse to approve one, and the tool gateway refuses to start on a server exposing one or to call one. A draft acknowledgement has no field for an address, recipient, channel or send time, can only be never_sent, and is stored by its hash with a log entry recording never_sent and delivery none. A static check (python -m hall_monitor.no_send check), run in CI and in the tests, fails on mail, messaging and raw network libraries, HTTP clients outside egress.py, HTTP write calls, mail calls, dynamic imports, shell commands and sending packages in pyproject.toml.
+
+- **Code:** [`hall_monitor/egress.py`](../hall_monitor/egress.py) `EgressPolicy`; [`hall_monitor/egress.py`](../hall_monitor/egress.py) `guarded_client`; [`hall_monitor/egress.py`](../hall_monitor/egress.py) `model_client`; [`hall_monitor/no_send.py`](../hall_monitor/no_send.py) `tool_problems`; [`hall_monitor/no_send.py`](../hall_monitor/no_send.py) `scan`; [`hall_monitor/registry.py`](../hall_monitor/registry.py) `check_no_send`; [`hall_monitor/tools/gateway.py`](../hall_monitor/tools/gateway.py) `ToolGateway`; [`hall_monitor/complaints/drafts.py`](../hall_monitor/complaints/drafts.py) `DraftResponse`; [`hall_monitor/complaints/drafts.py`](../hall_monitor/complaints/drafts.py) `store_draft`; [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+- **Tests:** [`tests/test_no_send.py`](../tests/test_no_send.py) `test_a_get_to_the_cfpb_complaint_api_goes_through`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_anything_else_is_refused_before_it_leaves_and_recorded`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_a_redirect_is_never_followed`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_the_model_client_reaches_only_the_messages_endpoint`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_a_manifest_asking_for_a_send_capable_tool_is_refused_at_run_time`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_a_send_capable_manifest_cannot_be_approved`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_the_gateway_refuses_to_start_on_a_server_exposing_a_send_tool`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_every_tool_the_shipped_servers_expose_is_in_the_read_only_catalogue`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_a_draft_has_no_field_that_could_address_or_deliver_it`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_a_stored_draft_is_kept_by_hash_and_logged_as_never_sent`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_the_repo_has_no_sending_capability`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_the_static_check_catches_each_kind_of_sending_capability`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_the_static_check_catches_a_sending_dependency`; [`tests/test_no_send.py`](../tests/test_no_send.py) `test_ci_runs_the_no_send_check`
+- **NIST AI RMF:** GOVERN 1.4 (The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities); MAP 3.5 (Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function); MANAGE 1.3 (Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented); MEASURE 2.7 (AI system security and resilience – as identified in the map function – are evaluated and documented)
+- **FINOS risks:** RI-18 Model Overreach / Expanded Use; RI-24 Agent Action Authorization Bypass; RI-25 Tool Chain Manipulation and Injection
+- **FINOS mitigations:** MI-03 User/App/Model Firewalling/Filtering; MI-17 AI Firewall Implementation and Management; MI-18 Agent Authority Least Privilege Framework; MI-19 Tool Chain Validation and Sanitization
+- **Gaps:** The static check reads this repository's code only. Third-party libraries are not scanned: the Anthropic SDK posts model requests (guarded for the complaint desk's client, not where the claims and HR examples build their own), and Langfuse posts metadata-only traces when its keys are set, without the egress guard. Neither reaches a consumer, a company or CFPB. A static check can be defeated on purpose (code assembled from strings, a C extension, a library that sends as a side effect); it catches the honest mistake, and review is still the control for the rest. There is no network sandbox or firewall: process isolation is outside the repo (MI-22 is not covered). The send-word list can refuse a harmless tool name, which is the intended direction of error. Until the ingestion slice lands, nothing in the repo calls the CFPB API yet.
+
 ## NIST AI RMF coverage
 
 | Subcategory | Controls |
 |---|---|
 | **GOVERN 1.1** Legal and regulatory requirements involving AI are understood, managed, and documented. | Not covered: Legal and regulatory requirements for claims handling aren't analysed; this is a reference implementation, not legal advice. |
-| **GOVERN 1.4** The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities. | [HM-03](#hm-03) |
+| **GOVERN 1.4** The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities. | [HM-03](#hm-03), [HM-25](#hm-25) |
 | **GOVERN 1.5** Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and organizational roles and responsibilities clearly defined, including determining the frequency of periodic review. | Not covered: CI checks every change, but nothing schedules periodic review of the risk process or its outcomes. |
 | **GOVERN 1.6** Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities. | [HM-01](#hm-01), [HM-20](#hm-20), [HM-22](#hm-22) |
 | **GOVERN 2.1** Roles and responsibilities and lines of communication related to mapping, measuring, and managing AI risks are documented and are clear to individuals and teams throughout the organization. | [HM-01](#hm-01), [HM-19](#hm-19) |
@@ -368,19 +382,19 @@ A separate local web form (python -m hall_monitor.hr.submit) adds leave requests
 | **GOVERN 6.1** Policies and procedures are in place that address AI risks associated with third-party entities, including risks of infringement of a third-party's intellectual property or other rights. | Not covered: Third-party policies, including intellectual-property risk from the model provider, aren't addressed; the model is pinned, not assessed. |
 | **MAP 1.1** Intended purposes, potentially beneficial uses, context-specific laws, norms and expectations, and prospective settings in which the AI system will be deployed are understood and documented. | [HM-01](#hm-01), [HM-18](#hm-18) |
 | **MAP 2.1** The specific tasks and methods used to implement the tasks that the AI system will support are defined (e.g., classifiers, generative models, recommenders). | [HM-18](#hm-18) |
-| **MAP 3.5** Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function. | [HM-04](#hm-04), [HM-05](#hm-05), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23) |
+| **MAP 3.5** Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function. | [HM-04](#hm-04), [HM-05](#hm-05), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23), [HM-25](#hm-25) |
 | **MAP 4.1** Approaches for mapping AI technology and legal risks of its components – including the use of third-party data or software – are in place, followed, and documented, as are risks of infringement of a third party's intellectual property or other rights. | Not covered: Legal and intellectual-property risks of third-party components aren't mapped. |
 | **MEASURE 1.1** Approaches and metrics for measurement of AI risks enumerated during the map function are selected for implementation starting with the most significant AI risks. The risks or trustworthiness characteristics that will not – or cannot – be measured are properly documented. | [HM-12](#hm-12), [HM-18](#hm-18) |
 | **MEASURE 2.1** Test sets, metrics, and details about the tools used during TEVV are documented. | [HM-12](#hm-12) |
 | **MEASURE 2.3** AI system performance or assurance criteria are measured qualitatively or quantitatively and demonstrated for conditions similar to deployment setting(s). Measures are documented. | [HM-07](#hm-07), [HM-12](#hm-12) |
 | **MEASURE 2.5** The AI system to be deployed is demonstrated to be valid and reliable. Limitations of the generalizability beyond the conditions under which the technology was developed are documented. | [HM-07](#hm-07), [HM-12](#hm-12), [HM-18](#hm-18) |
-| **MEASURE 2.7** AI system security and resilience – as identified in the map function – are evaluated and documented. | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15) |
+| **MEASURE 2.7** AI system security and resilience – as identified in the map function – are evaluated and documented. | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15), [HM-25](#hm-25) |
 | **MEASURE 2.8** Risks associated with transparency and accountability – as identified in the map function – are examined and documented. | [HM-06](#hm-06), [HM-23](#hm-23) |
 | **MEASURE 2.9** The AI model is explained, validated, and documented, and AI system output is interpreted within its context – as identified in the map function – to inform responsible use and governance. | [HM-13](#hm-13) |
 | **MEASURE 2.10** Privacy risk of the AI system – as identified in the map function – is examined and documented. | [HM-10](#hm-10), [HM-11](#hm-11), [HM-22](#hm-22) |
 | **MEASURE 2.11** Fairness and bias – as identified in the map function – are evaluated and results are documented. | [HM-14](#hm-14) |
 | **MEASURE 3.1** Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts. | [HM-16](#hm-16), [HM-17](#hm-17) |
-| **MANAGE 1.3** Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented. Risk response options can include mitigating, transferring, avoiding, or accepting. | [HM-03](#hm-03), [HM-04](#hm-04), [HM-07](#hm-07), [HM-09](#hm-09), [HM-21](#hm-21) |
+| **MANAGE 1.3** Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented. Risk response options can include mitigating, transferring, avoiding, or accepting. | [HM-03](#hm-03), [HM-04](#hm-04), [HM-07](#hm-07), [HM-09](#hm-09), [HM-21](#hm-21), [HM-25](#hm-25) |
 | **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08), [HM-19](#hm-19), [HM-22](#hm-22) |
 | **MANAGE 3.1** AI risks and benefits from third-party resources are regularly monitored, and risk controls are applied and documented. | [HM-02](#hm-02), [HM-16](#hm-16) |
 | **MANAGE 4.1** Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management. | [HM-05](#hm-05), [HM-06](#hm-06), [HM-20](#hm-20), [HM-24](#hm-24) |
@@ -402,13 +416,13 @@ A separate local web form (python -m hall_monitor.hr.submit) adds leave requests
 | RI-14 | Inadequate System Alignment | [HM-07](#hm-07), [HM-09](#hm-09), [HM-19](#hm-19) |
 | RI-16 | Bias and Discrimination | [HM-14](#hm-14) |
 | RI-17 | Lack of Explainability | [HM-06](#hm-06), [HM-13](#hm-13) |
-| RI-18 | Model Overreach / Expanded Use | [HM-01](#hm-01), [HM-19](#hm-19) |
+| RI-18 | Model Overreach / Expanded Use | [HM-01](#hm-01), [HM-19](#hm-19), [HM-25](#hm-25) |
 | RI-19 | Data Quality and Drift | [HM-18](#hm-18) |
 | RI-20 | Reputational Risk | Not covered: Reputational risk is a business judgement; publishing results, failures included, is the only part this repo touches. |
 | RI-22 | Regulatory Compliance and Oversight | [HM-04](#hm-04), [HM-05](#hm-05), [HM-06](#hm-06), [HM-20](#hm-20), [HM-21](#hm-21), [HM-23](#hm-23), [HM-24](#hm-24) |
 | RI-23 | Intellectual Property (IP) and Copyright | Not covered: Intellectual property in model output isn't assessed. |
-| RI-24 | Agent Action Authorization Bypass | [HM-03](#hm-03), [HM-04](#hm-04), [HM-15](#hm-15), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23) |
-| RI-25 | Tool Chain Manipulation and Injection | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15) |
+| RI-24 | Agent Action Authorization Bypass | [HM-03](#hm-03), [HM-04](#hm-04), [HM-15](#hm-15), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23), [HM-25](#hm-25) |
+| RI-25 | Tool Chain Manipulation and Injection | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15), [HM-25](#hm-25) |
 | RI-26 | MCP Server Supply Chain Compromise | Not covered: The MCP server is first-party and runs in-process; nothing checks a third-party server's integrity because there isn't one. |
 | RI-27 | Agent State Persistence Poisoning | Not covered: Workflow checkpoints are local state. The evidence pack and triage result in a checkpoint are checked against the hashes in the audit log (HM-05); other checkpoint state isn't integrity-checked. |
 | RI-28 | Multi-Agent Trust Boundary Violations | [HM-09](#hm-09) |
@@ -421,7 +435,7 @@ A separate local web form (python -m hall_monitor.hr.submit) adds leave requests
 |---|---|---|
 | MI-01 | AI Data Leakage Prevention and Detection | [HM-10](#hm-10), [HM-11](#hm-11) |
 | MI-02 | Data Filtering From External Knowledge Bases | Not covered: There is no external knowledge base or retrieval; the policy wording is fixed reference text. |
-| MI-03 | User/App/Model Firewalling/Filtering | [HM-09](#hm-09) |
+| MI-03 | User/App/Model Firewalling/Filtering | [HM-09](#hm-09), [HM-25](#hm-25) |
 | MI-04 | AI System Observability | [HM-06](#hm-06), [HM-11](#hm-11), [HM-20](#hm-20), [HM-24](#hm-24) |
 | MI-05 | System Acceptance Testing | [HM-12](#hm-12), [HM-14](#hm-14), [HM-15](#hm-15), [HM-17](#hm-17) |
 | MI-06 | Data Quality & Classification/Sensitivity | [HM-10](#hm-10), [HM-18](#hm-18) |
@@ -435,9 +449,9 @@ A separate local web form (python -m hall_monitor.hr.submit) adds leave requests
 | MI-14 | Encryption of AI Data at Rest | Not covered: The audit log and checkpoints are unencrypted SQLite files. |
 | MI-15 | Using Large Language Models for Automated Evaluation (LLM-as-a-Judge) | [HM-07](#hm-07) |
 | MI-16 | Preserving Source Data Access Controls in AI Systems | [HM-03](#hm-03) |
-| MI-17 | AI Firewall Implementation and Management | [HM-09](#hm-09) |
-| MI-18 | Agent Authority Least Privilege Framework | [HM-03](#hm-03), [HM-22](#hm-22) |
-| MI-19 | Tool Chain Validation and Sanitization | [HM-03](#hm-03), [HM-09](#hm-09) |
+| MI-17 | AI Firewall Implementation and Management | [HM-09](#hm-09), [HM-25](#hm-25) |
+| MI-18 | Agent Authority Least Privilege Framework | [HM-03](#hm-03), [HM-22](#hm-22), [HM-25](#hm-25) |
+| MI-19 | Tool Chain Validation and Sanitization | [HM-03](#hm-03), [HM-09](#hm-09), [HM-25](#hm-25) |
 | MI-20 | MCP Server Security Governance | [HM-03](#hm-03) |
 | MI-21 | Agent Decision Audit and Explainability | [HM-06](#hm-06), [HM-07](#hm-07), [HM-13](#hm-13), [HM-20](#hm-20), [HM-23](#hm-23), [HM-24](#hm-24) |
 | MI-22 | Multi-Agent Isolation and Segmentation | Not covered: Agents run in one process; they're separated by allow-lists and claim scope, not isolation. |
@@ -466,6 +480,8 @@ A separate local web form (python -m hall_monitor.hr.submit) adds leave requests
 | `leave_decision` | [HM-23](#hm-23) |
 | `leave_decision_refused` | [HM-23](#hm-23) |
 | `leave_information_requested` | [HM-23](#hm-23) |
+| `egress_refused` | [HM-25](#hm-25) |
+| `draft_stored` | [HM-25](#hm-25) |
 
 ## Sources
 
