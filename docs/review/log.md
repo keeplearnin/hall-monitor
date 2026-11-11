@@ -751,3 +751,14 @@ in part plausible); all fixed, test-first.
 With the fixes, 197 of the 500 pinned complaints go to specialist review on their labels or tags
 alone.
 
+**Re-review of those fixes:** each new test fails with its fix undone. 5 findings, 4 confirmed
+and 1 plausible; all fixed, test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Claiming a complaint before the model call meant a crash after the claim left it unrouted for good, and later runs counted it as skipped: a fraud complaint could drop out of every queue | High | A crash is routed to specialist review on the spot (`triage_interrupted`) when the log can be written; a complaint a killed run left claimed but unrouted is routed the same way by the next run |
+| The `scripted` label was whatever the caller passed, so the tests' own runs labelled scripted answers as the model's | Medium | The stand-in marks itself and the pipeline reads the mark; no caller can omit it |
+| "did not authorize" (as in "Lender made a payment you did not authorize") wasn't matched | Low | Matched, and in the hand-written table |
+| The draft check still kept "will resolve this" and seven-digit numbers, and newly dropped benign drafts ("we will contact you", "we'll get back to you", a complaint reference) | Low | A list of commitment verbs instead of any "we will"; numbers must be grouped as phone numbers are; tested on benign and bad drafts |
+| The demo-guard test ran against the real main log, and a hard link got past the guard | Low, plausible | The test uses a temporary main log; the guard compares files, not only paths |
+

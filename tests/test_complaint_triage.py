@@ -305,6 +305,7 @@ EXPECTED_LABEL_REASONS = {
     "Card was charged for something you did not purchase with the card": "fraud",
     "Charged for a purchase or transfer you did not make with the card": "fraud",
     "Fraudulent loan": "fraud",
+    "Lender made a payment you did not authorize": "fraud",
     "Unauthorized withdrawals or charges": "fraud",
     "Debt was result of identity theft": "identity_theft",
     "Debt is not yours": "identity_theft",
@@ -394,18 +395,84 @@ def test_every_rendered_field_is_scanned():
     assert "text_addresses_ai" in result.route.reasons
 
 
-def test_demo_results_are_labelled_scripted_and_stay_out_of_the_main_log(tmp_path):
-    from hall_monitor.governance.audit import DEFAULT_AUDIT_DB
-
+def test_demo_results_are_labelled_scripted_and_stay_out_of_the_main_log(tmp_path, monkeypatch):
     db = tmp_path / "audit.sqlite"
     complaint_run.main(["--demo", "--limit", "2", "--audit-db", str(db)])
     routed = [e for e in AuditLog(db).entries() if e["event"] == "complaint_routed"]
     assert routed and all(e["payload"]["scripted"] is True for e in routed)
-    with pytest.raises(SystemExit):
-        complaint_run.main(["--demo", "--audit-db", str(DEFAULT_AUDIT_DB)])
+    main_log = tmp_path / "main.sqlite"
+    AuditLog(main_log).close()
+    monkeypatch.setattr(complaint_run, "DEFAULT_AUDIT_DB", main_log)
+    link = tmp_path / "link.sqlite"
+    link.hardlink_to(main_log)
+    for path in (main_log, link):
+        with pytest.raises(SystemExit):
+            complaint_run.main(["--demo", "--limit", "1", "--audit-db", str(path)])
     for bad in ("0", "-3"):
         with pytest.raises(SystemExit):
             complaint_run.main(["--demo", "--limit", bad, "--audit-db", str(db)])
+
+
+# Re-review of Review 16.
+
+
+def test_scripted_client_answers_are_always_labelled_scripted(tmp_path):
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    complaint_run.run(PINNED[:3], audit, scripted_client(), REGISTRY)
+    triage_complaint(complaint(), registry=REGISTRY, client=scripted_client(), audit=audit)
+    routed = [e["payload"] for e in audit.entries() if e["event"] == "complaint_routed"]
+    assert len(routed) == 4 and all(p["scripted"] is True for p in routed)
+    other = AuditLog(tmp_path / "other.sqlite")
+    triage_complaint(complaint(), registry=REGISTRY, client=_client(), audit=other)
+    assert other.entries()[-1]["payload"]["scripted"] is False
+
+
+@pytest.mark.parametrize("crash", [OSError("disk"), KeyboardInterrupt()])
+def test_a_crash_after_the_complaint_is_claimed_still_routes_it_to_a_person(
+    tmp_path, monkeypatch, crash
+):
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    fraud = complaint(issue="Fraud or scam")
+
+    def boom(*args, **kwargs):
+        raise crash
+
+    monkeypatch.setattr(complaint_pipeline, "store_draft", boom)
+    with pytest.raises(type(crash)):
+        complaint_run.run([fraud], audit, _client(), REGISTRY)
+    [routed] = [e for e in audit.entries() if e["event"] == "complaint_routed"]
+    payload = routed["payload"]
+    assert payload["queue"] == "specialist_review" and payload["urgency"] == "high"
+    assert {"agent_failed", "triage_interrupted", "fraud"} <= set(payload["reasons"])
+
+
+def test_a_complaint_claimed_by_a_killed_run_goes_to_a_person_on_the_next_run(tmp_path):
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    fraud = complaint(issue="Fraud or scam")
+    # What a process killed after claiming the complaint leaves behind.
+    audit.append("cfpb-28750001", "complaint_received", "pipeline", {"complaint_id": "28750001"})
+    summary = complaint_run.run([fraud], audit, _client(), REGISTRY)
+    assert summary["interrupted"] == 1 and summary["triaged"] == 0
+    [routed] = [e for e in audit.entries() if e["event"] == "complaint_routed"]
+    assert routed["payload"]["queue"] == "specialist_review"
+    assert "triage_interrupted" in routed["payload"]["reasons"]
+    assert complaint_run.run([fraud], audit, _client(), REGISTRY)["skipped"] == 1
+
+
+@pytest.mark.parametrize(
+    ("draft", "bad"),
+    [
+        ("Our team will resolve this for you.", True),
+        ("Text us at 555 0199.", True),
+        ("We will contact you once our review is complete.", False),
+        ("We will carefully review your complaint.", False),
+        ("We'll get back to you after a person has reviewed it.", False),
+        ("Your reference is complaint 28750001.", False),
+        ("We will review your complaint and be in touch.", False),
+    ],
+)
+def test_the_draft_check_on_benign_and_bad_drafts(draft, bad):
+    assert bool(draft_problems(draft)) is bad, draft_problems(draft)
 
 
 def test_the_design_lists_exactly_the_routing_reasons():

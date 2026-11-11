@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -23,42 +24,52 @@ from dotenv import load_dotenv
 from hall_monitor import tracing
 from hall_monitor.complaints.ingest import PINNED_NAME, load_pinned
 from hall_monitor.complaints.models import Complaint
-from hall_monitor.complaints.pipeline import RECEIVED, AlreadyTriaged, scope_id, triage_complaint
+from hall_monitor.complaints.pipeline import (
+    RECEIVED,
+    ROUTED,
+    AlreadyTriaged,
+    route_unfinished,
+    scope_id,
+    triage_complaint,
+)
 from hall_monitor.complaints.scripted import scripted_client
 from hall_monitor.complaints.store import DEFAULT_STORE, ComplaintStore
 from hall_monitor.egress import audit_refusals, model_client
-from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog
+from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AlreadyRecorded, AuditLog
 from hall_monitor.registry import Registry
 
 DEMO_AUDIT_DB = DEFAULT_AUDIT_DB.parent / "demo" / "complaints-audit.sqlite"
 MAX_LIVE = 500
 
 
-def run(
-    complaints: list[Complaint],
-    audit: AuditLog,
-    client,
-    registry: Registry,
-    *,
-    scripted: bool = False,
-) -> dict:
-    """Triage each complaint not already in the log; a summary of what happened."""
+def run(complaints: list[Complaint], audit: AuditLog, client, registry: Registry) -> dict:
+    """Triage each complaint not already in the log; a summary of what happened. A complaint a
+    killed run claimed but never routed goes to specialist review now (interrupted)."""
     summary = {
         "triaged": 0,
         "skipped": 0,
+        "interrupted": 0,
         "specialist_review": 0,
         "standard_queue": 0,
         "agent_failed": 0,
         "cost_usd": 0.0,
     }
     for complaint in complaints:
-        if audit.has(scope_id(complaint.complaint_id), RECEIVED):
+        scope = scope_id(complaint.complaint_id)
+        if audit.has(scope, RECEIVED):
+            if not audit.has(scope, ROUTED):
+                # A run still working on it at this moment loses its route to this one.
+                try:
+                    route_unfinished(complaint, audit)
+                    summary["interrupted"] += 1
+                    summary["specialist_review"] += 1
+                    continue
+                except AlreadyRecorded:
+                    pass
             summary["skipped"] += 1
             continue
         try:
-            result = triage_complaint(
-                complaint, registry=registry, client=client, audit=audit, scripted=scripted
-            )
+            result = triage_complaint(complaint, registry=registry, client=client, audit=audit)
         except AlreadyTriaged:  # another run took it between the check and the write
             summary["skipped"] += 1
             continue
@@ -67,6 +78,13 @@ def run(
         summary["agent_failed"] += "agent_failed" in result.route.reasons
         summary["cost_usd"] = round(summary["cost_usd"] + result.cost_usd, 6)
     return summary
+
+
+def _same_file(a: Path, b: Path) -> bool:
+    """The same path, or the same file by another name (a hard or symbolic link)."""
+    if a.resolve() == b.resolve():
+        return True
+    return a.exists() and b.exists() and os.path.samefile(a, b)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -83,11 +101,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"--live needs --limit between 1 and {MAX_LIVE}")
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be at least 1")
-    if (
-        args.demo
-        and args.audit_db is not None
-        and (args.audit_db.resolve() == DEFAULT_AUDIT_DB.resolve())
-    ):
+    if args.demo and args.audit_db is not None and _same_file(args.audit_db, DEFAULT_AUDIT_DB):
         parser.error("--demo never writes to the main audit log: scripted answers stay apart")
     if args.from_store:
         with ComplaintStore(args.from_store) as store:
@@ -102,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             load_dotenv()
             client = model_client(on_refused=audit_refusals(audit))
-        summary = run(complaints, audit, client, Registry.from_dir(), scripted=args.demo)
+        summary = run(complaints, audit, client, Registry.from_dir())
     finally:
         audit.close()
         tracing.flush()

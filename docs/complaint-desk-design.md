@@ -150,6 +150,7 @@ complaint -> redact, scan for text aimed at the AI           (code)
 | `agent_uncertain` | the agent's confidence is low, or it chose `unclear` (changed while building: medium confidence goes to the standard queue) |
 | `agent_disagrees_with_code` | the agent's urgency is lower than the code's floor |
 | `agent_raised_concern` | the agent raised a concern the code's rule didn't find |
+| `triage_interrupted` | triage started but was interrupted (a crash, or a killed run, caught by the next run) before it was routed |
 
 The label patterns are checked against every label in the pinned snapshot by a hand-written
 table in the tests, not by the patterns themselves (review 16 found two common labels missed).

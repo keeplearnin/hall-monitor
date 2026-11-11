@@ -36,15 +36,16 @@ REASONS: dict[str, str] = {
     "agent_uncertain": "the triage agent's confidence was low, or it couldn't tell the category",
     "agent_disagrees_with_code": "the agent's urgency is below the code's floor",
     "agent_raised_concern": "the agent raised a concern the code's rule didn't find",
+    "triage_interrupted": "triage started but was interrupted before it was routed",
 }
 # Reasons only the pipeline gives (complaints/pipeline.py), not the rule on the fields.
-PIPELINE_REASONS = frozenset({"text_addresses_ai", "agent_failed"})
+PIPELINE_REASONS = frozenset({"text_addresses_ai", "agent_failed", "triage_interrupted"})
 
 # Concerns read from CFPB's labels. Each pattern is matched against the product, sub-product,
 # issue and sub-issue.
 CONCERN_PATTERNS: dict[str, re.Pattern[str]] = {
     "fraud": re.compile(
-        r"\bfraud|\bscam\b|unauthori[sz]ed|not authori[sz]ed|"
+        r"\bfraud|\bscam\b|unauthori[sz]ed|not authori[sz]ed|(?:did not|didn't) authori[sz]e|"
         r"(?:did not|didn't) (?:make|purchase)",
         re.I,
     ),

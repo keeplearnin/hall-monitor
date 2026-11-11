@@ -1322,7 +1322,9 @@ controls:
       with its reasons, urgencies, category, a keyed hash of the summary, the draft's hash and
       the cost, and whether the answer came from the scripted stand-in; never the summary or draft
       text. A complaint is triaged once: its received entry is written once, before the model
-      is called, so a second worker stops with no model call. The label patterns are checked
+      is called, so a second worker stops with no model call. A crash after that is routed to
+      specialist review (triage_interrupted) on the spot if the log can be written, and a
+      complaint a killed run claimed but never routed is routed the same way by the next run. The label patterns are checked
       against every label in the pinned snapshot by a hand-written table in the tests.
     status: built
     code:
@@ -1354,6 +1356,10 @@ controls:
       - tests/test_complaint_triage.py::test_more_promises_and_pointers_are_caught
       - tests/test_complaint_triage.py::test_every_rendered_field_is_scanned
       - tests/test_complaint_triage.py::test_demo_results_are_labelled_scripted_and_stay_out_of_the_main_log
+      - tests/test_complaint_triage.py::test_scripted_client_answers_are_always_labelled_scripted
+      - tests/test_complaint_triage.py::test_a_crash_after_the_complaint_is_claimed_still_routes_it_to_a_person
+      - tests/test_complaint_triage.py::test_a_complaint_claimed_by_a_killed_run_goes_to_a_person_on_the_next_run
+      - tests/test_complaint_triage.py::test_the_draft_check_on_benign_and_bad_drafts
     evidence:
       - "pending: uv run python -m hall_monitor.complaints.run --live --limit 50"
     nist: [GOVERN 3.2, MAP 3.5, MANAGE 2.4]
@@ -1370,9 +1376,11 @@ controls:
       pattern list (promises, links, emails, phone numbers), not a review of tone or accuracy.
       The two queues and urgencies are for people; nothing here measures how fast a person
       works them. The scripted stand-in's calls still record the manifest's model; the routed entry says
-      scripted, and the demo refuses the main audit log. The hand-written label table covers the
+      scripted (the stand-in marks itself, so no caller can omit it), and the demo refuses the
+      main audit log, by any path or link to it. The hand-written label table covers the
       labels in one day's snapshot and a few more; CFPB has others, and a new label is matched
-      only by the patterns.
+      only by the patterns. A run that routes a complaint another run claimed but
+      hasn't finished yet takes the route from it (the slow run's route is then refused).
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:

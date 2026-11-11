@@ -82,5 +82,6 @@ class _ScriptedMessages:
 
 
 def scripted_client() -> SimpleNamespace:
-    """A client whose messages.parse answers like the triage agent, from fixed rules."""
-    return SimpleNamespace(messages=_ScriptedMessages())
+    """A client whose messages.parse answers like the triage agent, from fixed rules. It marks
+    itself, so the pipeline labels every answer it gives as scripted."""
+    return SimpleNamespace(messages=_ScriptedMessages(), hall_monitor_scripted=True)

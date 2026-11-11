@@ -51,23 +51,33 @@ RECEIVED = "complaint_received"
 # carries a way to reach someone, is not kept.
 _DRAFT_PROBLEMS: dict[str, re.Pattern[str]] = {
     "promises_an_outcome": re.compile(
-        r"\b(?:refund|reimburs|compensat|guarantee|"
-        r"(?:we will|we'll|we shall|we are going to) (?!review|look|be in touch)\w+|"
-        r"will be (?:credited|waived|removed|refunded|reversed|corrected|deleted|closed|paid|"
-        r"fixed|resolved)|has been (?:resolved|refunded|credited|waived|corrected)|"
-        r"within \d+ (?:business |working )?(?:days?|hours?|weeks?))",
+        r"\b(?:refund|reimburs|compensat|guarantee"
+        r"|(?:will|'ll) (?:\w+ )?(?:refund|credit|waive|remove|delete|reverse|correct|fix|resolve|"
+        r"pay|close|cancel|forgive|update your|adjust)"
+        r"|will be (?:credited|waived|removed|refunded|reversed|corrected|deleted|closed|paid|"
+        r"fixed|resolved|cancelled|canceled|forgiven|adjusted)"
+        r"|has been (?:resolved|refunded|credited|waived|corrected|fixed)"
+        r"|within \d+ (?:business |working )?(?:days?|hours?|weeks?))",
         re.I,
     ),
     "has_a_link": re.compile(
         r"https?://|www\.|\b[a-z0-9-]+\.(?:com|org|net|gov|io|co|us|uk|info|biz)\b", re.I
     ),
     "has_an_email_address": re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b"),
-    "has_a_phone_number": re.compile(r"(?:\+\d{1,3}[\s.-]?)?\(?\d{2,4}\)?(?:[\s.-]?\d{3,4}){2}\b"),
+    # Digits in groups, as phone numbers are written; one unbroken run (a reference) isn't one.
+    "has_a_phone_number": re.compile(
+        r"(?:\+\d{1,3}[\s.-]?)?\(?\b\d{2,4}\)?(?:[\s.-]\d{3,4}){2}\b|\b\d{3}[\s.-]\d{4}\b"
+    ),
 }
 
 
 class AlreadyTriaged(ValueError):
     pass
+
+
+def is_scripted(client: object) -> bool:
+    """True for the scripted stand-in, which marks itself; anything else is taken as a model."""
+    return getattr(client, "hall_monitor_scripted", False) is True
 
 
 class ComplaintResult(BaseModel):
@@ -108,10 +118,9 @@ def triage_complaint(
     registry: Registry,
     client: anthropic.Anthropic,
     audit: AuditLog | None = None,
-    scripted: bool = False,
 ) -> ComplaintResult:
-    """scripted: the client is the scripted stand-in (complaints/scripted.py); the routed entry
-    says so, so a log never shows its answers as the model's."""
+    """The routed entry says whether the answer came from the scripted stand-in, read from the
+    client itself (complaints/scripted.py), so a log never shows its answers as the model's."""
     scope = scope_id(complaint.complaint_id)
     if audit is not None and audit.has(scope, RECEIVED):
         raise AlreadyTriaged(f"the audit log shows {scope} was already triaged")
@@ -153,6 +162,34 @@ def triage_complaint(
         except AlreadyRecorded:
             raise AlreadyTriaged(f"the audit log shows {scope} was already triaged") from None
 
+    try:
+        return _prepare(
+            complaint, scope, narrative, public, signals, redactions, registry, client, audit
+        )
+    except BaseException:
+        # A crash or interruption after the complaint was claimed: route it to a person now if
+        # the log can still be written, so it can't drop out of every queue. A process killed
+        # outright is caught by the next run instead (route_unfinished).
+        if audit is not None:
+            try:
+                route_unfinished(complaint, audit)
+            except Exception:
+                pass
+        raise
+
+
+def _prepare(
+    complaint: Complaint,
+    scope: str,
+    narrative: str | None,
+    public: str | None,
+    signals: list[str],
+    redactions: dict[str, int],
+    registry: Registry,
+    client: anthropic.Anthropic,
+    audit: AuditLog | None,
+) -> ComplaintResult:
+    scripted = is_scripted(client)
     calls: list[AgentCall] = []
     pipeline_reasons = {"text_addresses_ai"} if signals else set()
     triage: ComplaintTriage | None = None
@@ -247,3 +284,34 @@ def triage_complaint(
             once=True,
         )
     return result
+
+
+def route_unfinished(complaint: Complaint, audit: AuditLog) -> ComplaintRoute:
+    """Route a complaint whose triage started (its received entry is in the log) but never
+    finished: to specialist review, as agent_failed and triage_interrupted, with the code's own
+    reasons. Raises AlreadyRecorded if it was routed meanwhile."""
+    route = route_complaint(complaint, None, {"agent_failed", "triage_interrupted"})
+    audit.append(
+        scope_id(complaint.complaint_id),
+        "complaint_routed",  # ROUTED
+        "pipeline",
+        {
+            "queue": route.queue,
+            "reasons": route.reasons,
+            "urgency_floor": route.urgency_floor.value,
+            "urgency": route.urgency.value,
+            "agent_urgency": None,
+            "category": None,
+            "confidence": None,
+            "concerns": [],
+            "summary_hmac": None,
+            "draft_sha256": None,
+            "draft_problems": [],
+            "stopped_reason": "triage was interrupted before it was routed",
+            "cost_usd": None,
+            "models": [],
+            "scripted": None,
+        },
+        once=True,
+    )
+    return route
