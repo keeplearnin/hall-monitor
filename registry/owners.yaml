@@ -11,3 +11,6 @@ owners:
   - id: own-401
     name: Priya Natarajan
     role: HR leave operations lead
+  - id: own-501
+    name: Morgan Adeyemi
+    role: Complaint desk lead (simulated company)

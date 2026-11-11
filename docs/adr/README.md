@@ -29,6 +29,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0020](0020-leave-submission-form.md) | Leave requests are added through a separate form, not the panel | HM-24 |
 | [0021](0021-no-reply-no-send.md) | The complaint desk never sends anything, enforced in code | HM-25 |
 | [0022](0022-cfpb-ingestion-and-snapshots.md) | Complaints come in through the gateway, minimised, with a snapshot of every pull | HM-26 |
+| [0023](0023-complaint-triage-routed-in-code.md) | Every complaint goes to a person; code chooses the queue, the agent only advises | HM-27 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".

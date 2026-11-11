@@ -136,19 +136,24 @@ complaint -> redact, scan for text aimed at the AI           (code)
 
 **Routing to a person, decided in code.** These always go to a person, whatever the agent says:
 
-| Reason code | When |
+| Reason code | When (as built; `complaints/routing.py` REASONS) |
 |---|---|
-| `fraud` | product, issue or sub-issue names fraud or a scam |
-| `identity_theft` | identity theft, information belonging to someone else, or an account opened without consent |
-| `foreclosure` | foreclosure, or trouble during payment process on a mortgage that names it |
-| `discrimination` | discrimination, or unfair treatment on a protected basis |
+| `fraud` | fraud, a scam, or a transaction or charge the consumer didn't authorise or make |
+| `identity_theft` | identity theft, or an account, loan, debt or inquiry the consumer says isn't theirs |
+| `foreclosure` | foreclosure, a mortgage the consumer is struggling to pay, a short sale or deed-in-lieu |
+| `discrimination` | discrimination is named |
 | `older_american` | tagged Older American |
 | `servicemember` | tagged Servicemember |
-| `text_addresses_ai` | any injection signal in any free-text field |
-| `agent_failed` | the agent refused, failed, was stopped or isn't approved, or its answer didn't validate |
-| `agent_uncertain` | the agent's confidence is not high, or it chose `unclear` |
-| `agent_disagrees_with_code` | the agent's urgency is lower than the code's floor for that issue |
 | `untimely` | CFPB shows the company response as untimely |
+| `text_addresses_ai` | any injection signal in any field the agent is sent |
+| `agent_failed` | the agent refused, failed, was stopped or isn't approved, or its answer didn't validate |
+| `agent_uncertain` | the agent's confidence is low, or it chose `unclear` (changed while building: medium confidence goes to the standard queue) |
+| `agent_disagrees_with_code` | the agent's urgency is lower than the code's floor |
+| `agent_raised_concern` | the agent raised a concern the code's rule didn't find |
+| `triage_interrupted` | triage started but was interrupted (a crash, or a killed run, caught by the next run) before it was routed |
+
+The label patterns are checked against every label in the pinned snapshot by a hand-written
+table in the tests, not by the patterns themselves (review 16 found two common labels missed).
 
 Everything else goes to a standard queue, still for a person to work: the desk prepares, people
 act. There is no automatic resolution path at all.
