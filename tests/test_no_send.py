@@ -311,6 +311,14 @@ def test_the_repo_has_no_sending_capability():
         ("from hall_monitor import egress\nc = egress.httpx.Client()\n", "egress_internals"),
         ("from fastmcp import Client\nClient('https://evil.example/mcp')\n", "remote_mcp"),
         ("from fastmcp.client.transports import StreamableHttpTransport\n", "remote_mcp"),
+        # Re-review of Review 14: other spellings of the same.
+        ("import hall_monitor.egress as e\ne.httpx.Client()\n", "egress_internals"),
+        ("from hall_monitor import egress as eg\neg.EgressPolicy('x', ())\n", "egress_internals"),
+        ("import hall_monitor.egress\nhall_monitor.egress.httpx.Client()\n", "egress_internals"),
+        ("from .egress import httpx\n", "egress_internals"),
+        ("import fastmcp\nfastmcp.Client(URL)\n", "remote_mcp"),
+        ("from fastmcp import Client\nClient(URL)\n", "remote_mcp"),
+        ("from fastmcp.server import create_proxy\ncreate_proxy(URL)\n", "remote_mcp"),
     ],
 )
 def test_the_static_check_catches_each_kind_of_sending_capability(tmp_path, source, rule):
@@ -365,6 +373,26 @@ def test_the_model_policy_allows_only_the_messages_endpoint_itself(path):
 )
 def test_send_words_are_found_in_any_naming_style(tool):
     assert no_send.tool_problems([tool]) == [f"{tool!r} reads as a sending tool"]
+
+
+def test_a_swapped_policy_is_refused_at_request_time():
+    from hall_monitor.egress import EgressPolicy, Rule
+
+    seen: list[httpx.Request] = []
+    client = guarded_client(CFPB_POLICY, transport=_mock(seen))
+    client._transport.policy = EgressPolicy("mine", (Rule("GET", "evil.example", "/"),))
+    with pytest.raises((EgressRefused, ValueError, AttributeError)):
+        client.get("https://evil.example/x")
+    assert seen == []
+
+
+def test_the_gateway_refuses_a_proxy_server():
+    """Re-review: a proxy is a FastMCP subclass that forwards tool calls to a remote server."""
+    from fastmcp.server.providers.proxy import FastMCPProxy
+
+    proxy = FastMCPProxy.__new__(FastMCPProxy)  # never started: no network
+    with pytest.raises(TypeError, match="in-process"):
+        ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR), proxy)
 
 
 def test_the_gateway_takes_only_an_in_process_server():

@@ -110,7 +110,8 @@ def evidence_body(pack: dict) -> str:
 
 
 TRIGGERS = ("audit_log_no_update", "audit_log_no_delete", "evidence_no_update")
-# Entries that point at a stored evidence pack: a claim's, and a leave request's (hr/signoff.py).
+# Entries that point at stored evidence: a claim's pack, a leave request's (hr/signoff.py), and
+# a never-sent draft (complaints/drafts.py).
 EVIDENCE_EVENTS = ("evidence_pack", "leave_evidence", "draft_stored")
 
 

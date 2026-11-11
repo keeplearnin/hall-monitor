@@ -100,11 +100,12 @@ def _guarded_transport_class(lib):  # lib: httpx or httpx2
 
         def __init__(self, policy: EgressPolicy, inner=None, on_refused: OnRefused | None = None):
             _require_shipped(policy)
-            self.policy = policy
+            self.policy = policy  # checked again on every request, so a swap is refused too
             self._inner = inner or lib.HTTPTransport(retries=0)
             self._on_refused = on_refused
 
         def handle_request(self, request):
+            _require_shipped(self.policy)
             reason = self.policy.refusal(request)
             if reason is not None:
                 if self._on_refused is not None:

@@ -62,9 +62,10 @@ class ToolGateway:
         what each tool returns (tool_data_classes) and the tools its pipeline may call. The
         gateway refuses to start on a server exposing any tool that could send (HM-25)."""
         self.registry = registry
-        if server is not None and not isinstance(server, FastMCP):
+        if server is not None and type(server) is not FastMCP:
             # fastmcp's Client would treat a URL or a command as a remote server and post tool
-            # calls to it (HM-25): only an in-process server is taken.
+            # calls to it, and a proxy (a FastMCP subclass) forwards them (HM-25): only a plain
+            # in-process server is taken.
             raise TypeError("the tool gateway takes only an in-process FastMCP server")
         self.server = server or build_server()
         self.tool_data_classes = (

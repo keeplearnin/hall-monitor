@@ -685,3 +685,13 @@ test-first.
 The docs now call the static check a tripwire for the honest mistake, not a proof: a method name
 held in a variable or `getattr` with a computed name still gets past it (in HM-25's gaps).
 
+**Re-review of those fixes:** each new test fails with its fix undone. 4 findings, 3 confirmed
+and 1 plausible; the confirmed ones fixed, test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The egress-internals rule saw only the literal name `egress` and absolute imports: `import hall_monitor.egress as e`, `from hall_monitor import egress as eg`, the full dotted name and `from .egress import httpx` scanned clean | High (docs claim false) | The check tracks every name bound to egress.py, dotted names and relative imports |
+| A fastmcp proxy is a `FastMCP` subclass that forwards tool calls to a remote server, and passed the gateway's check; `fastmcp.Client(url)` and `Client(URL)` with a variable scanned clean | Medium | The gateway takes only a plain `FastMCP`; fastmcp's client, proxies and client transports fail the check anywhere but the gateway, however they are imported |
+| The shipped-policy check ran only when a client was made, so a policy swapped onto it afterwards was used | Low | It is checked again on every request |
+| Matching send words anywhere refuses harmless names (`consent_lookup`, `delivery_status_lookup`) | Low, plausible | Kept: the intended direction of error, stated in HM-25's gaps |
+

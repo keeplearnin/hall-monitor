@@ -22,8 +22,9 @@ The rule is enforced in four places, each with tests, built before any other par
 
 - **One outbound HTTP path, guarded.** `hall_monitor/egress.py` is the only module allowed an
   HTTP client, and a client can be made only with one of its two shipped policies (an equal
-  copy built elsewhere is refused at run time, and importing its policy types elsewhere fails
-  the static check). Its transport checks each request before anything is sent: https only, the exact
+  copy built elsewhere, or a policy swapped onto a client after it was made, is refused at run
+  time, and using its httpx or policy types elsewhere, by any import spelling, fails the
+  static check). Its transport checks each request before anything is sent: https only, the exact
   host, the default port, no credentials in the URL, a path that doesn't normalise elsewhere, and
   a method and path prefix the policy names. The data policy allows only `GET` on the CFPB
   complaint API. Redirects are not followed, and a redirect a caller asks to follow is checked
@@ -34,8 +35,8 @@ The rule is enforced in four places, each with tests, built before any other par
 - **A read-only tool catalogue.** `hall_monitor/no_send.py` lists every tool the system may
   expose or grant, with what it reads. The registry refuses at run time an agent whose manifest
   lists any tool outside it, or one whose name reads as sending; approvals refuse to approve
-  one; the tool gateway takes only an in-process MCP server (fastmcp's client would post tool
-  calls to a URL), refuses to start on a server that exposes such a tool, and refuses to call
+  one; the tool gateway takes only a plain in-process MCP server (fastmcp's client would post
+  tool calls to a URL, and a proxy forwards them), refuses to start on a server that exposes such a tool, and refuses to call
   one. Send words are matched in any naming style (`sendEmail`, `send-email`, `replyto`).
 - **Drafts with no delivery path.** `DraftResponse` has no field that could hold an address, a
   recipient, a channel or a send time, and `never_sent` can only be true. A stored draft goes in
@@ -48,8 +49,8 @@ The rule is enforced in four places, each with tests, built before any other par
   `sendgrid`, `slack_sdk`, `boto3` and more) and raw connection calls (`open_connection`,
   `create_connection`), any HTTP client outside `egress.py` or its internals imported
   elsewhere, HTTP write calls (`.post`, `.put`, `.patch`, `.delete`, a constant `getattr` of
-  one, and `request`, `stream` or `build_request` with any method but GET), mail calls, MCP
-  clients pointed at a URL, dynamic imports (including an imported `import_module`), `os`
+  one, and `request`, `stream` or `build_request` with any method but GET), mail calls,
+  fastmcp's client and proxies anywhere but the gateway, dynamic imports (including an imported `import_module`), `os`
   functions that run another program (however `os` or the function is imported), and sending
   packages in the dependencies. The one exception,
   `subprocess` in `evals/meta.py`, runs fixed local `git` commands and is named in the check.

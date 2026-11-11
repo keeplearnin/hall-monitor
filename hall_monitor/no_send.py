@@ -123,6 +123,11 @@ ALLOWED = {
     ("hall_monitor/evals/meta.py", "subprocess"): "runs `git rev-parse` and `git status` locally",
 }
 
+# The one module allowed to make an MCP client, for its own in-process server.
+GATEWAY_MODULE = "hall_monitor/tools/gateway.py"
+# fastmcp names that reach another server: its client, its client transports and its proxies.
+MCP_REMOTE_NAMES = frozenset({"Client", "create_proxy", "as_proxy", "FastMCPProxy", "ProxyClient"})
+
 # The one module allowed to use httpx (and httpx2, the Anthropic SDK's fork): every request
 # through it passes the egress guard.
 EGRESS_MODULE = "hall_monitor/egress.py"
@@ -240,8 +245,9 @@ def _scan_file(file: Path, rel: str) -> list[Finding]:
     tree = ast.parse(file.read_text(), filename=rel)
     found: list[Finding] = []
     in_egress = rel == EGRESS_MODULE
-    # Names this file binds to the os module or to fastmcp's Client.
-    os_names, mcp_clients = {"os"}, set()
+    in_gateway = rel == GATEWAY_MODULE
+    # Names this file binds to the os module, to egress.py and to fastmcp.
+    os_names, egress_names, fastmcp_names = {"os"}, {"egress"}, {"fastmcp"}
 
     def flag(node: ast.AST, rule: str, detail: str) -> None:
         found.append(Finding(rel, getattr(node, "lineno", 0), rule, detail))
@@ -250,7 +256,7 @@ def _scan_file(file: Path, rel: str) -> list[Finding]:
         if module.split(".")[0] in ("httpx", "httpx2"):
             if not in_egress:
                 flag(node, "httpx_outside_egress", f"{module} is used only in {EGRESS_MODULE}")
-        elif module.startswith("fastmcp.client"):
+        elif module.startswith(("fastmcp.client", "fastmcp.server.providers.proxy")):
             flag(node, "remote_mcp", f"{module}: an MCP client can reach a remote server")
         elif _banned(module) and (rel, module.split(".")[0]) not in ALLOWED:
             flag(node, "banned_import", module)
@@ -261,6 +267,18 @@ def _scan_file(file: Path, rel: str) -> list[Finding]:
                 check_module(node, alias.name)
                 if alias.name == "os":
                     os_names.add(alias.asname or "os")
+                if alias.name == "hall_monitor.egress" and alias.asname:
+                    egress_names.add(alias.asname)
+                if alias.name == "fastmcp":
+                    fastmcp_names.add(alias.asname or "fastmcp")
+        elif isinstance(node, ast.ImportFrom) and node.level > 0 and not in_egress:
+            # Relative imports of egress.py, or of its internals, from inside the package.
+            names = {alias.name for alias in node.names}
+            if (node.module or "").split(".")[-1] == "egress":
+                for name in sorted(names - EGRESS_PUBLIC):
+                    flag(node, "egress_internals", f"{name} stays inside {EGRESS_MODULE}")
+            elif "egress" in names:
+                egress_names |= {a.asname or a.name for a in node.names if a.name == "egress"}
         elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
             check_module(node, node.module)
             names = {alias.name for alias in node.names}
@@ -276,22 +294,33 @@ def _scan_file(file: Path, rel: str) -> list[Finding]:
             if node.module == "hall_monitor.egress" and not in_egress:
                 for name in sorted(names - EGRESS_PUBLIC):
                     flag(node, "egress_internals", f"{name} stays inside {EGRESS_MODULE}")
-            if node.module == "fastmcp":
-                mcp_clients |= {a.asname or a.name for a in node.names if a.name == "Client"}
-        elif (
-            isinstance(node, ast.Attribute)
-            and node.attr in EGRESS_INTERNALS
-            and not in_egress
-            and isinstance(node.value, ast.Name)
-            and node.value.id == "egress"
-        ):
-            flag(node, "egress_internals", f"egress.{node.attr} stays inside {EGRESS_MODULE}")
+            if node.module == "hall_monitor":
+                egress_names |= {a.asname or a.name for a in node.names if a.name == "egress"}
+            if node.module.split(".")[0] == "fastmcp" and not in_gateway:
+                for name in sorted(names & MCP_REMOTE_NAMES):
+                    flag(node, "remote_mcp", f"fastmcp's {name} can reach a remote server")
+        elif isinstance(node, ast.Attribute) and not in_egress and node.attr in EGRESS_INTERNALS:
+            if _dotted(node.value) in egress_names | {"hall_monitor.egress"}:
+                flag(node, "egress_internals", f"{node.attr} stays inside {EGRESS_MODULE}")
+        elif isinstance(node, ast.Attribute) and not in_gateway and node.attr in MCP_REMOTE_NAMES:
+            if _dotted(node.value).split(".")[0] in fastmcp_names:
+                flag(node, "remote_mcp", f"fastmcp's {node.attr} can reach a remote server")
         elif isinstance(node, ast.Call):
-            _check_call(node, flag, os_names, mcp_clients)
+            _check_call(node, flag, os_names)
     return found
 
 
-def _check_call(node: ast.Call, flag, os_names: set[str], mcp_clients: set[str]) -> None:
+def _dotted(node: ast.AST) -> str:
+    """a.b.c for a chain of names and attributes; "" for anything else."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        inner = _dotted(node.value)
+        return f"{inner}.{node.attr}" if inner else ""
+    return ""
+
+
+def _check_call(node: ast.Call, flag, os_names: set[str]) -> None:
     func = node.func
     name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
     if name in ("__import__", "import_module"):
@@ -316,10 +345,6 @@ def _check_call(node: ast.Call, flag, os_names: set[str], mcp_clients: set[str])
         and func.value.id in os_names
     ):
         flag(node, "shell_command", f"os.{func.attr}()")
-    elif isinstance(func, ast.Name) and func.id in mcp_clients and node.args:
-        target = node.args[0]
-        if isinstance(target, ast.Constant | ast.JoinedStr):
-            flag(node, "remote_mcp", "an MCP client pointed at a URL or command")
 
 
 def _dependency_name(spec: str) -> str:

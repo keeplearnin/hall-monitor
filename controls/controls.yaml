@@ -1149,15 +1149,15 @@ controls:
       way to POST on the Claude API's messages endpoint (that path exactly), with retries off. Every tool is in a
       read-only catalogue (hall_monitor/no_send.py): the registry refuses at run time a manifest
       listing any other tool, or one whose name reads as sending in any naming style, approvals
-      refuse to approve one, and the tool gateway takes only an in-process MCP server and
-      refuses to start on one exposing such a tool or to call one. A
+      refuse to approve one, and the tool gateway takes only a plain in-process MCP server (no URL, no
+      proxy) and refuses to start on one exposing such a tool or to call one. A
       draft acknowledgement has no field for an address, recipient, channel or send time, can
       only be never_sent, and is stored by its hash with a log entry recording never_sent and
       delivery none; verify reports a stored draft that was changed. A static check (python -m hall_monitor.no_send check), run in CI and in the
       tests, fails on mail, messaging and raw network libraries and connection calls, HTTP
       clients outside egress.py or its internals imported elsewhere, HTTP write calls (named
       methods, a constant getattr of one, or request, stream or build_request with a method
-      other than GET), mail calls, MCP clients pointed at a URL, dynamic imports, os functions
+      other than GET), mail calls, fastmcp's client and proxies anywhere but the gateway, dynamic imports, os functions
       that run another program, and sending packages in pyproject.toml.
     status: built
     code:
@@ -1192,6 +1192,8 @@ controls:
       - tests/test_no_send.py::test_the_model_policy_allows_only_the_messages_endpoint_itself
       - tests/test_no_send.py::test_send_words_are_found_in_any_naming_style
       - tests/test_no_send.py::test_the_gateway_takes_only_an_in_process_server
+      - tests/test_no_send.py::test_the_gateway_refuses_a_proxy_server
+      - tests/test_no_send.py::test_a_swapped_policy_is_refused_at_request_time
     evidence: []
     nist: [GOVERN 1.4, MAP 3.5, MANAGE 1.3, MEASURE 2.7]
     finos:
@@ -1203,7 +1205,8 @@ controls:
       not where the claims and HR examples build their own), and Langfuse posts metadata-only
       traces when its keys are set, without the egress guard. Neither reaches a consumer, a
       company or CFPB. A static check can be defeated on purpose (a method name held in a
-      variable, getattr with a computed name, code assembled from strings, a C extension, a
+      variable, getattr with a computed name, a star import, the posix module, code
+      assembled from strings, a C extension, a
       library that sends as a side effect); it catches the honest mistake, and
       review is still the control for the rest. There is no network sandbox or firewall: process
       isolation is outside the repo (MI-22 is not covered). The send-word list can refuse a
