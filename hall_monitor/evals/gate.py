@@ -76,6 +76,9 @@ def check(spec: dict, approvals: dict, stale_policy: str) -> CheckResult:
         metrics["unsafe_routes"] = unsafe_routes(data)
 
     out = CheckResult(spec["name"], "pass", metrics=metrics, meta=data.get("meta", {}))
+    if "mode" in spec and out.meta.get("mode") != spec["mode"]:
+        # A scripted result can't stand in for a live one, or the other way round.
+        out.failures.append(f"mode = {out.meta.get('mode')} (needs {spec['mode']})")
     for key, floor in spec.get("min", {}).items():
         value = metrics.get(key)
         if value is None or value < floor:

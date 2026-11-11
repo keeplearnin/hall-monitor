@@ -1382,6 +1382,78 @@ controls:
       only by the patterns. A run that routes a complaint another run claimed but
       hasn't finished yet takes the route from it (the slow run's route is then refused).
 
+  - id: HM-28
+    name: Complaint desk evals, fairness and panel page
+    what: >-
+      python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB snapshot
+      through the desk's pipeline into a throwaway audit log and scores it by code. Routing is
+      scored against a hand-written answer key of CFPB labels (data/cfpb/label_reasons.yaml),
+      never against the routing patterns, plus the tags: every complaint the key says needs it
+      reached specialist review, at high urgency, with the key's reasons; every untimely one
+      reached specialist review; the code's own urgency floor was high for every must-route
+      complaint; no errors and no agent failures; every stored draft is marked never sent with
+      only the fields listed in the eval (not read from the draft model). A result must be of
+      the mode its gate check names (scripted or live), and a live run's egress refusals are
+      counted and gated. Fairness: a counterfactual check that the same complaint from
+      other states and ZIP prefixes gives the same code reasons and the same text to the agent
+      (gated at zero flips; it can't flip by construction, since routing doesn't read location
+      and the agent is never sent it, and it calls no model), and specialist and high-urgency rates by ZIP region and by tag
+      (reported, not gated: they reflect what is complained about where). CFPB's published
+      company response is reported as partial ground truth. evals/gate.yaml gates the scripted
+      run in CI. The control panel's Complaint desk page (read from the audit log alone) shows
+      the queue, what went to specialist review and why in the code's words, urgency, cost per
+      complaint, pulls with their counts, retries and status, and the no-send control's status:
+      the static check run against the checkout, egress refusals logged, and drafts not marked
+      never sent; never a summary or a draft's text. A complaint claimed but never routed is listed as such.
+      Complaints never appear as claims, and their scopes have no case page.
+    status: built
+    code:
+      - hall_monitor/complaints/evals.py::evaluate
+      - hall_monitor/complaints/evals.py::flips
+      - hall_monitor/complaints/evals.py::expected_reasons
+      - data/cfpb/label_reasons.yaml
+      - evals/gate.yaml
+      - hall_monitor/panel/desk.py::complaint_desk
+      - hall_monitor/panel/desk.py::complaints_page
+    tests:
+      - tests/test_complaint_evals.py::test_the_published_scripted_result_is_what_the_code_gives_now
+      - tests/test_complaint_evals.py::test_the_published_result_meets_the_gate
+      - tests/test_complaint_evals.py::test_the_eval_scores_routing_against_the_answer_key_not_the_patterns
+      - tests/test_complaint_evals.py::test_a_gate_fails_a_result_that_missed_a_must_route_complaint
+      - tests/test_complaint_evals.py::test_the_counterfactual_check_catches_location_reaching_the_agent
+      - tests/test_complaint_evals.py::test_group_rates_are_reported_by_zip_region_and_tag
+      - tests/test_complaint_evals.py::test_the_label_key_covers_only_routing_reasons
+      - tests/test_complaint_evals.py::test_the_desk_page_shows_the_queue_reasons_pulls_and_the_no_send_status
+      - tests/test_complaint_evals.py::test_complaints_never_show_up_as_claims
+      - tests/test_complaint_evals.py::test_the_page_says_when_the_static_check_fails
+      - tests/test_complaint_evals.py::test_a_run_where_every_model_call_fails_fails_the_gate
+      - tests/test_complaint_evals.py::test_the_gate_refuses_a_scripted_result_in_the_live_check
+      - tests/test_complaint_evals.py::test_the_eval_sees_a_weakened_urgency_floor
+      - tests/test_complaint_evals.py::test_the_published_result_matches_in_full
+      - tests/test_complaint_evals.py::test_complaint_scopes_have_no_claim_page
+      - tests/test_complaint_evals.py::test_the_desk_page_shows_a_received_but_unrouted_complaint
+      - tests/test_complaint_evals.py::test_the_page_says_check_failed_when_a_file_wont_parse
+    evidence:
+      - evals/results/complaints-scripted/report.md
+      - "pending: uv run python -m hall_monitor.complaints.evals --live --limit 50"
+    nist: [MEASURE 2.3, MEASURE 2.11, MEASURE 1.1]
+    finos:
+      risks: [RI-16]
+      mitigations: [MI-04, MI-05]
+    gaps: >-
+      The published result is the scripted run: its agent is a stand-in with fixed rules, so it
+      measures the desk's code (routing, the code's urgency floor, drafts, the log, the
+      counterfactual check), not the model's summaries, categories or urgency; the final
+      urgency, specialist share and flagged rates also depend on the stand-in's rules. No live eval has been run. The answer key was
+      written by one person from one day's snapshot and a few labels from CFPB's lists; it is
+      not reviewed by anyone else. Group rates are reported, not gated, and are not adjusted for
+      case mix, so they can't show bias in the agent's urgency on their own; the counterfactual
+      check covers only the state and ZIP prefix, which the agent is never sent, so it can't
+      flip by construction and shows only that location doesn't reach the decision. Tags are
+      routed by code, so their rate is 1.0 by construction. CFPB's company response is a weak
+      signal: a complaint closed with an explanation can still have been urgent. The panel has
+      no sign-in (HM-20) and runs the static check on each page view.
+
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
   - ref: GOVERN 1.1

@@ -19,6 +19,7 @@ NAV = (
     ("agents.html", "Agents"),
     ("queue.html", "Review queue"),
     ("cases.html", "Cases"),
+    ("complaints.html", "Complaint desk"),
     ("audit.html", "Audit integrity"),
     ("evals.html", "Evals and gate"),
     ("controls.html", "Controls register"),
@@ -147,7 +148,8 @@ def page(title: str, current: str, body: Safe, *, root: str = "", demo: bool = F
                 "p",
                 tag("strong", "Demo data. "),
                 "Synthetic claims and leave requests answered by a scripted model from the "
-                "answer key, not live model runs; costs are from the scripted token counts. "
+                "answer key, and public CFPB complaints from the pinned snapshot answered by a "
+                "scripted stand-in, not live model runs; costs are from the scripted token counts. "
                 "Adjusters and HR staff sign with public demo keys.",
                 class_="banner demo",
             )

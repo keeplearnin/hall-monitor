@@ -50,10 +50,11 @@ def _all_paths(src) -> list[str]:
         "/audit.html",
         "/evals.html",
         "/controls.html",
+        "/complaints.html",
         "/panel.css",
     ]
     paths += [f"/api/{n}.json" for n in ("overview", "agents", "queue", "cases", "audit")]
-    paths += ["/api/evals.json", "/api/controls.json"]
+    paths += ["/api/evals.json", "/api/controls.json", "/api/complaints.json"]
     paths += ["/api/leave_queue.json", "/api/leave_requests.json"]
     for r in views.leave_requests(src):
         paths += [f"/cases/{r['request_id']}.html", f"/api/cases/{r['request_id']}.json"]

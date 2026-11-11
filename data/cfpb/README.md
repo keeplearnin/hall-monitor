@@ -31,5 +31,15 @@ or with another, so a page and its manifest entry edited together still fail.
 |---|---|---|---|
 | `2026-10-01` | 2026-11-11 | the desk's ten products, received from 2026-10-01, oldest first, first 500 (00:00 to 07:46 UTC on 1 October) | 500, none quarantined |
 
+## The label key
+
+`label_reasons.yaml` is the routing answer key: each CFPB issue or sub-issue label that calls
+for specialist review, and why, read by hand. The routing code is tested and scored against it,
+never against its own patterns.
+
+| Date | Change | Reason |
+|---|---|---|
+| 2026-11-11 | Created: 21 labels | Review 16: the routing patterns missed "Debt is not yours" and "Transaction was not authorized"; the key replaces a test that checked the patterns against themselves |
+
 A pinned snapshot is never overwritten (`ingest pin` refuses); a new one gets a new name, and an
 eval that moves to it says so.

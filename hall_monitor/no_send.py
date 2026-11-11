@@ -243,7 +243,11 @@ def _method_arg(call: ast.Call) -> ast.expr | None:
 
 
 def _scan_file(file: Path, rel: str) -> list[Finding]:
-    tree = ast.parse(file.read_text(), filename=rel)
+    try:
+        tree = ast.parse(file.read_text(), filename=rel)
+    except (SyntaxError, ValueError, UnicodeDecodeError):
+        # A file the check can't read could hold anything: a finding, never a pass.
+        return [Finding(rel, 0, "unreadable", "the file can't be parsed")]
     found: list[Finding] = []
     in_egress = rel == EGRESS_MODULE
     in_gateway = rel == GATEWAY_MODULE
@@ -356,7 +360,10 @@ def _dependency_name(spec: str) -> str:
 def _scan_dependencies(pyproject: Path) -> list[Finding]:
     if not pyproject.exists():
         return [Finding("pyproject.toml", 0, "sending_dependency", "pyproject.toml is missing")]
-    data = tomllib.loads(pyproject.read_text())
+    try:
+        data = tomllib.loads(pyproject.read_text())
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+        return [Finding("pyproject.toml", 0, "unreadable", "pyproject.toml can't be parsed")]
     specs = list(data.get("project", {}).get("dependencies", []))
     for group in data.get("project", {}).get("optional-dependencies", {}).values():
         specs += group

@@ -51,13 +51,14 @@ def snapshot(src: views.Sources, out: Path) -> list[str]:
         "agents.html",
         "queue.html",
         "cases.html",
+        "complaints.html",
         "audit.html",
         "evals.html",
         "controls.html",
         *(f"api/{name}.json" for name in ("overview", "agents", "queue", "cases", "audit")),
         "api/leave_queue.json",
         "api/leave_requests.json",
-        *(f"api/{name}.json" for name in ("evals", "controls")),
+        *(f"api/{name}.json" for name in ("evals", "controls", "complaints")),
     ]
     for agent in views.agents(src)["agents"]:
         paths += [f"agents/{agent['id']}.html", f"api/agents/{agent['id']}.json"]
