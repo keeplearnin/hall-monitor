@@ -762,3 +762,23 @@ and 1 plausible; all fixed, test-first.
 | The draft check still kept "will resolve this" and seven-digit numbers, and newly dropped benign drafts ("we will contact you", "we'll get back to you", a complaint reference) | Low | A list of commitment verbs instead of any "we will"; numbers must be grouped as phone numbers are; tested on benign and bad drafts |
 | The demo-guard test ran against the real main log, and a hard link got past the guard | Low, plausible | The test uses a temporary main log; the guard compares files, not only paths |
 
+## Review 17: complaint desk evals, fairness and panel page (HM-28)
+
+**Reviewer:** the governance-reviewer agent, on the complaint desk's fourth slice before its pull
+request, with offline repros (no network, no API). The eval scored routing against the
+hand-written key, not the patterns, the published result reproduced, panel values were escaped
+and every route read-only. 8 findings, all confirmed; all fixed, test-first, with four plausible
+ones fixed too.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A live run in which every model call failed passed the live gate: the pipeline routes agent failures to a person, so they never counted as errors | High | Both gate checks fail on any `agent_failed` |
+| The stand-in raises urgency for every tag and concern, so a weaker code floor (tags dropped from the high reasons) left the eval unchanged | Medium | The eval scores the code's own floor (`must_route_floor_below_high`), gated; the report says which figures depend on the stand-in |
+| Complaint scopes still had claim case pages (`/cases/cfpb-<id>.html` answered as a claim) | Medium | They have none (404) |
+| A complaint claimed by a killed triage appeared on no page | Medium | The desk lists it as claimed, not routed |
+| The draft-field check compared stored drafts with the model they were stored from, so it was zero by construction | Low | It compares with a field list written in the eval |
+| An unparsable file under `hall_monitor/` made the desk page fail instead of reporting the check failed | Low | The static check reports such a file as a finding |
+| The label key's log said 22 labels; there are 21 | Low | Corrected, and a test checks the count |
+| The README gave "0 counterfactual flips" without saying it can't flip by construction, and rates without their counts | Low | It says both, and that the rates depend on the stand-in |
+| Plausible: the gate didn't check a result's mode; a live run's egress refusals were dropped; the counterfactual rendered unredacted text; the reproducibility test compared only the summary | Low | Each gate check names its mode; refusals are counted and gated; the check renders redacted text, as the pipeline does; the test compares the whole result |
+

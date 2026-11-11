@@ -166,3 +166,91 @@ def test_the_page_says_when_the_static_check_fails(desk_src, monkeypatch):
     )
     text = desk.complaints_page(desk.complaint_desk(desk_src), demo=False)
     assert "check failed" in text and "1 findings" in text
+
+
+# Review 17.
+
+
+def test_a_run_where_every_model_call_fails_fails_the_gate(tmp_path):
+    from hall_monitor.complaints.triage_agent import ComplaintTriage
+    from tests.fakes import fake_client
+
+    def down(kwargs):
+        raise ValueError("outage")
+
+    data = evals.evaluate(PINNED[:20], fake_client({ComplaintTriage: down}), REGISTRY, "live")
+    assert data["summary"]["agent_failed"] == 20
+    data["meta"] = PUBLISHED["meta"] | {"mode": "live"}
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps(data))
+    config = __import__("yaml").safe_load(gate.CONFIG.read_text())
+    [spec] = [s for s in config["checks"] if s["name"] == "Complaint desk, live model"]
+    result = gate.check(
+        spec | {"results": str(path)}, load_approvals(TEST_REGISTRY_DIR / "approvals.yaml"), "warn"
+    )
+    assert result.state == "fail" and any("agent_failed" in f for f in result.failures)
+
+
+def test_the_gate_refuses_a_scripted_result_in_the_live_check(tmp_path):
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps(PUBLISHED))
+    config = __import__("yaml").safe_load(gate.CONFIG.read_text())
+    [spec] = [s for s in config["checks"] if s["name"] == "Complaint desk, live model"]
+    result = gate.check(
+        spec | {"results": str(path)}, load_approvals(TEST_REGISTRY_DIR / "approvals.yaml"), "warn"
+    )
+    assert result.state == "fail" and any("mode" in f for f in result.failures)
+
+
+def test_the_eval_sees_a_weakened_urgency_floor(monkeypatch):
+    monkeypatch.setattr(routing, "HIGH_REASONS", routing.HIGH_REASONS - {"older_american"})
+    summary = evals.evaluate(PINNED, scripted_client(), REGISTRY, "scripted")["summary"]
+    assert summary["must_route_floor_below_high"] > 0
+
+
+def test_the_draft_field_check_is_pinned_not_read_from_the_model():
+    assert evals.DRAFT_FIELDS == {
+        "complaint_id",
+        "text",
+        "never_sent",
+        "written_by",
+        "prompt_version",
+    }
+
+
+def test_the_published_result_matches_in_full(fresh):
+    assert {k: v for k, v in fresh.items() if k != "meta"} == {
+        k: v for k, v in PUBLISHED.items() if k != "meta"
+    }
+
+
+def test_complaint_scopes_have_no_claim_page(desk_src):
+    client = TestClient(create_app(desk_src), base_url="http://localhost")
+    scope = f"cfpb-{PINNED[0].complaint_id}"
+    assert client.get(f"/cases/{scope}.html").status_code == 404
+    assert client.get(f"/api/cases/{scope}.json").status_code == 404
+
+
+def test_the_desk_page_shows_a_received_but_unrouted_complaint(desk_src):
+    audit = AuditLog(desk_src.audit_db)
+    audit.append("cfpb-99999999", "complaint_received", "pipeline", {"complaint_id": "99999999"})
+    audit.close()
+    data = desk.complaint_desk(desk_src)
+    [stuck] = [c for c in data["complaints"] if c["complaint_id"] == "cfpb-99999999"]
+    assert stuck["queue"] is None and stuck["state"] == "claimed, not routed"
+    assert data["unrouted"] == 1
+
+
+def test_the_page_says_check_failed_when_a_file_wont_parse(tmp_path):
+    (tmp_path / "hall_monitor").mkdir()
+    (tmp_path / "hall_monitor" / "broken.py").write_text("def (:\n")
+    (tmp_path / "pyproject.toml").write_text("[project\n")
+    rules = sorted(f.rule for f in no_send.scan(tmp_path))
+    assert rules == ["unreadable", "unreadable"]
+
+
+def test_the_label_key_log_counts_the_key():
+    from hall_monitor.governance.controls import ROOT
+
+    readme = (ROOT / "data" / "cfpb" / "README.md").read_text()
+    assert f"Created: {len(evals.load_label_key())} labels" in readme

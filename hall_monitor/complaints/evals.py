@@ -30,12 +30,11 @@ import argparse
 import json
 import sys
 import tempfile
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import yaml
 
-from hall_monitor.complaints.drafts import DraftResponse
 from hall_monitor.complaints.ingest import (
     PINNED_MANIFESTS,
     PINNED_NAME,
@@ -47,8 +46,9 @@ from hall_monitor.complaints.pipeline import triage_complaint
 from hall_monitor.complaints.routing import code_reasons
 from hall_monitor.complaints.scripted import scripted_client
 from hall_monitor.complaints.triage_agent import AGENT_ID, Urgency, render_complaint
-from hall_monitor.egress import audit_refusals, model_client
+from hall_monitor.egress import model_client
 from hall_monitor.evals.meta import run_meta
+from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.governance.audit import AuditLog
 from hall_monitor.registry import Registry
 
@@ -58,6 +58,9 @@ SCRIPTED_DIR = RESULTS / "complaints-scripted"
 LIVE_DIR = RESULTS / "complaints-live"
 LABEL_KEY = ROOT / "data" / "cfpb" / "label_reasons.yaml"
 MIN_GROUP = 20  # smallest group whose rate is reported
+# The fields a stored draft may have, written out here rather than read from DraftResponse, so a
+# field added to the model (a recipient, say) fails this check instead of passing it.
+DRAFT_FIELDS = frozenset({"complaint_id", "text", "never_sent", "written_by", "prompt_version"})
 
 
 def load_label_key(path: Path = LABEL_KEY) -> dict[str, str]:
@@ -90,12 +93,17 @@ def flips(c: Complaint) -> bool:
     """Would the same complaint from elsewhere be treated differently? True if the code's
     reasons change, or the agent would be sent different text."""
     reasons = code_reasons(c)
-    text = render_complaint(c, c.narrative, c.company_public_response)
-    return any(
-        code_reasons(other) != reasons
-        or render_complaint(other, other.narrative, other.company_public_response) != text
-        for other in _counterfactuals(c)
+    text = _sent(c)
+    return any(code_reasons(o) != reasons or _sent(o) != text for o in _counterfactuals(c))
+
+
+def _sent(c: Complaint) -> str:
+    """The text the pipeline sends the agent: the fields, with the free text redacted."""
+    narrative = redact_text(c.narrative, Counter()) if c.narrative else None
+    public = (
+        redact_text(c.company_public_response, Counter()) if c.company_public_response else None
     )
+    return render_complaint(c, narrative, public)
 
 
 def _rate(numerator: int, denominator: int) -> float | None:
@@ -141,15 +149,14 @@ def evaluate(complaints: list[Complaint], client, registry: Registry, mode: str)
                     drafts_kept += 1
                     stored = audit.get_evidence(result.draft_sha256) or {}
                     fields = set(stored) - {"kind"}
-                    if stored.get("never_sent") is not True or fields != set(
-                        DraftResponse.model_fields
-                    ):
+                    if stored.get("never_sent") is not True or fields != DRAFT_FIELDS:
                         drafts_with_delivery_path += 1
                 rows.append(
                     {
                         "complaint_id": c.complaint_id,
                         "queue": result.route.queue,
                         "urgency": result.route.urgency.value,
+                        "urgency_floor": result.route.urgency_floor.value,
                         "reasons": result.route.reasons,
                         "category": None if result.triage is None else result.triage.category.value,
                         "draft_kept": result.draft_sha256 is not None,
@@ -189,6 +196,9 @@ def evaluate(complaints: list[Complaint], client, registry: Registry, mode: str)
         "must_route_total": len(must),
         "must_route_missed": sum(r["queue"] != "specialist_review" for r in must),
         "must_route_below_high": sum(r["urgency"] != "high" for r in must),
+        # The code's own floor, before any agent raised it: the stand-in raises urgency for
+        # every tag and concern, so the final urgency alone could hide a weaker floor.
+        "must_route_floor_below_high": sum(r["urgency_floor"] != "high" for r in must),
         "must_route_reason_missing": sum(bool(r["missing_reasons"]) for r in must),
         "untimely_total": len(untimely),
         "untimely_to_specialist_rate": _rate(
@@ -233,9 +243,11 @@ def report(data: dict) -> str:
     ]
     if meta["mode"] == "scripted":
         lines += [
-            "**The agent here is a scripted stand-in with fixed rules, not the model.** This run "
-            "measures the desk's code: routing, drafts, the audit log and the counterfactual "
-            "check. It says nothing about the model's summaries, categories or urgency.",
+            "**The agent here is a scripted stand-in with fixed rules, not the model.** The "
+            "routing metrics measure the desk's code (must_route_floor_below_high is the code's "
+            "own floor, before any agent raised it); the final urgency, the specialist share and "
+            "the flagged rates below also depend on the stand-in's rules. It says nothing about "
+            "the model's summaries, categories or urgency.",
             "",
         ]
     lines += ["| Metric | Value |", "|---|---|"]
@@ -245,13 +257,15 @@ def report(data: dict) -> str:
         "Group rates by ZIP region (first digit of the prefix) and by tag are in results.json. "
         "They are reported, not gated: a region's specialist rate reflects what is complained "
         "about there (more fraud, more mortgages), not only how the desk treats it. The "
-        "counterfactual flip rate is the fairness check that is gated: routing doesn't read the "
-        "state or ZIP prefix, and the agent is never sent them.",
+        "counterfactual flip rate is gated, but it can't flip by construction: routing doesn't "
+        "read the state or ZIP prefix and the agent is never sent them, and the check calls no "
+        "model. It shows location doesn't reach the decision, not that the model is unbiased.",
         "",
         "Partial ground truth: CFPB's published company response. "
-        f"{s['monetary_relief_flagged_rate']} of complaints closed with monetary relief were "
-        f"flagged (specialist review or high urgency), against {s['explanation_flagged_rate']} "
-        "of those closed with an explanation. A closed complaint can still have been urgent; "
+        f"{s['monetary_relief_flagged_rate']} of the {s['monetary_relief_total']} complaints "
+        "closed with monetary relief were flagged (specialist review or high urgency), against "
+        f"{s['explanation_flagged_rate']} of the {s['explanation_total']} closed with an "
+        "explanation. A closed complaint can still have been urgent; "
         "this is a signal, not an answer key.",
     ]
     return "\n".join(lines) + "\n"
@@ -264,11 +278,11 @@ def run(mode: str, limit: int | None = None, out: Path | None = None) -> dict:
         client = scripted_client()
         data = evaluate(complaints, client, registry, mode)
     else:
-        with tempfile.TemporaryDirectory() as tmp:
-            refusals = AuditLog(Path(tmp) / "egress.sqlite")
-            client = model_client(on_refused=audit_refusals(refusals))
-            data = evaluate(complaints, client, registry, mode)
-            refusals.close()
+        refused: list[dict] = []
+        client = model_client(on_refused=refused.append)
+        data = evaluate(complaints, client, registry, mode)
+        # Kept in the result, and gated: a live eval that tried to reach anywhere else fails.
+        data["summary"]["egress_refusals"] = len(refused)
     data["meta"] = run_meta(
         registry,
         [AGENT_ID],

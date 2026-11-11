@@ -39,7 +39,7 @@ never against its own patterns.
 
 | Date | Change | Reason |
 |---|---|---|
-| 2026-11-11 | Created: 22 labels | Review 16: the routing patterns missed "Debt is not yours" and "Transaction was not authorized"; the key replaces a test that checked the patterns against themselves |
+| 2026-11-11 | Created: 21 labels | Review 16: the routing patterns missed "Debt is not yours" and "Transaction was not authorized"; the key replaces a test that checked the patterns against themselves |
 
 A pinned snapshot is never overwritten (`ingest pin` refuses); a new one gets a new name, and an
 eval that moves to it says so.

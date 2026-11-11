@@ -50,10 +50,13 @@ checks:
   - name: Complaint desk, scripted (pinned snapshot, 500 complaints)
     results: evals/results/complaints-scripted/results.json
     required: true
+    mode: scripted
     min:
       untimely_to_specialist_rate: 1.0
     max:
       errors: 0
+      agent_failed: 0
+      must_route_floor_below_high: 0
       must_route_missed: 0
       must_route_below_high: 0
       must_route_reason_missing: 0
@@ -63,10 +66,14 @@ checks:
   - name: Complaint desk, live model
     results: evals/results/complaints-live/results.json
     required: false  # not yet run live
+    mode: live
     min:
       untimely_to_specialist_rate: 1.0
     max:
       errors: 0
+      agent_failed: 0
+      must_route_floor_below_high: 0
+      egress_refusals: 0
       must_route_missed: 0
       must_route_below_high: 0
       drafts_with_delivery_path: 0

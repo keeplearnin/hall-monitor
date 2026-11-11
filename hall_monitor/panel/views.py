@@ -862,8 +862,11 @@ def review_queue(src: Sources) -> list[dict]:
 
 
 def case_trace(src: Sources, claim_id: str) -> dict | None:
-    """Every audit entry for one claim, in order, each with what the panel shows of it."""
+    """Every audit entry for one claim, in order, each with what the panel shows of it. The
+    complaint desk's scopes have no case page: they are shown on the desk's own page."""
     entries, problem = _entries(src, claim_id)
+    if any(e["event"] in DESK_EVENTS for e in entries):
+        return None
     if problem:
         return {
             "claim_id": claim_id,

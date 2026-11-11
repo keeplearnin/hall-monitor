@@ -49,7 +49,25 @@ def complaint_desk(src: views.Sources) -> dict:
     ids = desk_ids(entries)
     mine = [e for e in entries if e["claim_id"] in ids]
     routed = [e for e in mine if e["event"] == "complaint_routed"]
-    complaints = []
+    routed_ids = {e["claim_id"] for e in routed}
+    # Claimed by a triage that never finished (killed, say): shown until the next run routes it.
+    unrouted = sorted(
+        {e["claim_id"] for e in mine if e["event"] == "complaint_received"} - routed_ids
+    )
+    complaints = [
+        {
+            "complaint_id": scope,
+            "state": "claimed, not routed",
+            "queue": None,
+            "urgency": None,
+            "reasons": [],
+            "explained": ["triage started and hasn't finished; the next run routes it to a person"],
+            "cost_usd": None,
+            "draft_kept": False,
+            "agent_failed": False,
+        }
+        for scope in unrouted
+    ]
     reasons: Counter[str] = Counter()
     for e in routed:
         p = e["payload"] if isinstance(e["payload"], dict) else {}
@@ -58,6 +76,7 @@ def complaint_desk(src: views.Sources) -> dict:
         complaints.append(
             {
                 "complaint_id": e["claim_id"],
+                "state": "routed",
                 "queue": p.get("queue") if p.get("queue") in QUEUES else None,
                 "urgency": p.get("urgency")
                 if p.get("urgency") in ("low", "normal", "high")
@@ -69,7 +88,9 @@ def complaint_desk(src: views.Sources) -> dict:
                 "agent_failed": "agent_failed" in codes,
             }
         )
-    complaints.sort(key=lambda c: (c["queue"] != "specialist_review", c["complaint_id"]))
+    complaints.sort(
+        key=lambda c: (c["state"] == "routed", c["queue"] != "specialist_review", c["complaint_id"])
+    )
     pulls = []
     for e in mine:
         if e["event"] == "complaint_pull" and isinstance(e["payload"], dict):
@@ -103,6 +124,7 @@ def complaint_desk(src: views.Sources) -> dict:
         },
         "pulls": pulls,
         "quarantined": sum(e["event"] == "complaint_quarantined" for e in mine),
+        "unrouted": len(unrouted),
         "no_send": {
             "static_check_passes": not findings,
             "static_check_findings": len(findings),
@@ -170,7 +192,10 @@ def complaints_page(data: dict, *, demo: bool) -> str:
     rows = [
         (
             tag("code", c["complaint_id"]),
-            badge(c["queue"] or "unknown", "warn" if c["queue"] == "specialist_review" else "ok"),
+            badge(
+                c["queue"] or c["state"],
+                "ok" if c["queue"] == "standard_queue" else "warn",
+            ),
             c["urgency"] or "unknown",
             "; ".join(c["explained"]) or "none",
             usd(c["cost_usd"]),

@@ -1390,17 +1390,22 @@ controls:
       scored against a hand-written answer key of CFPB labels (data/cfpb/label_reasons.yaml),
       never against the routing patterns, plus the tags: every complaint the key says needs it
       reached specialist review, at high urgency, with the key's reasons; every untimely one
-      reached specialist review; no errors; every stored draft is marked never sent with only
-      the draft's own fields. Fairness: a counterfactual check that the same complaint from
+      reached specialist review; the code's own urgency floor was high for every must-route
+      complaint; no errors and no agent failures; every stored draft is marked never sent with
+      only the fields listed in the eval (not read from the draft model). A result must be of
+      the mode its gate check names (scripted or live), and a live run's egress refusals are
+      counted and gated. Fairness: a counterfactual check that the same complaint from
       other states and ZIP prefixes gives the same code reasons and the same text to the agent
-      (gated at zero flips), and specialist and high-urgency rates by ZIP region and by tag
+      (gated at zero flips; it can't flip by construction, since routing doesn't read location
+      and the agent is never sent it, and it calls no model), and specialist and high-urgency rates by ZIP region and by tag
       (reported, not gated: they reflect what is complained about where). CFPB's published
       company response is reported as partial ground truth. evals/gate.yaml gates the scripted
       run in CI. The control panel's Complaint desk page (read from the audit log alone) shows
       the queue, what went to specialist review and why in the code's words, urgency, cost per
       complaint, pulls with their counts, retries and status, and the no-send control's status:
       the static check run against the checkout, egress refusals logged, and drafts not marked
-      never sent; never a summary or a draft's text. Complaints never appear as claims.
+      never sent; never a summary or a draft's text. A complaint claimed but never routed is listed as such.
+      Complaints never appear as claims, and their scopes have no case page.
     status: built
     code:
       - hall_monitor/complaints/evals.py::evaluate
@@ -1421,6 +1426,13 @@ controls:
       - tests/test_complaint_evals.py::test_the_desk_page_shows_the_queue_reasons_pulls_and_the_no_send_status
       - tests/test_complaint_evals.py::test_complaints_never_show_up_as_claims
       - tests/test_complaint_evals.py::test_the_page_says_when_the_static_check_fails
+      - tests/test_complaint_evals.py::test_a_run_where_every_model_call_fails_fails_the_gate
+      - tests/test_complaint_evals.py::test_the_gate_refuses_a_scripted_result_in_the_live_check
+      - tests/test_complaint_evals.py::test_the_eval_sees_a_weakened_urgency_floor
+      - tests/test_complaint_evals.py::test_the_published_result_matches_in_full
+      - tests/test_complaint_evals.py::test_complaint_scopes_have_no_claim_page
+      - tests/test_complaint_evals.py::test_the_desk_page_shows_a_received_but_unrouted_complaint
+      - tests/test_complaint_evals.py::test_the_page_says_check_failed_when_a_file_wont_parse
     evidence:
       - evals/results/complaints-scripted/report.md
       - "pending: uv run python -m hall_monitor.complaints.evals --live --limit 50"
@@ -1430,8 +1442,9 @@ controls:
       mitigations: [MI-04, MI-05]
     gaps: >-
       The published result is the scripted run: its agent is a stand-in with fixed rules, so it
-      measures the desk's code (routing, drafts, the log, the counterfactual check), not the
-      model's summaries, categories or urgency. No live eval has been run. The answer key was
+      measures the desk's code (routing, the code's urgency floor, drafts, the log, the
+      counterfactual check), not the model's summaries, categories or urgency; the final
+      urgency, specialist share and flagged rates also depend on the stand-in's rules. No live eval has been run. The answer key was
       written by one person from one day's snapshot and a few labels from CFPB's lists; it is
       not reviewed by anyone else. Group rates are reported, not gated, and are not adjusted for
       case mix, so they can't show bias in the agent's urgency on their own; the counterfactual
