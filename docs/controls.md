@@ -34,6 +34,7 @@ Every hall-monitor control, mapped to the NIST AI Risk Management Framework 1.0 
 | [HM-24](#hm-24) | Leave submission form outside the read-only panel | built | MANAGE 4.1 | RI-22 | MI-04, MI-21 |
 | [HM-25](#hm-25) | No reply, no send | built | GOVERN 1.4, MAP 3.5, MANAGE 1.3, MEASURE 2.7 | RI-18, RI-24, RI-25 | MI-03, MI-17, MI-18, MI-19 |
 | [HM-26](#hm-26) | Complaint ingestion from CFPB | built | MEASURE 2.1, MANAGE 3.1 | RI-19 | MI-06 |
+| [HM-27](#hm-27) | Complaint triage, routed in code | built | GOVERN 3.2, MAP 3.5, MANAGE 2.4 | RI-04, RI-10, RI-14 | MI-21, MI-24 |
 
 ## Controls
 
@@ -383,6 +384,20 @@ The complaint desk reads public CFPB complaints through one MCP tool, cfpb_compl
 - **FINOS mitigations:** MI-06 Data Quality & Classification/Sensitivity
 - **Gaps:** Tested against a fake CFPB; one live pull (500 records, 2026-11-11) made the pinned snapshot, and nothing checks the live API's shape on a schedule. CFPB publishes a complaint once the company responds or after about 15 days, so many are published after later ones were: once a pull has caught up, a complaint published afterwards with an earlier receipt time is behind the cursor and missed, unless a pull restarts from a date at least 15 days back (--since; dedupe makes the repeats cheap). This is the normal case, not a rare one, and nothing schedules the restart. Resuming reads from the day before the cursor's in case CFPB's date filter isn't in UTC (not checked). The schedule is a foreground loop, not a supervised service, and there is no alert on a failed pull beyond the log and the audit entry. The store and snapshots are local, unencrypted SQLite and JSON. The pinned snapshot is real published data (minimised), not synthetic. Validation catches shape, not meaning: a mislabelled issue passes.
 
+### HM-27
+
+**Complaint triage, routed in code** (built)
+
+Every complaint goes to a person; nothing is resolved automatically. A code rule (complaints/routing.py) reads CFPB's own fields and sends to specialist review, at high urgency, any complaint whose product, issue or sub-issue names fraud, a scam or an unauthorised transaction, identity theft (including an account or debt the consumer says isn't theirs), foreclosure or a mortgage the consumer is struggling to pay, or discrimination, and any tagged Older American or Servicemember; an untimely response, text aimed at the AI, an agent that failed (refused, stopped, unapproved, an API error, an answer that didn't validate), an agent whose confidence was low or that couldn't tell the category, an agent urgency below the code's floor, and a concern the agent raised that the code didn't, go there too. The rest go to the standard queue, still for a person. The complaint triage agent (Haiku, no tools, approved for PII and financial data) reads the structured fields and the redacted free text, fenced and escaped as untrusted, without the complaint ID, state or ZIP prefix, and returns a summary, category, urgency, confidence, concerns and a draft acknowledgement. It can add reasons and raise urgency, never remove or lower them; a failure never invents an answer. The draft is kept only if it promises no outcome and has no link, email address or phone number, and is never sent (HM-25). The audit log, scoped cfpb-<complaint id>, records the complaint's hash, redaction counts and injection signals, each agent call (input hash keyed), and the route with its reasons, urgencies, category, a keyed hash of the summary, the draft's hash and the cost; never the summary or draft text. A complaint is triaged once.
+
+- **Code:** [`hall_monitor/complaints/routing.py`](../hall_monitor/complaints/routing.py) `route_complaint`; [`hall_monitor/complaints/routing.py`](../hall_monitor/complaints/routing.py) `code_reasons`; [`hall_monitor/complaints/triage_agent.py`](../hall_monitor/complaints/triage_agent.py) `run_complaint_triage`; [`hall_monitor/complaints/pipeline.py`](../hall_monitor/complaints/pipeline.py) `triage_complaint`; [`hall_monitor/complaints/run.py`](../hall_monitor/complaints/run.py) `main`; [`registry/complaint_triage.yaml`](../registry/complaint_triage.yaml)
+- **Tests:** [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_must_route_complaints_always_go_to_specialist_review_at_high_urgency`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_an_untimely_response_goes_to_specialist_review`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_a_plain_complaint_with_a_confident_agent_goes_to_the_standard_queue`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_an_uncertain_agent_sends_the_complaint_to_specialist_review`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_the_agent_can_raise_a_concern_and_urgency_but_never_lower_them`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_routing_never_depends_on_state_or_zip`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_a_complaint_is_triaged_and_logged_with_no_text`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_a_complaint_is_triaged_only_once`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_a_failed_agent_sends_the_complaint_to_a_person_and_invents_nothing`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_a_stopped_agent_sends_the_complaint_to_a_person`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_text_aimed_at_the_ai_goes_to_specialist_review`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_a_draft_that_promises_or_points_somewhere_is_not_kept`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_the_triage_agent_has_no_tools_and_may_not_call_cfpb`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_every_pinned_complaint_is_triaged_and_every_must_route_one_reaches_specialists`; [`tests/test_complaint_triage.py`](../tests/test_complaint_triage.py) `test_the_cli_demo_runs_offline_and_live_needs_a_limit`
+- **Evidence:** *Pending live run:* `uv run python -m hall_monitor.complaints.run --live --limit 50`
+- **NIST AI RMF:** GOVERN 3.2 (Policies and procedures are in place to define and differentiate roles and responsibilities for human-AI configurations and oversight of AI systems); MAP 3.5 (Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function); MANAGE 2.4 (Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use)
+- **FINOS risks:** RI-04 Hallucination and Inaccurate Outputs; RI-10 Prompt Injection; RI-14 Inadequate System Alignment
+- **FINOS mitigations:** MI-21 Agent Decision Audit and Explainability; MI-24 Human-in-the-Loop Action Approval Gate
+- **Gaps:** The agent has not been run live: every test uses a fake client or the scripted stand-in, so its summaries, categories and urgencies are unmeasured. The keyword rules read CFPB's fixed labels, which are the consumer's own choice on CFPB's form: a fraud complaint filed under another issue is caught only if the agent raises it. CFPB no longer publishes narratives, so the injection and redaction paths see only the company's public response and the labels in live data; they are tested with made-up text. The draft check is a pattern list (promises, links, emails, phone numbers), not a review of tone or accuracy. The two queues and urgencies are for people; nothing here measures how fast a person works them. The scripted stand-in records the manifest's model on its calls, so demo logs name Haiku though no model ran (the demo log is separate and every demo summary says scripted).
+
 ## NIST AI RMF coverage
 
 | Subcategory | Controls |
@@ -392,12 +407,12 @@ The complaint desk reads public CFPB complaints through one MCP tool, cfpb_compl
 | **GOVERN 1.5** Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and organizational roles and responsibilities clearly defined, including determining the frequency of periodic review. | Not covered: CI checks every change, but nothing schedules periodic review of the risk process or its outcomes. |
 | **GOVERN 1.6** Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities. | [HM-01](#hm-01), [HM-20](#hm-20), [HM-22](#hm-22) |
 | **GOVERN 2.1** Roles and responsibilities and lines of communication related to mapping, measuring, and managing AI risks are documented and are clear to individuals and teams throughout the organization. | [HM-01](#hm-01), [HM-19](#hm-19) |
-| **GOVERN 3.2** Policies and procedures are in place to define and differentiate roles and responsibilities for human-AI configurations and oversight of AI systems. | [HM-04](#hm-04), [HM-05](#hm-05), [HM-21](#hm-21), [HM-23](#hm-23) |
+| **GOVERN 3.2** Policies and procedures are in place to define and differentiate roles and responsibilities for human-AI configurations and oversight of AI systems. | [HM-04](#hm-04), [HM-05](#hm-05), [HM-21](#hm-21), [HM-23](#hm-23), [HM-27](#hm-27) |
 | **GOVERN 4.1** Organizational policies and practices are in place to foster a critical thinking and safety-first mindset in the design, development, deployment, and uses of AI systems to minimize potential negative impacts. | Not covered: Organisational culture and practices are outside a codebase. |
 | **GOVERN 6.1** Policies and procedures are in place that address AI risks associated with third-party entities, including risks of infringement of a third-party's intellectual property or other rights. | Not covered: Third-party policies, including intellectual-property risk from the model provider, aren't addressed; the model is pinned, not assessed. |
 | **MAP 1.1** Intended purposes, potentially beneficial uses, context-specific laws, norms and expectations, and prospective settings in which the AI system will be deployed are understood and documented. | [HM-01](#hm-01), [HM-18](#hm-18) |
 | **MAP 2.1** The specific tasks and methods used to implement the tasks that the AI system will support are defined (e.g., classifiers, generative models, recommenders). | [HM-18](#hm-18) |
-| **MAP 3.5** Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function. | [HM-04](#hm-04), [HM-05](#hm-05), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23), [HM-25](#hm-25) |
+| **MAP 3.5** Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function. | [HM-04](#hm-04), [HM-05](#hm-05), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23), [HM-25](#hm-25), [HM-27](#hm-27) |
 | **MAP 4.1** Approaches for mapping AI technology and legal risks of its components – including the use of third-party data or software – are in place, followed, and documented, as are risks of infringement of a third party's intellectual property or other rights. | Not covered: Legal and intellectual-property risks of third-party components aren't mapped. |
 | **MEASURE 1.1** Approaches and metrics for measurement of AI risks enumerated during the map function are selected for implementation starting with the most significant AI risks. The risks or trustworthiness characteristics that will not – or cannot – be measured are properly documented. | [HM-12](#hm-12), [HM-18](#hm-18) |
 | **MEASURE 2.1** Test sets, metrics, and details about the tools used during TEVV are documented. | [HM-12](#hm-12), [HM-26](#hm-26) |
@@ -410,7 +425,7 @@ The complaint desk reads public CFPB complaints through one MCP tool, cfpb_compl
 | **MEASURE 2.11** Fairness and bias – as identified in the map function – are evaluated and results are documented. | [HM-14](#hm-14) |
 | **MEASURE 3.1** Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts. | [HM-16](#hm-16), [HM-17](#hm-17) |
 | **MANAGE 1.3** Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented. Risk response options can include mitigating, transferring, avoiding, or accepting. | [HM-03](#hm-03), [HM-04](#hm-04), [HM-07](#hm-07), [HM-09](#hm-09), [HM-21](#hm-21), [HM-25](#hm-25) |
-| **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08), [HM-19](#hm-19), [HM-22](#hm-22) |
+| **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08), [HM-19](#hm-19), [HM-22](#hm-22), [HM-27](#hm-27) |
 | **MANAGE 3.1** AI risks and benefits from third-party resources are regularly monitored, and risk controls are applied and documented. | [HM-02](#hm-02), [HM-16](#hm-16), [HM-26](#hm-26) |
 | **MANAGE 4.1** Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management. | [HM-05](#hm-05), [HM-06](#hm-06), [HM-20](#hm-20), [HM-24](#hm-24) |
 | **MANAGE 4.3** Incidents and errors are communicated to relevant AI actors, including affected communities. Processes for tracking, responding to, and recovering from incidents and errors are followed and documented. | [HM-08](#hm-08) |
@@ -421,14 +436,14 @@ The complaint desk reads public CFPB complaints through one MCP tool, cfpb_compl
 |---|---|---|
 | RI-01 | Information Leaked To Hosted Model | [HM-10](#hm-10), [HM-11](#hm-11), [HM-22](#hm-22) |
 | RI-02 | Information Leaked to Vector Store | Not covered: There is no vector store or retrieval index. |
-| RI-04 | Hallucination and Inaccurate Outputs | [HM-07](#hm-07), [HM-12](#hm-12), [HM-13](#hm-13) |
+| RI-04 | Hallucination and Inaccurate Outputs | [HM-07](#hm-07), [HM-12](#hm-12), [HM-13](#hm-13), [HM-27](#hm-27) |
 | RI-05 | Foundation Model Versioning | [HM-01](#hm-01), [HM-02](#hm-02), [HM-17](#hm-17) |
 | RI-06 | Non-Deterministic Behaviour | [HM-07](#hm-07), [HM-12](#hm-12), [HM-17](#hm-17) |
 | RI-07 | Availability of Foundational Model | [HM-08](#hm-08) |
 | RI-08 | Tampering With the Foundational Model | Not covered: Tampering with the foundation model is the provider's control; the repo only pins the model. |
 | RI-09 | Data Poisoning | Not covered: There is no training or fine-tuning, so no training data to poison. |
-| RI-10 | Prompt Injection | [HM-09](#hm-09), [HM-15](#hm-15), [HM-22](#hm-22) |
-| RI-14 | Inadequate System Alignment | [HM-07](#hm-07), [HM-09](#hm-09), [HM-19](#hm-19) |
+| RI-10 | Prompt Injection | [HM-09](#hm-09), [HM-15](#hm-15), [HM-22](#hm-22), [HM-27](#hm-27) |
+| RI-14 | Inadequate System Alignment | [HM-07](#hm-07), [HM-09](#hm-09), [HM-19](#hm-19), [HM-27](#hm-27) |
 | RI-16 | Bias and Discrimination | [HM-14](#hm-14) |
 | RI-17 | Lack of Explainability | [HM-06](#hm-06), [HM-13](#hm-13) |
 | RI-18 | Model Overreach / Expanded Use | [HM-01](#hm-01), [HM-19](#hm-19), [HM-25](#hm-25) |
@@ -468,10 +483,10 @@ The complaint desk reads public CFPB complaints through one MCP tool, cfpb_compl
 | MI-18 | Agent Authority Least Privilege Framework | [HM-03](#hm-03), [HM-22](#hm-22), [HM-25](#hm-25) |
 | MI-19 | Tool Chain Validation and Sanitization | [HM-03](#hm-03), [HM-09](#hm-09), [HM-25](#hm-25) |
 | MI-20 | MCP Server Security Governance | [HM-03](#hm-03) |
-| MI-21 | Agent Decision Audit and Explainability | [HM-06](#hm-06), [HM-07](#hm-07), [HM-13](#hm-13), [HM-20](#hm-20), [HM-23](#hm-23), [HM-24](#hm-24) |
+| MI-21 | Agent Decision Audit and Explainability | [HM-06](#hm-06), [HM-07](#hm-07), [HM-13](#hm-13), [HM-20](#hm-20), [HM-23](#hm-23), [HM-24](#hm-24), [HM-27](#hm-27) |
 | MI-22 | Multi-Agent Isolation and Segmentation | Not covered: Agents run in one process; they're separated by allow-lists and claim scope, not isolation. |
 | MI-23 | Agentic System Credential Protection Framework | Not covered: Agents hold no credentials (see RI-29), so there is nothing for them to protect. |
-| MI-24 | Human-in-the-Loop Action Approval Gate | [HM-04](#hm-04), [HM-05](#hm-05), [HM-08](#hm-08), [HM-23](#hm-23) |
+| MI-24 | Human-in-the-Loop Action Approval Gate | [HM-04](#hm-04), [HM-05](#hm-05), [HM-08](#hm-08), [HM-23](#hm-23), [HM-27](#hm-27) |
 | MI-25 | Skill/Plugin Integrity and Governance | Not covered: The system loads no skills or plugins (see RI-30). |
 
 ## Audit log events
@@ -499,6 +514,8 @@ The complaint desk reads public CFPB complaints through one MCP tool, cfpb_compl
 | `draft_stored` | [HM-25](#hm-25), [HM-06](#hm-06) |
 | `complaint_pull` | [HM-26](#hm-26) |
 | `complaint_quarantined` | [HM-26](#hm-26) |
+| `complaint_received` | [HM-27](#hm-27), [HM-09](#hm-09), [HM-10](#hm-10) |
+| `complaint_routed` | [HM-27](#hm-27), [HM-16](#hm-16) |
 
 ## Sources
 

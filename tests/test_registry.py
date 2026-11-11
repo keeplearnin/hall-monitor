@@ -22,6 +22,7 @@ EXPECTED_AGENTS = {
     "recommendation",
     "leave_intake",
     "leave_explainer",
+    "complaint_triage",
 }
 
 
@@ -147,6 +148,7 @@ def test_the_approved_prompt_covers_the_untrusted_claim_notice():
     template, so an edit to the notice needs a new approval."""
     from hall_monitor.agents.base import UNTRUSTED_CLAIM_NOTICE
     from hall_monitor.approvals import AGENT_MODULES
+    from hall_monitor.complaints.triage_agent import UNTRUSTED_COMPLAINT_NOTICE
     from hall_monitor.hr.leave_intake import UNTRUSTED_REQUEST_NOTICE
 
     # The agents that read untrusted text, and the notice each one's approved prompt holds.
@@ -156,6 +158,7 @@ def test_the_approved_prompt_covers_the_untrusted_claim_notice():
         "risk_fraud": UNTRUSTED_CLAIM_NOTICE,
         "critic": UNTRUSTED_CLAIM_NOTICE,
         "leave_intake": UNTRUSTED_REQUEST_NOTICE,
+        "complaint_triage": UNTRUSTED_COMPLAINT_NOTICE,
     }
     readers_of_nothing_untrusted = {"recommendation", "leave_explainer"}
     assert set(notices) | readers_of_nothing_untrusted == set(AGENT_MODULES)

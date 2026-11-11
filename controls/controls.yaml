@@ -1298,6 +1298,72 @@ controls:
       unencrypted SQLite and JSON. The pinned snapshot is real published data (minimised), not
       synthetic. Validation catches shape, not meaning: a mislabelled issue passes.
 
+  - id: HM-27
+    name: Complaint triage, routed in code
+    what: >-
+      Every complaint goes to a person; nothing is resolved automatically. A code rule
+      (complaints/routing.py) reads CFPB's own fields and sends to specialist review, at high
+      urgency, any complaint whose product, issue or sub-issue names fraud, a scam or an
+      unauthorised transaction, identity theft (including an account or debt the consumer says
+      isn't theirs), foreclosure or a mortgage the consumer is struggling to pay, or
+      discrimination, and any tagged Older American or Servicemember; an untimely response,
+      text aimed at the AI, an agent that failed (refused, stopped, unapproved, an API error, an
+      answer that didn't validate), an agent whose confidence was low or that couldn't tell the
+      category, an agent urgency below the code's floor, and a concern the agent raised that the
+      code didn't, go there too. The rest go to the standard queue, still for a person. The
+      complaint triage agent (Haiku, no tools, approved for PII and financial data) reads the
+      structured fields and the redacted free text, fenced and escaped as untrusted, without
+      the complaint ID, state or ZIP prefix, and returns a summary, category, urgency,
+      confidence, concerns and a draft acknowledgement. It can add reasons and raise urgency,
+      never remove or lower them; a failure never invents an answer. The draft is kept only if
+      it promises no outcome and has no link, email address or phone number, and is never sent
+      (HM-25). The audit log, scoped cfpb-<complaint id>, records the complaint's hash,
+      redaction counts and injection signals, each agent call (input hash keyed), and the route
+      with its reasons, urgencies, category, a keyed hash of the summary, the draft's hash and
+      the cost; never the summary or draft text. A complaint is triaged once.
+    status: built
+    code:
+      - hall_monitor/complaints/routing.py::route_complaint
+      - hall_monitor/complaints/routing.py::code_reasons
+      - hall_monitor/complaints/triage_agent.py::run_complaint_triage
+      - hall_monitor/complaints/pipeline.py::triage_complaint
+      - hall_monitor/complaints/run.py::main
+      - registry/complaint_triage.yaml
+    tests:
+      - tests/test_complaint_triage.py::test_must_route_complaints_always_go_to_specialist_review_at_high_urgency
+      - tests/test_complaint_triage.py::test_an_untimely_response_goes_to_specialist_review
+      - tests/test_complaint_triage.py::test_a_plain_complaint_with_a_confident_agent_goes_to_the_standard_queue
+      - tests/test_complaint_triage.py::test_an_uncertain_agent_sends_the_complaint_to_specialist_review
+      - tests/test_complaint_triage.py::test_the_agent_can_raise_a_concern_and_urgency_but_never_lower_them
+      - tests/test_complaint_triage.py::test_routing_never_depends_on_state_or_zip
+      - tests/test_complaint_triage.py::test_a_complaint_is_triaged_and_logged_with_no_text
+      - tests/test_complaint_triage.py::test_a_complaint_is_triaged_only_once
+      - tests/test_complaint_triage.py::test_a_failed_agent_sends_the_complaint_to_a_person_and_invents_nothing
+      - tests/test_complaint_triage.py::test_a_stopped_agent_sends_the_complaint_to_a_person
+      - tests/test_complaint_triage.py::test_text_aimed_at_the_ai_goes_to_specialist_review
+      - tests/test_complaint_triage.py::test_a_draft_that_promises_or_points_somewhere_is_not_kept
+      - tests/test_complaint_triage.py::test_the_triage_agent_has_no_tools_and_may_not_call_cfpb
+      - tests/test_complaint_triage.py::test_every_pinned_complaint_is_triaged_and_every_must_route_one_reaches_specialists
+      - tests/test_complaint_triage.py::test_the_cli_demo_runs_offline_and_live_needs_a_limit
+    evidence:
+      - "pending: uv run python -m hall_monitor.complaints.run --live --limit 50"
+    nist: [GOVERN 3.2, MAP 3.5, MANAGE 2.4]
+    finos:
+      risks: [RI-04, RI-10, RI-14]
+      mitigations: [MI-21, MI-24]
+    gaps: >-
+      The agent has not been run live: every test uses a fake client or the scripted stand-in,
+      so its summaries, categories and urgencies are unmeasured. The keyword rules read CFPB's
+      fixed labels, which are the consumer's own choice on CFPB's form: a fraud complaint filed
+      under another issue is caught only if the agent raises it. CFPB no longer publishes
+      narratives, so the injection and redaction paths see only the company's public response
+      and the labels in live data; they are tested with made-up text. The draft check is a
+      pattern list (promises, links, emails, phone numbers), not a review of tone or accuracy.
+      The two queues and urgencies are for people; nothing here measures how fast a person
+      works them. The scripted stand-in records the manifest's model on its calls, so demo logs
+      name Haiku though no model ran (the demo log is separate and every demo summary says
+      scripted).
+
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
   - ref: GOVERN 1.1
@@ -1371,3 +1437,5 @@ audit_events:
   draft_stored: [HM-25, HM-06]
   complaint_pull: [HM-26]
   complaint_quarantined: [HM-26]
+  complaint_received: [HM-27, HM-09, HM-10]
+  complaint_routed: [HM-27, HM-16]

@@ -1,0 +1,10 @@
+id: complaint_triage
+name: Complaint triage
+version: 0.1.0
+owner: own-501
+purpose: Summarise a public CFPB complaint for the complaint desk, suggest a category, urgency and concerns, and draft an acknowledgement that is never sent. Code routes every complaint to a person.
+risk_tier: medium
+status: active
+model: claude-haiku-5-5
+allowed_tools: []
+data_classes: [pii, financial]
