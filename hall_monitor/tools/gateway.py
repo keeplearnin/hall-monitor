@@ -16,7 +16,7 @@ import time
 from collections import Counter
 from collections.abc import Coroutine
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastmcp import Client, FastMCP
 
@@ -32,6 +32,9 @@ from hall_monitor.registry import (
     SendCapabilityError,
 )
 from hall_monitor.tools.server import POLICY_LOOKUP, TOOL_DATA_CLASSES, build_server
+
+if TYPE_CHECKING:
+    from hall_monitor.delegation import Grant, GrantBook
 
 PIPELINE_ACTOR = RESERVED_AGENT_ID  # no agent may take this ID (Registry refuses it)
 # The pipeline's own code checks may use these tools; it is not an agent and has no manifest.
@@ -90,17 +93,45 @@ class ToolGateway:
             result = await client.call_tool(tool, arguments)
         return result.structured_content or {}
 
-    def definitions(self, agent_id: str) -> list[dict]:
+    def definitions(
+        self, agent_id: str, *, grants: GrantBook | None = None, grant: Grant | None = None
+    ) -> list[dict]:
         """Tool definitions for the Claude API: the agent's allow-list, less any tool returning
-        data its manifest doesn't allow (it would only be refused)."""
+        data its manifest doesn't allow (it would only be refused). An agent in a crew is
+        offered only what its grant holds, and nothing without one."""
         manifest = self.registry.require(agent_id)
+        tools = list(manifest.allowed_tools)
         may_see = set(manifest.data_classes)
+        if self.registry.in_crew(agent_id) or grants is not None or grant is not None:
+            try:
+                self._check_grant(agent_id, grants, grant)
+            except RegistryError:
+                return []
+            tools = [t for t in tools if t in grant.tools]
+            may_see &= set(grant.data_classes)
         return [
             self._definitions[name]
-            for name in manifest.allowed_tools
+            for name in tools
             if name in self._definitions
             and self.tool_data_classes.get(name, ALL_DATA_CLASSES) <= may_see
         ]
+
+    def _check_grant(
+        self,
+        actor: str,
+        grants: GrantBook | None,
+        grant: Grant | None,
+        tool: str | None = None,
+        carries: frozenset[DataClass] | None = None,
+    ) -> None:
+        """HM-29: an agent in a crew works only under a grant its case's book issued to it."""
+        if grants is None or grant is None:
+            raise RegistryError(f"agent {actor!r} is in a crew and needs a grant from its case")
+        # The book first: a grant it didn't issue may carry any text, and this message reaches
+        # the audit log, so the holder is never quoted.
+        grants.check(grant, tool=tool, carries=carries)
+        if grant.holder != actor:
+            raise RegistryError(f"that grant is held by another agent, not {actor!r}")
 
     def call(
         self,
@@ -109,8 +140,14 @@ class ToolGateway:
         arguments: dict,
         log: list[ToolCall],
         scope_policy: str | None = None,
+        *,
+        grants: GrantBook | None = None,
+        grant: Grant | None = None,
     ) -> dict:
-        """scope_policy: the claim's own policy number. A lookup for any other is refused."""
+        """scope_policy: the claim's own policy number. A lookup for any other is refused.
+
+        grants and grant: the case's grant book and the grant the actor holds, required for an
+        agent in a crew (HM-29) and checked on every call."""
         started = time.perf_counter()
         try:
             if tool_problems([tool]):
@@ -119,8 +156,11 @@ class ToolGateway:
                 if tool not in self.pipeline_tools:
                     raise RegistryError(f"pipeline may not call tool {tool!r}")
             else:
+                carries = self.tool_data_classes.get(tool, ALL_DATA_CLASSES)
                 self.registry.check_tool(actor, tool)
-                self.registry.check_data(actor, self.tool_data_classes.get(tool, ALL_DATA_CLASSES))
+                self.registry.check_data(actor, carries)
+                if self.registry.in_crew(actor) or grant is not None or grants is not None:
+                    self._check_grant(actor, grants, grant, tool, carries)
             asked = str(arguments.get("policy_number", "")).strip().upper()
             if scope_policy is not None and asked != scope_policy.strip().upper():
                 raise RegistryError(

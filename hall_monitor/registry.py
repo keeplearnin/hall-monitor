@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Iterable, Iterator
 from enum import StrEnum
 from pathlib import Path
@@ -82,6 +83,11 @@ class AgentManifest(BaseModel):
     economy_max_claim_usd: float | None = Field(
         default=None, gt=0, description="Largest total claimed that may use the economy model."
     )
+    may_delegate_to: tuple[str, ...] = Field(
+        default=(),
+        description="Agents this agent may hand work to, each under a narrower grant "
+        "(hall_monitor/delegation.py). Empty means none.",
+    )
 
     @model_validator(mode="after")
     def _economy_fields_together(self) -> AgentManifest:
@@ -89,9 +95,22 @@ class AgentManifest(BaseModel):
             raise ValueError("economy_model and economy_max_claim_usd must be set together")
         return self
 
+    @model_validator(mode="after")
+    def _handoffs_name_other_agents(self) -> AgentManifest:
+        if self.id in self.may_delegate_to:
+            raise ValueError(f"agent {self.id!r} may not delegate to itself")
+        if any(re.fullmatch(r"[a-z][a-z0-9_]*", a) is None for a in self.may_delegate_to):
+            raise ValueError("may_delegate_to must list agent IDs")
+        return self
+
     def digest(self) -> str:
-        """SHA-256 of the canonical manifest, so a run can prove which hall pass it used."""
-        canonical = json.dumps(self.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+        """SHA-256 of the canonical manifest, so a run can prove which hall pass it used. An
+        empty may_delegate_to is left out, so manifests from before the field keep their
+        approved digests."""
+        fields = self.model_dump(mode="json")
+        if not fields["may_delegate_to"]:
+            del fields["may_delegate_to"]
+        canonical = json.dumps(fields, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode()).hexdigest()
 
 
@@ -192,6 +211,17 @@ class Registry:
                     f"in {OWNERS_FILENAME}"
                 )
             self._manifests[manifest.id] = manifest
+        for manifest in self._manifests.values():
+            unknown = [a for a in manifest.may_delegate_to if a not in self._manifests]
+            if unknown:
+                raise ValueError(
+                    f"agent {manifest.id!r} may delegate to agents with no hall pass: "
+                    + ", ".join(unknown)
+                )
+        self._crew = frozenset(
+            {m.id for m in self._manifests.values() if m.may_delegate_to}
+            | {a for m in self._manifests.values() for a in m.may_delegate_to}
+        )
 
     @classmethod
     def from_dir(cls, path: Path = DEFAULT_REGISTRY_DIR) -> Registry:
@@ -284,6 +314,11 @@ class Registry:
         if extra:
             names = ", ".join(sorted(c.value for c in extra))
             raise DataClassNotAllowedError(f"agent {agent_id!r} may not see {names} data")
+
+    def in_crew(self, agent_id: str) -> bool:
+        """True for an agent that may delegate or be delegated to: the tool gateway serves it
+        only under a grant (HM-29)."""
+        return agent_id in self._crew
 
     def check_tool(self, agent_id: str, tool: str) -> None:
         manifest = self.require(agent_id)

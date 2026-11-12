@@ -796,6 +796,20 @@ values were escaped, only an explicit true or false counted, and the page stayed
 | No test covered non-boolean labels or an interrupted route | Low | Both tested |
 | Plausible: "never assumed to be the model" overstated what the log records; the README didn't mention the new column | Low | Both corrected |
 
+## Review 19 (complaint-crew): delegated passes only narrow (HM-29)
+
+**Reviewer:** the governance-reviewer agent, before the pull request, with offline probes. It
+confirmed that narrowing, declared handoffs, loops, depth, forged or changed grants, stops down
+the chain, the no-grant refusal and the unchanged approval digests all held. 3 findings
+confirmed and 1 plausible; all fixed, test-first, or stated as a gap.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A changed copy of a grant (`model_copy` skips validation) put its holder, which could be any text, into the audit log: as the actor of `delegation_refused`, and through the gateway's "held by" message into a `tool_call` entry | Medium | Holder and chain must be plain identifiers; the refusal logs the holder only if it is one; the gateway asks the book first and never quotes the holder |
+| `definitions` ignored a grant passed for an agent outside a crew while `call` checked it, so a tool could be offered that would be refused | Low | Both check a grant whenever one is passed |
+| A grant binds a case only through its book; the gateway limits a tool's arguments to the case only through `scope_policy`, which is optional | Low | Stated in HM-29's gaps and ADR 0025; the crew pipeline (slice 3) must pass it |
+| Plausible: two handoffs from one grant on different threads could each see the old allotment total and together exceed it | Low | The book takes a lock around issuing and handing off; a test with a slowed grant shows only one of two over-large handoffs is made |
+
 ## Review 20 (redteam-arena): the red-team arena (HM-30)
 
 ### Part 1: self-check (not independent)
