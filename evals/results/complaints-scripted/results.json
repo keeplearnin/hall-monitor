@@ -95,10 +95,10 @@
     "prompt_version": "complaint-triage-v1"
    }
   ],
-  "git_commit": "9378b19a0768b757b397c1e66920fa4cd64ce2c0",
-  "git_dirty": true,
+  "git_commit": "d71f56d5a1e6563bbb13cf8db09fe3504f86e44b",
+  "git_dirty": false,
   "mode": "scripted",
-  "run_at": "2026-11-12 02:49 UTC",
+  "run_at": "2026-11-12 02:57 UTC",
   "snapshot": "2026-10-01",
   "snapshot_manifest_sha256": "be882cd30552a7d503acde001b50fea4d8c33dd3e8f0d7ad63a6f04f1f510647",
   "snapshot_path": "data/cfpb/snapshots/2026-10-01"
@@ -10561,6 +10561,7 @@
   "must_route_total": 197,
   "region_specialist_gap": 0.3333,
   "specialist_share": 0.424,
+  "supervisor_failed": 0,
   "tag_specialist_rate_older_american": 1.0,
   "tag_specialist_rate_servicemember": 1.0,
   "untimely_to_specialist_rate": 1.0,
