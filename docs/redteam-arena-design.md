@@ -72,7 +72,7 @@ Tests check the label one way only: a complaint the code must route is labelled 
 ## Slices
 
 1. **Offline arena (HM-30).** Seeds, mutations, the hijacked defender, the judge, the CLI and a
-   published scripted result; tests that must-route and text-in-log breaches stay at zero.
+   published scripted result; tests that must-route misses on complaints whose labels or tags call for a specialist, and text-in-log breaches, stay at zero.
 2. **Live attacker.** A model writes new attacks from the blocked ones, behind `--live`, run
    only when asked with its cost stated first. Its attacks are saved and replayed offline.
 3. **Live defender.** The same rounds against the real triage model, to measure how often an

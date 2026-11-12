@@ -1595,7 +1595,7 @@ controls:
       misses entities encoded twice and look-alike Cyrillic letters (all 4 injection seeds,
       rounds 5 and 6). In all, 8 of 18 seeds caused harm. The must_route labels were written by
       one person. The attacker is a
-      fixed list of mutations over 15 hand-written seeds, so it finds only gaps those reach; the
+      fixed list of mutations over 18 hand-written seeds, so it finds only gaps those reach; the
       defender is a hijacked stand-in, so the run measures the code, not how often the real
       model is taken over. Kept drafts and unflagged injections are published, not gated, and
       the arena isn't in evals/gate.yaml. No live attacker, judge or defender has been run. The judge counts a kept draft as carrying

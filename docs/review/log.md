@@ -847,3 +847,9 @@ the code. 6 findings (one High), all fixed test-first or corrected.
 The arena's own findings (routing reads only labels and tags; the draft check misses some
 promise wording and reads text undecoded; the injection detector misses entities encoded twice
 and look-alike letters) are published in HM-30's gaps and the result, not fixed in this branch.
+
+**Re-review of the fixes** (governance-reviewer, after the merge of `main`): all six fixes real,
+the merge dropped and duplicated nothing, published results reproduce exactly. 3 Low wording
+findings, all fixed: the HM-30 gap said 15 seeds (now 18); the design doc promised must-route
+misses stay at zero (now: misses on complaints whose labels or tags call for a specialist); a
+test comment pointed at Review 19 (now Review 20 Part 1).

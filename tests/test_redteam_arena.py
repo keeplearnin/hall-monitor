@@ -254,7 +254,7 @@ def test_the_cli_runs_offline(capsys):
     assert "round" in out and "scripted-hijack" in out
 
 
-# Review 19 (redteam-arena): found by the pre-PR review.
+# Review 20 Part 1 (redteam-arena): the self-check before the PR.
 
 
 def test_the_result_records_the_hall_pass_and_says_the_answers_were_scripted():
