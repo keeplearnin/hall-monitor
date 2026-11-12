@@ -287,6 +287,20 @@ def _claim(case: Case) -> ClaimSubmission:
     return original.model_copy(update={"claim_id": case.case_id})
 
 
+# The workflow's own refusals of a claim it already has (workflow.py and the pipeline's
+# once-only evidence pack).
+DUPLICATE_REFUSALS = (
+    "is already in the workflow",
+    "already finished triage",
+    "triage started but didn't finish",
+    "was already triaged by another run",
+)
+
+
+def _refusal_kind(message: str) -> str:
+    return next(m for m in DUPLICATE_REFUSALS if m in message)
+
+
 def _submit(out: Path, registry_dir: Path, case: Case, record: _Record) -> None:
     registry = Registry.from_dir(registry_dir)  # reads the stop list on every agent check
     claim = _claim(case)
@@ -296,8 +310,15 @@ def _submit(out: Path, registry_dir: Path, case: Case, record: _Record) -> None:
             workflow.submit(claim)
     except SimulatedCrash:
         record.errors.append("crashed after the evidence pack was logged")
-    except ValueError as exc:  # the workflow's own refusals: IDs only
-        record.errors.append(str(exc))
+    except ValueError as exc:
+        # Only a duplicate's second submission may be refused, and only with the workflow's own
+        # refusals. Anything else (a pydantic ValidationError is a ValueError too, and repeats
+        # input) is unexpected and recorded by its type, never its text.
+        message = str(exc)
+        if case.fault == "duplicate" and any(m in message for m in DUPLICATE_REFUSALS):
+            record.errors.append(f"refused as a duplicate ({_refusal_kind(message)})")
+        else:
+            record.errors.append(f"unexpected {type(exc).__name__}")
     except Exception as exc:  # a drill finishes and reports; the check flags the case
         record.errors.append(f"unexpected {type(exc).__name__}")
 
@@ -490,8 +511,9 @@ def _last_result(events: list[dict]) -> dict | None:
 
 
 def masked_by_stop(out: Path, report: dict) -> list[str]:
-    """Model-fault cases the owner's stop reached first: the faulty agent never ran, so the
-    fault wasn't exercised. Listed, not counted as exercised and not a problem."""
+    """Model-fault cases the owner's stop reached first (on the risk agent or later, or a wrong
+    answer stopped before routing): the fault wasn't exercised. Listed, not counted as
+    exercised and not a problem."""
     by_case = _log_by_case(out)
     masked = []
     for case in report["cases"]:

@@ -883,3 +883,12 @@ offline repros. 5 findings confirmed and 3 plausible; all fixed, test-first.
 | Plausible: an error while reading a case's cost escaped the worker, ended the drill with no report and left its reservation held | Low | Caught, the reservation given back, the case flagged, and a leftover reservation is a problem (`test_an_error_while_settling_cost_is_flagged_and_the_drill_finishes`) |
 | Plausible: exported Langfuse keys would make a drill send spans (confirmed while writing the test: an export was attempted with the fake keys) | Low | Tracing is off for the drill's duration and the keys are put back (`test_the_drill_never_sends_traces_even_with_langfuse_keys_set`); the register notes this is process-wide |
 | Plausible: "cases running together can't pass the cap" holds only if each case costs at most its ceiling, which is checked afterwards | Low | Said in the design, ADR and register |
+
+**Re-review of the fixes** (governance-reviewer, after the merge of `main`): fixes 1 and 3 to 5
+and plausible a to c real; the merge clean; the control count right. 1 Medium and 1 Low, both
+fixed test-first:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Any ValueError was taken as the workflow's own refusal and stored as text, so an unexpected one (including a pydantic ValidationError, which repeats input) was never flagged | Medium | Only a duplicate's second submission may be refused, and only with the workflow's four known refusals, recorded as a fixed label; any other ValueError is unexpected, recorded by its type |
+| The docs said masked faults are those after the risk step; wrong answers stopped before routing and faults on the risk agent are masked too | Low | Design and docstring reworded |

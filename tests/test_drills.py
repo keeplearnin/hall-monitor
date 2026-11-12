@@ -269,6 +269,25 @@ def test_an_unexpected_error_after_a_finished_submit_is_flagged(tmp_path, monkey
     assert any(p.startswith(f"{target}:") and "unexpected" in p for p in report["problems"])
 
 
+@pytest.mark.parametrize("error", [ValueError, lambda m: ValueError(f"Jane Doe {m}")])
+def test_an_unexpected_value_error_on_a_non_duplicate_case_is_flagged(tmp_path, monkeypatch, error):
+    """Review 21 re-review: only a duplicate's second submission may be refused with the
+    workflow's own ValueError; any other ValueError is unexpected, recorded by its type."""
+    real = drills.ClaimWorkflow.submit
+    target = next(c for c in drills.plan(rounds=1, seed=11) if c.fault != "duplicate").case_id
+
+    def raises_after(self, claim, **kwargs):
+        status = real(self, claim, **kwargs)
+        if claim.claim_id == target:
+            raise error("a bug after the submit returned")
+        return status
+
+    monkeypatch.setattr(drills.ClaimWorkflow, "submit", raises_after)
+    report = drills.run(tmp_path, rounds=1, workers=2, seed=11, limit=6)
+    assert any(p.startswith(f"{target}:") and "unexpected" in p for p in report["problems"])
+    assert "Jane Doe" not in json.dumps(report)
+
+
 def test_a_case_refused_by_the_cap_is_not_queued_for_anyone(drill):
     """Review 21 finding 3: a refused case never enters the workflow, so it isn't waiting for
     a person; the report says so instead of counting it as with a person."""

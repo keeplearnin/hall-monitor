@@ -74,8 +74,9 @@ Read from the audit log and the workflow's status, never from the runner's own c
    example `APITimeoutError from the model call` for a timeout), the over-claim reason in the
    routing for a wrong answer, the stop in the triage result after the stop,
    `batch_budget_reached` for a case not started, `needs_a_person` for a crash. A model fault on
-   an agent after the risk step can be reached by the owner's stop first, so the faulty agent
-   never runs: the report lists those as masked, not exercised.
+   the risk agent or after it can be reached by the owner's stop first, so the faulty agent
+   never runs, and a wrong answer the stop reaches before routing never meets the over-claim
+   rule: the report lists those as masked, not exercised.
 6. No case cost more than its ceiling, and the cost the log records for the batch is under the
    cap.
 7. The audit log verifies.
