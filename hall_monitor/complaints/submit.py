@@ -29,10 +29,10 @@ from __future__ import annotations
 
 import argparse
 import hmac
-import re
 import secrets
 import sys
 import threading
+import unicodedata
 from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
@@ -58,6 +58,7 @@ from hall_monitor.complaints.pipeline import (
 )
 from hall_monitor.complaints.scripted import scripted_client
 from hall_monitor.egress import audit_refusals, model_client
+from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog
 from hall_monitor.panel import demo
 from hall_monitor.panel.app import LOCAL_HOSTS, SECURITY_HEADERS
@@ -76,14 +77,25 @@ PER_COMPLAINT_BUDGET = DeskLimits().max_cost_usd
 TAGS = {f"tag_{t.value}": t for t in Tag}
 TAG_LABELS = {Tag.OLDER_AMERICAN: "Older American", Tag.SERVICEMEMBER: "Servicemember"}
 FIELDS = {"product", "issue", "sub_issue", "narrative"}
-# Control characters, except a narrative's tabs and line breaks.
-_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
-_NARRATIVE_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+
+
+def _invisible(text: str, allowed: str = "") -> bool:
+    """Control and format characters (C0 and C1 controls, bidi overrides, zero-width marks),
+    which could hide text from a person reading the log's subject or the agent's input."""
+    return any(unicodedata.category(ch) in ("Cc", "Cf") and ch not in allowed for ch in text)
+
+
+def _has_identifier(label: str) -> bool:
+    """True if redaction would change the label: CFPB's labels are a fixed list and aren't
+    redacted, so the form's typed ones must hold nothing redaction removes."""
+    return redact_text(label) != label
+
+
 STATES = {
     "routed": "routed to a person at the complaint desk",
     "received": (
-        "received, and its triage didn't finish; the desk's people see it on the panel as "
-        "claimed, not routed"
+        "received, and its triage didn't finish, so it isn't routed yet; the desk's people "
+        "see it on the panel as claimed, not routed"
     ),
 }
 
@@ -106,9 +118,9 @@ def _page(title: str, body: Safe, *, live: bool) -> str:
             "p",
             tag("strong", "Live. "),
             "Each submission calls the Claude API: the desk supervisor and the triage agent "
-            "(Haiku), typically well under a cent; the desk stops calling the model once a "
-            f"complaint has cost {PER_COMPLAINT_BUDGET} USD. It goes into the audit log the "
-            "desk works from.",
+            "(Haiku), typically well under a cent; the desk makes no further model call once a "
+            f"complaint has cost {PER_COMPLAINT_BUDGET} USD (a call already started can take "
+            "it a little past that). It goes into the audit log the desk works from.",
             class_="banner alert",
         )
         if live
@@ -274,7 +286,7 @@ def create_app(
         if any(len(v) != 1 for v in parsed.values()):
             raise _Refused(400, "Submit the form on the page.")
         fields = {k: v[0] for k, v in parsed.items()}
-        if not hmac.compare_digest(fields.pop("token", ""), token):
+        if not hmac.compare_digest(fields.pop("token", "").encode(), token.encode()):
             raise _Refused(403, "This form only takes submissions from its own page.")
         return fields
 
@@ -295,8 +307,14 @@ def create_app(
             raise _Refused(400, f"An issue or sub-issue is at most {MAX_LABEL} characters.")
         if len(narrative) > MAX_NARRATIVE:
             raise _Refused(400, f"What happened is at most {MAX_NARRATIVE:,} characters.")
-        if _CONTROL.search(issue + sub_issue) or _NARRATIVE_CONTROL.search(narrative):
+        if _invisible(issue + sub_issue) or _invisible(narrative, allowed="\n\t"):
             raise _Refused(400, "Write the complaint as plain text.")
+        if _has_identifier(issue) or _has_identifier(sub_issue):
+            raise _Refused(
+                400,
+                "Keep the issue and sub-issue to a short label, with no email address, phone "
+                "number or other identifier; details go in the narrative, which is redacted.",
+            )
         return Complaint(
             complaint_id=f"syn-{secrets.token_hex(6)}",
             date_received=datetime.now(UTC),
@@ -449,9 +467,10 @@ def main(argv: list[str] | None = None) -> int:
         app = create_app(live=True, audit_db=args.audit_db, max_complaints=args.max_complaints)
         print(
             f"Live: each complaint calls the Claude API (Haiku), typically well under a cent; "
-            f"the desk stops calling the model once one has cost {PER_COMPLAINT_BUDGET} USD. "
-            f"At most {args.max_complaints} complaints this run, so roughly "
-            f"{args.max_complaints * PER_COMPLAINT_BUDGET:.2f} USD at the very most.",
+            f"the desk makes no further model call once one has cost {PER_COMPLAINT_BUDGET} "
+            f"USD, so with at most {args.max_complaints} complaints this run the total stays "
+            f"near {args.max_complaints * PER_COMPLAINT_BUDGET:.2f} USD at most (each "
+            "complaint's last call can take it slightly past its budget).",
             file=sys.stderr,
         )
     import uvicorn

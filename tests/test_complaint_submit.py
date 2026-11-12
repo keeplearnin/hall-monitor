@@ -386,3 +386,95 @@ def test_the_cli_needs_a_mode_a_loopback_host_and_a_sane_cap(tmp_path, monkeypat
     monkeypatch.setattr(submit, "DEMO_DIR", tmp_path / "no-demo")
     with pytest.raises(SystemExit, match="panel demo"):
         submit.main(["--demo"])
+
+
+# --- Review 24 fixes ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("field", ["issue", "sub_issue"])
+def test_an_identifier_typed_in_a_label_is_refused_before_the_model_sees_it(tmp_path, field):
+    """CFPB's labels are a fixed list and aren't redacted; the form's are typed, so one holding
+    anything redaction would remove is refused (the narrative is redacted)."""
+    fake = _client()
+    client = _app(tmp_path, live=True, client=fake)
+    for text in ("Charged twice, email jo@x.org", "SSN 123-45-6789 used"):
+        response = _submit(client, **{field: text})
+        assert response.status_code == 400 and "narrative" in response.text
+    assert fake.messages.calls == [] and _entries(tmp_path) == []
+
+
+@pytest.mark.parametrize("text", ["x\x85y", "x‮y", "x​y", "x\x07y"])
+def test_control_and_invisible_characters_are_refused(tmp_path, text):
+    client = _app(tmp_path)
+    assert _submit(client, issue=text).status_code == 400
+    assert _submit(client, narrative=text).status_code == 400
+    assert _entries(tmp_path) == []
+
+
+def test_a_non_ascii_token_is_refused_not_a_server_error(tmp_path):
+    client = _app(tmp_path)
+    response = client.post("/submit", data=PLAIN | {"token": "é"}, headers=SAME_ORIGIN)
+    assert response.status_code == 403
+    assert _entries(tmp_path) == []
+
+
+def test_a_crash_before_the_desk_received_it_adds_nothing(tmp_path, monkeypatch):
+    def broken(*args, **kwargs):
+        raise RuntimeError("registry unreadable")
+
+    monkeypatch.setattr(submit.Registry, "from_dir", broken)
+    client = _app(tmp_path)
+    response = _submit(client)
+    assert response.status_code == 500 and "nothing was added" in response.text
+    assert not any(e["event"] == "complaint_received" for e in _entries(tmp_path))
+
+
+def test_a_crash_after_it_was_received_is_routed_to_a_person(tmp_path, monkeypatch):
+    """A crash past the pipeline's own failure handling: the pipeline routes the claimed
+    complaint to a person before re-raising, and the form reports that state."""
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("crashed mid-triage")
+
+    monkeypatch.setattr("hall_monitor.complaints.pipeline._prepare", crash)
+    client = _app(tmp_path)
+    response = _submit(client)
+    routed = _routed(tmp_path, _complaint_id(response))
+    assert routed["queue"] == "specialist_review" and "triage_interrupted" in routed["reasons"]
+    assert "routed to a person" in client.get(response.headers["location"]).text
+
+
+def test_an_unrouted_submission_shows_received_not_routed(tmp_path, monkeypatch):
+    def crash(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("hall_monitor.complaints.pipeline._prepare", crash)
+    monkeypatch.setattr("hall_monitor.complaints.pipeline.route_unfinished", crash)
+    client = _app(tmp_path)
+    response = _submit(client)
+    page = client.get(response.headers["location"]).text
+    assert "routed to a person" not in page and "claimed, not routed" in page
+
+
+def test_the_desk_page_doesn_t_promise_a_rerun_for_a_form_complaint(tmp_path):
+    log = AuditLog(tmp_path / "audit.sqlite")
+    try:
+        for scope in ("cfpb-syn-0123456789ab", "cfpb-28750001"):
+            log.append(scope, "complaint_received", "pipeline", {"complaint_id": scope[5:]})
+    finally:
+        log.close()
+    page = desk.complaint_desk(
+        views.Sources(audit_db=tmp_path / "audit.sqlite", registry_dir=TEST_REGISTRY_DIR)
+    )
+    shown = {c["complaint_id"]: c["explained"][0] for c in page["complaints"]}
+    assert "next run routes it" in shown["cfpb-28750001"]
+    assert "next run" not in shown["cfpb-syn-0123456789ab"]
+    assert "complaint form" in shown["cfpb-syn-0123456789ab"]
+
+
+def test_every_cfpb_issue_label_is_accepted_as_typed():
+    """The labels the form suggests (CFPB's own) pass the label checks."""
+    from hall_monitor.complaints.ingest import PINNED_NAME, load_pinned
+
+    labels = {x for c in load_pinned(PINNED_NAME) for x in (c.issue, c.sub_issue) if x}
+    assert labels and not [x for x in labels if submit._has_identifier(x) or submit._invisible(x)]

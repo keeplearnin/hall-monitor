@@ -950,3 +950,24 @@ and the repros pass. It found one High regression and four smaller issues, all f
 Medium or above. One Low, from fix C: a triage that answered (draft kept) and was then stopped
 was shown as "no answer". Fixed test-first: the page says "no answer" only when no category was
 recorded (`test_a_triage_that_answered_then_was_stopped_is_shown_as_answered`).
+
+## Review 24 (complaint-form): the complaint submission form (HM-33)
+
+**Reviewer:** governance-reviewer agent, read-only, on `98617ee` against main, offline (one of
+its repro scripts may have let a single request without an API key reach the messages endpoint
+through the guarded client; no cost, and it dropped that case). New functionality: its scope is
+for the owner to confirm (ADR 0029 is Proposed). Every finding was fixed test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Issue and sub-issue are typed on the form but, as CFPB's fixed labels, never redacted: an email or SSN typed there reached the model, while the register implied every field was redacted | High | A label holding anything redaction would remove is refused before anything is logged; the narrative is still redacted by the pipeline (`test_an_identifier_typed_in_a_label_is_refused_before_the_model_sees_it`; `test_every_cfpb_issue_label_is_accepted_as_typed` shows CFPB's own labels still pass). A name in a label still reaches the model; the gaps say so |
+| "The typed-in text is kept nowhere" was false in live mode: a kept draft is stored in full and may quote it | Medium | Reworded in the ADR, register and README: the log never holds it; a kept draft may quote it, a name included |
+| The panel promised "the next run routes it" for an unrouted form complaint, which no run will route | Medium | The desk page says a `cfpb-syn-` complaint has no run to route it and a person should pick it up (`test_the_desk_page_doesn_t_promise_a_rerun_for_a_form_complaint`) |
+| No test of the pipeline-exception paths (the 500 page, a crash after the complaint was received, the "not routed" result page) | Medium | `test_a_crash_before_the_desk_received_it_adds_nothing`, `test_a_crash_after_it_was_received_is_routed_to_a_person`, `test_an_unrouted_submission_shows_received_not_routed` |
+| A non-ASCII token made `hmac.compare_digest` raise: a bare 500 without the security headers | Low | Compared as bytes; 403 (`test_a_non_ascii_token_is_refused_not_a_server_error`). The leave form has the same pattern; listed as a follow-up, not changed here |
+| "Control characters" covered only C0 and DEL; C1 controls, bidi overrides and zero-width marks were accepted | Low | Control and format characters refused in every field (`test_control_and_invisible_characters_are_refused`) |
+| The cost wording called 0.02 USD a cap; the desk checks it before each call, so the last call can pass it | Low | Reworded on the page, the start-up line, the ADR, the register and the README |
+| HM-33 sat below the register's "not addressed" comment | Low | Moved above it |
+
+Not changed: a live submission that fails before any model call still uses its slot in the
+spend cap (errs on the safe side; the gaps say so).
