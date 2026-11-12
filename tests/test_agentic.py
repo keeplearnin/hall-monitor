@@ -439,3 +439,39 @@ def test_specialist_calls_match_the_fixed_path_on_a_clean_claim():
         c.agent_id for c in fixed.agent_calls
     ]
     assert fixed.mode == "fixed" and fixed.supervisor_steps == []
+
+
+# --- The panel's case trace shows the path the supervisor took ----------------------------------
+
+
+def test_the_case_trace_shows_each_supervisor_step_and_the_new_reasons():
+    from hall_monitor.panel.views import WITHHELD, shown_payload, shown_reason, shown_stop
+
+    result, _ = _run(supervisor=_except(A.RUN_CRITIC, instead=A.HAND_OFF))
+    for step in result.supervisor_steps:
+        shown = shown_payload("supervisor_step", step.model_dump(mode="json"))
+        assert shown["action"] == step.action.value
+        assert shown["outcome"] == step.outcome.value
+        assert "other_fields" not in shown
+    for reason in result.routing.reasons:
+        assert shown_reason(reason) not in (None, WITHHELD), reason
+    for stop in (
+        "budget exhausted: 16 supervisor steps",
+        "budget exhausted: cost reached 0.25 USD",
+        "budget exhausted: 300 seconds",
+        "supervisor loop: 3 steps refused",
+    ):
+        assert shown_stop(stop) == stop
+        assert shown_reason(f"pipeline stopped: {stop}") == f"pipeline stopped: {stop}"
+
+
+# --- The offline comparison eval ----------------------------------------------------------------
+
+
+def test_no_supervisor_policy_gets_a_claim_through_that_the_fixed_path_sent_to_a_person():
+    from hall_monitor.evals.agentic_compare import run
+
+    result = run(REGISTRY, limit=10)
+    assert result["summary"]["unsafe_auto"] == 0
+    assert result["summary"]["old_order_agreement"] == 1.0
+    assert result["policies"]["finish_at_once"]["routes"] == {"adjuster": 10}

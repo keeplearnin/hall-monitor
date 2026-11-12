@@ -52,6 +52,7 @@ def run_one(
             client=context["client"],
             critic=context["critic"],
             model_routing=context["model_routing"],
+            agentic=context.get("agentic", True),
         )
     except Exception as exc:  # a failed run is scored, not hidden
         return scoring.failed_run(claim.claim_id, trial, f"{type(exc).__name__}: {exc}"), None
@@ -246,6 +247,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--model-routing", action="store_true", help="Use approved economy models for small claims."
     )
+    parser.add_argument(
+        "--fixed", action="store_true", help="Run the old fixed order, not the supervisor."
+    )
     args = parser.parse_args(argv)
 
     load_dotenv()
@@ -259,6 +263,7 @@ def main(argv: list[str] | None = None) -> int:
         "truths": {c.claim_id: load_ground_truth(c.claim_id) for c in claims},
         "critic": not args.no_critic,
         "model_routing": args.model_routing,
+        "agentic": not args.fixed,
         "lock": threading.Lock(),
         "raw_path": args.out / "raw_results.jsonl",
     }
@@ -288,6 +293,7 @@ def main(argv: list[str] | None = None) -> int:
         "trials": args.trials,
         "critic": not args.no_critic,
         "model_routing": args.model_routing,
+        "path": "fixed" if args.fixed else "agentic",
         "adjuster_payout_threshold_usd": ADJUSTER_PAYOUT_THRESHOLD_USD,
         # One row per agent: revised runs call some agents more than once.
         "agents": list(

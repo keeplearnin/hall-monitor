@@ -33,7 +33,7 @@ from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog, ChainHead
 from hall_monitor.governance.controls import REGISTER, load_register
 from hall_monitor.hr.routing import REASONS as LEAVE_REASONS
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
-from hall_monitor.models import AgentCall
+from hall_monitor.models import AgentCall, SupervisorStep
 from hall_monitor.registry import (
     APPROVALS_FILENAME,
     DEFAULT_REGISTRY_DIR,
@@ -238,6 +238,9 @@ _STOPS = (
     _STOP_LIST,
     r"no policy record found (?:for the policy number on the claim|after the critic's correction)",
     _UNEXPECTED,
+    # The agentic path's own stops (agentic.py, ADR 0028).
+    rf"budget exhausted: (?:\d+ supervisor steps|cost reached {_N} USD|{_N} seconds)",
+    r"supervisor loop: \d+ steps refused",
 )
 _COST_UNKNOWN = r"(?:; cost unknown: no price for model '[\w.-]+' in PRICES_PER_MTOK)?"
 _STOP = rf"(?:{'|'.join(_STOPS)}){_COST_UNKNOWN}"
@@ -260,6 +263,8 @@ _REASONS = (
     r"critic changed [a-z_.]+(?:, [a-z_.]+)*",
     rf"claim text addresses the AI: {_CODES}",
     rf"pipeline stopped: {_STOP}",
+    r"supervisor handed the claim to a person \([a-z_]+\)",
+    r"required steps missing or out of date: [a-z_ ]+(?:, [a-z_ ]+)*",
 )
 _REJECTIONS = (
     r"the decision names an adjuster who isn't registered",
@@ -345,6 +350,8 @@ _SHOWN_FIELDS = {
         "models",
     },
     "evidence_pack": {"evidence_sha256", "result_sha256"},
+    # Codes, counts and amounts only (ADR 0028): the path the supervisor took.
+    "supervisor_step": set(SupervisorStep.model_fields),
     "decision_rejected": {"submitted_hmac"},
     "final_decision": (set(FinalDecision.model_fields) - {"adjuster_name", "reason"})
     | {"reason_hmac"},

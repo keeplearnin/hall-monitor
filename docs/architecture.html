@@ -103,7 +103,7 @@
   <header>
     <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · after milestone 11 · November 2026</span></div>
     <h1>Governance sits in the call path, the tool gateway, the router and the record, not inside the model</h1>
-    <p class="lede">Five agents triage a claim. Every model call goes through one function that checks the agent's approved hall pass, calls the model the pass names, runs any tool calls through a gateway that enforces the pass's allow-list, validates typed output and records what ran. A critic checks the work and sends errors back. Routing to a human is a plain code rule that checks facts, not the agents' labels; claims routed to a person wait at an approval gate, and every step goes into a hash-chained audit log. Python 3.12, Claude Haiku 5.5 and Sonnet 5.5, Pydantic, fastmcp, LangGraph, SQLite, Langfuse.</p>
+    <p class="lede">Five agents triage a claim, and a supervisor agent chooses which runs next from codes and amounts only, never the claim text; code refuses steps whose inputs aren't ready, holds a budget per claim and decides the route (ADR 0028). Every model call goes through one function that checks the agent's approved hall pass, calls the model the pass names, runs any tool calls through a gateway that enforces the pass's allow-list, validates typed output and records what ran. A critic checks the work and sends errors back. Routing to a human is a plain code rule that checks facts, not the agents' labels; claims routed to a person wait at an approval gate, and every step goes into a hash-chained audit log. Python 3.12, Claude Haiku 5.5 and Sonnet 5.5, Pydantic, fastmcp, LangGraph, SQLite, Langfuse.</p>
   </header>
 
   <figure>
@@ -283,6 +283,7 @@
               <tr><td>Tool allow-list and claim scope, every call audited</td><td class="where">tools/gateway.py</td><td><span class="chip built">built</span></td><td>HM-03</td></tr>
               <tr><td>Routing to a person on facts, failures, critic changes and injection signs</td><td class="where">routing.py</td><td><span class="chip built">built</span></td><td>HM-04, 08</td></tr>
               <tr><td>Critic review with revision history</td><td class="where">critic.py, pipeline.py</td><td><span class="chip built">built</span></td><td>HM-07</td></tr>
+              <tr><td>Supervisor picks the steps; code checks each, holds the budget and routes</td><td class="where">agentic.py, agents/supervisor.py</td><td><span class="chip part">partial</span></td><td>HM-32</td></tr>
               <tr><td>Approval gate with saved checkpoints and authority limits</td><td class="where">workflow.py, approval.py</td><td><span class="chip built">built</span></td><td>HM-05</td></tr>
               <tr><td>Prompt-injection defences: escaped, fenced claim text and a code detector</td><td class="where">agents/base.py, gateway/injection.py</td><td><span class="chip built">built</span></td><td>HM-09</td></tr>
               <tr><td>Hash-chained audit log</td><td class="where">governance/audit.py</td><td><span class="chip built">built</span></td><td>HM-06</td></tr>

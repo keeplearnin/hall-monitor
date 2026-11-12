@@ -1,0 +1,228 @@
+{
+  "meta": {
+    "run_at": "2026-11-12 01:51 UTC",
+    "git_commit": "539c7d73fe706c16a8846e6a3567cbdbd7817f75",
+    "git_dirty": true,
+    "mode": "scripted-answer-key",
+    "claims": 36,
+    "agents": [
+      {
+        "agent_id": "claims_supervisor",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "2bb9ad3f4395095c7237b7d3292a5e9a73e2f6f8c719f6daaa9e122c6b23b58f",
+        "prompt_version": "claims-supervisor-v1",
+        "prompt_template_sha256": "807ec7586f140561e69384608f24b12d7cf0c09c4c1afcb13fcbf69cbbdef6ac"
+      },
+      {
+        "agent_id": "coverage_check",
+        "agent_version": "0.7.0",
+        "model": "claude-sonnet-5-5",
+        "manifest_digest": "ffda7c111cd8691cb4771afcee56ab6296db7358fe97cd9973f8d744f4210a49",
+        "prompt_version": "coverage-check-v4",
+        "prompt_template_sha256": "052f87be4e5db172969e809aa98209fccf4d98b8ae892504eecc8952d12cd971"
+      },
+      {
+        "agent_id": "critic",
+        "agent_version": "0.4.0",
+        "model": "claude-sonnet-5-5",
+        "manifest_digest": "6859a11a3a939289afceebfa49f7a199c0ccfcb6a7d9bfda345c11fbb4757ca9",
+        "prompt_version": "critic-v3",
+        "prompt_template_sha256": "b830a44dd9680bd9af2142a1cd324414e2efff8fa6a9451865ef0db88d7da486"
+      },
+      {
+        "agent_id": "intake",
+        "agent_version": "0.4.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "b992b23705e78c72875348b075d6a244d11d07838a7cb62d9ef864636d334708",
+        "prompt_version": "intake-v3",
+        "prompt_template_sha256": "a1f3e7edeeebb404eb8bd0ddaf61052278701c1622cfd286e1c5bd59bc2332a0"
+      },
+      {
+        "agent_id": "recommendation",
+        "agent_version": "0.5.0",
+        "model": "claude-sonnet-5-5",
+        "manifest_digest": "fba8c83994227c720dc8ff829cbfae4bb80d2c0fca55cd3d260e39bcb70d8911",
+        "prompt_version": "recommendation-v3",
+        "prompt_template_sha256": "b854d7a2b948e1b08083514787424f2d341b748e998acaf858a5a54a9caf0b84"
+      },
+      {
+        "agent_id": "risk_fraud",
+        "agent_version": "0.4.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "8fc27b3e849c8eb313d27cc266cec23b66dc7f14702c46e9931de75731d49ecc",
+        "prompt_version": "risk-fraud-v2",
+        "prompt_template_sha256": "b69322452de055c6ee520caad71512bcb12194d3baede986f84a9ae1fdec467f"
+      }
+    ]
+  },
+  "fixed": {
+    "routes": {
+      "auto": 16,
+      "adjuster": 20
+    },
+    "mean_specialist_calls": 5.0,
+    "mean_cost_usd": 0.0124
+  },
+  "policies": {
+    "old_order": {
+      "claims": 36,
+      "routes": {
+        "adjuster": 20,
+        "auto": 16
+      },
+      "agreement": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {},
+      "mean_specialist_calls": 5.0,
+      "mean_supervisor_calls": 6.0,
+      "mean_cost_usd": 0.0136
+    },
+    "finish_at_once": {
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 0.5556,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {},
+      "mean_specialist_calls": 0.0,
+      "mean_supervisor_calls": 1.0,
+      "mean_cost_usd": 0.0002
+    },
+    "skip_coverage": {
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 0.5556,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {},
+      "mean_specialist_calls": 1.0,
+      "mean_supervisor_calls": 2.0,
+      "mean_cost_usd": 0.0006
+    },
+    "skip_risk": {
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 0.5556,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {},
+      "mean_specialist_calls": 2.0,
+      "mean_supervisor_calls": 3.0,
+      "mean_cost_usd": 0.0048
+    },
+    "skip_critic": {
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 0.5556,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {},
+      "mean_specialist_calls": 3.0,
+      "mean_supervisor_calls": 4.0,
+      "mean_cost_usd": 0.0052
+    },
+    "skip_recommendation": {
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 0.5556,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {},
+      "mean_specialist_calls": 4.0,
+      "mean_supervisor_calls": 5.0,
+      "mean_cost_usd": 0.0094
+    },
+    "repeat_intake": {
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 0.5556,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {
+        "supervisor loop": 36
+      },
+      "mean_specialist_calls": 1.0,
+      "mean_supervisor_calls": 4.0,
+      "mean_cost_usd": 0.001
+    },
+    "hand_off": {
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 0.5556,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {},
+      "mean_specialist_calls": 0.0,
+      "mean_supervisor_calls": 1.0,
+      "mean_cost_usd": 0.0002
+    },
+    "noisy_1": {
+      "claims": 36,
+      "routes": {
+        "adjuster": 27,
+        "auto": 9
+      },
+      "agreement": 0.8056,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {
+        "supervisor loop": 5
+      },
+      "mean_specialist_calls": 3.78,
+      "mean_supervisor_calls": 5.75,
+      "mean_cost_usd": 0.009611
+    },
+    "noisy_2": {
+      "claims": 36,
+      "routes": {
+        "adjuster": 28,
+        "auto": 8
+      },
+      "agreement": 0.7778,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {
+        "supervisor loop": 7
+      },
+      "mean_specialist_calls": 3.44,
+      "mean_supervisor_calls": 5.14,
+      "mean_cost_usd": 0.009
+    },
+    "noisy_3": {
+      "claims": 36,
+      "routes": {
+        "adjuster": 30,
+        "auto": 6
+      },
+      "agreement": 0.7222,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {
+        "supervisor loop": 4
+      },
+      "mean_specialist_calls": 3.47,
+      "mean_supervisor_calls": 5.47,
+      "mean_cost_usd": 0.009178
+    }
+  },
+  "summary": {
+    "unsafe_auto": 0,
+    "old_order_agreement": 1.0
+  }
+}
