@@ -22,7 +22,7 @@ import anthropic
 from pydantic import BaseModel, ConfigDict
 
 from hall_monitor import tracing
-from hall_monitor.agents.base import AgentRun, render_json, run_agent
+from hall_monitor.agents.base import AgentRun, default_client, render_json, run_agent
 from hall_monitor.models import (
     ClaimType,
     CoverageDecision,
@@ -167,7 +167,7 @@ def run_supervisor(
     return run_agent(
         AGENT_ID,
         registry=registry,
-        client=client or anthropic.Anthropic(),
+        client=client or default_client(),
         system=SYSTEM_PROMPT,
         content=render_view(view),
         output_format=SupervisorDecision,

@@ -39,9 +39,13 @@ not used here. If a supervisor is ever given tools, its specialist calls should 
   (0.25 USD) and wall-clock time (300 s), checked before every model call the loop makes, the
   supervisor's and each specialist's, each agent of a revision included. Running out stops the
   claim for a person, and the overshoot is at most one agent's run with its tool loop.
-- **The kill switch at every step.** The supervisor's hall pass is checked when it is asked
-  and again before the step it chose runs; each specialist checks its own on every model and
-  tool call, and the routing step checks every agent the result rests on.
+- **The kill switch at every step.** The supervisor's hall pass is checked when it is asked;
+  before every supervisor turn and before the step it chose runs, code re-checks every agent
+  the case has used, so a stop on any of them ends the case at the next step; each specialist
+  checks its own on every model and tool call. The kill-switch drill
+  (`evals/stop_timing.py`, [results](../../evals/results/kill-switch-drill/report.md)) found
+  that the first version re-checked used agents only at routing, so a stopped specialist's case
+  ran on; fixed in all three workflows.
 - **Final routing stays in code.** Finishing is a request. Code checks the required evidence
   (intake with a policy found, coverage, risk, the critic when it's on, and the
   recommendation, each computed on the latest inputs) and then runs the same `route_claim`, with

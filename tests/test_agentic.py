@@ -546,3 +546,52 @@ def test_the_published_eval_records_every_agent_it_ran():
 
     agents = {a["agent_id"] for a in run(REGISTRY, limit=2, desk_limit=2)["meta"]["agents"]}
     assert {"claims_supervisor", "complaint_supervisor", "complaint_triage"} <= agents
+
+
+def test_a_stop_on_a_specialist_that_already_answered_halts_the_claim_at_the_next_step(
+    registry_dir,
+):
+    """Found by the kill-switch drill: the claim ran on until routing re-checked the agents."""
+    registry = Registry.from_dir(registry_dir)
+
+    def answer(request):
+        decision = scripted_answer(request)
+        if decision.action is A.RUN_RISK_FRAUD:  # coverage has answered
+            _stop(registry_dir, "coverage_check")
+        return decision
+
+    result, client = _run(supervisor=answer, registry=registry)
+    assert "coverage_check" in result.stopped_reason
+    # The risk step it chose was refused before it ran, and nothing after.
+    assert client.messages.formats() == ["IntakeExtraction", "CoverageFinding"]
+
+
+def test_a_chosen_step_refused_by_a_stop_is_recorded(registry_dir):
+    """CIO/CAIO review finding 5: a step refused by the re-check left no supervisor_step."""
+    registry = Registry.from_dir(registry_dir)
+
+    def answer(request):
+        decision = scripted_answer(request)
+        if decision.action is A.RUN_RISK_FRAUD:
+            _stop(registry_dir, "coverage_check")
+        return decision
+
+    result, _ = _run(supervisor=answer, registry=registry)
+    last = result.supervisor_steps[-1]
+    assert last.action is A.RUN_RISK_FRAUD and last.outcome is StepOutcome.FAILED
+
+
+def test_a_stop_during_a_specialist_call_means_no_further_supervisor_turn(registry_dir):
+    """Finding 6: the loop-top re-check had no test of its own."""
+    registry = Registry.from_dir(registry_dir)
+    outputs = outputs_from_truth(load_ground_truth("claim_001"))
+    coverage = outputs[CoverageFinding]
+
+    def stop_during_coverage(request):
+        _stop(registry_dir, "coverage_check")
+        return coverage
+
+    outputs[CoverageFinding] = stop_during_coverage
+    result, client = _run(outputs=outputs, registry=registry)
+    assert "coverage_check" in result.stopped_reason
+    assert len(client.messages.supervisor_calls) == 2  # intake's turn, coverage's turn; no more

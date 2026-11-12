@@ -23,10 +23,10 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import anthropic
 from dotenv import load_dotenv
 
 from hall_monitor import tracing
+from hall_monitor.agents.base import default_client
 from hall_monitor.data import (
     DATA_DIR,
     iter_claims,
@@ -207,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv()
     registry = Registry.from_dir()
     claim_ids = args.claims or [c.claim_id for c in iter_claims()]
-    rows = run(claim_ids, args.trials, args.workers, registry, anthropic.Anthropic())
+    rows = run(claim_ids, args.trials, args.workers, registry, default_client())
     tracing.flush()
     meta = run_meta(registry, names=NAMES)
     summary = summarize(rows)

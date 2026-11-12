@@ -30,7 +30,7 @@ import anthropic
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from hall_monitor import tracing
-from hall_monitor.agents.base import AgentRefusedError
+from hall_monitor.agents.base import AgentRefusedError, default_client
 from hall_monitor.gateway.cost import UnpricedModelError, call_cost
 from hall_monitor.gateway.injection import detect_in_texts
 from hall_monitor.gateway.redaction import redact_text
@@ -311,7 +311,7 @@ def prepare(
             employees=employees,
             company=company,
             registry=registry,
-            client=client or anthropic.Anthropic(),
+            client=client or default_client(),
             signals=signals,
             flags=flags,
             calls=calls,
@@ -532,6 +532,20 @@ def _leave_view(ctx: _Leave) -> LeaveView:
     )
 
 
+def _check_agents(ctx: _Leave) -> None:
+    """A stop on any agent the request has used ends it at the next step (found by the
+    kill-switch drill); the note's agent is advisory and is checked at finish."""
+    for agent_id in dict.fromkeys(c.agent_id for c in ctx.calls):
+        if agent_id == "leave_explainer":
+            continue
+        try:
+            ctx.registry.require(agent_id)
+        except RegistryError as exc:
+            if agent_id != SUPERVISOR:  # the intake agent's stop is its own failure
+                exc.leave_stage = "intake"  # type: ignore[attr-defined]
+            raise
+
+
 def _spend(ctx: _Leave) -> None:
     cost, unknown = _cost(ctx.calls)
     if unknown is not None:  # an unpriced model would read as free
@@ -667,6 +681,9 @@ def _supervise(ctx: _Leave) -> LeavePreparation:
             if len(ctx.steps) >= ctx.limits.max_steps:
                 raise _LeaveStopped(f"budget exhausted: {ctx.limits.max_steps} supervisor steps")
             _spend(ctx)
+            # A stop on any agent the request has used ends it here, at the next step (found by
+            # the kill-switch drill); the note's agent is advisory and is checked at finish.
+            _check_agents(ctx)
             run = run_leave_supervisor(ctx.message.id, _leave_view(ctx), ctx.registry, ctx.client)
             ctx.keep(run.call)
             decision = run.output
@@ -686,6 +703,7 @@ def _supervise(ctx: _Leave) -> LeavePreparation:
                 continue
             try:
                 ctx.registry.require(SUPERVISOR)  # a stop since it chose ends the step here
+                _check_agents(ctx)
                 if decision.action in (LeaveAction.RUN_INTAKE, LeaveAction.RECHECK_INTAKE):
                     _spend(ctx)
                     stage = "intake"
@@ -716,6 +734,7 @@ def _supervise(ctx: _Leave) -> LeavePreparation:
         return _done(ctx, _failed(ctx, f"agent refused or returned no usable output: {exc}", stage))
     except RegistryError as exc:
         ctx.keep(getattr(exc, "partial_call", None))
+        stage = getattr(exc, "leave_stage", stage)
         return _done(ctx, _failed(ctx, f"hall pass refused: {exc}", stage))
     except (anthropic.APIError, ValidationError) as exc:
         ctx.keep(getattr(exc, "partial_call", None))

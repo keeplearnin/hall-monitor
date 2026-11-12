@@ -455,3 +455,54 @@ def test_the_evidence_pack_shows_the_path_and_both_intakes(tmp_path):
     audit.close()
     assert pack["mode"] == "agentic" and pack["supervisor_path"][0] == "run_intake"
     assert pack["recheck_intake"]["intermittent"] != pack["request"]["intermittent"]
+
+
+def test_a_stop_on_the_intake_agent_after_it_answered_halts_at_the_next_step(registry_dir):
+    """Found by the kill-switch drill."""
+    registry = Registry.from_dir(registry_dir)
+
+    def answer(request):
+        decision = scripted_leave_answer(request)
+        if decision.action is A.ASSESS:
+            _stop(registry_dir, "leave_intake")
+        return decision
+
+    result, client = _run(supervisor=answer, registry=registry)
+    assert len(client.messages.supervisor_calls) == 2  # no third turn after the stop
+    assert result.route.route == "hr_review"
+
+
+def test_a_stop_during_the_intake_call_means_no_further_supervisor_turn(registry_dir):
+    """CIO/CAIO review findings 6 and 13: no test of the loop-top re-check, and the stop was
+    blamed on the supervisor."""
+    registry = Registry.from_dir(registry_dir)
+
+    def intake(request):
+        _stop(registry_dir, "leave_intake")
+        return _intake_for(request)
+
+    result, client = _run(intake=intake, registry=registry)
+    assert len(client.messages.supervisor_calls) == 1
+    assert "pipeline_stopped" in result.route.reasons
+    assert "supervisor_failed" not in result.route.reasons
+
+
+def test_a_stop_on_intake_during_the_supervisor_s_turn_keeps_the_rules_from_running(
+    registry_dir, tmp_path
+):
+    """Review 26 re-check: the post-choice check had no test; without it the rules ran on a
+    stopped agent's answer."""
+    registry = Registry.from_dir(registry_dir)
+
+    def answer(request):
+        decision = scripted_leave_answer(request)
+        if decision.action is A.ASSESS:
+            _stop(registry_dir, "leave_intake")
+        return decision
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    result, _ = _run(supervisor=answer, registry=registry, audit=audit)
+    events = [e["event"] for e in audit.entries(CLEAN)]
+    audit.close()
+    assert "assessment_skipped" in result.route.reasons
+    assert "leave_assessed" not in events

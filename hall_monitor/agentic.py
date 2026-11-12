@@ -582,6 +582,9 @@ def supervise(
     state = _State()
     while True:
         _check_budget(ctx)
+        # A stop on any agent the claim has used ends it here, at the next step, not only at
+        # routing (found by the kill-switch drill).
+        _recheck(ctx)
         decision = run.output(run_supervisor(claim.claim_id, view_of(ctx, state), registry, client))
         if decision.action in (SupervisorAction.FINISH, SupervisorAction.HAND_OFF):
             try:
@@ -601,9 +604,11 @@ def supervise(
             if state.refusals >= MAX_REFUSALS:
                 raise PipelineStopped(f"supervisor loop: {MAX_REFUSALS} steps refused")
             continue
-        # The step was the supervisor's choice: a stop made since it chose ends it here.
-        registry.require(SUPERVISOR)
+        # The step was the supervisor's choice: a stop made since it chose, on it or on any
+        # agent the claim rests on, ends it here.
         try:
+            registry.require(SUPERVISOR)
+            _recheck(ctx)
             _execute(ctx, state, decision)
         except Exception:
             # Recorded even when the step failed part-way, so the path shows where it stopped.

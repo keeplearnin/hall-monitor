@@ -672,3 +672,52 @@ def test_a_stop_reaches_a_symlinked_stop_list(registry_dir, tmp_path):
 def test_a_malformed_stop_list_fails_the_check_with_a_message(head):
     with pytest.raises(AppendOnlyError, match="isn't a stop list"):
         check_append_only({"stops": [_entry()]}, head)
+
+
+def test_the_kill_switch_drill_finds_no_call_or_automatic_route_after_a_stop():
+    """The drill (hall_monitor/evals/stop_timing.py), small: a stop written mid-case, from
+    another thread, halts every workflow with no call by the stopped agent after it."""
+    from hall_monitor.evals.stop_timing import run
+
+    result = run(trials=3, latency=0.02)
+    assert result["summary"]["calls_started_after_stop"] == 0
+    assert result["summary"]["auto_after_stop"] == 0
+    assert result["summary"]["stopped_cases"] > 0
+
+
+def test_the_drill_fails_when_the_kill_switch_is_broken(monkeypatch):
+    """CIO/CAIO review finding 1: with stops ignored, every case finished normally and was
+    dropped as "missed", so the gated keys stayed 0. A broken switch must fail the drill."""
+    from hall_monitor.evals import stop_timing
+    from hall_monitor.registry import Registry
+
+    monkeypatch.setattr(Registry, "_check_stops", lambda self, agent_id: None)
+    result = stop_timing.run(trials=3, latency=0.02)
+    assert result["summary"]["calls_started_after_stop"] > 0
+    assert stop_timing.main_status(result) == 1
+
+
+def test_the_drill_stops_specialists_that_have_already_answered():
+    """Finding 2: the claims specialist row never had its agent answer before the stop."""
+    from hall_monitor.evals import stop_timing
+
+    result = stop_timing.run(trials=6, latency=0.02)
+    specialists = [r for r in result["rows"] if not r["stopped_agent"].endswith("supervisor")]
+    assert all(r["answered_before_stop"] > 0 for r in specialists)
+    agents = {a["agent_id"] for a in result["meta"]["agents"]}
+    assert {"intake", "claims_supervisor", "complaint_triage", "leave_intake"} <= agents
+
+
+def test_the_drill_fails_without_the_per_step_re_check(monkeypatch):
+    """Review 26 re-check: with the per-step re-checks removed, every gated key still passed.
+    A stop on an agent the case already used must end it before any further call."""
+    import hall_monitor.agentic as agentic
+    from hall_monitor.evals import stop_timing
+
+    monkeypatch.setattr(agentic, "_recheck", lambda ctx: None)
+    result = stop_timing.run(trials=8, latency=0.02)
+    claims_intake = next(
+        r for r in result["rows"] if r["workflow"] == "claims" and r["stopped_agent"] == "intake"
+    )
+    assert claims_intake["calls_after_stop_on_used_agent"] > 0
+    assert stop_timing.main_status(result) == 1

@@ -18,11 +18,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-import anthropic
 from dotenv import load_dotenv
 
 from hall_monitor import tracing
-from hall_monitor.agents.base import ToolAccess
+from hall_monitor.agents.base import ToolAccess, default_client
 from hall_monitor.agents.critic import run_critic
 from hall_monitor.data import (
     iter_claims,
@@ -240,7 +239,7 @@ def main(argv: list[str] | None = None) -> int:
         "registry": registry,
         "gateway": ToolGateway(registry),
         "wording": load_policy_wording(),
-        "client": anthropic.Anthropic(),
+        "client": default_client(),
     }
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         results = list(pool.map(lambda c: run_case(c, claims[c.claim_id], context), cases))
