@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import yaml
 
 from hall_monitor.agents.supervisor import scripted_answer
+from hall_monitor.complaints.supervisor import DeskDecision, scripted_desk_answer
 from hall_monitor.governance.approval import AdjusterDecision
 from hall_monitor.governance.signing import demo_private_key
 from hall_monitor.kill_switch import STOPS_FILENAME
@@ -35,7 +36,7 @@ def outputs_from_truth(truth: GroundTruth) -> dict[type, object]:
     }
 
 
-_DEFAULTS = {SupervisorDecision: scripted_answer}
+_DEFAULTS = {SupervisorDecision: scripted_answer, DeskDecision: scripted_desk_answer}
 
 
 class FakeMessages:
@@ -50,7 +51,7 @@ class FakeMessages:
         self.supervisor_calls: list[dict] = []  # the claims supervisor's, kept apart
 
     def parse(self, **kwargs):
-        if kwargs["output_format"] is SupervisorDecision:
+        if kwargs["output_format"] in (SupervisorDecision, DeskDecision):
             self.supervisor_calls.append(kwargs)
         else:
             self.calls.append(kwargs)
@@ -74,8 +75,8 @@ class FakeMessages:
 
 
 def specialists(calls: list) -> list:
-    """Agent calls without the claims supervisor's turns."""
-    return [c for c in calls if c.agent_id != "claims_supervisor"]
+    """Agent calls without the supervisors' turns."""
+    return [c for c in calls if c.agent_id not in ("claims_supervisor", "complaint_supervisor")]
 
 
 def fake_client(outputs: dict[type, object] | None = None, stop_reason: str | dict = "end_turn"):

@@ -1,0 +1,10 @@
+id: complaint_supervisor
+name: Complaint desk supervisor
+version: 0.1.0
+owner: own-501
+purpose: Choose the complaint desk's next step (run the triage agent, ask for one independent re-check, finish, or hand off to specialist review). Sees codes only, has no tools, never sends anything and never chooses a queue; code routes every complaint to a person.
+risk_tier: low
+status: active
+model: claude-haiku-5-5
+allowed_tools: []
+data_classes: []

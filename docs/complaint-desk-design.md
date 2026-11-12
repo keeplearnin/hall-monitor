@@ -151,6 +151,9 @@ complaint -> redact, scan for text aimed at the AI           (code)
 | `agent_disagrees_with_code` | the agent's urgency is lower than the code's floor |
 | `agent_raised_concern` | the agent raised a concern the code's rule didn't find |
 | `triage_interrupted` | triage started but was interrupted (a crash, or a killed run, caught by the next run) before it was routed |
+| `triage_disagreed` | the desk supervisor asked for a second, independent triage and the two disagreed on category, urgency or concerns ([ADR 0028](adr/0028-agent-picks-the-steps-code-holds-the-boundaries.md)) |
+| `supervisor_handed_off` | the desk supervisor handed the complaint to specialist review |
+| `triage_skipped` | the desk supervisor finished before any triage ran |
 
 The label patterns are checked against every label in the pinned snapshot by a hand-written
 table in the tests, not by the patterns themselves (review 16 found two common labels missed).

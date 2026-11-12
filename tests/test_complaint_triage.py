@@ -157,8 +157,12 @@ def test_a_complaint_is_triaged_and_logged_with_no_text(tmp_path):
     sent = client.messages.calls[0]["messages"][0]["content"]
     assert "jo@example.com" not in sent and "[EMAIL REDACTED]" in sent
     assert "28750001" not in sent and "752" not in sent and "TX" not in sent
-    events = [e["event"] for e in audit.entries("cfpb-28750001")]
+    entries = audit.entries("cfpb-28750001")
+    events = [e["event"] for e in entries if e["actor"] != "complaint_supervisor"]
     assert events == ["complaint_received", "agent_call", "draft_stored", "complaint_routed"]
+    # The desk supervisor's turns and steps (ADR 0028): triage, then finish.
+    steps = [e["payload"]["action"] for e in entries if e["event"] == "supervisor_step"]
+    assert steps == ["run_triage", "finish"]
     log = json.dumps(audit.entries())
     for text in ("disputes a card purchase", "a person will review", "charged twice", "jo@"):
         assert text not in log
@@ -342,7 +346,12 @@ def test_a_concurrent_second_triage_makes_no_model_call_and_the_batch_continues(
     with pytest.raises(AlreadyTriaged):
         triage_complaint(complaint(), registry=REGISTRY, client=client, audit=audit)
     assert client.messages.calls == []
-    assert [e["event"] for e in audit.entries()].count("agent_call") == 1
+    triage_calls = [
+        e
+        for e in audit.entries()
+        if e["event"] == "agent_call" and e["actor"] == "complaint_triage"
+    ]
+    assert len(triage_calls) == 1
     summary = complaint_run.run(
         [complaint(), complaint(complaint_id="28750002")], audit, _client(), REGISTRY
     )

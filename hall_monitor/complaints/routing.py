@@ -37,9 +37,22 @@ REASONS: dict[str, str] = {
     "agent_disagrees_with_code": "the agent's urgency is below the code's floor",
     "agent_raised_concern": "the agent raised a concern the code's rule didn't find",
     "triage_interrupted": "triage started but was interrupted before it was routed",
+    # The desk supervisor's (ADR 0028): each only adds review.
+    "triage_disagreed": "two independent triages of the complaint disagreed",
+    "supervisor_handed_off": "the desk supervisor handed the complaint to specialist review",
+    "triage_skipped": "the desk supervisor finished before any triage ran",
 }
 # Reasons only the pipeline gives (complaints/pipeline.py), not the rule on the fields.
-PIPELINE_REASONS = frozenset({"text_addresses_ai", "agent_failed", "triage_interrupted"})
+PIPELINE_REASONS = frozenset(
+    {
+        "text_addresses_ai",
+        "agent_failed",
+        "triage_interrupted",
+        "triage_disagreed",
+        "supervisor_handed_off",
+        "triage_skipped",
+    }
+)
 
 # Concerns read from CFPB's labels. Each pattern is matched against the product, sub-product,
 # issue and sub-issue.

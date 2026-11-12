@@ -51,6 +51,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from hall_monitor.complaints.models import Complaint, Tag
 from hall_monitor.complaints.pipeline import ComplaintResult, triage_complaint
+from hall_monitor.complaints.supervisor import DeskDecision, scripted_desk_answer
 from hall_monitor.complaints.triage_agent import (
     Category,
     ComplaintTriage,
@@ -190,9 +191,12 @@ class _HijackedMessages:
         self.answer = answer
 
     def parse(self, **kwargs):
+        # The desk supervisor reads codes only, never the complaint, so the attack's text can't
+        # reach it; it runs the desk's old order, scripted (ADR 0028).
+        hijacked = kwargs["output_format"] is not DeskDecision
         return SimpleNamespace(
             stop_reason="end_turn",
-            parsed_output=self.answer,
+            parsed_output=self.answer if hijacked else scripted_desk_answer(kwargs),
             usage=SimpleNamespace(input_tokens=0, output_tokens=0),
         )
 
