@@ -259,6 +259,7 @@ def prepare(
     intake = request = assessment = explanation = route = None
     explanation_problem = None
     flags = ["text_addresses_ai"] if signals else []
+    agentic_fields: dict = {}  # the agentic path's mode and path, set before it finishes
 
     def finish(final: LeaveRoute, reason: str | None, pack: bool = True) -> LeavePreparation:
         nonlocal explanation_problem
@@ -283,6 +284,7 @@ def prepare(
             injection_signals=signals,
             stopped_reason=reason,
             cost_usd=cost,
+            **agentic_fields,
         )
         record.prepared(prepared)
         if audit is not None and pack:  # what the person signs against (hr/signoff.py)
@@ -324,6 +326,9 @@ def prepare(
 
             def call(*args, **kwargs) -> LeavePreparation:
                 nonlocal intake, request, assessment, explanation, explanation_problem
+                agentic_fields.update(
+                    mode="agentic", intake_runs=len(ctx.intakes), supervisor_steps=list(ctx.steps)
+                )
                 intake = ctx.intakes[0] if ctx.intakes else None
                 request, assessment = ctx.request, ctx.assessment
                 explanation, explanation_problem = ctx.explanation, ctx.explanation_problem
@@ -694,4 +699,5 @@ def _failed(ctx: _Leave, reason: str, stage: str) -> LeavePreparation:
     code = "pipeline_stopped" if stage == "intake" else "supervisor_failed"
     if ctx.route is not None:  # the rules ran: keep their reasons, the role only goes up
         return ctx.finish(_with(ctx.route, [code]), reason)
-    return ctx.stop(reason, [code], bool(ctx.intakes))
+    # The rules never ran: the most senior role decides (assessment_skipped).
+    return ctx.stop(reason, [code, "assessment_skipped"], bool(ctx.intakes))

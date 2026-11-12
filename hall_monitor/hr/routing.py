@@ -92,9 +92,11 @@ REASONS: dict[str, tuple[str, Role]] = {
         "the leave supervisor handed the request to HR review",
         Role.LEAVE_SPECIALIST,
     ),
+    # Without the rules nobody knows which role they would name, so the most senior decides
+    # (found by the offline eval, ADR 0028).
     "assessment_skipped": (
-        "the leave supervisor ended before the rules ran",
-        Role.LEAVE_SPECIALIST,
+        "the request was routed before the rules ran, so the most senior role decides",
+        Role.HR_DIRECTOR,
     ),
     "supervisor_failed": (
         "the leave supervisor failed, was stopped, ran out of budget or kept choosing steps "

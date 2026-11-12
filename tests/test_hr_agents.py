@@ -61,6 +61,12 @@ def registry():
 _PREPARE = prepare
 
 
+def _stop_reasons(route):
+    """The route's reasons less assessment_skipped, which the agentic path adds when the rules
+    never ran (the most senior role then decides, ADR 0028)."""
+    return [r for r in route.reasons if r != "assessment_skipped"]
+
+
 @pytest.fixture(autouse=True, params=["agentic", "fixed"])
 def mode(request, monkeypatch):
     """Every test here runs on both paths: the leave supervisor following the old order (the
@@ -196,7 +202,7 @@ def test_an_intake_refusal_stops_the_request(registry):
         messages=FakeMessages({LeaveIntake: _intake_for}, {LeaveIntake: "refusal"})
     )
     prepared = _prepare(MESSAGES["lr_001"], registry, client)
-    assert prepared.route.reasons == ["pipeline_stopped"] and prepared.assessment is None
+    assert _stop_reasons(prepared.route) == ["pipeline_stopped"] and prepared.assessment is None
     assert "declined" in prepared.stopped_reason and len(specialists(prepared.agent_calls)) == 1
 
 
@@ -206,7 +212,7 @@ def test_a_stopped_intake_agent_stops_the_request(tmp_path):
     shutil.copytree(TEST_REGISTRY_DIR, tmp_path / "registry")
     add_stop(tmp_path / "registry" / STOPS_FILENAME, agent="leave_intake", by="own-401", reason="x")
     prepared = _prepare(MESSAGES["lr_001"], Registry.from_dir(tmp_path / "registry"))
-    assert prepared.route.reasons == ["pipeline_stopped"]
+    assert _stop_reasons(prepared.route) == ["pipeline_stopped"]
     assert prepared.stopped_reason.startswith("hall pass refused")
     assert specialists(prepared.agent_calls) == []
 
@@ -350,7 +356,7 @@ def test_an_unexpected_error_in_an_agent_goes_to_a_person(registry, tmp_path):
 
     log = AuditLog(tmp_path / "audit.sqlite")
     prepared = _prepare(MESSAGES["lr_001"], registry, _client({LeaveIntake: broken}), audit=log)
-    assert prepared.route.reasons == ["pipeline_stopped"]
+    assert _stop_reasons(prepared.route) == ["pipeline_stopped"]
     assert prepared.stopped_reason == "unexpected KeyError"
     # An intake failure leaves no evidence pack, so the request can be prepared again.
     assert log.entries("lr_001")[-1]["event"] == "leave_prepared"
@@ -429,7 +435,7 @@ def test_an_intake_api_or_validation_error_stops_the_request(error, registry):
         LeaveIntake.model_validate({})
 
     prepared = _prepare(MESSAGES["lr_001"], registry, _client({LeaveIntake: raise_}))
-    assert prepared.route.reasons == ["pipeline_stopped"]
+    assert _stop_reasons(prepared.route) == ["pipeline_stopped"]
     assert prepared.stopped_reason.endswith("from the model call")
     del ValidationError
 

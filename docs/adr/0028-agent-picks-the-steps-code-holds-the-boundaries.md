@@ -1,6 +1,6 @@
 # ADR 0028: The agent picks the steps; code holds the boundaries
 
-- **Status:** Accepted (claims, then the complaint desk; HR leave follows in its own PR)
+- **Status:** Accepted (claims, the complaint desk and HR leave)
 - **Control:** [HM-32](../controls.md#hm-32)
 
 ## Context
@@ -88,6 +88,31 @@ or hand off to specialist review. Code holds the rest:
 - **Logged:** each choice as `supervisor_step` in the complaint's scope, and the path on the
   routed entry, shown in the desk page's complaint table.
 
+## HR leave
+
+The `leave_supervisor` (Haiku, no tools, health data only: it sees the leave-reason code)
+chooses among six actions: run the intake agent, ask for one independent re-check of the
+intake, run the rules (code), run the explanation agent, finish, or hand off to HR review.
+Every request is still for a person to sign, and code still names the route and the role.
+
+- **No shopping for an answer.** The rules always run on the first intake. A re-check is
+  allowed only before the rules run; if the two intakes disagree, `intake_disagreed` sends the
+  request to HR review. A re-check after the rules ran is refused.
+- **It can only add review.** A hand-off adds `supervisor_handed_off` and keeps the code's
+  reasons and role. A request routed before the rules ran (a finish or hand-off before them, a
+  refusal loop, a failure) gets `assessment_skipped`, whose role is HR director: without the
+  rules nobody knows which role they would name. The offline eval found that without this, 9 of
+  28 requests would have gone to a leave specialist where the rules name an HR manager or
+  director. The fixed path still gives a leave specialist a request whose intake failed, as
+  before.
+- **The note stays advisory.** Finishing without it keeps the route and says why; a failed note
+  is recorded, never a stop.
+- **Refusals, budgets (8 steps, 0.02 USD, 120 s, an unpriced cost) and the kill switch** send
+  the request to HR review as `supervisor_failed`; an intake failure is `pipeline_stopped`. No
+  evidence pack is stored unless an intake answered, so the request can be prepared again.
+- **Logged:** each choice as `supervisor_step` in the request's scope, and the mode and path on
+  `leave_prepared`, shown in the panel's case trace.
+
 ## Where determinism was traded away
 
 - **The order is the model's.** With a live supervisor, two runs of the same claim can take
@@ -101,6 +126,8 @@ or hand off to specialist review. Code holds the rest:
 - **On the desk**, a live supervisor may ask for re-checks (more cost, and a disagreement sends
   the complaint to specialist review) or hand off; it can't give a complaint less review than
   the fixed order did, which the offline eval checks on all 500 pinned complaints.
+- **On HR leave**, a live supervisor may re-check the intake or hand off; a disagreement or an
+  early end sends the request to HR review, at the most senior role if the rules never ran.
 - **What stays deterministic** is everything that decides an outcome: preconditions, budgets,
   the required-evidence check, routing and the audit record.
 
@@ -120,7 +147,7 @@ or hand off to specialist review. Code holds the rest:
 
 The claims workflow runs agentic by default (the workflow, the CLI, the drills and the panel's
 demo data), and so does the complaint desk (its CLI, evals, the red-team arena and the demo
-data); the offline fakes, drills, arena and scripted stand-in answer the supervisors with the
+data), and so does HR leave (its CLI, evals, the submission form and the demo data); the
+offline fakes, drills, arena and scripted stand-ins answer the supervisors with the
 old order as a scripted policy. Published live eval results were scored on the fixed path with earlier agent versions;
-no live run of either supervisor has been made, so their choices are unmeasured. HR leave keeps
-its fixed order until its own PR.
+no live run of any supervisor has been made, so their choices are unmeasured.
