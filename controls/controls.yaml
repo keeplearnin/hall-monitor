@@ -1605,6 +1605,89 @@ controls:
       the shipped registry and the test uses the test registry (the same manifests and approvals
       with no stops), so a live stop on the triage agent changes the CLI's result, not the
       test's.
+  - id: HM-31
+    name: Failure drills
+    what: >-
+      python -m hall_monitor.drills runs the synthetic claims (twice by default, as separate
+      cases) through the real claims workflow on threads, several at a time, into its own
+      registry copy, audit log and checkpoints, with the model scripted from the answer key. A
+      seeded plan gives a share of the cases one fault each, taking the kinds in turn: a wrong
+      answer code can check (coverage pays more than was claimed), an answer of the wrong type,
+      no answer, a truncated answer, an API connection error, an API timeout, a crash after the
+      evidence pack is logged but before the checkpoint is saved, and the same claim submitted
+      twice at once. When two thirds of the cases have begun, the risk agent's owner stops it
+      in the drill's registry copy. An optional batch cost cap is held with reservations: a
+      case reserves a ceiling before it starts and settles its logged cost after, and a case
+      that would pass the cap isn't started and is logged as batch_budget_reached; it never
+      enters the workflow, so it has no checkpoint and isn't queued for anyone, and the report
+      counts it apart from the cases with a person. Checks read the audit log and the
+      workflow's status, not the runner's counts: every failed, crashed or stopped case that
+      started ends with a person; no case is left in progress with no one; clean cases that
+      finished before the stop were decided automatically exactly when the answer key routes
+      them so; no case has two evidence packs or two final decisions, and triage runs at most
+      once (twice for a duplicate submission, which pays for both); every injected failure
+      shows in the log as itself (a model fault by its own stop reason, a wrong answer by the
+      over-claim reason in the logged routing), and a model fault the owner's stop reached
+      first is listed as masked, not exercised; no case costs more than its ceiling; the
+      batch's logged cost is under the cap; no reservation is left at the end; and the log
+      verifies. Tracing is switched off while a drill runs. Exit code 1 on any problem. An unforeseen error in
+      one case is recorded by its type and flagged, not fatal to the drill. Cases in flight at
+      the stop are counted, with how many were then decided automatically. Mutation tests also
+      remove the over-claim routing rule on its own. Mutation tests show the
+      checks fail when the routing rule lets every claim through, when a stopped claim is left
+      with no one, and when the cap never refuses.
+    status: built
+    code:
+      - hall_monitor/drills.py::plan
+      - hall_monitor/drills.py::run
+      - hall_monitor/drills.py::check
+      - hall_monitor/drills.py::Budget
+    tests:
+      - tests/test_drills.py::test_the_drill_passes_its_own_checks
+      - tests/test_drills.py::test_every_injected_kind_of_failure_happened
+      - tests/test_drills.py::test_every_faulted_or_stopped_case_ends_with_a_person
+      - tests/test_drills.py::test_cases_untouched_by_any_failure_are_handled_normally
+      - tests/test_drills.py::test_the_stop_reaches_every_case_started_after_it
+      - tests/test_drills.py::test_a_crash_after_the_pack_is_logged_leaves_the_case_for_a_person
+      - tests/test_drills.py::test_a_duplicate_submission_records_one_pack_and_at_most_one_decision
+      - tests/test_drills.py::test_the_batch_stays_under_its_cap_and_unstarted_cases_are_logged
+      - tests/test_drills.py::test_the_cost_in_the_report_is_read_from_the_log
+      - tests/test_drills.py::test_the_drill_never_touches_the_shipped_registry
+      - tests/test_drills.py::test_the_checks_fail_when_a_failure_is_decided_automatically
+      - tests/test_drills.py::test_the_checks_fail_when_a_case_is_left_with_no_one
+      - tests/test_drills.py::test_the_checks_fail_when_the_cap_is_broken
+      - tests/test_drills.py::test_the_report_counts_cases_in_flight_at_the_stop
+      - tests/test_drills.py::test_an_unexpected_error_in_one_case_is_reported_not_fatal
+      - tests/test_drills.py::test_the_checks_fail_when_the_over_claim_rule_is_removed
+      - tests/test_drills.py::test_an_unexpected_error_after_a_finished_submit_is_flagged
+      - tests/test_drills.py::test_a_case_refused_by_the_cap_is_not_queued_for_anyone
+      - tests/test_drills.py::test_a_fault_hidden_by_the_stop_is_reported_as_masked
+      - tests/test_drills.py::test_a_stop_reason_that_doesnt_match_the_fault_is_a_problem
+      - tests/test_drills.py::test_an_error_while_settling_cost_is_flagged_and_the_drill_finishes
+      - tests/test_drills.py::test_the_drill_never_sends_traces_even_with_langfuse_keys_set
+    evidence:
+      - "pending: uv run python -m hall_monitor.drills --cap-usd 0.45 (results vary with thread timing; no report published yet)"
+    nist: [MEASURE 2.5, MEASURE 2.7, MANAGE 2.4]
+    finos:
+      risks: [RI-28]
+      mitigations: [MI-21]
+    gaps: >-
+      The model is scripted from the answer key, so the faults are the ones written into the
+      drill and the run says nothing about the agents' accuracy; a real model fails in other
+      ways too. Claims workflow only: the complaint desk and the HR leave pipeline aren't
+      drilled yet. Threads in one process against SQLite files, not separate processes or
+      machines (the once-only checks have their own multi-process test, HM-05). Cases already
+      running when the stop is written may finish, including automatically (HM-19 gap: a call in
+      flight finishes); the report counts the cases in flight at the stop and how many were then
+      decided automatically, and the checks don't fail on them. The
+      cost cap belongs to the drill runner; the claims CLI has no batch cap. A case refused by
+      the cap isn't retried, so part of the cap can go unspent, and it isn't queued for a person.
+      The cap holds only if no case costs more than its ceiling; that is checked after the case,
+      not enforced while it runs. Tracing is switched off by removing the Langfuse keys from the
+      process environment for the drill's duration, so other threads in the same process
+      wouldn't trace either. Results vary run to run with
+      thread timing; the drill isn't run in CI beyond the tests, and no drill report is
+      published.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
@@ -1683,3 +1766,4 @@ audit_events:
   complaint_quarantined: [HM-26]
   complaint_received: [HM-27, HM-09, HM-10]
   complaint_routed: [HM-27, HM-16]
+  batch_budget_reached: [HM-31]
