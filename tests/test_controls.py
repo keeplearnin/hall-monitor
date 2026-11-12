@@ -179,9 +179,15 @@ def test_the_model_cards_are_current_and_every_agent_has_written_limits():
     """docs/model-cards.md is generated from the registry and results; a new agent needs its
     workflow and limits written in hall_monitor/governance/model_cards.py."""
     from hall_monitor.governance import model_cards
-    from hall_monitor.registry import Registry
+    from hall_monitor.registry import DEFAULT_REGISTRY_DIR
 
-    ids = {m.id for m in Registry.from_dir()}
+    ids = {p.stem for p in DEFAULT_REGISTRY_DIR.glob("*.yaml")} - {
+        "approvals",
+        "adjusters",
+        "owners",
+        "stops",
+        "hr_staff",
+    }
     assert ids == set(model_cards.LIMITS) == set(model_cards.WORKFLOWS)
     assert model_cards.DOC.read_text() == model_cards.current(), (
         "docs/model-cards.md is stale: uv run python -m hall_monitor.governance.model_cards"

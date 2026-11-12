@@ -977,3 +977,15 @@ nothing new at Medium or above. With the old pack rule patched back in, the leav
 outage before intake files the request with an HR director (nothing extracted) rather than
 leaving it to be prepared again. The race test now uses pytest's monkeypatch.
 
+## Finding from the kill-switch drill (agentic-readiness)
+
+The new offline drill (`python -m hall_monitor.evals.stop_timing`) writes a stop from another
+thread while a case runs. It found that stopping a specialist after it had answered let the case
+run on (up to 31 more model calls across 20 cases) until routing re-checked every agent; nothing
+went through without review, but the stop didn't take effect at the next step. Fixed test-first
+in all three workflows: every supervisor turn and every chosen step re-checks every agent the
+case has used (`test_a_stop_on_a_specialist_that_already_answered_halts_the_claim_at_the_next_step`,
+`test_a_stop_on_the_intake_agent_after_it_answered_halts_at_the_next_step`; the desk's test
+already passed, since its only specialist is checked by both later steps). The drill is gated:
+no call by the stopped agent after its stop, nothing through without review.
+
