@@ -470,3 +470,18 @@ def test_a_stop_on_the_intake_agent_after_it_answered_halts_at_the_next_step(reg
     result, client = _run(supervisor=answer, registry=registry)
     assert len(client.messages.supervisor_calls) == 2  # no third turn after the stop
     assert result.route.route == "hr_review"
+
+
+def test_a_stop_during_the_intake_call_means_no_further_supervisor_turn(registry_dir):
+    """CIO/CAIO review findings 6 and 13: no test of the loop-top re-check, and the stop was
+    blamed on the supervisor."""
+    registry = Registry.from_dir(registry_dir)
+
+    def intake(request):
+        _stop(registry_dir, "leave_intake")
+        return _intake_for(request)
+
+    result, client = _run(intake=intake, registry=registry)
+    assert len(client.messages.supervisor_calls) == 1
+    assert "pipeline_stopped" in result.route.reasons
+    assert "supervisor_failed" not in result.route.reasons

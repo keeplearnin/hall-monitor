@@ -534,3 +534,13 @@ def test_eval_claim_variants_have_valid_claim_ids():
     variants += [name_variant(claim, policies, history, g, NAMES[g])[0] for g in NAMES]
     for variant in variants:
         ClaimSubmission.model_validate(variant.model_dump(mode="json"))
+
+
+def test_the_default_model_client_bounds_each_call():
+    """CIO/CAIO review finding 4: the SDK's defaults (600 s, two retries) let one call run for
+    half an hour past the case's time budget."""
+    from hall_monitor.agents.base import MODEL_MAX_RETRIES, MODEL_TIMEOUT_S, default_client
+
+    client = default_client()
+    assert client.timeout == MODEL_TIMEOUT_S == 60.0
+    assert client.max_retries == MODEL_MAX_RETRIES == 1

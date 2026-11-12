@@ -683,3 +683,26 @@ def test_the_kill_switch_drill_finds_no_call_or_automatic_route_after_a_stop():
     assert result["summary"]["calls_started_after_stop"] == 0
     assert result["summary"]["auto_after_stop"] == 0
     assert result["summary"]["stopped_cases"] > 0
+
+
+def test_the_drill_fails_when_the_kill_switch_is_broken(monkeypatch):
+    """CIO/CAIO review finding 1: with stops ignored, every case finished normally and was
+    dropped as "missed", so the gated keys stayed 0. A broken switch must fail the drill."""
+    from hall_monitor.evals import stop_timing
+    from hall_monitor.registry import Registry
+
+    monkeypatch.setattr(Registry, "_check_stops", lambda self, agent_id: None)
+    result = stop_timing.run(trials=3, latency=0.02)
+    assert result["summary"]["calls_started_after_stop"] > 0
+    assert stop_timing.main_status(result) == 1
+
+
+def test_the_drill_stops_specialists_that_have_already_answered():
+    """Finding 2: the claims specialist row never had its agent answer before the stop."""
+    from hall_monitor.evals import stop_timing
+
+    result = stop_timing.run(trials=6, latency=0.02)
+    specialists = [r for r in result["rows"] if not r["stopped_agent"].endswith("supervisor")]
+    assert all(r["answered_before_stop"] > 0 for r in specialists)
+    agents = {a["agent_id"] for a in result["meta"]["agents"]}
+    assert {"intake", "claims_supervisor", "complaint_triage", "leave_intake"} <= agents

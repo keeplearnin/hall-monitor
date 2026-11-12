@@ -549,13 +549,7 @@ def _supervise(
         decision = run.output
         if decision.action in (DeskAction.FINISH, DeskAction.HAND_OFF):
             try:
-                for agent_id in dict.fromkeys(c.agent_id for c in calls):
-                    try:
-                        registry.require(agent_id)
-                    except Exception as exc:
-                        if agent_id != SUPERVISOR:  # the triage agent's stop is its own failure
-                            exc.desk_stage = "triage"  # type: ignore[attr-defined]
-                        raise
+                check_agents()
             except Exception:
                 record(decision, StepOutcome.FAILED)
                 raise

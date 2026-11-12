@@ -606,9 +606,9 @@ def supervise(
             continue
         # The step was the supervisor's choice: a stop made since it chose, on it or on any
         # agent the claim rests on, ends it here.
-        registry.require(SUPERVISOR)
-        _recheck(ctx)
         try:
+            registry.require(SUPERVISOR)
+            _recheck(ctx)
             _execute(ctx, state, decision)
         except Exception:
             # Recorded even when the step failed part-way, so the path shows where it stopped.

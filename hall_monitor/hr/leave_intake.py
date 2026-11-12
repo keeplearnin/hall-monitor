@@ -5,7 +5,7 @@ from __future__ import annotations
 import anthropic
 
 from hall_monitor import tracing
-from hall_monitor.agents.base import AgentRun, escape, run_agent
+from hall_monitor.agents.base import AgentRun, default_client, escape, run_agent
 from hall_monitor.hr.models import LeaveIntake, LeaveMessage
 from hall_monitor.registry import DataClass, Registry
 
@@ -67,7 +67,7 @@ def run_leave_intake(
     return run_agent(
         AGENT_ID,
         registry=registry,
-        client=client or anthropic.Anthropic(),
+        client=client or default_client(),
         system=SYSTEM_PROMPT,
         content=render_request(message, text),
         output_format=LeaveIntake,

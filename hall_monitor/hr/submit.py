@@ -42,6 +42,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.routing import Route
 
+from hall_monitor.agents.base import default_client
 from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog
 from hall_monitor.hr import signoff
 from hall_monitor.hr.data import load_company, load_employees, load_messages
@@ -376,14 +377,13 @@ def main(argv: list[str] | None = None) -> int:
             live=False, audit_db=DEMO_DIR / "audit.sqlite", registry_dir=DEMO_DIR / "registry"
         )
     else:
-        import anthropic
         from dotenv import load_dotenv
 
         load_dotenv()
         app = create_app(
             live=True,
             audit_db=args.audit_db,
-            client=anthropic.Anthropic(),
+            client=default_client(),
             max_requests=args.max_requests,
         )
     import uvicorn

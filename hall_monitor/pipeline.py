@@ -24,7 +24,13 @@ import anthropic
 from pydantic import BaseModel, ValidationError
 
 from hall_monitor import tracing
-from hall_monitor.agents.base import AgentRefusedError, AgentRun, ToolAccess, render_feedback
+from hall_monitor.agents.base import (
+    AgentRefusedError,
+    AgentRun,
+    ToolAccess,
+    default_client,
+    render_feedback,
+)
 from hall_monitor.agents.coverage_check import run_coverage_check
 from hall_monitor.agents.critic import run_critic
 from hall_monitor.agents.intake import run_intake
@@ -243,7 +249,7 @@ def _triage_with_stop(
     on_event: EventSink | None,
     body: Callable[..., TriageResult],
 ) -> TriageResult:
-    client = client or anthropic.Anthropic()
+    client = client or default_client()
     gateway = gateway or ToolGateway(registry)
     run = _Run(on_event)
     # Code checks before any model sees the claim: text aimed at the AI is flagged (and routes

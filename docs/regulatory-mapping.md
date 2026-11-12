@@ -23,30 +23,38 @@
 
 ## EU AI Act
 
-**Which workflows are in scope.** Leave decisions are about employment ("decisions affecting
-terms of work-related relationships"), which the Act lists as high-risk in Annex III, point 4.
-Claims triage for travel insurance and a complaint desk are not on the Annex III list as written
-here (Annex III names life and health insurance pricing and risk assessment, which this isn't);
-a firm would confirm. So the HR leave example is treated as high-risk, and the others are held
-to the same controls without claiming the Act requires it.
+**Which workflows are in scope.** Leave decisions are about employment and likely fall under
+Annex III, point 4(b) ("decisions affecting terms of work-related relationships"), subject to the
+Art. 6(3) derogation for systems that only perform a narrow procedural or preparatory task. The
+agents here prepare a decision a person signs, which is arguably preparatory, but the intake
+extraction is what the rules run on, so this page treats HR leave as high-risk to be safe. Claims
+triage for travel insurance and a complaint desk aren't on the Annex III list as written here
+(Annex III names life and health insurance pricing and risk assessment, which this isn't); a firm
+would confirm. The Act applies its obligations in stages, and the dates for Annex III systems
+have been the subject of proposed amendments, so a firm would confirm which apply and when.
 
-Obligations for a high-risk system, as the provider and deployer would see them:
+Obligations for a high-risk system, as a provider and a deployer would see them:
 
 | Article | Obligation, briefly | HR leave evidence | Status |
 |---|---|---|---|
+| Art. 4 AI literacy | Staff dealing with AI systems have sufficient AI literacy | — | Gap: organisational; no training records |
 | Art. 9 Risk management | A continuous risk-management process | Register gaps, threat model, eval gate, reviews | Partial: not a documented lifecycle process |
 | Art. 10 Data governance | Training, validation and test data quality | Synthetic answer keys with logged changes ([`data/synthetic/README.md`](../data/synthetic/README.md)); no model training here | Partial: test data only; no live-data validation |
 | Art. 11 Technical documentation | Documentation of the system | ADRs, model cards, controls register, design docs | Partial: not in the Annex IV structure |
-| Art. 12 Record-keeping | Automatic logging over the lifetime | Hash-chained audit log of every request, agent call, supervisor step, rules result, evidence pack and signed decision, with no free text (HM-06, HM-23, HM-32) | Built |
+| Art. 12 Record-keeping | Automatic logging over the lifetime | Hash-chained audit log of every request, agent call, supervisor step, rules result, evidence pack and signed decision, with no free text (HM-06, HM-23, HM-32) | Partial: no retention period set (Art. 19 and Art. 26(6) ask logs be kept at least six months), and the log is one SQLite file with manual anchoring |
 | Art. 13 Transparency to deployers | Instructions for use, capabilities and limits | Model cards (what each agent may decide alone, what code forces to a person, evidence), runbook | Partial: written for engineers, not as instructions for use |
-| Art. 14 Human oversight | People can understand, monitor, override and stop the system | Every leave decision is signed by a person with the authority the rules name (HM-23); the code's route and role can't be lowered by any agent; owners can stop any agent mid-case (HM-19); red-team tests and the offline eval show the supervisor can't bypass it | Built (offline evidence); no live operator study |
+| Art. 14 Human oversight | People can understand, monitor, override and stop the system | Every leave decision is signed by a person with the authority the rules name (HM-23); no agent can lower the route or role; owners can stop any agent mid-case (HM-19); red-team tests and the offline eval show the supervisor can't bypass it | Partial: the signing keys are public demo keys, so a demo signature proves nothing about who decided; no sign-in on the panel; operator understanding and automation-bias awareness (Art. 14(4)) not addressed |
 | Art. 15 Accuracy, robustness, cybersecurity | Appropriate accuracy, resilience to errors and attacks | Fault injection, failure drills, red-team arena, injection defences, the agentic red-team suite | Partial: HR intake accuracy not measured live; no live red team |
-| Art. 26 Deployer duties (incl. informing workers) | Use per instructions, oversight by competent people, monitoring, inform workers' representatives | Oversight roles enforced in code; logs kept | Gap: worker information and representative consultation are organisational, outside the code |
+| Art. 17 Quality management system | A documented QMS | Reviews, CI, change control in the repo | Gap: no QMS |
+| Art. 26 Deployer duties | Use per instructions, competent oversight, monitoring, log retention, inform workers' representatives and affected people (26(7), 26(11)) | Oversight roles enforced in code; logs kept | Gap: worker and employee information, monitoring and retention are organisational |
 | Art. 27 Fundamental-rights impact assessment | Where required for certain deployers | — | Gap: not done |
+| Art. 43 and 49 Conformity assessment, registration | Before placing on the market or putting into service | — | Gap: not applicable to a reference build; would be required |
+| Art. 72 and 73 Post-market monitoring, serious incidents | A monitoring plan and incident reporting | — | Gap: no live monitoring or incident process |
+| Art. 86 Right to explanation | Affected people can get an explanation of a decision | Every routing reason is a code template; the evidence pack holds the rules' checks | Partial: no process to give the employee an explanation |
 
-**Transparency to the employee (Art. 50 and general fairness).** The employee isn't told an AI
-read their request; the form (HM-24) says the request goes to HR, not how it is prepared. A gap
-for a real deployment.
+**Telling the employee.** Art. 26(11) asks deployers to inform people subject to Annex III
+decisions that an AI system is used. The leave form (HM-24) says the request goes to HR, not how
+it is prepared. A gap for a real deployment.
 
 ## Fairness for HR
 

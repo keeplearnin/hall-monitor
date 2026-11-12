@@ -472,3 +472,16 @@ def test_a_stop_on_the_triage_agent_after_it_answered_halts_at_the_next_step(reg
     result, client = _run(answer_, registry=registry)
     assert len(client.messages.calls) == 1  # the re-check never ran
     assert "agent_failed" in result.route.reasons
+
+
+def test_a_stop_during_the_triage_call_means_no_further_supervisor_turn(registry_dir):
+    """CIO/CAIO review finding 6: the desk's loop-top re-check had no test of its own."""
+    registry = Registry.from_dir(registry_dir)
+
+    def triage(request):
+        _stop(registry_dir, "complaint_triage")
+        return answer()
+
+    result, client = _run(triage=triage, registry=registry)
+    assert len(client.messages.supervisor_calls) == 1
+    assert "agent_failed" in result.route.reasons

@@ -685,6 +685,7 @@ controls:
       - tests/test_kill_switch.py::test_the_shipped_stop_list_is_valid_whatever_it_holds
       - tests/test_kill_switch.py::test_a_malformed_stop_list_fails_the_check_with_a_message
       - tests/test_kill_switch.py::test_the_kill_switch_drill_finds_no_call_or_automatic_route_after_a_stop
+      - tests/test_kill_switch.py::test_the_drill_fails_when_the_kill_switch_is_broken
     evidence:
       - evals/results/kill-switch-drill/results.json
     nist: [MANAGE 2.4, GOVERN 2.1]

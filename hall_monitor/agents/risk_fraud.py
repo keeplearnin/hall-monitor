@@ -9,6 +9,7 @@ from hall_monitor.agents.base import (
     UNTRUSTED_CLAIM_NOTICE,
     AgentRun,
     ToolAccess,
+    default_client,
     join_content,
     render_claim,
     render_json,
@@ -73,7 +74,7 @@ def run_risk_fraud(
     return run_agent(
         AGENT_ID,
         registry=registry,
-        client=client or anthropic.Anthropic(),
+        client=client or default_client(),
         system=SYSTEM_PROMPT,
         content=content,
         output_format=RiskAssessment,

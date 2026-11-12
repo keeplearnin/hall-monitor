@@ -1018,3 +1018,33 @@ case has used (`test_a_stop_on_a_specialist_that_already_answered_halts_the_clai
 already passed, since its only specialist is checked by both later steps). The drill is gated:
 no call by the stopped agent after its stop, nothing through without review.
 
+
+## Review 26 (agentic-readiness): a skeptical CIO and Chief AI Officer review of the readiness evidence
+
+**Reviewer:** the governance-reviewer agent playing both roles, on branch
+`claude/agentic-readiness` at `2db8d4d`, with probes and runtime mutations in the scratchpad (no
+repo edits, no API calls). 14 findings confirmed, 2 plausible, 3 status downgrades and 9 missing
+items. Code findings fixed test-first; doc findings corrected; the checklist went from 19 pass,
+10 partial, 6 gap (35 items) to 16 pass, 16 partial, 12 gap (44 items).
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The drill dropped every case that didn't notice the stop, so with the kill switch patched out every gated key stayed 0 and the gate passed | High | Every stop written before the case ended counts; a stop on disk followed by an unrefused call is a failure; at least 75% of trials must stop; gated (`test_the_drill_fails_when_the_kill_switch_is_broken`) |
+| The claims specialist row never had its agent answer before the stop, so it didn't test the bug the fix was for | Medium | The claims drill stops `intake`, and each row reports how often the agent had answered first; gated at least once (`test_the_drill_stops_specialists_that_have_already_answered`) |
+| "At most one supervisor turn" and "about one 50 ms call" were false for an agent not used yet | Medium | Reworded in the report, the runbook and the checklist |
+| The SDK defaults (600 s, two retries) let one call run about 30 minutes past a case's time budget, so time caps and time-to-stop were understated | Medium | Every agent's default client is bounded at 60 s per attempt, two attempts (`default_client`, `test_the_default_model_client_bounds_each_call`); the docs state the two-minute worst case |
+| A chosen step refused by the new re-check wasn't recorded on the claims path | Medium | Recorded as failed (`test_a_chosen_step_refused_by_a_stop_is_recorded`) |
+| The loop-top re-checks had no tests of their own | Medium | One per workflow: a stop during a specialist's call means no further supervisor turn |
+| The threat model called egress.py the only outbound path | Medium | Says the desk only; claims and HR use the SDK's client |
+| Checklist item 18 and item 25 (Art. 12, 14) passed on public demo signing keys, with no log retention or operator-understanding measures | Medium | Both Partial; the mapping says why |
+| Art. 50 cited for telling the employee | Medium | Re-cited as Art. 26(11), with Art. 86 |
+| High-risk status stated as fact, with no Art. 6(3) and missing obligations (Art. 4, 17, 43, 49, 72, 73) | Medium | Hedged ("likely Annex III 4(b), subject to Art. 6(3)"); the articles added as gaps; application dates flagged to confirm |
+| The drill's metadata listed only the stopped agents | Low | Records every agent that made a call |
+| A stop on the leave intake agent after it answered was blamed on the supervisor | Low | Attributed to the intake agent (pipeline_stopped) |
+| Runbook "up to about 31 more calls" was across 20 cases; the write window, thread errors and a duplicated desk check | Low | Reworded; calls during the write counted apart; thread errors recorded; the desk reuses its check |
+| Plausible: "a live model can't exceed them" overclaims; the model cards treat a result with no mode as live | Low | Item 29 reworded; the mode rule noted |
+
+Status changes: the runbook (item 1), who-approved-what (18) and EU AI Act logging and oversight
+(25) went to Partial. Missing items added: incident response, retention and erasure, backup and
+recovery, latency and capacity, identity and key custody, reviewer training (gaps); vendor and
+model risk, data sent to the provider, continuity when a supervisor is stopped (partial).
