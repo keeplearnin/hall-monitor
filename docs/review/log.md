@@ -971,3 +971,9 @@ rules ran went to a leave specialist where the rules name an HR manager or direc
 | Interrupted runs weren't documented for HR | Low | Documented in ADR 0028 (same window as the fixed path) |
 | The evidence pack didn't show the mode, path or the re-check's intake; HM-22, the submit page and the CLI described only the fixed order | Low | The pack holds them (`test_the_evidence_pack_shows_the_path_and_both_intakes`); the docs updated |
 
+**Re-review of the fixes** (governance-reviewer, at `61a0792`, offline): all seven fixes hold,
+nothing new at Medium or above. With the old pack rule patched back in, the leave eval reports
+28 requests with less review. Noted as a deliberate cost, stated in ADR 0028: a supervisor
+outage before intake files the request with an HR director (nothing extracted) rather than
+leaving it to be prepared again. The race test now uses pytest's monkeypatch.
+

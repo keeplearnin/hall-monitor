@@ -416,33 +416,16 @@ def test_the_hr_eval_records_the_leave_supervisor():
     assert '"leave_supervisor"' in inspect.getsource(evals)
 
 
-def test_two_agentic_preparations_at_once_log_one_prepared_entry_each(tmp_path):
+def test_two_agentic_preparations_at_once_log_one_prepared_entry_each(tmp_path, monkeypatch):
     """Finding 5: the losing run's refused evidence pack was caught and finished a second time."""
     audit = AuditLog(tmp_path / "audit.sqlite")
     _run(audit=audit)
+    # As if the first run hadn't finished when the second checked: the once-only pack refuses
+    # the second run, as on the fixed path.
+    monkeypatch.setattr(AuditLog, "has", lambda self, *a, **k: False)
     with pytest.raises(ValueError, match="already"):
-        # The once-only pack refuses the second run, as on the fixed path.
-        from hall_monitor.hr import pipeline
-
-        ctx_message = MESSAGES[CLEAN]
-        client = fake_client({LeaveIntake: _intake_for, LeaveExplanation: _explanation})
-        original = pipeline.AuditLog.has
-
-        def has(self, *a, **k):  # as if the first run hadn't finished when this one checked
-            return False
-
-        pipeline.AuditLog.has = has
-        try:
-            prepare(
-                ctx_message,
-                employees=EMPLOYEES,
-                company=COMPANY,
-                registry=REGISTRY,
-                client=client,
-                audit=audit,
-            )
-        finally:
-            pipeline.AuditLog.has = original
+        _run(audit=audit)
+    monkeypatch.undo()
     prepared = [e for e in audit.entries(CLEAN) if e["event"] == "leave_prepared"]
     audit.close()
     assert len(prepared) == 2  # one per run, none extra
