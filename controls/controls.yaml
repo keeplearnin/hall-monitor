@@ -1136,7 +1136,9 @@ controls:
       it can't take edited text. A request that stops before the rules ran keeps no message (the
       log has only its keyed hash), so the submitter has to type it again. The result page reports only on requests this run of
       the form added, from memory, so after a restart it no longer finds them (the panel still
-      does).
+      does). A same-origin post with a non-ASCII token makes the token comparison raise, so it
+      gets a bare server error instead of a 403 (found in Review 24; fixed in the complaint
+      form, not yet here).
 
   - id: HM-25
     name: No reply, no send
@@ -1798,7 +1800,106 @@ controls:
       type and amounts in it come from the intake agent, which read the claim. The budget's
       numbers are set from the fixed path's published costs, not tuned on live supervisor runs.
 
+  - id: HM-33
+    name: Complaint submission form outside the read-only panel
+    what: >-
+      A separate local web form (python -m hall_monitor.complaints.submit) adds a typed-in
+      synthetic complaint to the complaint desk and runs it end to end through the desk's own
+      pipeline (complaints/pipeline.py triage_complaint, agentic as complaints.run runs it):
+      redaction, the check for text aimed at the AI, the desk supervisor and triage agent within
+      code's bounds (HM-32), routing in code (HM-27), the draft kept and never sent (HM-25), and
+      the audit log, which keeps IDs, keyed hashes, codes and costs, never the text. The result
+      shows on the panel's Complaint desk page, so the panel stays read-only (HM-20). The form
+      takes CFPB's structured fields: a product from the pinned snapshot's list only, an issue
+      and optional sub-issue (300 characters each), CFPB's two tags and an optional narrative
+      (10,000 characters); anything else, a repeated field, control or invisible format
+      characters (C0 and C1 controls, bidi overrides, zero-width marks, line and paragraph
+      separators, blank-looking fillers) or an over-long value is
+      refused before anything is logged. CFPB's labels are a fixed list and the pipeline doesn't
+      redact them, so an issue or sub-issue holding anything redaction would remove (an email
+      address, phone number, SSN and the like) is refused too; the narrative is redacted by the
+      pipeline. Each complaint gets a synthetic ID, syn- and 12
+      hex digits, which the desk's CFPB source model refuses, so it can't collide with a CFPB ID.
+      The submitter sees only its ID and state, never the queue, reasons, urgency or anything an
+      agent wrote, and only for complaints that run of the form added. The mode is chosen at
+      start: demo mode writes to the demo log with the scripted stand-in, labelled scripted in
+      the log and on the panel, and calls no API; live mode calls the Claude API through the
+      desk's egress-guarded model client, which reaches only the messages endpoint and logs any
+      refusal, and stops at a spend cap (--max-complaints, 5 per run by default, at most 50).
+      The panel's desk page says a form complaint left claimed, not routed has no run to route
+      it.
+      Every page says synthetic data only and which mode it is in, and live mode states its cost.
+      The leave form's protections are reused (HM-24): loopback and localhost only, a per-run
+      form token, the form's own origin, only a form post, a body limit enforced while it is
+      read, and the panel's page policy with a same-origin referrer policy.
+    status: built
+    code:
+      - hall_monitor/complaints/submit.py::create_app
+      - hall_monitor/complaints/submit.py::live_client
+      - hall_monitor/complaints/submit.py::main
+      - hall_monitor/panel/desk.py::_unrouted_note
+    tests:
+      - tests/test_complaint_submit.py::test_a_demo_submission_is_triaged_by_the_desk_and_shows_on_the_desk_page
+      - tests/test_complaint_submit.py::test_the_code_routes_the_typed_in_fields_as_it_routes_cfpb_s
+      - tests/test_complaint_submit.py::test_text_aimed_at_the_ai_goes_to_specialist_review_and_isn_t_logged
+      - tests/test_complaint_submit.py::test_each_submission_gets_a_synthetic_id_that_can_t_be_a_cfpb_one
+      - tests/test_complaint_submit.py::test_the_result_page_never_shows_the_agent_s_text_route_or_reasons
+      - tests/test_complaint_submit.py::test_a_live_submission_runs_through_the_desk_s_guarded_model_client
+      - tests/test_complaint_submit.py::test_the_default_live_client_can_reach_only_the_messages_endpoint
+      - tests/test_complaint_submit.py::test_a_failed_agent_still_ends_with_a_person
+      - tests/test_complaint_submit.py::test_the_form_refuses_an_unknown_product_missing_issue_and_overlong_text
+      - tests/test_complaint_submit.py::test_the_form_offers_cfpb_s_products_and_tags
+      - tests/test_complaint_submit.py::test_a_submission_from_another_site_is_refused
+      - tests/test_complaint_submit.py::test_only_requests_addressed_to_this_machine_are_answered
+      - tests/test_complaint_submit.py::test_a_large_body_is_refused_while_it_is_read
+      - tests/test_complaint_submit.py::test_a_narrative_within_the_limit_is_never_too_large_to_send
+      - tests/test_complaint_submit.py::test_only_a_form_post_is_taken_each_field_once
+      - tests/test_complaint_submit.py::test_live_mode_stops_at_its_spend_cap_and_refusals_don_t_count
+      - tests/test_complaint_submit.py::test_demo_mode_has_no_spend_cap_and_calls_no_api
+      - tests/test_complaint_submit.py::test_the_pages_say_synthetic_data_only_and_what_live_mode_costs
+      - tests/test_complaint_submit.py::test_the_result_page_shows_only_complaints_submitted_here
+      - tests/test_complaint_submit.py::test_pages_carry_the_security_headers_and_no_scripts
+      - tests/test_complaint_submit.py::test_the_routes_are_the_form_the_submission_and_the_result
+      - tests/test_complaint_submit.py::test_the_cli_needs_a_mode_a_loopback_host_and_a_sane_cap
+      - tests/test_complaint_submit.py::test_an_identifier_typed_in_a_label_is_refused_before_the_model_sees_it
+      - tests/test_complaint_submit.py::test_control_and_invisible_characters_are_refused
+      - tests/test_complaint_submit.py::test_a_non_ascii_token_is_refused_not_a_server_error
+      - tests/test_complaint_submit.py::test_a_crash_before_the_desk_received_it_adds_nothing
+      - tests/test_complaint_submit.py::test_a_crash_after_it_was_received_is_routed_to_a_person
+      - tests/test_complaint_submit.py::test_an_unrouted_submission_shows_received_not_routed
+      - tests/test_complaint_submit.py::test_the_desk_page_doesn_t_promise_a_rerun_for_a_form_complaint
+      - tests/test_complaint_submit.py::test_every_cfpb_issue_label_is_accepted_as_typed
+    evidence: []
+    nist: [MANAGE 4.1]
+    finos:
+      risks: [RI-22]
+      mitigations: [MI-04, MI-21]
+    gaps: >-
+      New functionality, proposed: its scope is for the owner to confirm. The log never holds
+      the typed-in text (only its redaction counts and a hash of the record), so a person
+      working the complaint on the panel sees its codes, not what it says. A kept draft is stored in full in the evidence store (HM-25) and may quote what was
+      typed, a name included: the draft check drops links, phone numbers, email addresses and
+      promises, not names. Label redaction is a refusal of what the redaction patterns find, so
+      a name typed in an issue still reaches the model. Routing reads the
+      labels and tags, not the narrative (HM-30's finding): a narrative about fraud under a plain
+      label reaches specialist review only if the agent raises it, and in demo mode the scripted
+      stand-in reads the labels only, so there the narrative affects only redaction and the
+      injection check. A form complaint whose process is killed outright mid-triage stays
+      claimed, not routed: complaints.run routes unfinished complaints only from its own input,
+      and the form keeps no copy to route; a crash or interruption the process survives is
+      routed to a person at once. No sign-in: the token and origin check stop another site
+      posting through a browser, not a user or process on this machine. The spend cap is per run,
+      in memory, and counts submissions, not dollars; a submission that fails before any model
+      call still uses its slot. The desk's per-complaint budget (0.02 USD) is checked before
+      each model call, so a complaint's last call can take it a little past that. Live mode has not been run against the real
+      API; the tests use a fake client. The "synthetic data only" banner is a notice, not a
+      check: in live mode free text goes to the Claude API, and redaction removes labelled
+      identifiers, not names. The result page reports only on complaints this run added, from
+      memory.
+
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
+
+
 not_covered:
   - ref: GOVERN 1.1
     why: Legal and regulatory requirements for claims handling aren't analysed; this is a reference implementation, not legal advice.

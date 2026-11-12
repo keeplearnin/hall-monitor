@@ -68,6 +68,17 @@ def _source(scripted: object) -> str:
     return "model" if scripted is False else "unknown"
 
 
+def _unrouted_note(scope: str) -> str:
+    """complaints.run routes an unfinished complaint only from its own input, so a complaint
+    added through the form (cfpb-syn-..., ADR 0029) has no run that will route it."""
+    if scope.startswith("cfpb-syn-"):
+        return (
+            "triage started and hasn't finished; it came from the complaint form, so no run "
+            "will route it: a person should pick it up"
+        )
+    return "triage started and hasn't finished; the next run routes it to a person"
+
+
 def _steps_shown(c: dict) -> str:
     if c["mode"] == "agentic":
         return " → ".join(c["path"]) or "none recorded (stopped on the first turn)"
@@ -91,7 +102,7 @@ def complaint_desk(src: views.Sources) -> dict:
             "queue": None,
             "urgency": None,
             "reasons": [],
-            "explained": ["triage started and hasn't finished; the next run routes it to a person"],
+            "explained": [_unrouted_note(scope)],
             "cost_usd": None,
             "draft_kept": False,
             "agent_failed": False,
