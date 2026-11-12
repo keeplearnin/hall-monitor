@@ -32,6 +32,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0023](0023-complaint-triage-routed-in-code.md) | Every complaint goes to a person; code chooses the queue, the agent only advises | HM-27 |
 | [0024](0024-complaint-evals-on-a-pinned-snapshot.md) | Complaint evals run on a pinned snapshot, scored against a hand-written label key | HM-28 |
 | [0025](0025-delegated-passes-only-narrow.md) | When an agent hands work to another, the pass only narrows | HM-29 |
+| [0026](0026-red-team-arena-judged-by-code.md) | A red-team arena against a hijacked agent, judged by code | HM-30 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".
