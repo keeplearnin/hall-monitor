@@ -1048,3 +1048,15 @@ Status changes: the runbook (item 1), who-approved-what (18) and EU AI Act loggi
 (25) went to Partial. Missing items added: incident response, retention and erasure, backup and
 recovery, latency and capacity, identity and key custody, reviewer training (gaps); vendor and
 model risk, data sent to the provider, continuity when a supervisor is stopped (partial).
+
+**Re-check of the fixes** (the same reviewer, at `8743433`, offline): the fixes hold; a broken
+switch now fails the drill and the gate. Four new issues, none High, all fixed or stated:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| With the per-step re-checks removed, every gated drill key still passed | Medium | The drill counts and gates calls by any agent after a stop on an agent the case had already used (`test_the_drill_fails_without_the_per_step_re_check`) |
+| HR's post-choice check was untested: without it the rules ran on a stopped intake agent's answer | Low | `test_a_stop_on_intake_during_the_supervisor_s_turn_keeps_the_rules_from_running` (fails with the check removed) |
+| The time overrun for a tool-using agent is up to about 14 minutes (seven requests), not two | Low | Checklist item 6 and the threat model say so; time-to-stop stays about two minutes |
+| Plausible: 60 s per attempt may stop long Sonnet answers live | Low | Stated in item 39; needs a live smoke test |
+| Minor: nothing checked the pipelines use the bounded client; the CFPB GET was missing from the threat model's destinations | Low | `test_the_pipelines_use_the_bounded_client_when_none_is_passed`; the threat model lists it |
+

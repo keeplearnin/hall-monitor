@@ -706,3 +706,18 @@ def test_the_drill_stops_specialists_that_have_already_answered():
     assert all(r["answered_before_stop"] > 0 for r in specialists)
     agents = {a["agent_id"] for a in result["meta"]["agents"]}
     assert {"intake", "claims_supervisor", "complaint_triage", "leave_intake"} <= agents
+
+
+def test_the_drill_fails_without_the_per_step_re_check(monkeypatch):
+    """Review 26 re-check: with the per-step re-checks removed, every gated key still passed.
+    A stop on an agent the case already used must end it before any further call."""
+    import hall_monitor.agentic as agentic
+    from hall_monitor.evals import stop_timing
+
+    monkeypatch.setattr(agentic, "_recheck", lambda ctx: None)
+    result = stop_timing.run(trials=8, latency=0.02)
+    claims_intake = next(
+        r for r in result["rows"] if r["workflow"] == "claims" and r["stopped_agent"] == "intake"
+    )
+    assert claims_intake["calls_after_stop_on_used_agent"] > 0
+    assert stop_timing.main_status(result) == 1

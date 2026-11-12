@@ -172,6 +172,7 @@ def drill(
     rng = random.Random(seed)
     times: list[float] = []
     after = others = autos = missed = late = answered = errors = window = after_last_check = 0
+    after_answered = 0
     for trial in range(trials):
         with tempfile.TemporaryDirectory() as tmp:
             path = _registry_copy(Path(tmp))
@@ -216,6 +217,11 @@ def drill(
             window += sum(t0 < t <= t1 for t in mine)
             others += sum(t > t1 and AGENT_OF[k] != agent for t, k in messages.starts)
             autos += auto
+            had_answered = any(t < t0 for t in mine)
+            if had_answered:
+                # A stop on an agent the case already used must end it at the next step: no
+                # agent may start a call after it (the per-step re-check, review 26 re-check).
+                after_answered += sum(t > t1 for t, _ in messages.starts)
             if stopped_reason is None:
                 # Every supervisor turn re-checks every agent the case used, so a call after the
                 # stop was on disk means a check that should have caught it: a failure. With no
@@ -225,7 +231,7 @@ def drill(
                 else:
                     after_last_check += 1
                 continue
-            answered += any(t < t0 for t in mine)
+            answered += had_answered
             times.append(ended - t0)
     times.sort()
     return {
@@ -241,6 +247,7 @@ def drill(
         "calls_started_after_stop": after,
         "calls_during_the_write": window,
         "other_agents_calls_after_stop": others,
+        "calls_after_stop_on_used_agent": after_answered,
         "auto_after_stop": autos,
         "time_to_stop_s": {
             "median": round(statistics.median(times), 4) if times else None,
@@ -278,6 +285,9 @@ def run(trials: int = 20, latency: float = LATENCY_S, seed: int = 7) -> dict:
                 for r in rows
                 if not r["stopped_agent"].endswith("supervisor")
             ),
+            "calls_after_stop_on_used_agent": sum(
+                r["calls_after_stop_on_used_agent"] for r in rows
+            ),
             "max_other_agents_calls_after_stop": max(
                 r["other_agents_calls_after_stop"] for r in rows
             ),
@@ -291,6 +301,7 @@ def main_status(result: dict) -> int:
     """1 if the drill shows the switch failing or not exercised."""
     s = result["summary"]
     failed = s["calls_started_after_stop"] or s["auto_after_stop"] or s["stop_not_noticed"]
+    failed = failed or s["calls_after_stop_on_used_agent"]
     return 1 if failed or s["trial_errors"] or s["stopped_share"] < MIN_STOPPED_SHARE else 0
 
 
@@ -323,8 +334,9 @@ def report(result: dict) -> str:
         )
     lines += [
         "",
-        "- **Gated:** no call by the stopped agent after its stop, nothing through without "
-        "review, no stop written in time and never noticed, and at least "
+        "- **Gated:** no call by the stopped agent after its stop, no call by any agent after "
+        "a stop on an agent the case had already used (the per-step re-check), nothing "
+        "through without review, no stop written in time and never noticed, and at least "
         f"{MIN_STOPPED_SHARE:.0%} of trials stopped, so a broken switch fails the drill.",
         "- **Other agents' calls after stop:** a stop on an agent the case already used ends it "
         "at the next step; a stop on an agent not used yet takes effect when it is next needed, "
