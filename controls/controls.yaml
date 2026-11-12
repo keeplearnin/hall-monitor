@@ -1543,7 +1543,12 @@ controls:
       allotment set by code and every data class the lead's grant holds, so a helper not approved
       for all of them is refused; the task reaches the helper fenced and escaped; the helper's
       validated answer returns to the lead as a tool result, and a helper's failure as its
-      error type only. hand_off is not an MCP tool, never reaches the gateway and sends nothing.
+      error type only. A helper code gave no allotment is refused before any call; a grant with
+      nothing left makes no further call; a second handoff to the same helper gets a fresh
+      grant; what a helper spends past its allotment is charged to its parent too, so the first
+      grant's spending is the case's. Every handoff's outcome (answered, refused or failed, with
+      the helper's call) is kept on the runner so the caller can mark the case incomplete.
+      hand_off is not an MCP tool, never reaches the gateway and sends nothing.
     status: built
     code:
       - hall_monitor/agents/base.py::run_agent
@@ -1564,6 +1569,11 @@ controls:
       - tests/test_agent_handoff.py::test_a_helper_s_task_is_fenced_and_escaped
       - tests/test_agent_handoff.py::test_the_helper_s_allotment_is_set_by_code_not_the_lead
       - tests/test_agent_handoff.py::test_spending_reduces_what_a_grant_can_hand_on
+      - tests/test_agent_handoff.py::test_a_case_s_spending_reaches_the_lead_s_grant_and_stops_it
+      - tests/test_agent_handoff.py::test_a_helper_without_a_code_set_allotment_is_refused_before_any_model_call
+      - tests/test_agent_handoff.py::test_a_second_handoff_to_the_same_helper_gets_a_fresh_grant
+      - tests/test_agent_handoff.py::test_a_helper_s_failure_and_its_cost_are_visible_to_the_caller
+      - tests/test_agent_handoff.py::test_a_handoff_runner_for_another_grant_is_refused
     evidence:
       - "pending: the complaint crew (slice 4) running live under grants"
     nist: [GOVERN 1.4, MANAGE 1.3, MANAGE 2.4]
@@ -1572,8 +1582,10 @@ controls:
       mitigations: [MI-18, MI-21]
     gaps: >-
       No crew agents exist yet and nothing has run live; tested with scripted clients only.
-      Spending is charged after each model call, so a run can overshoot its allotment by the
-      call that crossed it. A task is taken to carry every data class its writer holds, so a
+      Spending is charged after each model call, so a case can overshoot by at most one call
+      per grant in its tree; a call the SDK bills and then raises on (for example a parse
+      error) isn't charged. Marking a case incomplete from the handoff outcomes is the crew
+      pipeline's job (slice 4). A task is taken to carry every data class its writer holds, so a
       helper meant to see less needs code-built input (the crew decides which). A helper's
       answer returns to the lead as a tool result; whether the lead treats it as data rests on
       its prompt and is measured only once the crew runs (the red-team arena can target it then). The book

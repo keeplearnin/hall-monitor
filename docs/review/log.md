@@ -810,3 +810,18 @@ confirmed and 1 plausible; all fixed, test-first, or stated as a gap.
 | `definitions` ignored a grant passed for an agent outside a crew while `call` checked it, so a tool could be offered that would be refused | Low | Both check a grant whenever one is passed |
 | A grant binds a case only through its book; the gateway limits a tool's arguments to the case only through `scope_policy`, which is optional | Low | Stated in HM-29's gaps and ADR 0025; the crew pipeline (slice 3) must pass it |
 | Plausible: two handoffs from one grant on different threads could each see the old allotment total and together exceed it | Low | The book takes a lock around issuing and handing off; a test with a slowed grant shows only one of two over-large handoffs is made |
+
+## Review 22 (agent-loop): agents act within their grant (HM-32)
+
+**Reviewer:** the governance-reviewer agent, before the pull request, with offline scripted
+probes. It confirmed no path gives a crew agent a model call, tool or helper without a valid
+grant, the lead can't raise a helper's budget or reach, and existing agents keep their path.
+3 findings confirmed and 2 plausible; all fixed, test-first, or stated as a gap.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A parent's budget counted what it allotted, not what helpers spent: a helper's overshoot never reached the lead, and a helper missing from the allotments still made one paid call (a case reached 150% of its root budget and finished normally) | High | A helper code gave no allotment is refused before any call; a grant with nothing left makes no further call; spending past a helper's allotment is charged up to its parent, so the root's spending is the case's; the docs now say a case overshoots by at most one call per grant in its tree |
+| A second handoff to the same helper produced the identical grant, overwriting it and charging the parent's allotment twice | Medium | Grants carry their issue order, so each handoff is a fresh grant with its own spending |
+| A helper's failure became a tool result and the lead finished normally, with the helper's call (versions, cost) lost to the caller | Medium | Every handoff's outcome and call is kept on the runner (`outcomes`, `complete`) so the crew pipeline can mark the case incomplete |
+| Plausible: nothing tied a handoff runner to the grant it runs under | Low | `Delegated` refuses a runner for another grant or book |
+| Plausible: a call the SDK bills and then raises on isn't charged | Low | Stated in HM-32's gaps and ADR 0028 |

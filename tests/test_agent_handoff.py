@@ -162,7 +162,7 @@ def test_an_agent_is_offered_its_grant_s_tools_and_a_handoff_to_declared_helpers
     hand_off = make_hand_off(
         book,
         root,
-        run_helper=lambda grant, content: Answer(text="x"),
+        run_helper=lambda grant, content: None,
         allotments={"researcher": 0.001, "analyst": 0.001},
     )
     _run("lead", client, registry, gateway, Delegated(book, root, hand_off))
@@ -273,13 +273,14 @@ def _lead_with_helper(registry, gateway, book, helper_steps, lead_steps, allot=0
             delegated=Delegated(book, grant),
             carries=frozenset(grant.data_classes),
         )
-        return run.output
+        return run
 
     hand_off = make_hand_off(
         book, root, run_helper=run_helper, allotments={"researcher": allot, "analyst": allot}
     )
     lead = _client(*lead_steps)
     run = _run("lead", lead, registry, gateway, Delegated(book, root, hand_off))
+    _lead_with_helper.last = hand_off
     return run, lead, helper_runs, root
 
 
@@ -439,3 +440,138 @@ def test_agents_outside_a_crew_run_as_before(registry, gateway):
     log = []
     run = _run("loner", client, registry, gateway, None, log)
     assert run.output.text == "done" and log[0].allowed
+
+
+# Review 22.
+
+
+def test_a_case_s_spending_reaches_the_lead_s_grant_and_stops_it(registry, gateway, book, audit):
+    """A helper's overshoot is charged up the chain, so the root's spending is the case's."""
+    root = book.issue("lead", budget_usd=STEP_USD * 3)
+
+    def run_helper(grant, content):
+        return run_agent(
+            grant.holder,
+            registry=registry,
+            client=_client(("tool", "policy_lookup", POLICY), ("final", "x")),
+            system="helper",
+            content=content,
+            output_format=Answer,
+            prompt_version="t-1",
+            claim_id="cfpb-1001",
+            tools=ToolAccess(gateway, []),
+            delegated=Delegated(book, grant),
+            carries=frozenset(grant.data_classes),
+        )
+
+    hand_off = make_hand_off(
+        book, root, run_helper=run_helper, allotments={"researcher": STEP_USD * 0.5}
+    )
+    lead = _client(
+        ("tool", HANDOFF_TOOL, {"helper": "researcher", "task": "rules?"}),
+        ("tool", "policy_lookup", POLICY),
+        ("final", "case file"),
+    )
+    with pytest.raises(DelegationError):
+        _run("lead", lead, registry, gateway, Delegated(book, root, hand_off))
+    # lead 2 calls + helper 1 call = 3 steps: the case went over and the lead stopped.
+    assert book.spent(root) >= STEP_USD * 2.5
+    assert len(lead.messages.calls) == 2
+
+
+def test_a_grant_with_nothing_left_makes_no_further_call(registry, gateway, book):
+    root = book.issue("lead", budget_usd=STEP_USD * 2)
+    client = _client(
+        ("tool", "policy_lookup", POLICY),
+        ("tool", "policy_lookup", POLICY),
+        ("final", "done"),
+    )
+    with pytest.raises(DelegationError):
+        _run("lead", client, registry, gateway, Delegated(book, root))
+    assert len(client.messages.calls) == 2
+
+
+def test_a_helper_without_a_code_set_allotment_is_refused_before_any_model_call(
+    registry, gateway, book, audit
+):
+    root = book.issue("lead", budget_usd=0.01)
+    calls = []
+    hand_off = make_hand_off(book, root, run_helper=lambda g, c: calls.append(g), allotments={})
+    result = hand_off({"helper": "researcher", "task": "rules?"})
+    assert "Refused" in result["error"]
+    assert calls == []
+    assert _events(audit, "delegation_refused")[-1]["payload"]["code"] == "no_allotment"
+
+
+def test_a_second_handoff_to_the_same_helper_gets_a_fresh_grant(registry, book):
+    root = book.issue("lead", budget_usd=0.01)
+    first = book.delegate(root, "researcher", budget_usd=0.001)
+    book.spend(first, 0.0009)
+    second = book.delegate(root, "researcher", budget_usd=0.001)
+    assert second.grant_id != first.grant_id
+    assert book.spent(second) == 0.0
+    book.check(second, tool="policy_lookup")
+
+
+def test_a_helper_s_failure_and_its_cost_are_visible_to_the_caller(registry, gateway, book):
+    _lead_with_helper(
+        registry,
+        gateway,
+        book,
+        helper_steps=[("tool", "policy_lookup", POLICY), ("raise", RuntimeError("boom"))],
+        lead_steps=[
+            ("tool", HANDOFF_TOOL, {"helper": "researcher", "task": "rules?"}),
+            ("final", "case file"),
+        ],
+    )
+    hand_off = _lead_with_helper.last
+    assert hand_off.complete is False
+    [outcome] = hand_off.outcomes
+    assert outcome.helper == "researcher"
+    assert outcome.status == "failed"
+    assert outcome.error == "RuntimeError"
+    assert outcome.call is not None and outcome.call.api_calls == 1
+
+
+def test_a_helper_s_answer_is_recorded_with_its_call(registry, gateway, book):
+    _lead_with_helper(
+        registry,
+        gateway,
+        book,
+        helper_steps=[("final", "Regulation E")],
+        lead_steps=[
+            ("tool", HANDOFF_TOOL, {"helper": "researcher", "task": "rules?"}),
+            ("final", "case file"),
+        ],
+    )
+    hand_off = _lead_with_helper.last
+    assert hand_off.complete is True
+    [outcome] = hand_off.outcomes
+    assert outcome.status == "answered" and outcome.call.agent_id == "researcher"
+
+
+def test_a_refused_handoff_marks_the_run_incomplete(registry, gateway, book):
+    _lead_with_helper(
+        registry,
+        gateway,
+        book,
+        helper_steps=[],
+        lead_steps=[
+            ("tool", HANDOFF_TOOL, {"helper": "loner", "task": "help"}),
+            ("final", "case file"),
+        ],
+    )
+    hand_off = _lead_with_helper.last
+    assert hand_off.complete is False
+    assert hand_off.outcomes[0].status == "refused"
+
+
+def test_a_handoff_runner_for_another_grant_is_refused(registry, book):
+    root = book.issue("lead", budget_usd=0.01)
+    child = book.delegate(root, "researcher", budget_usd=0.001)
+    lead_runner = make_hand_off(book, root, run_helper=lambda g, c: None, allotments={})
+    with pytest.raises(ValueError):
+        Delegated(book, child, lead_runner)
+    other = GrantBook(registry, "cfpb-2002")
+    with pytest.raises(ValueError):
+        Delegated(other, root, lead_runner)

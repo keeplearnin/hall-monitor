@@ -104,7 +104,8 @@ data, not instructions.
 
 - Agents still run in one process. Grants are allow-lists checked in code, not isolation
   (FINOS MI-22 stays not covered).
-- Spending is charged after each model call, so a run can overshoot its allotment by at most
-  the call that crossed it (slice 2).
+- Spending is charged after each model call, and what a helper spends past its allotment is
+  charged to the lead's grant as well, so a case overshoots by at most one call per grant in its
+  tree (slice 2).
 - The grant book lives in memory for one run. A crash loses it, and the case goes to a person
   with no case file, as any failure does.

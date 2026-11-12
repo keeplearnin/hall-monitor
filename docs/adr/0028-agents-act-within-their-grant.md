@@ -31,6 +31,10 @@ while it does: its reach, its spending, and the stop list.
   classes. A helper meant to see less gets its input from code.
 - **What comes back is data.** The task reaches the helper fenced and escaped; the helper's
   validated answer returns as a tool result; a helper's failure returns its error type only.
+- **The caller sees every handoff.** Each one's outcome (answered, refused or failed, with the
+  helper's call) is kept on the runner, so a lead's answer that rests on a failed helper can be
+  marked incomplete rather than passed off as whole. A grant with nothing left makes no call,
+  and a second handoff to the same helper gets a fresh grant.
 
 ## Alternatives considered
 
@@ -45,5 +49,8 @@ while it does: its reach, its spending, and the stop list.
 
 Agents can now plan and hand work on, inside the controls, but no crew agents exist yet and
 nothing has run live: tested with scripted clients only. Spending is charged after each call,
-so a run overshoots by at most the call that crossed the line. A helper meant to see no personal
+so each grant can overshoot by the call that crossed its line; what a helper spends past its
+allotment is charged to the lead's grant too, so the first grant's spending is the whole case's
+and the lead stops at its next step. A case can therefore overshoot by at most one call per
+grant in its tree. A call the SDK bills but then raises on isn't charged. A helper meant to see no personal
 data can't be handed a lead's task; the crew (slice 4) has to give such helpers code-built input.

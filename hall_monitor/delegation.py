@@ -58,6 +58,9 @@ class Grant(BaseModel):
     data_classes: tuple[DataClass, ...]
     budget_usd: float = Field(ge=0, allow_inf_nan=False)
     parent: str | None
+    # Issue order within the book, so a second handoff to the same helper is a new grant with
+    # its own spending, not the first one again.
+    seq: int = Field(default=0, ge=0)
 
     @property
     def grant_id(self) -> str:
@@ -125,6 +128,7 @@ class GrantBook:
             data_classes=_sorted_classes(manifest.data_classes),
             budget_usd=budget_usd,
             parent=None,
+            seq=len(self._issued) + 1,
         )
         self._root = grant.grant_id
         return self._record(grant, actor=PIPELINE)
@@ -214,6 +218,7 @@ class GrantBook:
             data_classes=child_classes,
             budget_usd=budget_usd,
             parent=parent.grant_id,
+            seq=len(self._issued) + 1,
         )
         self._allotted[parent.grant_id] = given + budget_usd
         return self._record(grant, actor=parent.holder)
@@ -234,7 +239,7 @@ class GrantBook:
             raise DelegationError(f"that grant was not issued for {self.scope}")
         self._require_chain(grant)
         used = self._spent.get(grant.grant_id, 0.0) + self._allotted.get(grant.grant_id, 0.0)
-        if used > grant.budget_usd + _SLACK:
+        if used >= grant.budget_usd - _SLACK:
             raise DelegationError(f"agent {grant.holder!r} has used its allotment")
         if tool is not None and tool not in grant.tools:
             raise DelegationError(f"agent {grant.holder!r}'s grant doesn't hold tool {tool!r}")
@@ -255,8 +260,7 @@ class GrantBook:
         with self._lock:
             if not self._is_issued(grant):
                 raise DelegationError(f"that grant was not issued for {self.scope}")
-            spent = self._spent.get(grant.grant_id, 0.0) + usd
-            self._spent[grant.grant_id] = spent
+            spent = self._charge(grant, usd)
             over = spent + self._allotted.get(grant.grant_id, 0.0) > grant.budget_usd + _SLACK
         if over:
             if self._audit is not None:
@@ -274,6 +278,21 @@ class GrantBook:
             raise DelegationError(
                 f"agent {grant.holder!r} has used its allotment of {grant.budget_usd:.4f} USD"
             )
+
+    def _charge(self, grant: Grant, usd: float) -> float:
+        """Add usd to the grant's spending. Whatever goes past its allotment is charged to its
+        parent as well, and so on up, so the first grant's spending is the whole case's and a
+        helper's overshoot stops the lead at its next step. Called under the lock."""
+        allotted = self._allotted.get(grant.grant_id, 0.0)
+        before = self._spent.get(grant.grant_id, 0.0)
+        after = before + usd
+        self._spent[grant.grant_id] = after
+        excess = max(0.0, after + allotted - grant.budget_usd) - max(
+            0.0, before + allotted - grant.budget_usd
+        )
+        if excess > 0 and grant.parent is not None and grant.parent in self._issued:
+            self._charge(self._issued[grant.parent], excess)
+        return after
 
     def record_refusal(self, parent: Grant, to: str, code: str) -> None:
         """Log a handoff refused before the book was asked (a malformed request)."""
