@@ -70,3 +70,11 @@ def test_adr_0001_lists_every_routing_check():
         "add up",
     ):
         assert fact in adr, fact
+
+
+def test_the_readme_counts_the_controls_in_the_register():
+    import yaml
+
+    count = len(yaml.safe_load((ROOT / "controls" / "controls.yaml").read_text())["controls"])
+    readme = (ROOT / "README.md").read_text()
+    assert f"Framework mapping | {count} controls in `controls/controls.yaml`" in readme

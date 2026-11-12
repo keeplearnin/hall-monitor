@@ -202,6 +202,9 @@ def _prepare(
         if audit is not None:
             payload = call.model_dump(mode="json")
             payload["input_hmac"] = audit.keyed_hash(payload.pop("input_sha256"))
+            if scripted:
+                # The hall pass's model is recorded, but the answer came from a stand-in.
+                payload["scripted"] = True
             audit.append(scope, "agent_call", call.agent_id, payload)
 
     content = render_complaint(complaint, narrative, public)
@@ -278,7 +281,9 @@ def _prepare(
                 "draft_problems": problems,
                 "stopped_reason": stopped,
                 "cost_usd": cost,
-                "models": sorted({f"{c.agent_id}:{c.model}" for c in calls}),
+                "models": sorted(
+                    {f"{c.agent_id}:{'scripted' if scripted else c.model}" for c in calls}
+                ),
                 "scripted": scripted,
             },
             once=True,
