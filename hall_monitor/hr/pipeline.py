@@ -331,7 +331,7 @@ def prepare(
                     return sync_and(*args, **kwargs)
                 except Exception as exc:
                     # Raised while recording the outcome (another run's pack stands, say): not
-                    # a failure of the loop to finish again (review 24).
+                    # a failure of the loop to finish again (review 25).
                     raise _Finishing(exc) from exc
 
             def sync_and(*args, **kwargs) -> LeavePreparation:
@@ -572,7 +572,7 @@ def _assess(ctx: _Leave) -> tuple[str, list[str]] | None:
     reason and codes when a check fails, else None."""
     intake = ctx.intakes[0]
     disagreed = len(ctx.intakes) > 1 and len({i.model_dump_json() for i in ctx.intakes}) > 1
-    flag = ["intake_disagreed"] if disagreed else []  # kept on every path (review 24)
+    flag = ["intake_disagreed"] if disagreed else []  # kept on every path (review 25)
     employee = ctx.employees.get(ctx.message.employee_id)
     if employee is None:
         return ("no employee record for this request", ["facts_missing", *flag])
@@ -641,7 +641,7 @@ def _end(ctx: _Leave, decision: LeaveDecision) -> LeavePreparation:
     _step(ctx, decision, StepOutcome.HANDED_OFF if handed else StepOutcome.FINISHED)
     extra = ["supervisor_handed_off"] if handed else []
     if ctx.route is None:
-        # A choice, not an outage: the pack is stored so HR can sign it (review 24).
+        # A choice, not an outage: the pack is stored so HR can sign it (review 25).
         return ctx.stop(
             "the leave supervisor ended before the rules ran", [*extra, "assessment_skipped"]
         )
@@ -728,7 +728,7 @@ def _supervise(ctx: _Leave) -> LeavePreparation:
 def _failed(ctx: _Leave, reason: str, stage: str, outage: bool = True) -> LeavePreparation:
     """Only a failure of the intake call itself, before any intake answered, leaves the request
     to be prepared again with no pack, as on the fixed path. Any failure of the supervisor or
-    its loop stores the pack, so a broken supervisor never keeps a request from HR (review 24
+    its loop stores the pack, so a broken supervisor never keeps a request from HR (review 25
     and the offline eval)."""
     outage = outage and stage == "intake"
     code = "pipeline_stopped" if stage == "intake" else "supervisor_failed"

@@ -202,7 +202,7 @@ def test_running_out_of_steps_goes_to_hr_review():
 
 def test_running_out_of_money_before_intake_still_leaves_the_request_decidable(tmp_path):
     """Not an outage: preparing again would run out the same way, so the pack is stored and
-    HR can sign it (review 24); only a failed model call leaves it to be prepared again."""
+    HR can sign it (review 25); only a failed model call leaves it to be prepared again."""
     audit = AuditLog(tmp_path / "audit.sqlite")
     result, client = _run(limits=LeaveLimits(max_cost_usd=0.0002), audit=audit)
     events = [e["event"] for e in audit.entries(CLEAN)]
@@ -354,7 +354,7 @@ def test_a_request_the_rules_never_saw_goes_to_the_most_senior_role(how):
     assert _role(result.route) == Role.HR_DIRECTOR
 
 
-# --- Review 24 findings ---------------------------------------------------------------------------
+# --- Review 25 findings ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("ending", [A.HAND_OFF, A.FINISH])

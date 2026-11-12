@@ -112,7 +112,7 @@ Every request is still for a person to sign, and code still names the route and 
   Only an intake-call failure before any intake answered leaves the request with no evidence
   pack, to be prepared again, as on the fixed path. Every ending the supervisor chose and every
   failure of the supervisor stores the pack, so a hand-off or a broken supervisor never keeps a
-  request from HR (review 24 found a hand-off before intake left the request unsignable).
+  request from HR (review 25 found a hand-off before intake left the request unsignable).
 - **The note's agent is advisory at finish too:** a stop on the explanation agent after it
   answered drops the note and keeps the route.
 - **The person signing sees how it was prepared:** the evidence pack holds the mode, the
