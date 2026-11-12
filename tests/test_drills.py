@@ -13,7 +13,9 @@ from hall_monitor.governance.audit import AuditLog
 from hall_monitor.kill_switch import STOPS_FILENAME
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR
 
-WITH_A_PERSON = {"waiting_for_adjuster", "needs_a_person", "not_started"}
+WITH_A_PERSON = {"waiting_for_adjuster", "needs_a_person"}
+# Refused by the cap: never entered the workflow, so not queued for anyone (finding 3).
+NOT_STARTED = "not_started"
 
 
 @pytest.fixture(scope="module")
@@ -57,7 +59,7 @@ def test_every_faulted_or_stopped_case_ends_with_a_person(drill):
     _, report = drill
     for case in report["cases"]:
         if case["fault"] in drills.MODEL_FAULTS | {"crash"} or case["after_stop"]:
-            assert case["outcome"] in WITH_A_PERSON, case
+            assert case["outcome"] in WITH_A_PERSON | {NOT_STARTED}, case
 
 
 def test_cases_untouched_by_any_failure_are_handled_normally(drill):
@@ -91,13 +93,15 @@ def test_a_crash_after_the_pack_is_logged_leaves_the_case_for_a_person(drill):
     assert all(c["outcome"] == "needs_a_person" for c in crashed if c["started"])
 
 
-def test_a_duplicate_submission_is_triaged_and_decided_once(drill):
+def test_a_duplicate_submission_records_one_pack_and_at_most_one_decision(drill):
     out, report = drill
     log = AuditLog(out / "audit.sqlite", read_only=True)
     try:
         for case in _cases(report, fault="duplicate", started=True):
             events = [e["event"] for e in log.entries(case["case_id"])]
             assert events.count("evidence_pack") == 1, case
+            # Both submissions may run every agent (cost paid twice); only the pack is once-only.
+            assert events.count("triage_result") in {1, 2}, case
             assert events.count("final_decision") <= 1, case
     finally:
         log.close()
@@ -219,3 +223,118 @@ def test_an_unexpected_error_in_one_case_is_reported_not_fatal(tmp_path, monkeyp
     case = next(c for c in report["cases"] if c["case_id"] == target)
     assert case["errors"] == ["unexpected RuntimeError"]
     assert any(p.startswith(f"{target}:") for p in report["problems"])
+
+
+def _without_over_claim_rule(real):
+    """route_claim with the "payout exceeds the amount claimed" rule removed."""
+    from hall_monitor.governance.routing import RoutingDecision
+    from hall_monitor.models import Route
+
+    def weakened(*args, **kwargs):
+        decision = real(*args, **kwargs)
+        reasons = [r for r in decision.reasons if "exceeds the" not in r]
+        return RoutingDecision(route=Route.ADJUSTER if reasons else Route.AUTO, reasons=reasons)
+
+    return weakened
+
+
+def test_the_checks_fail_when_the_over_claim_rule_is_removed(tmp_path, monkeypatch):
+    """Review 21 finding 1: a wrong answer on a claim that goes to a person anyway proved
+    nothing. The check now asks for the over-claim reason itself in the logged routing."""
+    import hall_monitor.pipeline as pipeline_module
+
+    monkeypatch.setattr(
+        pipeline_module, "route_claim", _without_over_claim_rule(pipeline_module.route_claim)
+    )
+    report = drills.run(
+        tmp_path, rounds=1, workers=4, seed=3, fault_share=0.6, stop_after=24, cap_usd=0.2
+    )
+    assert any("over-claim" in p for p in report["problems"])
+
+
+def test_an_unexpected_error_after_a_finished_submit_is_flagged(tmp_path, monkeypatch):
+    """Review 21 finding 2: an error recorded on a case must be a problem even when the case
+    itself ended normally."""
+    real = drills.ClaimWorkflow.submit
+    target = drills.plan(rounds=1, seed=11)[0].case_id
+
+    def raises_after(self, claim, **kwargs):
+        status = real(self, claim, **kwargs)
+        if claim.claim_id == target:
+            raise RuntimeError("after the submit returned")
+        return status
+
+    monkeypatch.setattr(drills.ClaimWorkflow, "submit", raises_after)
+    report = drills.run(tmp_path, rounds=1, workers=2, seed=11, limit=6)
+    assert any(p.startswith(f"{target}:") and "unexpected" in p for p in report["problems"])
+
+
+def test_a_case_refused_by_the_cap_is_not_queued_for_anyone(drill):
+    """Review 21 finding 3: a refused case never enters the workflow, so it isn't waiting for
+    a person; the report says so instead of counting it as with a person."""
+    out, report = drill
+    refused = [c for c in report["cases"] if c["outcome"] == NOT_STARTED]
+    assert refused
+    assert "not_started" not in drills.WITH_A_PERSON
+    assert report["budget"]["not_started_queued_for_a_person"] == 0
+    registry = drills.Registry.from_dir(Path(report["registry"]))
+    with drills._workflow(out, registry, None, crash=False) as workflow:
+        waiting = set(workflow.waiting())
+        for case in refused:
+            assert workflow.status(case["case_id"])["state"] == "unknown"
+            assert case["case_id"] not in waiting
+
+
+def test_a_fault_hidden_by_the_stop_is_reported_as_masked(tmp_path):
+    """Review 21 finding 4: a model fault on an agent after the risk step never runs once the
+    risk agent is stopped. It is listed as masked, not counted as exercised."""
+    report = drills.run(
+        tmp_path, rounds=1, workers=2, seed=11, fault_share=1.0, stop_after=0, limit=24
+    )
+    assert report["problems"] == []
+    masked = set(report["masked_by_stop"])
+    assert masked
+    for case in report["cases"]:
+        if case["case_id"] in masked:
+            assert case["after_stop"] and case["fault"] in drills.MODEL_FAULTS
+
+
+def test_a_stop_reason_that_doesnt_match_the_fault_is_a_problem(tmp_path, monkeypatch):
+    """The check matches each model fault to its own stop reason, so a fault that stopped the
+    claim for some other reason isn't counted as exercised."""
+    monkeypatch.setitem(drills.FAULT_REASONS, "api_error", "a reason no triage gives")
+    report = drills.run(
+        tmp_path, rounds=1, workers=2, seed=11, fault_share=1.0, limit=24, stop_after=99
+    )
+    assert any("api_error" in p and "stop reason" in p for p in report["problems"])
+
+
+def test_an_error_while_settling_cost_is_flagged_and_the_drill_finishes(tmp_path, monkeypatch):
+    """Review 21 plausible (a): an error in the bookkeeping after a case must not end the drill
+    or leak the case's reservation."""
+    real = drills._logged_cost
+    target = drills.plan(rounds=1, seed=11)[0].case_id
+
+    def flaky(out, case_id):
+        if case_id == target:
+            raise OSError("disk went away")
+        return real(out, case_id)
+
+    monkeypatch.setattr(drills, "_logged_cost", flaky)
+    report = drills.run(tmp_path, rounds=1, workers=2, seed=11, limit=6)
+    assert any(p.startswith(f"{target}:") and "unexpected" in p for p in report["problems"])
+    assert report["budget"]["reserved_left_usd"] == 0
+
+
+def test_the_drill_never_sends_traces_even_with_langfuse_keys_set(tmp_path, monkeypatch):
+    """Review 21 plausible (b): a drill run where Langfuse keys are exported must not trace."""
+    from hall_monitor import tracing
+
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-fake")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-fake")
+    seen = []
+    real = tracing.enabled
+    monkeypatch.setattr(tracing, "enabled", lambda: seen.append(real()) or seen[-1])
+    drills.run(tmp_path, rounds=1, workers=2, seed=11, limit=4)
+    assert seen and not any(seen)
+    assert tracing.os.getenv("LANGFUSE_PUBLIC_KEY") == "pk-lf-fake"  # restored afterwards

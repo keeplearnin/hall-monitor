@@ -20,14 +20,19 @@ controls still hold together is a separate question from whether each holds alon
   optional cost cap.
 - **Its own registry copy, log and checkpoints.** The stop is written to the copy; the shipped
   registry is never touched.
-- **Checks read the audit log**, not the runner's counts: failures end with a person, nothing is
-  left with no one, clean cases are handled normally, nothing is triaged or decided twice, every
-  failure shows in the log, cost stays under the ceiling and the cap, and the log verifies.
+- **Checks read the audit log**, not the runner's counts: failures that started end with a
+  person, nothing is left with no one, clean cases are handled normally, no case has two
+  evidence packs or two decisions, every failure shows in the log as itself (its own stop
+  reason, or the over-claim reason for a wrong answer), cost stays under the ceiling and the
+  cap, and the log verifies. Faults the stop reached first are listed as masked.
 - **The cap is held with reservations.** A case reserves a ceiling before it starts and settles
-  its logged cost after, so cases running together can't pass the cap; a refused case is logged
-  as `batch_budget_reached`.
-- **Mutation tests** show the checks fail when routing lets everything through, when a stopped
-  claim is left with no one, and when the cap never refuses.
+  its logged cost after, so cases running together can't pass the cap, provided each case costs
+  no more than its ceiling, which is checked afterwards. A refused case is logged as
+  `batch_budget_reached`; it never enters the workflow and isn't queued for anyone.
+- **Mutation tests** show the checks fail when routing lets everything through, when the
+  over-claim rule alone is removed, when a stopped claim is left with no one, and when the cap
+  never refuses.
+- **No tracing.** The drill switches tracing off while it runs, even with Langfuse keys set.
 - **A drill always reports.** An unforeseen error in one case is recorded by its type and the
   case is flagged; cases in flight at the stop are counted, with how many were then decided
   automatically (the HM-19 gap).

@@ -34,14 +34,14 @@ A plan fixed by a seed gives a share of the cases one fault each, taking the kin
 
 | Fault | What happens | What must follow |
 |---|---|---|
-| `wrong_answer` | Coverage pays one cent more than was claimed | Routed to a person by the routing rule |
+| `wrong_answer` | Coverage pays one cent more than was claimed | Routed to a person, with the over-claim reason in the logged routing |
 | `wrong_type` | One agent answers with the wrong output type | Triage stops; a person |
 | `no_output` | One agent returns nothing | Triage stops; a person |
 | `truncated` | One agent's answer is cut off (`max_tokens`) | Triage stops; a person |
 | `api_error` | One agent's call fails to connect | Triage stops; a person |
 | `timeout` | One agent's call times out | Triage stops; a person |
 | `crash` | The process dies after the evidence pack is logged, before the checkpoint is saved | Status `needs_a_person` (the HM-05 window) |
-| `duplicate` | The same claim is submitted twice at the same moment | Triaged once, decided at most once |
+| `duplicate` | The same claim is submitted twice at the same moment | One evidence pack and at most one decision. Both submissions may run every agent, so triage can run twice and its cost is paid twice; only the pack and the decision are once-only |
 
 And for the batch:
 
@@ -51,33 +51,44 @@ And for the batch:
   running may finish: that is the HM-19 gap (a call in flight finishes). The report counts the
   cases in flight at the stop and how many of them were then decided automatically.
 - **A cost cap.** Each case reserves a cost ceiling before it starts and settles what it cost
-  when it ends, so cases running at once can't together pass the cap. A case that would pass it
-  isn't started; the log records `batch_budget_reached` for it, and it waits for a person.
+  when it ends, so cases running at once can't together pass the cap, provided no case costs
+  more than its ceiling; that is checked afterwards, not enforced while a case runs. A case that
+  would pass the cap isn't started: the log records `batch_budget_reached` for it, but it never
+  enters the workflow, so it has no checkpoint and isn't queued for anyone. The report counts
+  these cases separately, not as with a person.
 
 ### Checks, in code
 
 Read from the audit log and the workflow's status, never from the runner's own counts:
 
-1. Every failed, crashed or stopped case ends with a person (waiting for an adjuster, needing a
-   person, or not started); none is decided automatically.
+1. Every failed, crashed or stopped case that started ends with a person (waiting for an
+   adjuster or needing a person); none is decided automatically. Cases the cap refused are
+   reported as not started, not as with a person.
 2. No case is left in progress with no one.
 3. Clean cases that finished before the stop were handled normally: decided automatically
    exactly when the answer key routes them so. Without this, a drill could pass by sending
    everything to a person.
-4. No case has more than one evidence pack or final decision.
-5. Every injected failure shows in the log: a stopped triage for a model fault, a person's route
-   for a wrong answer, the stop in the triage result after the stop, `batch_budget_reached` for
-   a case not started, `needs_a_person` for a crash.
+4. No case has more than one evidence pack or final decision, and triage runs at most once (twice
+   for a duplicate submission).
+5. Every injected failure shows in the log as itself: a model fault's own stop reason (for
+   example `APITimeoutError from the model call` for a timeout), the over-claim reason in the
+   routing for a wrong answer, the stop in the triage result after the stop,
+   `batch_budget_reached` for a case not started, `needs_a_person` for a crash. A model fault on
+   an agent after the risk step can be reached by the owner's stop first, so the faulty agent
+   never runs: the report lists those as masked, not exercised.
 6. No case cost more than its ceiling, and the cost the log records for the batch is under the
    cap.
 7. The audit log verifies.
 
 The report counts each fault by outcome, says how many cases began after the stop and how many
-weren't started, and lists every problem. Exit code 1 if there is any. An unforeseen error in
-one case is recorded by its type and flagged; it doesn't end the drill. Three mutation tests
-make sure the checks can fail: a routing rule that lets everything through, a stopped claim
-routed automatically (refused at the automatic step and left with no one), and a cap that never
-refuses.
+weren't started, lists faults masked by the stop, and lists every problem. Exit code 1 if
+there is any. An unforeseen error in a case, including one after its submit returned or while
+its cost is settled, is recorded by its type and flagged; it doesn't end the drill, and the
+case's reservation is given back. Tracing is switched off for the drill, even with Langfuse
+keys exported, and the keys are put back afterwards. Four mutation tests make sure the checks
+can fail: a routing rule that lets everything through, the over-claim rule removed on its own,
+a stopped claim routed automatically (refused at the automatic step and left with no one), and
+a cap that never refuses.
 
 ## Slices
 

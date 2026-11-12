@@ -797,16 +797,32 @@ values were escaped, only an explicit true or false counted, and the page stayed
 | Plausible: "never assumed to be the model" overstated what the log records; the README didn't mention the new column | Low | Both corrected |
 
 
-## Review 19 (branch `failure-drills`): failure drills (HM-31)
+## Review 21 (failure-drills): failure drills (HM-31)
+
+### Part 1: self-check (not independent)
 
 **Reviewer:** the session that wrote the change, working through the governance-reviewer
-checklist (`.claude/agents/governance-reviewer.md`) by hand. The governance-reviewer agent itself
-was not run: this branch was built by a background worker that can't start other agents, so the
-agent review is still owed before merge. Other branches may add a review with the same number;
-the branch name tells them apart. 2 findings confirmed and 1 doc fix; all fixed, test-first.
+checklist (`.claude/agents/governance-reviewer.md`) by hand. Not an independent review. 2
+findings confirmed and 1 doc fix; all fixed, test-first.
 
 | Finding | Severity | Outcome |
 |---|---|---|
-| An unforeseen error in one case (a locked database, a bug) ended the whole drill with a traceback and no report | Medium | It is recorded by its type and the case is flagged as left with no one (`test_an_unexpected_error_in_one_case_is_reported_not_fatal`) |
+| An unforeseen error in one case (a locked database, a bug) ended the whole drill with a traceback and no report | Medium | It is recorded by its type (`test_an_unexpected_error_in_one_case_is_reported_not_fatal`); part 2 found it still wasn't flagged in every case |
 | The design said the drill shows the HM-19 gap (a call in flight finishes), but the report didn't count cases in flight at the stop | Medium | The report counts them and how many were then decided automatically (`test_the_report_counts_cases_in_flight_at_the_stop`) |
-| The design and ADR named two mutation tests; there are three | Low | Corrected |
+| The design and ADR named two mutation tests; there were three | Low | Corrected (four after part 2) |
+
+### Part 2: independent review
+
+**Reviewer:** the governance-reviewer agent, run independently on the branch at `2bff0e5`, with
+offline repros. 5 findings confirmed and 3 plausible; all fixed, test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A wrong answer went on a random claim and the check asked only that it reached a person; 20 of 36 claims go to a person anyway. With the over-claim routing rule patched out, seed 3 reported no problems | Medium | The check requires the over-claim reason in the logged routing; a mutation test removes that one rule (`test_the_checks_fail_when_the_over_claim_rule_is_removed`) |
+| Errors recorded on a case were never read by the check: an error raised after a real submit gave outcome decided, no problems, exit 0, contradicting HM-31 and ADR 0027 | Medium | Any case with an unexpected error is a problem (`test_an_unexpected_error_after_a_finished_submit_is_flagged`) |
+| A case the cap refused was counted as with a person, but it never entered the workflow: no checkpoint, status unknown, not in the waiting list | Medium | Not started is reported apart from with a person, and the docs say plainly these cases aren't queued for anyone (`test_a_case_refused_by_the_cap_is_not_queued_for_anyone`) |
+| A model fault the owner's stop reached first (the faulty agent never ran) still counted as exercised | Low | Each model fault must leave its own stop reason; faults the stop reached first are listed as masked (`test_a_fault_hidden_by_the_stop_is_reported_as_masked`, `test_a_stop_reason_that_doesnt_match_the_fault_is_a_problem`) |
+| "Nothing is triaged or decided twice" overstated: a duplicate submission runs every agent twice and pays twice; only the evidence pack and the decision are once-only | Low | Reworded everywhere; the check allows at most two triage runs for a duplicate and one otherwise |
+| Plausible: an error while reading a case's cost escaped the worker, ended the drill with no report and left its reservation held | Low | Caught, the reservation given back, the case flagged, and a leftover reservation is a problem (`test_an_error_while_settling_cost_is_flagged_and_the_drill_finishes`) |
+| Plausible: exported Langfuse keys would make a drill send spans (confirmed while writing the test: an export was attempted with the fake keys) | Low | Tracing is off for the drill's duration and the keys are put back (`test_the_drill_never_sends_traces_even_with_langfuse_keys_set`); the register notes this is process-wide |
+| Plausible: "cases running together can't pass the cap" holds only if each case costs at most its ceiling, which is checked afterwards | Low | Said in the design, ADR and register |

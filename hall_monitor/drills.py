@@ -19,17 +19,21 @@ Failures are injected on a plan fixed by a seed:
   and reserved would pass it.
 
 Then code checks the outcome, reading the audit log rather than trusting the runner: every
-failed, crashed or stopped case ends with a person; clean cases that finished before the stop
-were handled normally; no case is left with no one; no case was triaged or decided twice; every
-injected failure shows in the log; the log verifies; and the cost the log records is under the
-cap. The report counts each kind of failure by outcome and lists any problem. Exit code 0 when
-there are none, 1 otherwise.
+failed, crashed or stopped case that started ends with a person; clean cases that finished
+before the stop were handled normally; no case is left with no one; no case has two evidence
+packs or two decisions (a duplicate submission may still run triage twice); every injected
+failure shows in the log by its own reason; the log verifies; and the cost the log records is
+under the cap. A case the cap refuses is logged but never enters the workflow, so it isn't
+queued for anyone. Faults the stop reached first are listed as masked. Tracing is off while a
+drill runs. The report counts each kind of failure by outcome and lists any problem. Exit code
+0 when there are none, 1 otherwise.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import shutil
 import sys
@@ -69,7 +73,22 @@ MODEL_FAULTS = frozenset(
     {"wrong_answer", "wrong_type", "no_output", "truncated", "api_error", "timeout"}
 )
 CASE_FAULTS = (*sorted(MODEL_FAULTS), "crash", "duplicate")
-WITH_A_PERSON = frozenset({"waiting_for_adjuster", "needs_a_person", "not_started"})
+WITH_A_PERSON = frozenset({"waiting_for_adjuster", "needs_a_person"})
+# A case the cap refuses never enters the workflow: it has no checkpoint and waits for no one.
+# It is logged as batch_budget_reached and is not counted as with a person.
+NOT_STARTED = "not_started"
+# What each model fault must leave as the logged stop reason when nothing else stopped the
+# claim first. A wrong answer doesn't stop triage; the over-claim routing rule must catch it.
+FAULT_REASONS = {
+    "wrong_type": "agent refused or returned no usable output",
+    "no_output": "agent refused or returned no usable output",
+    "truncated": "agent refused or returned no usable output",
+    "api_error": "APIConnectionError from the model call",
+    "timeout": "APITimeoutError from the model call",
+}
+OVER_CLAIM_REASON = "exceeds the"  # governance/routing.py: payout above the amount claimed
+STOPPED_REASON = "is stopped"  # registry.py: AgentStoppedError
+TRACING_KEYS = ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY")
 
 STOPPED_AGENT, STOPPED_BY = "risk_fraud", "own-302"
 # The most one triage run may cost. With the scripted token counts the dearest run in a full
@@ -189,6 +208,11 @@ class Budget:
             self.reserved += n * self.ceiling
             return True
 
+    def release(self, n: int) -> None:
+        """Give back a reservation whose cost couldn't be read; the check flags the case."""
+        with self._lock:
+            self.reserved -= n * self.ceiling
+
     def settle(self, n: int, cost: float) -> None:
         with self._lock:
             self.reserved -= n * self.ceiling
@@ -246,6 +270,18 @@ def _workflow(out: Path, registry: Registry, client, *, crash: bool) -> Iterator
         audit.close()
 
 
+@contextmanager
+def _no_tracing() -> Iterator[None]:
+    """Tracing off for the drill: it is scripted data and must not reach Langfuse even when keys
+    are exported. The keys are put back afterwards. They are process-wide, so don't trace from
+    other threads of the same process while a drill runs."""
+    saved = {k: os.environ.pop(k) for k in TRACING_KEYS if k in os.environ}
+    try:
+        yield
+    finally:
+        os.environ.update(saved)
+
+
 def _claim(case: Case) -> ClaimSubmission:
     original = next(c for c in iter_claims() if c.claim_id == case.claim_id)
     return original.model_copy(update={"claim_id": case.case_id})
@@ -293,6 +329,13 @@ def run(
     """Run a drill under `out` (cleared first if it holds an earlier drill) and return the
     report. stop_after: cases begun before the owner's stop (default two thirds). cap_usd: the
     batch cost cap (none by default). limit: run only the first cases of the plan."""
+    with _no_tracing():
+        return _run(
+            out, rounds, workers, seed, fault_share, stop_after, cap_usd, ceiling_usd, limit
+        )
+
+
+def _run(out, rounds, workers, seed, fault_share, stop_after, cap_usd, ceiling_usd, limit):
     _prepare(out)
     registry_dir = _registry_copy(out)
     cases = plan(rounds=rounds, seed=seed, fault_share=fault_share)[:limit]
@@ -351,7 +394,11 @@ def run(
             else:
                 _submit(out, registry_dir, case, record)
         finally:
-            budget.settle(n, _logged_cost(out, case.case_id))
+            try:
+                budget.settle(n, _logged_cost(out, case.case_id))
+            except Exception as exc:  # the drill still finishes; the check flags the case
+                budget.release(n)
+                record.errors.append(f"unexpected {type(exc).__name__} settling its cost")
             with lock:
                 record.before_stop = progress["stopped_at"] is None
 
@@ -359,6 +406,7 @@ def run(
         list(pool.map(one, cases))
 
     report = _report(out, registry_dir, records, budget, progress["stopped_at"], seed, workers)
+    report["masked_by_stop"] = masked_by_stop(out, report)
     report["problems"] = check(out, report)
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     return report
@@ -370,7 +418,7 @@ def _report(out, registry_dir, records, budget, stop_id, seed, workers) -> dict:
     with _workflow(out, registry, None, crash=False) as workflow:
         for record in records.values():
             status = workflow.status(record.case.case_id) if record.started else None
-            outcome = status["state"] if status else "not_started"
+            outcome = status["state"] if status else NOT_STARTED
             decided_by = (status.get("final") or {}).get("decided_by") if status else None
             cases.append(
                 asdict(record.case)
@@ -415,16 +463,16 @@ def _report(out, registry_dir, records, budget, stop_id, seed, workers) -> dict:
             "cap_usd": budget.cap,
             "case_ceiling_usd": budget.ceiling,
             "spent_usd": round(spent, 6),
-            "not_started": sum(c["outcome"] == "not_started" for c in cases),
+            "not_started": sum(c["outcome"] == NOT_STARTED for c in cases),
+            "not_started_queued_for_a_person": 0,  # they never enter the workflow
+            "reserved_left_usd": round(budget.reserved, 6),
         },
         "audit": {"ok": verification.ok, "entries": verification.entries},
         "cases": sorted(cases, key=lambda c: c["case_id"]),
     }
 
 
-def check(out: Path, report: dict) -> list[str]:
-    """What the drill requires, read from the audit log and the workflow's status. IDs only."""
-    problems = []
+def _log_by_case(out: Path) -> dict[str, list[dict]]:
     log = AuditLog(out / "audit.sqlite", read_only=True)
     try:
         entries = log.entries()
@@ -433,15 +481,44 @@ def check(out: Path, report: dict) -> list[str]:
     by_case: dict[str, list[dict]] = {}
     for e in entries:
         by_case.setdefault(e["claim_id"], []).append(e)
+    return by_case
+
+
+def _last_result(events: list[dict]) -> dict | None:
+    results = [e["payload"] for e in events if e["event"] == "triage_result"]
+    return results[-1] if results else None
+
+
+def masked_by_stop(out: Path, report: dict) -> list[str]:
+    """Model-fault cases the owner's stop reached first: the faulty agent never ran, so the
+    fault wasn't exercised. Listed, not counted as exercised and not a problem."""
+    by_case = _log_by_case(out)
+    masked = []
+    for case in report["cases"]:
+        if case["fault"] not in MODEL_FAULTS or not case["started"]:
+            continue
+        result = _last_result(by_case.get(case["case_id"], []))
+        if result and STOPPED_REASON in (result["stopped_reason"] or ""):
+            masked.append(case["case_id"])
+    return sorted(masked)
+
+
+def check(out: Path, report: dict) -> list[str]:
+    """What the drill requires, read from the audit log and the workflow's status. IDs only."""
+    problems = []
+    by_case = _log_by_case(out)
+    masked = set(report.get("masked_by_stop", ()))
 
     for case in report["cases"]:
         cid, fault, outcome = case["case_id"], case["fault"], case["outcome"]
         events = by_case.get(cid, [])
         names = [e["event"] for e in events]
-        results = [e["payload"] for e in events if e["event"] == "triage_result"]
+        result = _last_result(events)
         failed = fault in MODEL_FAULTS or fault == "crash" or case["after_stop"]
 
-        if outcome not in WITH_A_PERSON and outcome != "decided":
+        if any(e.startswith("unexpected ") for e in case["errors"]):
+            problems.append(f"{cid}: unexpected error recorded ({'; '.join(case['errors'])})")
+        if outcome not in WITH_A_PERSON | {NOT_STARTED, "decided"}:
             problems.append(f"{cid}: left {outcome}, with no one")
         if failed and outcome == "decided":
             problems.append(f"{cid}: {fault} case decided automatically")
@@ -450,39 +527,60 @@ def check(out: Path, report: dict) -> list[str]:
             if outcome != expected:
                 problems.append(f"{cid}: clean case ended {outcome}, expected {expected}")
         if names.count("evidence_pack") > 1:
-            problems.append(f"{cid}: triaged twice")
+            problems.append(f"{cid}: more than one evidence pack")
         if names.count("final_decision") > 1:
             problems.append(f"{cid}: decided twice")
+        runs = names.count("triage_result")
+        if runs > (2 if fault == "duplicate" else 1):
+            problems.append(f"{cid}: triage ran {runs} times")
 
-        # Every injected failure must show in the log.
+        # Every injected failure must show in the log, as itself.
         if not case["started"]:
             if names != ["batch_budget_reached"]:
                 problems.append(f"{cid}: not started, but the log doesn't say why")
             continue
         if fault == "crash" and outcome != "needs_a_person":
             problems.append(f"{cid}: crash not reported as needing a person")
-        if fault in MODEL_FAULTS - {"wrong_answer"} and not (
-            results and results[-1]["stopped_reason"] and results[-1]["route"] == "adjuster"
+        if (
+            fault in FAULT_REASONS
+            and cid not in masked
+            and not (
+                result
+                and result["route"] == "adjuster"
+                and FAULT_REASONS[fault] in (result["stopped_reason"] or "")
+            )
         ):
-            problems.append(f"{cid}: {fault} not shown in the log as a stopped triage")
-        if fault == "wrong_answer" and not (results and results[-1]["route"] == "adjuster"):
-            problems.append(f"{cid}: wrong answer not routed to a person in the log")
+            problems.append(f"{cid}: {fault} not shown in the log by its own stop reason")
+        if (
+            fault == "wrong_answer"
+            and cid not in masked
+            and not (
+                result
+                and result["route"] == "adjuster"
+                and any(OVER_CLAIM_REASON in r for r in result["routing_reasons"])
+            )
+        ):
+            problems.append(f"{cid}: wrong answer not routed by the over-claim rule")
         if (
             case["after_stop"]
             and fault == "none"
-            and not (results and "is stopped" in (results[-1]["stopped_reason"] or ""))
+            and not (result and STOPPED_REASON in (result["stopped_reason"] or ""))
         ):
             problems.append(f"{cid}: the stop isn't shown in the log")
         n = 2 if fault == "duplicate" else 1
-        cost = sum(r.get("cost_usd") or 0.0 for r in results)
+        cost = sum(
+            e["payload"].get("cost_usd") or 0.0 for e in events if e["event"] == "triage_result"
+        )
         if cost > n * report["budget"]["case_ceiling_usd"]:
             problems.append(f"{cid}: cost {cost:.4f} above the case ceiling")
 
     if not report["audit"]["ok"]:
         problems.append("the audit log doesn't verify")
-    cap = report["budget"]["cap_usd"]
-    if cap is not None and report["budget"]["spent_usd"] > cap:
-        problems.append(f"spent {report['budget']['spent_usd']:.4f} over the cap {cap:.4f}")
+    budget = report["budget"]
+    if budget["cap_usd"] is not None and budget["spent_usd"] > budget["cap_usd"]:
+        problems.append(f"spent {budget['spent_usd']:.4f} over the cap {budget['cap_usd']:.4f}")
+    if budget.get("reserved_left_usd", 0) > 1e-9:
+        problems.append(f"{budget['reserved_left_usd']:.4f} of the cap still reserved at the end")
     return problems
 
 
@@ -502,7 +600,9 @@ def render(report: dict) -> str:
         f"{stop['cases_after_stop']} cases begun after it; {stop['in_flight_at_stop']} in "
         f"flight at the stop, {stop['in_flight_decided_automatically']} of them then decided "
         "automatically (a call in flight finishes: HM-19 gap)",
-        f"Cost: ${budget['spent_usd']:.4f} logged, cap {cap}; {budget['not_started']} not started",
+        f"Cost: ${budget['spent_usd']:.4f} logged, cap {cap}; {budget['not_started']} not "
+        "started (logged; never entered the workflow, so not queued for anyone)",
+        f"Faults the stop reached first (not exercised): {len(report['masked_by_stop'])}",
         f"Audit log: {'verifies' if report['audit']['ok'] else 'DOES NOT VERIFY'}, "
         f"{report['audit']['entries']} entries",
         "",
