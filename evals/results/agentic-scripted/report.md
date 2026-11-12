@@ -1,6 +1,6 @@
 # Agentic path against the fixed path (offline, scripted)
 
-Run 2026-11-12 03:30 UTC at c1568b04d0e6, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
+Run 2026-11-12 03:48 UTC at b7e7ebd75033, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
 
 Fixed path: routes {'auto': 16, 'adjuster': 20}, 5.0 specialist calls and 0.0124 USD per claim (fake token counts).
 
@@ -67,4 +67,4 @@ Fixed path: routes {'auto': 16, 'adjuster': 20}, 5.0 specialist calls and 0.0124
 | noisy_2 | 50% | 0 | {'hr_review': 24, 'specialist_sign_off': 4} | {'assessment_skipped': 6, 'supervisor_failed': 2, 'supervisor_handed_off': 9} | 4.0 |
 | noisy_3 | 57% | 0 | {'hr_review': 25, 'specialist_sign_off': 3} | {'assessment_skipped': 11, 'supervisor_handed_off': 7} | 3.32 |
 
-- **Less review:** requests this policy gave less review than the fixed order (the specialist's light path instead of HR review, a less senior role, or, where the rules ran, one of their reasons dropped). Must be 0. `recheck_disagrees` answers every re-check with the opposite intermittent answer.
+- **Less review:** requests this policy gave less review than the fixed order (the specialist's light path instead of HR review, a less senior role, or, where the rules ran, one of their reasons dropped, or no evidence pack where the fixed order stored one). Must be 0. `recheck_disagrees` answers every re-check with the opposite intermittent answer.
