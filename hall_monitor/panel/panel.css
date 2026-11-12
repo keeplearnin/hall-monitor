@@ -157,7 +157,9 @@ tr:last-child td { border-bottom: none; }
 }
 /* The leave submission form (hall_monitor/hr/submit.py), a separate app that shares this sheet. */
 .submit-form { display: grid; gap: 8px; max-width: 760px; }
-.submit-form label { color: var(--muted); margin-top: 6px; }
+.submit-form label, .submit-form .label { color: var(--muted); margin-top: 6px; }
+.submit-form label:has(input[type="checkbox"]) { color: var(--ink); margin-top: 0; }
+.submit-form input[type="text"],
 .submit-form select,
 .submit-form textarea {
   font: inherit;
