@@ -1404,7 +1404,11 @@ controls:
       the queue, what went to specialist review and why in the code's words, urgency, cost per
       complaint, pulls with their counts, retries and status, and the no-send control's status:
       the static check run against the checkout, egress refusals logged, and drafts not marked
-      never sent; never a summary or a draft's text. A complaint claimed but never routed is listed as such.
+      never sent; never a summary or a draft's text. Each complaint says who answered it: the scripted stand-in;
+      the model (the log's label means "not the scripted stand-in"); unknown when the log
+      doesn't say, never assumed to be the model; no answer when the agent failed or triage was
+      interrupted; not yet when it was claimed but not routed. A banner shows whenever any
+      answer is scripted, and the page names the audit log it reads by its path in the repo. A complaint claimed but never routed is listed as such.
       Complaints never appear as claims, and their scopes have no case page.
     status: built
     code:
@@ -1433,6 +1437,14 @@ controls:
       - tests/test_complaint_evals.py::test_complaint_scopes_have_no_claim_page
       - tests/test_complaint_evals.py::test_the_desk_page_shows_a_received_but_unrouted_complaint
       - tests/test_complaint_evals.py::test_the_page_says_check_failed_when_a_file_wont_parse
+      - tests/test_complaint_evals.py::test_the_desk_page_marks_scripted_answers_and_says_so_in_a_banner
+      - tests/test_complaint_evals.py::test_a_model_answer_is_marked_as_the_model_s
+      - tests/test_complaint_evals.py::test_an_entry_without_a_clear_label_is_shown_as_unknown_not_as_the_model
+      - tests/test_complaint_evals.py::test_a_complaint_whose_model_call_failed_is_not_shown_as_answered_by_the_model
+      - tests/test_complaint_evals.py::test_an_interrupted_or_unrouted_complaint_has_no_answer_and_no_green_badge
+      - tests/test_complaint_evals.py::test_the_banner_counts_answered_complaints_only
+      - tests/test_complaint_evals.py::test_a_log_in_the_repo_is_named_by_its_path_there
+      - tests/test_complaint_evals.py::test_the_page_names_the_log_it_reads
     evidence:
       - evals/results/complaints-scripted/report.md
       - "pending: uv run python -m hall_monitor.complaints.evals --live --limit 50"

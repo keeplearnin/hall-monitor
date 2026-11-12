@@ -10,6 +10,7 @@ CFPB beyond IDs, codes and counts.
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
 
 from hall_monitor import no_send
 from hall_monitor.complaints.routing import REASONS
@@ -44,6 +45,26 @@ def _int(value: object) -> int | None:
     return value if type(value) is int else None
 
 
+def log_label(src: views.Sources) -> str:
+    """The audit log as the page names it: its path in the repo (var/demo/audit.sqlite, say),
+    or the file name only for a log elsewhere, so no path from the machine is shown."""
+    root = Path(__file__).resolve().parents[2]
+    try:
+        return src.audit_db.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return src.audit_db.name
+
+
+def _source(scripted: object) -> str:
+    """Who answered: the scripted stand-in, the model, or unknown. Only an explicit False counts
+    as the model, so an entry without the label is never shown as the model's answer. (False in
+    the log means "not the scripted stand-in": the pipeline can't tell a model from another
+    unmarked client.)"""
+    if scripted is True:
+        return "scripted"
+    return "model" if scripted is False else "unknown"
+
+
 def complaint_desk(src: views.Sources) -> dict:
     entries, problem = views._entries(src)
     ids = desk_ids(entries)
@@ -65,6 +86,7 @@ def complaint_desk(src: views.Sources) -> dict:
             "cost_usd": None,
             "draft_kept": False,
             "agent_failed": False,
+            "source": "not yet",
         }
         for scope in unrouted
     ]
@@ -86,6 +108,8 @@ def complaint_desk(src: views.Sources) -> dict:
                 "cost_usd": views._number(p.get("cost_usd")),
                 "draft_kept": isinstance(p.get("draft_sha256"), str),
                 "agent_failed": "agent_failed" in codes,
+                # A failed or interrupted triage has no answer, whoever was asked.
+                "source": "no answer" if "agent_failed" in codes else _source(p.get("scripted")),
             }
         )
     complaints.sort(
@@ -111,6 +135,10 @@ def complaint_desk(src: views.Sources) -> dict:
     costs = [c["cost_usd"] for c in complaints if c["cost_usd"] is not None]
     return {
         "problem": problem,
+        # The file name only: which log this is, without the machine's paths.
+        "audit_log": log_label(src),
+        "scripted": sum(c["source"] == "scripted" for c in complaints),
+        "answered": sum(c["source"] in ("scripted", "model", "unknown") for c in complaints),
         "complaints": complaints,
         "queues": dict(Counter(c["queue"] for c in complaints)),
         "urgency": dict(Counter(c["urgency"] for c in complaints)),
@@ -197,6 +225,7 @@ def complaints_page(data: dict, *, demo: bool) -> str:
                 "ok" if c["queue"] == "standard_queue" else "warn",
             ),
             c["urgency"] or "unknown",
+            badge(c["source"], "ok" if c["source"] == "model" else "warn"),
             "; ".join(c["explained"]) or "none",
             usd(c["cost_usd"]),
         )
@@ -205,7 +234,9 @@ def complaints_page(data: dict, *, demo: bool) -> str:
     listing = tag(
         "section",
         tag("h2", "Complaints"),
-        table(["Complaint", "Queue", "Urgency", "Reasons", "Cost"], rows, "None yet."),
+        table(
+            ["Complaint", "Queue", "Urgency", "Answered by", "Reasons", "Cost"], rows, "None yet."
+        ),
     )
     pull_rows = [
         (
@@ -226,7 +257,14 @@ def complaints_page(data: dict, *, demo: bool) -> str:
         tag("h2", "Pulls from CFPB"),
         tag(
             "p",
-            f"{data['quarantined']} records quarantined in all (field names and error types only).",
+            f"{data['quarantined']} records quarantined in all (field names and error types only). "
+            "This page reads one audit log, ",
+            tag("code", data["audit_log"]),
+            ". Pulls and live triage write to var/audit.sqlite, the complaint demo "
+            "(complaints.run --demo) to var/demo/complaints-audit.sqlite, and the panel demo to "
+            "var/demo/audit.sqlite; serve the panel with ",
+            tag("code", "--audit-db"),
+            " to read another.",
         ),
         table(
             [
@@ -252,9 +290,22 @@ def complaints_page(data: dict, *, demo: bool) -> str:
         class_="banner",
     )
     problem = tag("p", data["problem"], class_="banner") if data["problem"] else ""
+    scripted = (
+        tag(
+            "p",
+            tag("strong", "Scripted answers. "),
+            f"{data['scripted']} of the {data['answered']} answered complaints here were answered "
+            "by the scripted stand-in (complaints/scripted.py), not the model. Their categories "
+            "and urgencies come from fixed rules and say nothing about the model; routing to a "
+            "person is the code's either way.",
+            class_="banner demo",
+        )
+        if data["scripted"]
+        else ""
+    )
     return page(
         "Complaint desk",
         "complaints.html",
-        tag("div", problem, note, status, summary, listing, pulls),
+        tag("div", problem, scripted, note, status, summary, listing, pulls),
         demo=demo,
     )

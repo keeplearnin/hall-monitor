@@ -782,3 +782,17 @@ ones fixed too.
 | The README gave "0 counterfactual flips" without saying it can't flip by construction, and rates without their counts | Low | It says both, and that the rates depend on the stand-in |
 | Plausible: the gate didn't check a result's mode; a live run's egress refusals were dropped; the counterfactual rendered unredacted text; the reproducibility test compared only the summary | Low | Each gate check names its mode; refusals are counted and gated; the check renders redacted text, as the pipeline does; the test compares the whole result |
 
+## Review 18: who answered each complaint, on the desk page (HM-28)
+
+**Reviewer:** the governance-reviewer agent, before the pull request, with offline repros. New
+values were escaped, only an explicit true or false counted, and the page stayed read-only.
+4 findings, all confirmed, and 2 plausible; all fixed, test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A complaint whose model call failed showed as answered by the model, with a green badge: the log's label says only that the stand-in wasn't used | Medium | A failed or interrupted triage shows "no answer"; the register says what the label means |
+| The log was named by its file name only, beside paths that pointed at the wrong demo log (`panel serve --demo` reads `var/demo/audit.sqlite`) | Medium | The log is named by its path in the repo, and the page lists all three logs correctly |
+| A claimed-but-unrouted complaint had a green badge and counted in the banner's total | Low | It shows "not yet" with a warn badge; the banner counts answered complaints only |
+| No test covered non-boolean labels or an interrupted route | Low | Both tested |
+| Plausible: "never assumed to be the model" overstated what the log records; the README didn't mention the new column | Low | Both corrected |
+

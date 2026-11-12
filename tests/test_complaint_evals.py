@@ -254,3 +254,114 @@ def test_the_label_key_log_counts_the_key():
 
     readme = (ROOT / "data" / "cfpb" / "README.md").read_text()
     assert f"Created: {len(evals.load_label_key())} labels" in readme
+
+
+# The desk page says which answers came from the scripted stand-in, and which log it reads.
+
+
+def test_the_desk_page_marks_scripted_answers_and_says_so_in_a_banner(desk_src):
+    data = desk.complaint_desk(desk_src)
+    assert data["scripted"] == 30 and all(c["source"] == "scripted" for c in data["complaints"])
+    text = desk.complaints_page(data, demo=False)  # served without --demo
+    assert "Scripted answers." in text
+    assert text.count(">scripted<") == 30
+
+
+def test_a_model_answer_is_marked_as_the_model_s(tmp_path):
+    from hall_monitor.complaints.pipeline import triage_complaint
+    from tests.test_complaint_triage import _client, complaint
+
+    db = tmp_path / "audit.sqlite"
+    audit = AuditLog(db)
+    triage_complaint(complaint(), registry=REGISTRY, client=_client(), audit=audit)
+    audit.close()
+    src = views.Sources(registry_dir=TEST_REGISTRY_DIR, audit_db=db)
+    data = desk.complaint_desk(src)
+    assert data["scripted"] == 0 and data["complaints"][0]["source"] == "model"
+    assert "Scripted answers." not in desk.complaints_page(data, demo=False)
+
+
+@pytest.mark.parametrize("value", [None, "true", "false", 1, 0, "missing"])
+def test_an_entry_without_a_clear_label_is_shown_as_unknown_not_as_the_model(tmp_path, value):
+    db = tmp_path / "audit.sqlite"
+    audit = AuditLog(db)
+    payload = {"queue": "standard_queue", "reasons": []}
+    if value != "missing":
+        payload["scripted"] = value
+    audit.append("cfpb-1", "complaint_routed", "pipeline", payload)
+    audit.close()
+    src = views.Sources(registry_dir=TEST_REGISTRY_DIR, audit_db=db)
+    [c] = desk.complaint_desk(src)["complaints"]
+    assert c["source"] == "unknown"
+
+
+def _src_with(tmp_path, write) -> views.Sources:
+    db = tmp_path / "audit.sqlite"
+    audit = AuditLog(db)
+    write(audit)
+    audit.close()
+    return views.Sources(registry_dir=TEST_REGISTRY_DIR, audit_db=db)
+
+
+def test_a_complaint_whose_model_call_failed_is_not_shown_as_answered_by_the_model(tmp_path):
+    from hall_monitor.complaints.pipeline import triage_complaint
+    from tests.test_complaint_triage import _client, complaint
+
+    src = _src_with(
+        tmp_path,
+        lambda audit: triage_complaint(
+            complaint(), registry=REGISTRY, client=_client(stop_reason="refusal"), audit=audit
+        ),
+    )
+    data = desk.complaint_desk(src)
+    assert data["complaints"][0]["source"] == "no answer"
+    assert '<span class="badge warn">no answer</span>' in desk.complaints_page(data, demo=False)
+
+
+def test_an_interrupted_or_unrouted_complaint_has_no_answer_and_no_green_badge(tmp_path):
+    from hall_monitor.complaints.pipeline import route_unfinished
+    from tests.test_complaint_triage import complaint
+
+    def write(audit):
+        audit.append("cfpb-28750001", "complaint_received", "pipeline", {})
+        route_unfinished(complaint(), audit)
+        audit.append("cfpb-7", "complaint_received", "pipeline", {})
+
+    data = desk.complaint_desk(_src_with(tmp_path, write))
+    sources = {c["complaint_id"]: c["source"] for c in data["complaints"]}
+    assert sources == {"cfpb-28750001": "no answer", "cfpb-7": "not yet"}
+    text = desk.complaints_page(data, demo=False)
+    assert (
+        '<span class="badge ok">' not in text.split("<h2>Complaints</h2>")[1].split("</table>")[0]
+    )
+
+
+def test_the_banner_counts_answered_complaints_only(desk_src):
+    audit = AuditLog(desk_src.audit_db)
+    audit.append("cfpb-7", "complaint_received", "pipeline", {})
+    audit.close()
+    text = desk.complaints_page(desk.complaint_desk(desk_src), demo=False)
+    assert "30 of the 30 answered complaints" in text
+
+
+def test_the_page_names_the_log_it_reads(desk_src):
+    data = desk.complaint_desk(desk_src)
+    assert data["audit_log"] == "audit.sqlite"  # outside the repo: the file name only
+    text = desk.complaints_page(data, demo=False)
+    assert "audit.sqlite" in text and "--audit-db" in text
+
+
+def test_a_log_in_the_repo_is_named_by_its_path_there(tmp_path):
+    from hall_monitor.governance.controls import ROOT
+
+    for rel in ("var/audit.sqlite", "var/demo/audit.sqlite", "var/demo/complaints-audit.sqlite"):
+        src = views.Sources(registry_dir=TEST_REGISTRY_DIR, audit_db=ROOT / rel)
+        assert desk.log_label(src) == rel
+    text = desk.complaints_page(
+        desk.complaint_desk(
+            views.Sources(registry_dir=TEST_REGISTRY_DIR, audit_db=tmp_path / "x.sqlite")
+        ),
+        demo=False,
+    )
+    for rel in ("var/audit.sqlite", "var/demo/audit.sqlite", "var/demo/complaints-audit.sqlite"):
+        assert rel in text
