@@ -20,6 +20,15 @@
     "hall_pass_model": "claude-haiku-5-5",
     "answers_from": "scripted-hijack"
   },
+  "supervisor_hall_pass": {
+    "agent_id": "complaint_supervisor",
+    "agent_version": "0.1.0",
+    "model": "claude-haiku-5-5",
+    "manifest_digest": "ddd6adb7f93c35dd80cc1062e80583f9a64d90de8e3884dd94da240188fc357b",
+    "prompt_version": "complaint-supervisor-v1",
+    "prompt_template_sha256": "2502da10e974368ce2d4b1798928801a4f78b6e403c659377f13062a127a34a4",
+    "answers_from": "scripted-old-order"
+  },
   "rounds": [
     {
       "round": 1,

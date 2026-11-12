@@ -145,7 +145,8 @@ def test_routing_never_depends_on_state_or_zip(c):
 
 
 def _client(output=None, stop_reason="end_turn"):
-    return fake_client({ComplaintTriage: output or answer()}, stop_reason)
+    # A stop reason for the triage agent only; the desk supervisor answers normally.
+    return fake_client({ComplaintTriage: output or answer()}, {ComplaintTriage: stop_reason})
 
 
 def test_a_complaint_is_triaged_and_logged_with_no_text(tmp_path):

@@ -158,6 +158,7 @@ complaint -> redact, scan for text aimed at the AI           (code)
 | `triage_disagreed` | the desk supervisor asked for a second, independent triage and the two disagreed on category, urgency or concerns ([ADR 0028](adr/0028-agent-picks-the-steps-code-holds-the-boundaries.md)) |
 | `supervisor_handed_off` | the desk supervisor handed the complaint to specialist review |
 | `triage_skipped` | the desk supervisor finished before any triage ran |
+| `supervisor_failed` | the desk supervisor failed, was stopped, ran out of budget or kept choosing steps code refused (the triage agent may have answered) |
 
 The label patterns are checked against every label in the pinned snapshot by a hand-written
 table in the tests, not by the patterns themselves (review 16 found two common labels missed).

@@ -35,6 +35,7 @@ from types import SimpleNamespace
 
 from hall_monitor.agentic import Limits
 from hall_monitor.agents.supervisor import scripted_answer, view_from_content
+from hall_monitor.approvals import CLAIMS_AGENTS
 from hall_monitor.complaints.ingest import PINNED_NAME, load_pinned
 from hall_monitor.complaints.pipeline import code_reasons_for, triage_complaint
 from hall_monitor.complaints.scripted import scripted_triage
@@ -274,7 +275,14 @@ def run(
     }
     desk = run_desk(registry, desk_limit)
     return {
-        "meta": run_meta(registry, mode=MODE, claims=len(claims), complaints=desk["complaints"]),
+        # Every agent the run used, so a change to any of them makes the result stale.
+        "meta": run_meta(
+            registry,
+            [*CLAIMS_AGENTS, "complaint_triage", "complaint_supervisor"],
+            mode=MODE,
+            claims=len(claims),
+            complaints=desk["complaints"],
+        ),
         "fixed": fixed_rows,
         "policies": rows,
         "desk": desk,
@@ -327,6 +335,9 @@ def desk_policies() -> dict[str, tuple[Callable[[], DeskPolicy], bool]]:
             ),
             False,
         ),
+        # An answer of the wrong type on the first turn: the loop fails before any triage
+        # (review 23 found such a complaint kept the code's floor urgency).
+        "fails_at_once": (lambda: lambda r: CriticReview(issues=[]), False),
         "recheck_agrees": (lambda: _desk_recheck, False),
         "recheck_plays_down": (lambda: _desk_recheck, True),
     }

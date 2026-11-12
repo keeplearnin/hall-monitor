@@ -71,12 +71,16 @@ or hand off to specialist review. Code holds the rest:
 - **It can only add review.** Every triage's answer counts in routing (each can add reasons and
   raise urgency, none can remove either); two triages that disagree on category, urgency or
   concerns add `triage_disagreed`; a hand-off adds `supervisor_handed_off`; finishing before any
-  triage adds `triage_skipped`. A complaint no agent read goes at high urgency: the offline eval
-  found that without this, ending before triage kept the code's floor where the fixed order's
-  triage could have raised it (77 of 500 complaints).
+  triage adds `triage_skipped`. On the agentic path a complaint no agent read goes at high
+  urgency, however the loop ended (finish, hand-off, failure, stop or budget): the offline eval
+  found that ending before triage kept the code's floor where the fixed order's triage could
+  have raised it (77 of 500 complaints), and review 23 found the same for failures. The fixed
+  path keeps the floor for a failed triage, as before.
 - **Refusals, budgets and the kill switch** as for claims: a second triage or a third is
   refused, as is a re-check before the first; three refusals, or running out of steps (6), cost
-  (0.02 USD) or time (120 s), send the complaint to specialist review as `agent_failed`.
+  (0.02 USD) or time (120 s), or a cost that can't be priced, send the complaint to specialist
+  review as `supervisor_failed`; a failure of the triage call itself is `agent_failed`. The
+  routed entry records the path and whether it was agentic.
 - **No reply, no send (HM-25)** is unchanged: the supervisor's manifest has no tools and passes
   the no-send check, and the draft kept is the first triage's, credited to the triage agent.
 - **Logged:** each choice as `supervisor_step` in the complaint's scope, and the path on the

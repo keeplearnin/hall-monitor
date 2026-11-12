@@ -305,27 +305,39 @@ def _prepare(
             keep(run.call)
             triages.append(run.output)
 
+    def failed_in(exc: BaseException) -> str:
+        """Which part failed: on the agentic path, anything but the triage call itself is the
+        supervisor's loop (review 23), so the reason doesn't blame the triage agent."""
+        if not agentic or getattr(exc, "desk_stage", None) == "triage":
+            return "agent_failed"
+        return "supervisor_failed"
+
+    failure = None
     try:
         body()
     except DeskStopped as exc:
-        stopped = str(exc)
+        stopped, failure = str(exc), "supervisor_failed"
     except AgentRefusedError as exc:
         keep(exc.call)
-        stopped = "agent refused or returned no usable output"
+        stopped, failure = "agent refused or returned no usable output", failed_in(exc)
     except RegistryError as exc:
         keep(getattr(exc, "partial_call", None))
-        stopped = f"hall pass refused ({type(exc).__name__})"
+        stopped, failure = f"hall pass refused ({type(exc).__name__})", failed_in(exc)
     except (anthropic.APIError, ValidationError) as exc:
         keep(getattr(exc, "partial_call", None))
-        stopped = f"{type(exc).__name__} from the model call"
+        stopped, failure = f"{type(exc).__name__} from the model call", failed_in(exc)
     except Exception as exc:  # anything unforeseen goes to a person; the type only
         keep(getattr(exc, "partial_call", None))
-        stopped = f"unexpected {type(exc).__name__}"
+        stopped, failure = f"unexpected {type(exc).__name__}", failed_in(exc)
+    if failure == "supervisor_failed":
+        stopped = f"desk supervisor: {stopped}"
     triage = triages[0] if triages else None
-    if stopped is not None or (triage is None and not agentic):
+    if failure is not None:
+        pipeline_reasons.add(failure)
+    elif triage is None and not agentic:
         pipeline_reasons.add("agent_failed")
 
-    route = route_triages(complaint, triages, pipeline_reasons)
+    route = route_triages(complaint, triages, pipeline_reasons, agentic=agentic)
     draft_sha256, problems = None, []
     if triage is not None and triage.draft_acknowledgement.strip():
         problems = draft_problems(triage.draft_acknowledgement)
@@ -342,8 +354,10 @@ def _prepare(
     cost, unknown = _cost(calls)
     if unknown:
         stopped = unknown if stopped is None else f"{stopped}; {unknown}"
-        if "agent_failed" not in route.reasons:
-            route = route_triages(complaint, triages, pipeline_reasons | {"agent_failed"})
+        if not {"agent_failed", "supervisor_failed"} & set(route.reasons):
+            route = route_triages(
+                complaint, triages, pipeline_reasons | {"agent_failed"}, agentic=agentic
+            )
     result = ComplaintResult(
         complaint_id=complaint.complaint_id,
         scope_id=scope,
@@ -385,6 +399,7 @@ def _prepare(
                     {f"{c.agent_id}:{'scripted' if scripted else c.model}" for c in calls}
                 ),
                 "scripted": scripted,
+                "mode": "agentic" if agentic else "fixed",
                 "triage_runs": len(triages),
                 "supervisor_path": [step.action.value for step in steps],
             },
@@ -394,7 +409,11 @@ def _prepare(
 
 
 def route_triages(
-    complaint: Complaint, triages: list[ComplaintTriage], pipeline_reasons: set[str]
+    complaint: Complaint,
+    triages: list[ComplaintTriage],
+    pipeline_reasons: set[str],
+    *,
+    agentic: bool = False,
 ) -> ComplaintRoute:
     """The route with every triage's answer counted: each can add reasons and raise urgency,
     none can remove either, and two triages that disagree send the complaint to specialist
@@ -409,9 +428,11 @@ def route_triages(
     ):
         reasons.add("triage_disagreed")
     urgency = max((r.urgency for r in routes), key=lambda u: u.rank)
-    if not triages and reasons & {"triage_skipped", "supervisor_handed_off"}:
-        # The supervisor ended before any agent read the complaint: no triage could raise its
-        # urgency, so it goes at the highest (found by the offline eval, ADR 0028).
+    if agentic and not triages:
+        # The agentic desk ended before any agent read the complaint, however it ended (a
+        # finish or hand-off, a failure, a stop, the budget): no triage could raise its urgency,
+        # so it goes at the highest (the offline eval and review 23, ADR 0028). The fixed path
+        # keeps the code's floor, as it always has.
         urgency = Urgency.HIGH
     ordered = sorted(reasons)
     return ComplaintRoute(
@@ -461,7 +482,9 @@ def _supervise(
     last: DeskStep | None = None
 
     def spend() -> None:
-        cost = _cost(calls)[0]
+        cost, unknown = _cost(calls)
+        if unknown is not None:  # an unpriced model would read as free: stop (review 23)
+            raise DeskStopped(f"budget can't be checked: {unknown}")
         if cost >= limits.max_cost_usd:
             raise DeskStopped(f"budget exhausted: cost reached {limits.max_cost_usd} USD")
         if clock() - started >= limits.max_seconds:
@@ -533,8 +556,13 @@ def _supervise(
         try:
             registry.require(SUPERVISOR)  # a stop made since it chose ends the step here
             spend()
-            triage_run = run_complaint_triage(complaint, content, registry, client, scope)
         except Exception:
+            record(decision, StepOutcome.FAILED)
+            raise
+        try:
+            triage_run = run_complaint_triage(complaint, content, registry, client, scope)
+        except Exception as exc:
+            exc.desk_stage = "triage"  # type: ignore[attr-defined]
             record(decision, StepOutcome.FAILED, agents=["complaint_triage"])
             raise
         keep(triage_run.call)
@@ -569,6 +597,7 @@ def route_unfinished(complaint: Complaint, audit: AuditLog) -> ComplaintRoute:
             "draft_sha256": None,
             "draft_problems": [],
             "stopped_reason": "triage was interrupted before it was routed",
+            "mode": None,
             "cost_usd": None,
             "models": [],
             "scripted": None,

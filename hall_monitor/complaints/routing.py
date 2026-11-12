@@ -41,6 +41,10 @@ REASONS: dict[str, str] = {
     "triage_disagreed": "two independent triages of the complaint disagreed",
     "supervisor_handed_off": "the desk supervisor handed the complaint to specialist review",
     "triage_skipped": "the desk supervisor finished before any triage ran",
+    "supervisor_failed": (
+        "the desk supervisor failed, was stopped, ran out of budget or kept choosing steps code "
+        "refused"
+    ),
 }
 # Reasons only the pipeline gives (complaints/pipeline.py), not the rule on the fields.
 PIPELINE_REASONS = frozenset(
@@ -51,6 +55,7 @@ PIPELINE_REASONS = frozenset(
         "triage_disagreed",
         "supervisor_handed_off",
         "triage_skipped",
+        "supervisor_failed",
     }
 )
 

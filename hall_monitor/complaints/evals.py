@@ -285,7 +285,8 @@ def run(mode: str, limit: int | None = None, out: Path | None = None) -> dict:
         data["summary"]["egress_refusals"] = len(refused)
     data["meta"] = run_meta(
         registry,
-        [AGENT_ID],
+        # The desk supervisor chose the steps (ADR 0028), so its hall pass is part of the run.
+        [AGENT_ID, "complaint_supervisor"],
         mode=mode,
         snapshot=PINNED_NAME,
         snapshot_manifest_sha256=PINNED_MANIFESTS[PINNED_NAME],

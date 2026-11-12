@@ -344,6 +344,11 @@ def run_arena(registry: Registry, seeds: list[Seed] | None = None) -> dict:
         "seeds_sha256": seeds_sha256(),
         "mutations": list(MUTATIONS),
         "hall_pass": _hall_pass(registry),
+        # The desk supervisor ran too, on the desk's old order, scripted (ADR 0028).
+        "supervisor_hall_pass": {
+            **agent_versions(registry, ["complaint_supervisor"])[0],
+            "answers_from": "scripted-old-order",
+        },
         "rounds": rounds,
         "totals": {
             "seeds": len(seeds),

@@ -914,3 +914,23 @@ patched out the eval reports 16 unsafe autos, all from `raising_critic/revise_pa
 it. The new tests were seen failing before the fixes in the session, but code and tests landed in
 one commit, so history alone can't show the order. Cosmetic notes (roadmap order in the
 executive brief) fixed.
+
+## Review 23 (agentic-complaints): the complaint desk supervisor (HM-32)
+
+**Reviewer:** the governance-reviewer agent, run independently on branch
+`claude/agentic-complaints` at `86b1262`, with offline repros (no API calls). 5 findings
+confirmed; all fixed test-first (each new test was run and seen failing before the fix).
+
+Before the review, the session's own offline desk eval found that ending before triage kept the
+code's floor urgency where the fixed order's triage could have raised it (77 of 500 complaints);
+fixed test-first (`test_a_complaint_no_agent_read_goes_at_high_urgency`). The eval's "less review"
+check was also narrowed to the code's own reasons, since the agent's can't exist without a
+triage; the reviewer judged that honest and pointed to the real hole, finding 1.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A stop before any triage (supervisor error or wrong type, a budget hit, the kill switch, refusals) counted as agent_failed and kept the floor urgency; a fraud complaint the fixed order put at high went at normal, contradicting the docs | High | On the agentic path a complaint no agent read goes at high urgency however the loop ended (`test_a_supervisor_failure_before_triage_goes_at_high_urgency`, `test_a_stopped_supervisor_before_triage_goes_at_high_urgency`); the desk eval adds a policy that fails on its first turn, so the gate covers it |
+| Published results didn't record every agent they ran: the agentic eval's meta listed only claims agents though it carries desk metrics; the complaint eval and the arena listed only complaint_triage | High | The agentic eval records the claims and both desk agents (`test_the_published_eval_records_every_agent_it_ran`); the complaint eval records the supervisor; the arena records it as `supervisor_hall_pass`. The scripted complaint and arena results are republished |
+| agent_failed now also covered supervisor failures, so a triage that answered (draft kept) was explained as the triage agent failing and the page said "no answer" | Medium | A new reason, supervisor_failed, for anything but the triage call; the stop reason says "desk supervisor:" (`test_a_supervisor_failure_after_triage_is_not_reported_as_a_triage_failure`) |
+| The routed entry had no mode, so the page labelled an agentic run with no recorded steps, an interrupted one, or an old entry "fixed order" | Medium | The routed entry records mode; the page says fixed order only when the entry says fixed (`test_the_desk_page_never_calls_an_agentic_run_fixed_order`) |
+| An unpriced model counted as 0 USD inside the loop, so the cost cap never tripped | Low | The loop stops when a cost can't be priced (`test_an_unknown_cost_stops_the_desk_loop`) |

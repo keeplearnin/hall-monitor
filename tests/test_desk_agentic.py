@@ -134,8 +134,8 @@ def test_a_recheck_that_raises_a_concern_adds_it():
 def test_a_supervisor_repeating_triage_is_refused_and_the_loop_stops_for_a_person():
     result, client = _run(_d(A.RUN_TRIAGE, R.NEEDS_TRIAGE))
     assert len(client.messages.calls) == 1
-    assert result.stopped_reason == "supervisor loop: 3 steps refused"
-    assert "agent_failed" in result.route.reasons
+    assert result.stopped_reason == "desk supervisor: supervisor loop: 3 steps refused"
+    assert "supervisor_failed" in result.route.reasons
     assert result.route.queue == "specialist_review"
 
 
@@ -158,14 +158,14 @@ def test_a_recheck_before_triage_and_a_third_triage_are_refused():
 
 def test_running_out_of_steps_goes_to_a_person():
     result, _ = _run(limits=DeskLimits(max_steps=1))
-    assert result.stopped_reason == "budget exhausted: 1 supervisor steps"
-    assert result.route.queue == "specialist_review" and "agent_failed" in result.route.reasons
+    assert result.stopped_reason == "desk supervisor: budget exhausted: 1 supervisor steps"
+    assert result.route.queue == "specialist_review" and "supervisor_failed" in result.route.reasons
 
 
 def test_running_out_of_money_goes_to_a_person():
     # Each fake call costs 0.0002 USD on Haiku: the supervisor's first turn uses the budget up.
     result, client = _run(limits=DeskLimits(max_cost_usd=0.0002))
-    assert result.stopped_reason == "budget exhausted: cost reached 0.0002 USD"
+    assert result.stopped_reason == "desk supervisor: budget exhausted: cost reached 0.0002 USD"
     assert client.messages.calls == []  # checked before the triage call too
     assert result.route.queue == "specialist_review"
 
@@ -173,7 +173,7 @@ def test_running_out_of_money_goes_to_a_person():
 def test_running_out_of_time_goes_to_a_person():
     ticks = count()
     result, _ = _run(limits=DeskLimits(max_seconds=50), clock=lambda: 30.0 * next(ticks))
-    assert result.stopped_reason == "budget exhausted: 50 seconds"
+    assert result.stopped_reason == "desk supervisor: budget exhausted: 50 seconds"
     assert result.route.queue == "specialist_review"
 
 
@@ -182,7 +182,7 @@ def test_running_out_of_time_goes_to_a_person():
 
 def test_a_supervisor_answering_with_the_wrong_type_goes_to_a_person():
     result, _ = _run(CriticReview(issues=[]))
-    assert "agent_failed" in result.route.reasons
+    assert "supervisor_failed" in result.route.reasons
     assert result.route.queue == "specialist_review"
 
 
@@ -215,7 +215,9 @@ def test_stopping_the_supervisor_mid_run_stops_the_triage_it_chose(registry_dir)
 
     result, client = _run(answer_, registry=registry)
     assert client.messages.calls == []
-    assert "agent_failed" in result.route.reasons and "hall pass refused" in result.stopped_reason
+    assert (
+        "supervisor_failed" in result.route.reasons and "hall pass refused" in result.stopped_reason
+    )
 
 
 def test_a_stop_at_finish_is_recorded_as_failed(registry_dir):
@@ -287,3 +289,85 @@ def test_no_desk_policy_gives_a_complaint_less_review_than_the_fixed_order():
     result = run_desk(REGISTRY, limit=60)
     assert sum(r["less_review"] for r in result["policies"].values()) == 0
     assert result["policies"]["old_order"]["agreement"] == 1.0
+
+
+# --- Review 23 findings ---------------------------------------------------------------------------
+
+
+def _high_fraud():
+    return answer(urgency=Urgency.HIGH, concerns=[Concern.FRAUD])
+
+
+@pytest.mark.parametrize(
+    "how",
+    ["wrong_type", "api_error", "cost_budget", "step_budget", "refusals"],
+)
+def test_a_supervisor_failure_before_triage_goes_at_high_urgency(how):
+    """Review 23 finding 1: a stop before any triage kept the code's floor."""
+    import anthropic
+    import httpx
+
+    supervisor, kwargs = None, {}
+    if how == "wrong_type":
+        supervisor = CriticReview(issues=[])
+    elif how == "api_error":
+
+        def supervisor(request):
+            raise anthropic.APIConnectionError(request=httpx.Request("POST", "https://x"))
+    elif how == "cost_budget":
+        kwargs["limits"] = DeskLimits(max_cost_usd=0.0002)
+    elif how == "step_budget":
+        kwargs["limits"] = DeskLimits(max_steps=0)
+    else:
+        supervisor = _d(A.RECHECK_TRIAGE)
+    result, client = _run(supervisor, triage=_high_fraud(), **kwargs)
+    assert client.messages.calls == []
+    assert result.route.queue == "specialist_review"
+    assert result.route.urgency is Urgency.HIGH
+
+
+def test_a_stopped_supervisor_before_triage_goes_at_high_urgency(registry_dir):
+    _stop(registry_dir, "complaint_supervisor")
+    result, _ = _run(registry=Registry.from_dir(registry_dir), triage=_high_fraud())
+    assert result.route.urgency is Urgency.HIGH
+
+
+def test_a_supervisor_failure_after_triage_is_not_reported_as_a_triage_failure(tmp_path):
+    """Review 23 finding 3: the triage answered and its draft was kept, then the supervisor
+    looped; the reason and the page must not blame the triage agent."""
+    from hall_monitor.panel import desk, views
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    result, _ = _run(_d(A.RUN_TRIAGE, R.NEEDS_TRIAGE), audit=audit)
+    audit.close()
+    assert "supervisor_failed" in result.route.reasons
+    assert "agent_failed" not in result.route.reasons
+    assert result.stopped_reason.startswith("desk supervisor: ")
+    page = desk.complaint_desk(views.Sources(audit_db=tmp_path / "audit.sqlite"))
+    (shown,) = [c for c in page["complaints"] if c["state"] == "routed"]
+    assert shown["source"] != "no answer" and shown["draft_kept"]
+
+
+def test_the_desk_page_never_calls_an_agentic_run_fixed_order(tmp_path):
+    """Review 23 finding 4: a run that failed on its first supervisor turn has no steps."""
+    from hall_monitor.panel import desk, views
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    _run(CriticReview(issues=[]), audit=audit)
+    (routed,) = [e for e in audit.entries() if e["event"] == "complaint_routed"]
+    audit.close()
+    assert routed["payload"]["mode"] == "agentic"
+    page = desk.complaint_desk(views.Sources(audit_db=tmp_path / "audit.sqlite"))
+    (shown,) = [c for c in page["complaints"] if c["state"] == "routed"]
+    assert shown["mode"] == "agentic" and shown["path"] == []
+
+
+def test_an_unknown_cost_stops_the_desk_loop(monkeypatch):
+    """Review 23 finding 5: an unpriced model counted as 0 USD, so the cost cap never tripped."""
+    import hall_monitor.gateway.cost as cost
+
+    monkeypatch.setattr(cost, "PRICES_PER_MTOK", {})
+    result, client = _run(_recheck_then_finish)
+    assert client.messages.calls == []
+    assert "cost unknown" in result.stopped_reason
+    assert result.route.queue == "specialist_review"
