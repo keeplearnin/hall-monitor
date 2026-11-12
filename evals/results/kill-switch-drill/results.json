@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "run_at": "2026-11-12 04:09 UTC",
+    "git_commit": "71d89e733b3c634be75c1cd8bd79dfe8754719c1",
+    "git_dirty": false,
+    "mode": "scripted-latency",
+    "latency_s": 0.05,
+    "trials": 20,
+    "agents": [
+      {
+        "agent_id": "claims_supervisor",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "2bb9ad3f4395095c7237b7d3292a5e9a73e2f6f8c719f6daaa9e122c6b23b58f",
+        "prompt_version": "claims-supervisor-v1",
+        "prompt_template_sha256": "807ec7586f140561e69384608f24b12d7cf0c09c4c1afcb13fcbf69cbbdef6ac"
+      },
+      {
+        "agent_id": "complaint_supervisor",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "ddd6adb7f93c35dd80cc1062e80583f9a64d90de8e3884dd94da240188fc357b",
+        "prompt_version": "complaint-supervisor-v1",
+        "prompt_template_sha256": "2502da10e974368ce2d4b1798928801a4f78b6e403c659377f13062a127a34a4"
+      },
+      {
+        "agent_id": "complaint_triage",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "9c37e4240aa33fde88c8ed4ccd7bdee9a6cfecea74b427d88b1b84d2a87b9d15",
+        "prompt_version": "complaint-triage-v1",
+        "prompt_template_sha256": "d601c2769d208f3af2f44cc89168ca4d5230b8d22075104aaae004e7b3d37039"
+      },
+      {
+        "agent_id": "coverage_check",
+        "agent_version": "0.7.0",
+        "model": "claude-sonnet-5-5",
+        "manifest_digest": "ffda7c111cd8691cb4771afcee56ab6296db7358fe97cd9973f8d744f4210a49",
+        "prompt_version": "coverage-check-v4",
+        "prompt_template_sha256": "052f87be4e5db172969e809aa98209fccf4d98b8ae892504eecc8952d12cd971"
+      },
+      {
+        "agent_id": "leave_intake",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "ea29e9dedc0452d4d7658e9381223fbadee9dd436428ea4820b69eef84b9e07b",
+        "prompt_version": "leave-intake-v1",
+        "prompt_template_sha256": "461d668fa78c7d403046371f4e4471ebbdbe63151f447b165394a5e0e7d90962"
+      },
+      {
+        "agent_id": "leave_supervisor",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "26709c5c1dd138ec957d74b441717d92f57707583392931b8bef2f1d313c0e97",
+        "prompt_version": "leave-supervisor-v1",
+        "prompt_template_sha256": "46adce86d355d41898532dd86b623767dae54d5f782dda7d8e4e1bb4624f5368"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "workflow": "claims",
+      "stopped_agent": "claims_supervisor",
+      "trials": 20,
+      "stopped": 20,
+      "stop_missed": 0,
+      "calls_started_after_stop": 0,
+      "other_agents_calls_after_stop": 0,
+      "auto_after_stop": 0,
+      "time_to_stop_s": {
+        "median": 0.0368,
+        "p95": 0.0635,
+        "max": 0.2236
+      }
+    },
+    {
+      "workflow": "claims",
+      "stopped_agent": "coverage_check",
+      "trials": 20,
+      "stopped": 20,
+      "stop_missed": 0,
+      "calls_started_after_stop": 0,
+      "other_agents_calls_after_stop": 24,
+      "auto_after_stop": 0,
+      "time_to_stop_s": {
+        "median": 0.1157,
+        "p95": 0.1739,
+        "max": 0.1744
+      }
+    },
+    {
+      "workflow": "desk",
+      "stopped_agent": "complaint_supervisor",
+      "trials": 20,
+      "stopped": 17,
+      "stop_missed": 3,
+      "calls_started_after_stop": 0,
+      "other_agents_calls_after_stop": 0,
+      "auto_after_stop": 0,
+      "time_to_stop_s": {
+        "median": 0.0323,
+        "p95": 0.049,
+        "max": 0.0581
+      }
+    },
+    {
+      "workflow": "desk",
+      "stopped_agent": "complaint_triage",
+      "trials": 20,
+      "stopped": 20,
+      "stop_missed": 0,
+      "calls_started_after_stop": 0,
+      "other_agents_calls_after_stop": 0,
+      "auto_after_stop": 0,
+      "time_to_stop_s": {
+        "median": 0.022,
+        "p95": 0.0545,
+        "max": 0.0592
+      }
+    },
+    {
+      "workflow": "leave",
+      "stopped_agent": "leave_supervisor",
+      "trials": 20,
+      "stopped": 20,
+      "stop_missed": 0,
+      "calls_started_after_stop": 0,
+      "other_agents_calls_after_stop": 0,
+      "auto_after_stop": 0,
+      "time_to_stop_s": {
+        "median": 0.0257,
+        "p95": 0.0613,
+        "max": 0.062
+      }
+    },
+    {
+      "workflow": "leave",
+      "stopped_agent": "leave_intake",
+      "trials": 20,
+      "stopped": 20,
+      "stop_missed": 0,
+      "calls_started_after_stop": 0,
+      "other_agents_calls_after_stop": 0,
+      "auto_after_stop": 0,
+      "time_to_stop_s": {
+        "median": 0.0232,
+        "p95": 0.0606,
+        "max": 0.0637
+      }
+    }
+  ],
+  "summary": {
+    "calls_started_after_stop": 0,
+    "max_other_agents_calls_after_stop": 24,
+    "auto_after_stop": 0,
+    "stopped_cases": 117,
+    "max_time_to_stop_s": 0.2236,
+    "latency_s": 0.05
+  }
+}
