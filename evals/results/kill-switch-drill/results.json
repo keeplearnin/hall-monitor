@@ -1,7 +1,7 @@
 {
   "meta": {
-    "run_at": "2026-11-12 04:39 UTC",
-    "git_commit": "1eee54d36775e1cde8815c3727e52969c6591f86",
+    "run_at": "2026-11-12 04:52 UTC",
+    "git_commit": "cd021697b303274aed88fccb01d448dc96266d9d",
     "git_dirty": false,
     "mode": "scripted-latency",
     "latency_s": 0.05,
@@ -79,11 +79,12 @@
       "calls_started_after_stop": 0,
       "calls_during_the_write": 0,
       "other_agents_calls_after_stop": 0,
+      "calls_after_stop_on_used_agent": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0257,
-        "p95": 0.0558,
-        "max": 0.2164
+        "median": 0.0254,
+        "p95": 0.0714,
+        "max": 0.2124
       }
     },
     {
@@ -97,13 +98,14 @@
       "answered_before_stop": 11,
       "trial_errors": 0,
       "calls_started_after_stop": 0,
-      "calls_during_the_write": 0,
+      "calls_during_the_write": 1,
       "other_agents_calls_after_stop": 0,
+      "calls_after_stop_on_used_agent": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0271,
-        "p95": 0.0636,
-        "max": 0.065
+        "median": 0.0324,
+        "p95": 0.067,
+        "max": 0.0693
       }
     },
     {
@@ -119,11 +121,12 @@
       "calls_started_after_stop": 0,
       "calls_during_the_write": 0,
       "other_agents_calls_after_stop": 0,
+      "calls_after_stop_on_used_agent": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0338,
-        "p95": 0.0558,
-        "max": 0.062
+        "median": 0.0379,
+        "p95": 0.0578,
+        "max": 0.0634
       }
     },
     {
@@ -139,11 +142,12 @@
       "calls_started_after_stop": 0,
       "calls_during_the_write": 0,
       "other_agents_calls_after_stop": 0,
+      "calls_after_stop_on_used_agent": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0281,
-        "p95": 0.0601,
-        "max": 0.0631
+        "median": 0.0245,
+        "p95": 0.049,
+        "max": 0.0539
       }
     },
     {
@@ -158,12 +162,13 @@
       "trial_errors": 0,
       "calls_started_after_stop": 0,
       "calls_during_the_write": 1,
-      "other_agents_calls_after_stop": 0,
+      "other_agents_calls_after_stop": 1,
+      "calls_after_stop_on_used_agent": 1,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0308,
-        "p95": 0.056,
-        "max": 0.058
+        "median": 0.0322,
+        "p95": 0.0658,
+        "max": 0.0667
       }
     },
     {
@@ -174,16 +179,17 @@
       "stop_after_case_ended": 0,
       "stop_not_noticed": 0,
       "stop_after_last_check": 0,
-      "answered_before_stop": 9,
+      "answered_before_stop": 10,
       "trial_errors": 0,
       "calls_started_after_stop": 0,
-      "calls_during_the_write": 1,
+      "calls_during_the_write": 0,
       "other_agents_calls_after_stop": 0,
+      "calls_after_stop_on_used_agent": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0283,
-        "p95": 0.0643,
-        "max": 0.0643
+        "median": 0.0304,
+        "p95": 0.0633,
+        "max": 0.0642
       }
     }
   ],
@@ -195,9 +201,10 @@
     "trial_errors": 0,
     "stopped_cases": 118,
     "stopped_share": 0.9833,
-    "specialist_stops_after_it_answered": 36,
-    "max_other_agents_calls_after_stop": 0,
-    "max_time_to_stop_s": 0.2164,
+    "specialist_stops_after_it_answered": 37,
+    "calls_after_stop_on_used_agent": 1,
+    "max_other_agents_calls_after_stop": 1,
+    "max_time_to_stop_s": 0.2124,
     "latency_s": 0.05
   }
 }

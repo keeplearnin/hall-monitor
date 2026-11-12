@@ -85,6 +85,7 @@ AGENT_OF = {
     "LeaveIntake": "leave_intake",
     "LeaveExplanation": "leave_explainer",
 }
+SUPERVISOR_ANSWERS = frozenset({"SupervisorDecision", "DeskDecision", "LeaveDecision"})
 MIN_STOPPED_SHARE = 0.75  # below this, the drill didn't exercise the switch: a failure
 
 
@@ -219,9 +220,12 @@ def drill(
             autos += auto
             had_answered = any(t < t0 for t in mine)
             if had_answered:
-                # A stop on an agent the case already used must end it at the next step: no
-                # agent may start a call after it (the per-step re-check, review 26 re-check).
-                after_answered += sum(t > t1 for t, _ in messages.starts)
+                # A stop on an agent the case already used must end it at the next step (the
+                # per-step re-check, review 26 re-check): no specialist call may start after it,
+                # and at most the one supervisor turn whose check ran just before the write.
+                later = [k for t, k in messages.starts if t > t1]
+                turns = sum(k in SUPERVISOR_ANSWERS for k in later)
+                after_answered += (len(later) - turns) + max(turns - 1, 0)
             if stopped_reason is None:
                 # Every supervisor turn re-checks every agent the case used, so a call after the
                 # stop was on disk means a check that should have caught it: a failure. With no
@@ -334,8 +338,9 @@ def report(result: dict) -> str:
         )
     lines += [
         "",
-        "- **Gated:** no call by the stopped agent after its stop, no call by any agent after "
-        "a stop on an agent the case had already used (the per-step re-check), nothing "
+        "- **Gated:** no call by the stopped agent after its stop; after a stop on an agent "
+        "the case had already used, no specialist call and at most the one supervisor turn "
+        "already past its check (the per-step re-check); nothing "
         "through without review, no stop written in time and never noticed, and at least "
         f"{MIN_STOPPED_SHARE:.0%} of trials stopped, so a broken switch fails the drill.",
         "- **Other agents' calls after stop:** a stop on an agent the case already used ends it "
