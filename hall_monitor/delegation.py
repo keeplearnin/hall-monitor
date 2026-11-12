@@ -23,7 +23,9 @@ import hashlib
 import json
 import math
 import re
+import threading
 from collections.abc import Iterable
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -48,8 +50,10 @@ class Grant(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     scope: str = Field(pattern=SCOPE.pattern)
-    holder: str
-    chain: tuple[str, ...] = Field(min_length=2)
+    holder: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    chain: tuple[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")], ...] = Field(
+        min_length=2
+    )
     tools: tuple[str, ...]
     data_classes: tuple[DataClass, ...]
     budget_usd: float = Field(ge=0, allow_inf_nan=False)
@@ -97,11 +101,17 @@ class GrantBook:
         self._allotted: dict[str, float] = {}
         self._root: str | None = None
         self._closed = False
+        # Issuing and handing off read and then write the allotment totals; one at a time.
+        self._lock = threading.Lock()
 
     # Issuing.
 
     def issue(self, agent_id: str, *, budget_usd: float) -> Grant:
         """The first grant for the case, issued by code, holding the agent's manifest."""
+        with self._lock:
+            return self._issue(agent_id, budget_usd)
+
+    def _issue(self, agent_id: str, budget_usd: float) -> Grant:
         self._open()
         if self._root is not None:
             raise DelegationError(f"{self.scope} already has its first grant")
@@ -130,6 +140,17 @@ class GrantBook:
         """A child grant for ``to``, made by the parent's holder. With tools or data_classes
         left out, the child gets the overlap of the parent's grant and its own manifest; asking
         for anything outside that overlap is refused."""
+        with self._lock:
+            return self._delegate(parent, to, budget_usd, tools, data_classes)
+
+    def _delegate(
+        self,
+        parent: Grant,
+        to: str,
+        budget_usd: float,
+        tools: Iterable[str] | None,
+        data_classes: Iterable[DataClass | str] | None,
+    ) -> Grant:
         asked_tools = None if tools is None else _sorted_tools(tools)
         asked_classes = None if data_classes is None else _sorted_classes(data_classes)
 
@@ -147,9 +168,11 @@ class GrantBook:
             raise
         delegator = self.registry.require(parent.holder)
         if to not in delegator.may_delegate_to:
-            raise refuse("not_declared", f"agent {parent.holder!r} may not delegate to {to!r}")
+            raise refuse(
+                "not_declared", f"agent {parent.holder!r} may not delegate to {_safe(to)!r}"
+            )
         if to in parent.chain:
-            raise refuse("loop", f"agent {to!r} is already in the chain")
+            raise refuse("loop", f"agent {_safe(to)!r} is already in the chain")
         if parent.handoffs + 1 > MAX_HANDOFFS:
             raise refuse("too_deep", f"a chain may be at most {MAX_HANDOFFS} handoffs: too deep")
         try:
@@ -167,8 +190,8 @@ class GrantBook:
         if wider_tools or wider_classes:
             raise refuse(
                 "wider_than_allowed",
-                f"agent {to!r} may not be given {_names(wider_tools | wider_classes)}: "
-                f"outside {parent.holder!r}'s grant or {to!r}'s manifest",
+                f"agent {_safe(to)!r} may not be given {_names(wider_tools | wider_classes)}: "
+                f"outside {parent.holder!r}'s grant or {_safe(to)!r}'s manifest",
             )
         if not (isinstance(budget_usd, int | float) and math.isfinite(budget_usd)) or (
             budget_usd < 0
@@ -270,7 +293,9 @@ class GrantBook:
         self._audit.append(
             self.scope,
             "delegation_refused",
-            parent.holder,
+            # A grant that fails the "not issued" check may be a changed copy (model_copy skips
+            # validation), so its holder is checked like any other name a model could write.
+            _safe(parent.holder),
             {
                 "parent": parent.grant_id,
                 "to": _safe(to),

@@ -1521,6 +1521,9 @@ controls:
       case then goes to a person, as any failure does). Grants are allow-lists checked in one
       process, not isolation (MI-22 stays not covered). The gateway enforces grants on tool
       calls; what an agent passes to another in its prompt is the crew pipeline's to control.
+      A grant binds the case through its book; the gateway still limits a tool's arguments to
+      the case only through scope_policy, which the caller must pass (review 19). The book is
+      locked within one process only.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:

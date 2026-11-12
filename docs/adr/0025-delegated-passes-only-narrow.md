@@ -46,5 +46,7 @@ could loop, and stopping one agent might not stop the work it had handed out.
 
 The crew can be shown and tested without any model call. Grants are allow-lists in one process,
 not isolation (FINOS MI-22 stays not covered). The book lives in memory for one run; a crash
-sends the case to a person without a case file. Spending against an allotment is enforced only
+sends the case to a person without a case file. A grant ties work to one case through its book; limiting a tool's
+arguments to that case's records still rests on the gateway's `scope_policy`, which the crew
+pipeline must pass. Spending against an allotment is enforced only
 once agents run (slice 3).

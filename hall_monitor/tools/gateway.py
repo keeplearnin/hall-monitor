@@ -102,7 +102,7 @@ class ToolGateway:
         manifest = self.registry.require(agent_id)
         tools = list(manifest.allowed_tools)
         may_see = set(manifest.data_classes)
-        if self.registry.in_crew(agent_id):
+        if self.registry.in_crew(agent_id) or grants is not None or grant is not None:
             try:
                 self._check_grant(agent_id, grants, grant)
             except RegistryError:
@@ -127,9 +127,11 @@ class ToolGateway:
         """HM-29: an agent in a crew works only under a grant its case's book issued to it."""
         if grants is None or grant is None:
             raise RegistryError(f"agent {actor!r} is in a crew and needs a grant from its case")
-        if grant.holder != actor:
-            raise RegistryError(f"that grant is held by {grant.holder!r}, not {actor!r}")
+        # The book first: a grant it didn't issue may carry any text, and this message reaches
+        # the audit log, so the holder is never quoted.
         grants.check(grant, tool=tool, carries=carries)
+        if grant.holder != actor:
+            raise RegistryError(f"that grant is held by another agent, not {actor!r}")
 
     def call(
         self,

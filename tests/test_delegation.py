@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from hall_monitor.delegation import (
@@ -393,3 +395,75 @@ def test_a_manifest_can_t_delegate_to_itself():
 def test_a_handoff_to_an_unregistered_agent_is_refused_when_the_registry_loads():
     with pytest.raises(ValueError, match="ghost"):
         Registry([_manifest("lead", delegates=("ghost",))])
+
+
+# Review 19.
+
+FREE_TEXT = "Jane Doe DOB 1970-01-01"
+
+
+def test_a_forged_grant_s_names_never_reach_the_audit_log(registry, book, audit):
+    root = book.issue("lead", budget_usd=1.0)
+    forged = root.model_copy(update={"holder": FREE_TEXT, "chain": ("pipeline", FREE_TEXT)})
+    with pytest.raises(DelegationError):
+        book.delegate(forged, "analyst", budget_usd=0.1)
+    gateway = ToolGateway(registry)
+    log = []
+    gateway.call("lead", "policy_lookup", POLICY, log, grants=book, grant=forged)
+    assert log[0].allowed is False
+    assert FREE_TEXT not in (log[0].error or "")
+    assert FREE_TEXT not in json.dumps(audit.entries())
+
+
+def test_a_grant_s_names_must_be_plain_identifiers():
+    with pytest.raises(ValueError):
+        Grant(
+            scope="cfpb-1001",
+            holder=FREE_TEXT,
+            chain=("pipeline", FREE_TEXT),
+            tools=(),
+            data_classes=(),
+            budget_usd=0.0,
+            parent=None,
+        )
+
+
+def test_definitions_and_calls_agree_for_an_agent_outside_a_crew_given_a_grant(registry, book):
+    gateway = ToolGateway(registry)
+    root = book.issue("lead", budget_usd=1.0)
+    log = []
+    assert (
+        "Refused"
+        in gateway.call("loner", "policy_lookup", POLICY, log, grants=book, grant=root)["error"]
+    )
+    assert gateway.definitions("loner", grants=book, grant=root) == []
+
+
+def test_concurrent_handoffs_can_t_overspend_the_parent_s_allotment(registry, monkeypatch):
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    import hall_monitor.delegation as delegation
+
+    class SlowGrant(Grant):
+        """Widens the gap between reading and writing the allotment total."""
+
+        def __init__(self, **fields):
+            time.sleep(0.05)
+            super().__init__(**fields)
+
+    for _ in range(3):
+        book = GrantBook(registry, "cfpb-1001")
+        root = book.issue("lead", budget_usd=1.0)
+        monkeypatch.setattr(delegation, "Grant", SlowGrant)
+
+        def hand(agent, book=book, root=root):
+            try:
+                return book.delegate(root, agent, budget_usd=0.6)
+            except DelegationError:
+                return None
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            made = [g for g in pool.map(hand, ["researcher", "analyst"]) if g]
+        assert len(made) == 1
+        monkeypatch.setattr(delegation, "Grant", Grant)
