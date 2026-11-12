@@ -14,9 +14,12 @@ from pathlib import Path
 
 from hall_monitor import no_send
 from hall_monitor.complaints.routing import REASONS
+from hall_monitor.complaints.supervisor import DeskAction
 from hall_monitor.panel import views
 from hall_monitor.panel.pages import badge, page, table, tag, usd
 from hall_monitor.panel.views import DESK_EVENTS
+
+DESK_ACTIONS = frozenset(a.value for a in DeskAction)
 
 QUEUES = ("specialist_review", "standard_queue")
 # Pull summary fields the page shows: counts and codes only.
@@ -87,6 +90,7 @@ def complaint_desk(src: views.Sources) -> dict:
             "draft_kept": False,
             "agent_failed": False,
             "source": "not yet",
+            "path": [],
         }
         for scope in unrouted
     ]
@@ -110,6 +114,8 @@ def complaint_desk(src: views.Sources) -> dict:
                 "agent_failed": "agent_failed" in codes,
                 # A failed or interrupted triage has no answer, whoever was asked.
                 "source": "no answer" if "agent_failed" in codes else _source(p.get("scripted")),
+                # The steps the desk supervisor chose (ADR 0028), codes only.
+                "path": [a for a in (p.get("supervisor_path") or []) if a in DESK_ACTIONS],
             }
         )
     complaints.sort(
@@ -227,6 +233,7 @@ def complaints_page(data: dict, *, demo: bool) -> str:
             c["urgency"] or "unknown",
             badge(c["source"], "ok" if c["source"] == "model" else "warn"),
             "; ".join(c["explained"]) or "none",
+            " → ".join(c["path"]) or "fixed order",
             usd(c["cost_usd"]),
         )
         for c in data["complaints"]
@@ -235,7 +242,9 @@ def complaints_page(data: dict, *, demo: bool) -> str:
         "section",
         tag("h2", "Complaints"),
         table(
-            ["Complaint", "Queue", "Urgency", "Answered by", "Reasons", "Cost"], rows, "None yet."
+            ["Complaint", "Queue", "Urgency", "Answered by", "Reasons", "Steps chosen", "Cost"],
+            rows,
+            "None yet.",
         ),
     )
     pull_rows = [

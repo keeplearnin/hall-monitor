@@ -1692,7 +1692,7 @@ controls:
   - id: HM-32
     name: The agent picks the steps, code holds the boundaries
     what: >-
-      The claims workflow runs agentic by default: a supervisor agent (claims_supervisor, its
+      The claims workflow and the complaint desk run agentic by default. Claims: a supervisor agent (claims_supervisor, its
       own manifest and approved prompt, no tools) chooses each next step from a closed list
       (run intake, coverage, risk, the critic or the recommendation, revise the stages the
       critic raised, finish, hand off), with a reason code. It sees a view code builds from
@@ -1713,7 +1713,15 @@ controls:
       them. The fixed order is kept (agentic=False) and an offline eval runs both paths over
       every synthetic claim with scripted supervisor policies, hostile and noisy ones included,
       also with a critic that raises issues and then changes its mind; the gate requires that no policy gets a claim through that the fixed path sent to a
-      person.
+      person. The complaint desk runs the same way (complaint_supervisor, codes only, no tools
+      or data classes): run triage, one independent re-check, finish or hand off. Every triage's
+      answer counts in routing and none can remove a reason or lower urgency; disagreeing
+      triages add triage_disagreed, a hand-off supervisor_handed_off, finishing before triage
+      triage_skipped, and a complaint no agent read goes at high urgency. Refusals, a budget
+      (6 steps, 0.02 USD, 120 seconds) and the kill switch send it to specialist review as
+      agent_failed. No reply, no send (HM-25) is unchanged. The offline eval runs all 500
+      pinned complaints on both paths under scripted desk policies; the gate requires that
+      none gives a complaint less review than the fixed order.
     status: partial
     code:
       - hall_monitor/agentic.py::supervise
@@ -1723,6 +1731,9 @@ controls:
       - hall_monitor/agents/supervisor.py::run_supervisor
       - hall_monitor/models.py::SupervisorDecision
       - hall_monitor/evals/agentic_compare.py::run
+      - hall_monitor/evals/agentic_compare.py::run_desk
+      - hall_monitor/complaints/supervisor.py::DeskView
+      - hall_monitor/complaints/pipeline.py::route_triages
     tests:
       - tests/test_agentic.py::test_the_supervisor_s_answer_has_no_route_field
       - tests/test_agentic.py::test_finishing_before_a_required_step_ran_goes_to_a_person
@@ -1747,6 +1758,15 @@ controls:
       - tests/test_agentic.py::test_revising_only_some_of_the_stages_the_critic_raised_is_refused
       - tests/test_agentic.py::test_a_revision_stops_between_agents_when_the_budget_runs_out
       - tests/test_agentic.py::test_a_stop_at_finish_records_the_step_as_failed
+      - tests/test_desk_agentic.py::test_finishing_before_any_triage_goes_to_specialist_review
+      - tests/test_desk_agentic.py::test_two_triages_that_disagree_go_to_specialist_review_at_the_higher_urgency
+      - tests/test_desk_agentic.py::test_the_supervisor_has_no_tools_and_sees_no_complaint_text
+      - tests/test_desk_agentic.py::test_a_supervisor_repeating_triage_is_refused_and_the_loop_stops_for_a_person
+      - tests/test_desk_agentic.py::test_running_out_of_money_goes_to_a_person
+      - tests/test_desk_agentic.py::test_stopping_the_supervisor_mid_run_stops_the_triage_it_chose
+      - tests/test_desk_agentic.py::test_a_complaint_no_agent_read_goes_at_high_urgency
+      - tests/test_desk_agentic.py::test_the_desk_page_shows_the_path_the_supervisor_took
+      - tests/test_desk_agentic.py::test_no_desk_policy_gives_a_complaint_less_review_than_the_fixed_order
       - tests/test_pipeline.py::test_correct_agent_outputs_give_the_expected_route
     evidence:
       - evals/results/agentic-scripted/results.json
@@ -1756,8 +1776,10 @@ controls:
       risks: [RI-24, RI-28]
       mitigations: [MI-18, MI-21]
     gaps: >-
-      Claims only so far: the complaint desk and HR leave still run a fixed order. No live run
-      of the supervisor has been made, so how well it chooses (how often it hands off or skips
+      Claims and the complaint desk so far: HR leave still runs a fixed order. The desk's
+      re-check uses the same model and prompt, so its two answers aren't independent in any
+      strong sense; the eval's "less review" counts only the code's own reasons, since the
+      agent's can't exist when no triage ran. No live run of either supervisor has been made, so how well it chooses (how often it hands off or skips
       work and sends claims to a person) is unmeasured; the published live eval results were
       scored on the fixed path with earlier agent versions, and the gate's stale check doesn't
       flag that they predate the supervisor. The order is no longer deterministic: with a live

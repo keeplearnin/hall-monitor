@@ -58,6 +58,7 @@ from hall_monitor.complaints.triage_agent import AGENT_ID as TRIAGE_AGENT
 from hall_monitor.complaints.triage_agent import (
     PROMPT_VERSION,
     ComplaintTriage,
+    Urgency,
     render_complaint,
     run_complaint_triage,
 )
@@ -408,6 +409,10 @@ def route_triages(
     ):
         reasons.add("triage_disagreed")
     urgency = max((r.urgency for r in routes), key=lambda u: u.rank)
+    if not triages and reasons & {"triage_skipped", "supervisor_handed_off"}:
+        # The supervisor ended before any agent read the complaint: no triage could raise its
+        # urgency, so it goes at the highest (found by the offline eval, ADR 0028).
+        urgency = Urgency.HIGH
     ordered = sorted(reasons)
     return ComplaintRoute(
         queue="specialist_review" if ordered else "standard_queue",

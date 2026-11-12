@@ -5,6 +5,10 @@
   register win and this page is updated in the same pull request.
 - **Controls:** HM-25 (no reply, no send), HM-26 (ingestion), HM-27 (complaint triage),
   HM-28 (complaint evals and fairness). Numbers are assigned as each slice lands.
+- **Since built:** the desk now runs agentic within code's bounds (HM-32,
+  [ADR 0028](adr/0028-agent-picks-the-steps-code-holds-the-boundaries.md)): a desk supervisor
+  chooses triage, one re-check, finish or hand-off, and can only add review. The three reasons
+  it can add are in the routing table below.
 
 ## Why this example
 

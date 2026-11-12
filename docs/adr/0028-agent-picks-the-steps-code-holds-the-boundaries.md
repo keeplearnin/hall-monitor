@@ -1,6 +1,6 @@
 # ADR 0028: The agent picks the steps; code holds the boundaries
 
-- **Status:** Accepted (claims first; the complaint desk and HR leave follow in their own PRs)
+- **Status:** Accepted (claims, then the complaint desk; HR leave follows in its own PR)
 - **Control:** [HM-32](../controls.md#hm-32)
 
 ## Context
@@ -61,6 +61,27 @@ not used here. If a supervisor is ever given tools, its specialist calls should 
   to a person). Review 22 found that a revision of only some raised stages did exactly that;
   it is refused now, and the eval's revision scenario catches it if the refusal is removed.
 
+## The complaint desk
+
+The same pattern on the desk, where every complaint already goes to a person and code chooses
+the queue (HM-27). The `complaint_supervisor` (Haiku, no tools, no data classes: it sees codes
+only) chooses among four actions: run the triage agent, ask for one independent re-check, finish,
+or hand off to specialist review. Code holds the rest:
+
+- **It can only add review.** Every triage's answer counts in routing (each can add reasons and
+  raise urgency, none can remove either); two triages that disagree on category, urgency or
+  concerns add `triage_disagreed`; a hand-off adds `supervisor_handed_off`; finishing before any
+  triage adds `triage_skipped`. A complaint no agent read goes at high urgency: the offline eval
+  found that without this, ending before triage kept the code's floor where the fixed order's
+  triage could have raised it (77 of 500 complaints).
+- **Refusals, budgets and the kill switch** as for claims: a second triage or a third is
+  refused, as is a re-check before the first; three refusals, or running out of steps (6), cost
+  (0.02 USD) or time (120 s), send the complaint to specialist review as `agent_failed`.
+- **No reply, no send (HM-25)** is unchanged: the supervisor's manifest has no tools and passes
+  the no-send check, and the draft kept is the first triage's, credited to the triage agent.
+- **Logged:** each choice as `supervisor_step` in the complaint's scope, and the path on the
+  routed entry, shown in the desk page's complaint table.
+
 ## Where determinism was traded away
 
 - **The order is the model's.** With a live supervisor, two runs of the same claim can take
@@ -71,6 +92,9 @@ not used here. If a supervisor is ever given tools, its specialist calls should 
   people and less automation, never a claim paid on missing work. How often a live supervisor
   does this is not yet measured.
 - **Cost and latency rise**: one supervisor call per step, about six for a clean claim.
+- **On the desk**, a live supervisor may ask for re-checks (more cost, and a disagreement sends
+  the complaint to specialist review) or hand off; it can't give a complaint less review than
+  the fixed order did, which the offline eval checks on all 500 pinned complaints.
 - **What stays deterministic** is everything that decides an outcome: preconditions, budgets,
   the required-evidence check, routing and the audit record.
 
@@ -89,7 +113,8 @@ not used here. If a supervisor is ever given tools, its specialist calls should 
 ## Consequences
 
 The claims workflow runs agentic by default (the workflow, the CLI, the drills and the panel's
-demo data); the offline fakes and drills answer the supervisor with the old order as a scripted
-policy. Published live eval results were scored on the fixed path with earlier agent versions;
-no live run of the supervisor has been made, so its choices are unmeasured. The complaint desk
-and HR leave keep their fixed order until their own PRs.
+demo data), and so does the complaint desk (its CLI, evals, the red-team arena and the demo
+data); the offline fakes, drills, arena and scripted stand-in answer the supervisors with the
+old order as a scripted policy. Published live eval results were scored on the fixed path with earlier agent versions;
+no live run of either supervisor has been made, so their choices are unmeasured. HR leave keeps
+its fixed order until its own PR.
