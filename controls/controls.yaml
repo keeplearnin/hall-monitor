@@ -1466,6 +1466,65 @@ controls:
       signal: a complaint closed with an explanation can still have been urgent. The panel has
       no sign-in (HM-20) and runs the static check on each page view.
 
+  - id: HM-29
+    name: Delegated passes only narrow
+    what: >-
+      When an agent hands work to another, the pass only narrows. hall_monitor/delegation.py
+      keeps a grant book per case: code issues the first grant (the lead agent's manifest, for
+      one case scope), and each handoff makes a child grant whose tools and data classes must be
+      inside both the parent grant and the helper's own manifest. A handoff must be listed in
+      the delegating agent's manifest (may_delegate_to, part of the approved hall pass), can't
+      hand work to an agent already in the chain, and stops two handoffs below the pipeline.
+      Asking for more than the parent holds is refused and logged, never trimmed. What a grant
+      allots its children can't add up to more than its own allotment. A grant counts only if
+      the case's book issued it, unchanged; every use checks every agent in its chain against
+      the registry, so stopping the lead stops its helpers at once; closing the book ends every
+      grant. The tool gateway refuses a tool call, and offers no tools, to any agent that can
+      delegate or be delegated to unless it comes with a grant its case's book issued to that
+      agent, and checks the tool and the data classes it returns against the grant. Every grant
+      and refusal is logged (delegation_granted, delegation_refused) with IDs, the chain, tool
+      names, data classes and amounts; names a model could have written are logged only if they
+      are plain identifiers.
+    status: built
+    code:
+      - hall_monitor/delegation.py::GrantBook
+      - hall_monitor/delegation.py::Grant
+      - hall_monitor/registry.py::AgentManifest
+      - hall_monitor/registry.py::Registry
+      - hall_monitor/tools/gateway.py::ToolGateway
+    tests:
+      - tests/test_delegation.py::test_a_child_grant_defaults_to_the_overlap_of_parent_and_manifest
+      - tests/test_delegation.py::test_a_helper_never_gets_more_than_the_agent_that_asked
+      - tests/test_delegation.py::test_asking_for_a_tool_the_helper_s_manifest_lacks_is_refused_not_trimmed
+      - tests/test_delegation.py::test_a_handoff_not_in_the_manifest_is_refused_and_logged
+      - tests/test_delegation.py::test_an_agent_already_in_the_chain_can_t_be_handed_work_again
+      - tests/test_delegation.py::test_a_chain_stops_two_handoffs_below_the_pipeline
+      - tests/test_delegation.py::test_children_s_allotments_can_t_add_up_to_more_than_the_parent_s
+      - tests/test_delegation.py::test_stopping_the_lead_stops_every_helper_working_for_it
+      - tests/test_delegation.py::test_a_grant_the_book_didn_t_issue_is_refused
+      - tests/test_delegation.py::test_closing_the_book_ends_every_grant
+      - tests/test_delegation.py::test_a_crew_agent_s_tool_call_without_a_grant_is_refused
+      - tests/test_delegation.py::test_the_gateway_refuses_what_the_grant_doesn_t_hold_though_the_manifest_does
+      - tests/test_delegation.py::test_delegation_entries_hold_ids_names_and_amounts_only
+      - tests/test_delegation.py::test_an_empty_handoff_list_leaves_the_digest_unchanged
+    evidence:
+      - "pending: the complaint crew (slice 3) running under grants"
+    nist: [GOVERN 1.4, MANAGE 1.3, MAP 3.5]
+    finos:
+      risks: [RI-24, RI-28]
+      mitigations: [MI-18, MI-21]
+    gaps: >-
+      No agent uses grants yet: the crew's agents, tools and pipeline come in later slices, so
+      this is the mechanism, tested with test manifests only. Allotments limit what a grant may
+      give its children; spending against an allotment isn't checked until agents run. The book
+      lives in memory for one run and isn't rebuilt from the audit log, so a crash loses it (the
+      case then goes to a person, as any failure does). Grants are allow-lists checked in one
+      process, not isolation (MI-22 stays not covered). The gateway enforces grants on tool
+      calls; what an agent passes to another in its prompt is the crew pipeline's to control.
+      A grant binds the case through its book; the gateway still limits a tool's arguments to
+      the case only through scope_policy, which the caller must pass (review 19). The book is
+      locked within one process only.
+
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
   - ref: GOVERN 1.1
@@ -1537,6 +1596,8 @@ audit_events:
   leave_information_requested: [HM-23]
   egress_refused: [HM-25]
   draft_stored: [HM-25, HM-06]
+  delegation_granted: [HM-29]
+  delegation_refused: [HM-29]
   complaint_pull: [HM-26]
   complaint_quarantined: [HM-26]
   complaint_received: [HM-27, HM-09, HM-10]

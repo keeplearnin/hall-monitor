@@ -115,6 +115,15 @@
       "default": null,
       "description": "Largest total claimed that may use the economy model.",
       "title": "Economy Max Claim Usd"
+    },
+    "may_delegate_to": {
+      "default": [],
+      "description": "Agents this agent may hand work to, each under a narrower grant (hall_monitor/delegation.py). Empty means none.",
+      "items": {
+        "type": "string"
+      },
+      "title": "May Delegate To",
+      "type": "array"
     }
   },
   "required": [
