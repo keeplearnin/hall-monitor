@@ -23,7 +23,7 @@ from hall_monitor.hr.pipeline import prepare
 from hall_monitor.hr.routing import PIPELINE_REASONS, REASONS
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.registry import DataClass, Registry
-from tests.fakes import TEST_REGISTRY_DIR, fake_client
+from tests.fakes import TEST_REGISTRY_DIR, fake_client, specialists
 
 COMPANY, EMPLOYEES = load_company(), load_employees()
 MESSAGES = {m.id: m for m in load_messages()}
@@ -58,6 +58,23 @@ def registry():
     return Registry.from_dir(TEST_REGISTRY_DIR)
 
 
+_PREPARE = prepare
+
+
+@pytest.fixture(autouse=True, params=["agentic", "fixed"])
+def mode(request, monkeypatch):
+    """Every test here runs on both paths: the leave supervisor following the old order (the
+    fakes' default) must give what the fixed path gives (ADR 0028)."""
+    import functools
+    import sys
+
+    agentic = request.param == "agentic"
+    monkeypatch.setattr(
+        sys.modules[__name__], "prepare", functools.partial(_PREPARE, agentic=agentic)
+    )
+    return request.param
+
+
 def _prepare(message, registry, client=None, audit=None, employees=EMPLOYEES):
     return prepare(
         message,
@@ -81,7 +98,10 @@ def test_each_message_reaches_the_answer_key_s_result(message, registry):
     assert prepared.route.decided_by == answer.decided_by
     assert prepared.route.reasons == answer.reasons
     assert prepared.explanation is not None
-    assert [c.agent_id for c in prepared.agent_calls] == ["leave_intake", "leave_explainer"]
+    assert [c.agent_id for c in specialists(prepared.agent_calls)] == [
+        "leave_intake",
+        "leave_explainer",
+    ]
 
 
 def test_every_message_has_a_structured_request_and_an_answer():
@@ -177,7 +197,7 @@ def test_an_intake_refusal_stops_the_request(registry):
     )
     prepared = _prepare(MESSAGES["lr_001"], registry, client)
     assert prepared.route.reasons == ["pipeline_stopped"] and prepared.assessment is None
-    assert "declined" in prepared.stopped_reason and len(prepared.agent_calls) == 1
+    assert "declined" in prepared.stopped_reason and len(specialists(prepared.agent_calls)) == 1
 
 
 def test_a_stopped_intake_agent_stops_the_request(tmp_path):
@@ -188,7 +208,7 @@ def test_a_stopped_intake_agent_stops_the_request(tmp_path):
     prepared = _prepare(MESSAGES["lr_001"], Registry.from_dir(tmp_path / "registry"))
     assert prepared.route.reasons == ["pipeline_stopped"]
     assert prepared.stopped_reason.startswith("hall pass refused")
-    assert prepared.agent_calls == []
+    assert specialists(prepared.agent_calls) == []
 
 
 @pytest.mark.parametrize(
@@ -250,7 +270,8 @@ def test_each_step_is_logged_with_nothing_the_employee_or_a_model_wrote(registry
     message = MESSAGES["lr_005"]
     _prepare(message, registry, audit=log)
     entries = log.entries(message.id)
-    assert [e["event"] for e in entries] == [
+    # The supervisor's own turns and steps are left out here (ADR 0028; tests/test_hr_agentic.py).
+    assert [e["event"] for e in entries if e["actor"] != "leave_supervisor"] == [
         "leave_request_submitted",
         "agent_call",
         "leave_assessed",
@@ -267,7 +288,8 @@ def test_each_step_is_logged_with_nothing_the_employee_or_a_model_wrote(registry
 def test_a_stopped_request_is_logged_too(registry, tmp_path):
     log = AuditLog(tmp_path / "audit.sqlite")
     _prepare(MESSAGES["lr_001"], registry, audit=log, employees={})
-    events = [e["event"] for e in log.entries("lr_001")]
+    entries = [e for e in log.entries("lr_001") if e["actor"] != "leave_supervisor"]
+    events = [e["event"] for e in entries]
     assert events == ["leave_request_submitted", "agent_call", "leave_prepared", "leave_evidence"]
     assert log.entries("lr_001")[-2]["payload"]["reasons"] == ["facts_missing"]
 
@@ -350,13 +372,15 @@ def test_the_explanation_s_shape_survives_the_schema_the_api_is_sent():
     assert set(item["properties"]["id"]["enum"]) == set(CHECK_IDS)
 
 
-def test_a_model_without_a_price_stops_the_request(registry, monkeypatch):
+def test_a_model_without_a_price_stops_the_request(registry, monkeypatch, mode):
     from hall_monitor.gateway import cost
 
     monkeypatch.setattr(cost, "PRICES_PER_MTOK", {})
     prepared = _prepare(MESSAGES["lr_003"], registry)
-    assert "pipeline_stopped" in prepared.route.reasons
-    assert prepared.stopped_reason.startswith("cost unknown")
+    # The agentic loop stops before the first agent call it can't price (ADR 0028).
+    code = "supervisor_failed" if mode == "agentic" else "pipeline_stopped"
+    assert code in prepared.route.reasons and prepared.route.route == "hr_review"
+    assert "cost unknown" in prepared.stopped_reason
 
 
 @pytest.mark.parametrize(
@@ -473,9 +497,12 @@ def test_a_privacy_request_isn_t_taken_for_text_aimed_at_the_ai():
         assert detect_in_texts([text]) == [], text
 
 
-def test_a_stop_that_drops_a_good_note_says_why(registry, monkeypatch):
+def test_a_stop_that_drops_a_good_note_says_why(registry, monkeypatch, mode):
     from hall_monitor.gateway import cost
 
     monkeypatch.setattr(cost, "PRICES_PER_MTOK", {})
     prepared = _prepare(MESSAGES["lr_003"], registry)
+    if mode == "agentic":  # the loop stops before any agent it can't price: no note to drop
+        assert prepared.explanation is None and specialists(prepared.agent_calls) == []
+        return
     assert prepared.explanation is None and prepared.explanation_problem

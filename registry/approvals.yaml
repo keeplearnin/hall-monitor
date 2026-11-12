@@ -41,6 +41,11 @@ agents:
     prompt_sha256: 461d668fa78c7d403046371f4e4471ebbdbe63151f447b165394a5e0e7d90962
     prompt_version: leave-intake-v1
     version: 0.1.0
+  leave_supervisor:
+    manifest_digest: 26709c5c1dd138ec957d74b441717d92f57707583392931b8bef2f1d313c0e97
+    prompt_sha256: 46adce86d355d41898532dd86b623767dae54d5f782dda7d8e4e1bb4624f5368
+    prompt_version: leave-supervisor-v1
+    version: 0.1.0
   recommendation:
     manifest_digest: fba8c83994227c720dc8ff829cbfae4bb80d2c0fca55cd3d260e39bcb70d8911
     prompt_sha256: b854d7a2b948e1b08083514787424f2d341b748e998acaf858a5a54a9caf0b84

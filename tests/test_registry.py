@@ -17,6 +17,7 @@ from tests.fakes import TEST_REGISTRY_DIR
 EXPECTED_AGENTS = {
     "claims_supervisor",
     "complaint_supervisor",
+    "leave_supervisor",
     "intake",
     "coverage_check",
     "critic",
@@ -168,6 +169,7 @@ def test_the_approved_prompt_covers_the_untrusted_claim_notice():
         "leave_explainer",
         "claims_supervisor",
         "complaint_supervisor",
+        "leave_supervisor",
     }
     assert set(notices) | readers_of_nothing_untrusted == set(AGENT_MODULES)
     for agent_id, module in AGENT_MODULES.items():

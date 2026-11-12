@@ -83,6 +83,24 @@ REASONS: dict[str, tuple[str, Role]] = {
         "the request couldn't be prepared (an agent failed, was stopped or isn't approved)",
         Role.LEAVE_SPECIALIST,
     ),
+    # The leave supervisor's (ADR 0028): each only adds review.
+    "intake_disagreed": (
+        "two independent intakes of the request disagreed; the rules ran on the first",
+        Role.LEAVE_SPECIALIST,
+    ),
+    "supervisor_handed_off": (
+        "the leave supervisor handed the request to HR review",
+        Role.LEAVE_SPECIALIST,
+    ),
+    "assessment_skipped": (
+        "the leave supervisor ended before the rules ran",
+        Role.LEAVE_SPECIALIST,
+    ),
+    "supervisor_failed": (
+        "the leave supervisor failed, was stopped, ran out of budget or kept choosing steps "
+        "code refused",
+        Role.LEAVE_SPECIALIST,
+    ),
     "caregiver_history": (
         "earlier military caregiver leave: a person checks whether it was for the same "
         "servicemember and injury",
@@ -92,7 +110,16 @@ REASONS: dict[str, tuple[str, Role]] = {
 
 
 # Reasons only the pipeline gives (hr/pipeline.py), not the rules on a structured request.
-PIPELINE_REASONS = frozenset({"text_addresses_ai", "pipeline_stopped"})
+PIPELINE_REASONS = frozenset(
+    {
+        "text_addresses_ai",
+        "pipeline_stopped",
+        "intake_disagreed",
+        "supervisor_handed_off",
+        "assessment_skipped",
+        "supervisor_failed",
+    }
+)
 
 
 class LeaveRoute(BaseModel):

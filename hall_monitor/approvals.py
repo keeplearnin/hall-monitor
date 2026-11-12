@@ -31,6 +31,7 @@ from hall_monitor.agents import (
 from hall_monitor.complaints import supervisor as complaint_supervisor
 from hall_monitor.complaints import triage_agent
 from hall_monitor.hr import leave_explainer, leave_intake
+from hall_monitor.hr import supervisor as leave_supervisor
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
 from hall_monitor.registry import (
     APPROVALS_FILENAME,
@@ -42,7 +43,7 @@ from hall_monitor.registry import (
 )
 
 CLAIMS_MODULES = (intake, coverage_check, risk_fraud, critic, recommendation, supervisor)
-HR_MODULES = (leave_intake, leave_explainer)
+HR_MODULES = (leave_intake, leave_explainer, leave_supervisor)
 COMPLAINT_MODULES = (triage_agent, complaint_supervisor)
 CLAIMS_AGENTS = tuple(m.AGENT_ID for m in CLAIMS_MODULES)
 AGENT_MODULES: dict[str, ModuleType] = {

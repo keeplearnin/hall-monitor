@@ -37,6 +37,7 @@ from hall_monitor.hr import signoff
 from hall_monitor.hr.data import load_company, load_employees, load_messages, load_requests
 from hall_monitor.hr.models import LeaveExplanation, LeaveIntake
 from hall_monitor.hr.pipeline import prepare
+from hall_monitor.hr.supervisor import LeaveDecision, scripted_leave_answer
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.models import (
     CoverageFinding,
@@ -89,7 +90,9 @@ class _ScriptedLeaveMessages:
 
     def parse(self, **kwargs):
         content = kwargs["messages"][0]["content"]
-        if kwargs["output_format"] is LeaveIntake:
+        if kwargs["output_format"] is LeaveDecision:  # the old order, scripted (ADR 0028)
+            answer = scripted_leave_answer(kwargs)
+        elif kwargs["output_format"] is LeaveIntake:
             found = next(m for m in self.messages if escape(m.text[:60]) in content)
             fields = set(LeaveIntake.model_fields)
             answer = LeaveIntake(**self.requests[found.id].model_dump(include=fields))
