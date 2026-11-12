@@ -32,13 +32,13 @@ not used here. If a supervisor is ever given tools, its specialist calls should 
   planted in any of them can't steer it. Tool results stay untrusted input to the specialists,
   as before.
 - **Code checks every choice before it runs**: a step whose inputs aren't ready, or that would
-  repeat on unchanged inputs, a revision of a stage the critic didn't raise, or one past
-  `MAX_REVISIONS`, is refused; nothing runs, the refusal is logged and shown to the supervisor,
+  repeat on unchanged inputs, a revision that doesn't send back exactly the stages the critic
+  raised (all of them, as the fixed path does), or one past `MAX_REVISIONS`, is refused; nothing runs, the refusal is logged and shown to the supervisor,
   and after three refusals the claim stops for a person.
-- **Budgets per claim, checked before every turn:** steps (16), cost (0.25 USD) and wall-clock
-  time (300 s). Running out stops the claim for a person. Because the check comes before
-  finish too, a claim can't finish on a step that took it over budget; the overshoot is at
-  most the one step already running.
+- **Budgets per claim:** steps (16), checked before every turn, finish included; cost
+  (0.25 USD) and wall-clock time (300 s), checked before every model call the loop makes, the
+  supervisor's and each specialist's, each agent of a revision included. Running out stops the
+  claim for a person, and the overshoot is at most one agent's run with its tool loop.
 - **The kill switch at every step.** The supervisor's hall pass is checked when it is asked
   and again before the step it chose runs; each specialist checks its own on every model and
   tool call, and the routing step checks every agent the result rests on.
@@ -56,8 +56,10 @@ not used here. If a supervisor is ever given tools, its specialist calls should 
   shows these entries.
 - **The fixed path is kept** (`triage(..., agentic=False)`) as the comparison, and an offline
   eval runs both over every synthetic claim with scripted supervisor policies, hostile ones
-  included (`evals/agentic_compare.py`, gated: no policy may get a claim through that the fixed
-  path sent to a person).
+  included, and with a critic that raises issues and then changes its mind
+  (`evals/agentic_compare.py`, gated: no policy may get a claim through that the fixed path sent
+  to a person). Review 22 found that a revision of only some raised stages did exactly that;
+  it is refused now, and the eval's revision scenario catches it if the refusal is removed.
 
 ## Where determinism was traded away
 

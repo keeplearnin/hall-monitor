@@ -26,6 +26,13 @@ A customer's travel-insurance claim goes through five AI steps:
    mistakes back.
 5. **Recommend** a next step: pay, ask for information, investigate or deny.
 
+A sixth AI, the supervisor, chooses which of these steps runs next and when to send work back or
+hand the claim to a person. It never reads the claim and can't approve one: code checks every
+step it chooses, stops a claim that runs over its budget, and sends the claim to a person unless
+every step above ran and passed the checks. So two runs of the same claim may take different
+paths, but only code decides the outcome. The published accuracy figures come from the older
+fixed order of steps; the supervisor hasn't been measured on the live model yet.
+
 Every AI step needs a **hall pass**: an approved permit that names its owner, its risk level, the AI
 model it may use and the records it may look up. A changed permit, or changed core instructions, is
 refused until a new approval is committed (not yet covered: the policy wording the AI reads, the descriptions of its look-ups and the text that sends a correction back). Who may commit that approval is set by repository

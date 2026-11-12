@@ -174,7 +174,7 @@ Each control's NIST AI RMF and FINOS AIGF mapping is in the [controls register](
 
 ## Results
 
-Numbers are published as each milestone lands, from runs anyone can reproduce with the commands in this repo.
+Numbers are published as each milestone lands, from runs anyone can reproduce with the commands in this repo. *Every row below was scored on the fixed order of steps with earlier agent versions; the default path is now agentic (HM-32), and it has been compared with the fixed order only offline, with scripted supervisors ([agentic-scripted](evals/results/agentic-scripted/report.md)). Its live accuracy and cost are not yet measured.*
 
 | Milestone | Extraction accuracy | Coverage-reasoning accuracy | Hallucination rate | Cost per claim | Human override rate |
 |---|---|---|---|---|---|
@@ -236,7 +236,7 @@ uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
 uv run python -m hall_monitor.review list                  # claims waiting for an adjuster
 uv run python -m hall_monitor.review show claim_004        # evidence pack and its hash
 uv run python -m hall_monitor.audit verify                 # check the audit chain
-uv run python -m hall_monitor.evals.baseline --trials 3 --out evals/results/my-baseline  # 36 claims x 3, about $4 (agentic; --fixed for the old order)
+uv run python -m hall_monitor.evals.baseline --trials 3 --out evals/results/my-baseline  # 36 claims x 3, about $4 on the fixed order; the agentic default adds about six Haiku supervisor calls per claim (--fixed for the old order)
 uv run python -m hall_monitor.evals.agentic_compare        # agentic vs fixed with scripted supervisors; no API calls
 uv run python -m hall_monitor.evals.critic_seeded         # critic vs planted errors, about $2
 uv run python -m hall_monitor.evals.adversarial            # attack suite, about $1

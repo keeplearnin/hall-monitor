@@ -357,6 +357,7 @@ class StepRefusal(StrEnum):
     CRITIC_OFF = "critic_off"
     NO_CRITIC_ISSUES = "no_critic_issues"  # revise without a current review that raised issues
     STAGE_WITHOUT_ISSUE = "stage_without_issue"  # revise a stage the critic didn't raise
+    NOT_EVERY_RAISED_STAGE = "not_every_raised_stage"  # leave out a stage the critic raised
     REVISIONS_EXHAUSTED = "revisions_exhausted"
 
 

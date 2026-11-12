@@ -4,8 +4,9 @@ ADR 0028, HM-32. The supervisor (agents/supervisor.py) chooses one action at a t
 closed list. Before anything runs, code checks, in this order:
 
 1. **Budget.** Steps, cost and wall-clock time for the claim. Running out stops the claim for a
-   person. The check comes before every supervisor turn, finish included, so a claim can't
-   finish on a step that took it over; the overshoot is at most the one step already running.
+   person. Steps are checked before every supervisor turn, finish included; cost and time
+   before every model call the loop makes (the supervisor's and each specialist's, each agent
+   of a revision included), so the overshoot is at most one agent's run with its tool loop.
 2. **Kill switch and hall pass.** The supervisor's own hall pass is checked when it is asked
    and again before the step it chose runs, so stopping the supervisor stops its work at the
    next step; each specialist checks its own on every model and tool call (agents/base.py).
@@ -95,7 +96,8 @@ STAGE_ORDER = (ReviewedStage.INTAKE, ReviewedStage.COVERAGE_CHECK, ReviewedStage
 @dataclass(frozen=True)
 class Limits:
     """A claim's budget. The largest published claim cost about 0.05 USD over five agent calls;
-    the fixed order with two revision rounds takes 13 supervisor steps."""
+    the old order with two revision rounds takes 10 supervisor steps (11 with an intake retry),
+    and every refused step counts too."""
 
     max_steps: int = 16
     max_cost_usd: float = 0.25
@@ -216,6 +218,12 @@ def view_of(ctx: _Context, state: _State) -> SupervisorView:
 def _check_budget(ctx: _Context) -> None:
     if len(ctx.run.steps) >= ctx.limits.max_steps:
         raise PipelineStopped(f"budget exhausted: {ctx.limits.max_steps} supervisor steps")
+    _check_spend(ctx)
+
+
+def _check_spend(ctx: _Context) -> None:
+    """Cost and time, checked before every model call the loop makes: the supervisor's and each
+    specialist's, including each agent inside one revision."""
     if _cost(ctx.run) >= ctx.limits.max_cost_usd:
         raise PipelineStopped(f"budget exhausted: cost reached {ctx.limits.max_cost_usd} USD")
     if ctx.elapsed() >= ctx.limits.max_seconds:
@@ -257,6 +265,10 @@ def _refusal(ctx: _Context, state: _State, decision: SupervisorDecision) -> Step
             raised = {i.stage for i in state.review.issues}
             if not decision.stages or not set(decision.stages) <= raised:
                 return StepRefusal.STAGE_WITHOUT_ISSUE
+            if set(decision.stages) != raised:
+                # Every raised stage goes back, as on the fixed path: an issue left out could
+                # vanish from a later clean review and never be recorded (review 22).
+                return StepRefusal.NOT_EVERY_RAISED_STAGE
             return None
         case A.RUN_RECOMMENDATION:
             if not (state.coverage_current() and state.risk_current()):
@@ -278,6 +290,7 @@ def _run_intake(ctx: _Context, state: _State) -> None:
         )
         feedback = render_feedback(run.extraction, [problem])
     state.intake_runs += 1
+    _check_spend(ctx)
     state.agents.append("intake")
     run.extraction = run.output(run_intake(claim, ctx.registry, ctx.client, feedback=feedback))
     state.extraction_v += 1
@@ -306,6 +319,7 @@ def _run_intake(ctx: _Context, state: _State) -> None:
 def _run_coverage(
     ctx: _Context, state: _State, feedback: str | None = None, *, revision: bool = False
 ) -> CoverageAssessment:
+    _check_spend(ctx)
     state.agents.append("coverage_check")
     economy = (
         not revision
@@ -330,6 +344,7 @@ def _run_coverage(
 
 
 def _run_risk(ctx: _Context, state: _State, feedback: str | None = None) -> RiskAssessment:
+    _check_spend(ctx)
     state.agents.append("risk_fraud")
     risk = ctx.run.output(
         run_risk_fraud(
@@ -356,6 +371,7 @@ def _revise(ctx: _Context, state: _State, stages: list[ReviewedStage]) -> None:
     if ReviewedStage.INTAKE in chosen:
         chosen |= {ReviewedStage.COVERAGE_CHECK, ReviewedStage.RISK_FRAUD}
         previous = run.extraction
+        _check_spend(ctx)
         state.agents.append("intake")
         run.extraction = run.revised(
             ReviewedStage.INTAKE,
@@ -404,6 +420,7 @@ def _execute(ctx: _Context, state: _State, decision: SupervisorDecision) -> None
         case A.RUN_RISK_FRAUD:
             state.risk = _run_risk(ctx, state)
         case A.RUN_CRITIC:
+            _check_spend(ctx)
             state.agents.append("critic")
             review = run.output(
                 run_critic(
@@ -422,6 +439,7 @@ def _execute(ctx: _Context, state: _State, decision: SupervisorDecision) -> None
         case A.REVISE:
             _revise(ctx, state, decision.stages)
         case A.RUN_RECOMMENDATION:
+            _check_spend(ctx)
             state.agents.append("recommendation")
             economy = _economy(ctx.registry, "recommendation", run.extraction, ctx.model_routing)
             state.recommendation = run.output(
@@ -477,11 +495,14 @@ def missing_evidence(state: _State, *, critic: bool, has_extraction: bool) -> li
     return missing
 
 
+def _recheck(ctx: _Context) -> None:
+    """Every agent the result rests on, the supervisor included, must still be allowed to run."""
+    for agent_id in dict.fromkeys(call.agent_id for call in ctx.run.calls):
+        ctx.registry.require(agent_id)
+
+
 def _result(ctx: _Context, state: _State, decision: SupervisorDecision) -> TriageResult:
     run = ctx.run
-    # Every agent this result rests on, the supervisor included, must still be allowed to run.
-    for agent_id in dict.fromkeys(call.agent_id for call in run.calls):
-        ctx.registry.require(agent_id)
     missing = missing_evidence(state, critic=ctx.critic, has_extraction=run.extraction is not None)
     unresolved = ctx.critic and state.review_current() and bool(state.review.issues)
     reasons: list[str] = []
@@ -562,11 +583,16 @@ def supervise(
     while True:
         _check_budget(ctx)
         decision = run.output(run_supervisor(claim.claim_id, view_of(ctx, state), registry, client))
-        if decision.action is SupervisorAction.FINISH:
-            _record(ctx, state, decision, StepOutcome.FINISHED)
-            return _result(ctx, state, decision)
-        if decision.action is SupervisorAction.HAND_OFF:
-            _record(ctx, state, decision, StepOutcome.HANDED_OFF)
+        if decision.action in (SupervisorAction.FINISH, SupervisorAction.HAND_OFF):
+            try:
+                _recheck(ctx)
+            except Exception:
+                # A stop between the choice and routing: the trail says the step failed, not
+                # that it finished (review 22).
+                _record(ctx, state, decision, StepOutcome.FAILED)
+                raise
+            done = decision.action is SupervisorAction.FINISH
+            _record(ctx, state, decision, StepOutcome.FINISHED if done else StepOutcome.HANDED_OFF)
             return _result(ctx, state, decision)
         refusal = _refusal(ctx, state, decision)
         if refusal is not None:

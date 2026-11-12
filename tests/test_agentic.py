@@ -475,3 +475,66 @@ def test_no_supervisor_policy_gets_a_claim_through_that_the_fixed_path_sent_to_a
     assert result["summary"]["unsafe_auto"] == 0
     assert result["summary"]["old_order_agreement"] == 1.0
     assert result["policies"]["finish_at_once"]["routes"] == {"adjuster": 10}
+
+
+# --- Review 22 findings ---------------------------------------------------------------------------
+
+
+def _critic_raises_then_clean(*stages):
+    issues = [CriticIssue(stage=s, problem="p", evidence="e") for s in stages]
+    return [CriticReview(issues=issues), CriticReview(issues=[])]
+
+
+@pytest.mark.parametrize(
+    ("raised", "revised"),
+    [
+        ((ReviewedStage.COVERAGE_CHECK, ReviewedStage.RISK_FRAUD), [ReviewedStage.COVERAGE_CHECK]),
+        ((ReviewedStage.INTAKE, ReviewedStage.RISK_FRAUD), [ReviewedStage.RISK_FRAUD]),
+    ],
+)
+def test_revising_only_some_of_the_stages_the_critic_raised_is_refused(raised, revised):
+    """Review 22 finding 1: a partial revision then a clean review went through automatically,
+    where the fixed path revises every raised stage."""
+    outputs = outputs_from_truth(load_ground_truth("claim_001"))
+    outputs[CriticReview] = _critic_raises_then_clean(*raised)
+
+    def answer(request):
+        decision = scripted_answer(request)
+        if decision.action is A.REVISE:
+            return _decide(A.REVISE, R.CRITIC_RAISED_ISSUES, revised)
+        return decision
+
+    result, _ = _run(supervisor=answer, outputs=outputs)
+    assert StepRefusal.STAGE_WITHOUT_ISSUE not in {s.refusal for s in result.supervisor_steps}
+    assert StepRefusal.NOT_EVERY_RAISED_STAGE in {s.refusal for s in result.supervisor_steps}
+    assert result.routing.route is Route.ADJUSTER
+    assert result.revisions == 0
+
+
+def test_a_revision_stops_between_agents_when_the_budget_runs_out():
+    """Review 22 finding 3: a revision that includes intake runs three agents; the budget is
+    checked before each, so the overshoot is at most one agent's run."""
+    outputs = outputs_from_truth(load_ground_truth("claim_001"))
+    outputs[CriticReview] = _critic_raises_then_clean(ReviewedStage.INTAKE)
+    # At the fake's token counts the claim has cost 0.0094 when the revision starts; its intake
+    # call (0.0002) takes it over 0.0095, so coverage and risk must not start.
+    result, client = _run(outputs=outputs, limits=Limits(max_cost_usd=0.0095))
+    assert result.stopped_reason.startswith("budget exhausted: cost")
+    assert client.messages.formats()[-1] == "IntakeExtraction"  # coverage didn't start
+    assert result.supervisor_steps[-1].outcome is StepOutcome.FAILED
+
+
+def test_a_stop_at_finish_records_the_step_as_failed(registry_dir):
+    """Review 22 finding 5: the trail said finished while the claim was stopped."""
+    registry = Registry.from_dir(registry_dir)
+
+    def answer(request):
+        decision = scripted_answer(request)
+        if decision.action is A.FINISH:
+            _stop(registry_dir, "intake")
+        return decision
+
+    result, _ = _run(supervisor=answer, registry=registry)
+    assert "intake" in result.stopped_reason and "stopped" in result.stopped_reason
+    assert result.supervisor_steps[-1].action is A.FINISH
+    assert result.supervisor_steps[-1].outcome is StepOutcome.FAILED

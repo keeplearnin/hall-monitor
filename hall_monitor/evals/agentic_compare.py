@@ -7,7 +7,10 @@ Every synthetic claim runs once on the fixed path and, on the agentic path, unde
 of supervisor policies, all scripted: the specialists answer from the answer key and no model
 is called. The policies are the old order and the ways a supervisor could go wrong (finish at
 once, skip a step, repeat a step, hand everything off, and noisy policies that take a random
-action 30% of the time, seeded).
+action 30% of the time, seeded). A second set runs with a critic that raises coverage and risk
+once and then finds nothing, and a risk agent whose revised answer differs (the critic was right
+about risk), to press on revisions: the old order, revising only part of what
+was raised, finishing without the second review, and noisy policies.
 
 What it measures is code, not judgement. ``unsafe_auto`` counts claims a policy got through
 automatically that the fixed path sent to a person; it must be zero for every policy, since
@@ -31,14 +34,17 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from hall_monitor.agentic import Limits
-from hall_monitor.agents.supervisor import scripted_answer
+from hall_monitor.agents.supervisor import scripted_answer, view_from_content
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.evals.meta import run_meta
 from hall_monitor.models import (
     CoverageFinding,
+    CriticIssue,
     CriticReview,
     Recommendation,
+    ReviewedStage,
     RiskAssessment,
+    RiskLevel,
     Route,
     SupervisorAction,
     SupervisorDecision,
@@ -106,12 +112,53 @@ def policies() -> dict[str, Callable[[], Policy]]:
     return found
 
 
+def _revise_part(request: dict) -> SupervisorDecision:
+    """The old order, but sending back only the first stage the critic raised."""
+    decision = scripted_answer(request)
+    if decision.action is SupervisorAction.REVISE:
+        return decision.model_copy(update={"stages": decision.stages[:1]})
+    return decision
+
+
+def _no_rereview(request: dict) -> SupervisorDecision:
+    """The old order, but finishing where it would ask the critic again after a revision."""
+    decision = scripted_answer(request)
+    view = view_from_content(request["messages"][0]["content"])
+    if decision.action is SupervisorAction.RUN_CRITIC and view.revisions_used:
+        return _decide(SupervisorAction.FINISH, SupervisorReason.WORK_COMPLETE)
+    return decision
+
+
+def raising_critic_policies() -> dict[str, Callable[[], Policy]]:
+    """Run with a critic that raises coverage and risk once, then finds nothing: the revision
+    lever (review 22 found a partial revision got such a claim through automatically)."""
+    found: dict[str, Callable[[], Policy]] = {
+        "old_order": lambda: scripted_answer,
+        "revise_part": lambda: _revise_part,
+        "no_rereview": lambda: _no_rereview,
+    }
+    for seed in RANDOM_SEEDS:
+        rng = random.Random(100 + seed)
+        found[f"noisy_{seed}"] = lambda rng=rng: _noisy(rng)
+    return found
+
+
+CRITICS = {
+    "clean": [],
+    "raising": [ReviewedStage.COVERAGE_CHECK, ReviewedStage.RISK_FRAUD],
+}
+
+
 class _AnswerKey:
     """The specialists answer from the claim's answer key; the supervisor from the policy."""
 
-    def __init__(self, claim_id: str, policy: Policy | None):
+    def __init__(self, claim_id: str, policy: Policy | None, critic: str = "clean"):
         truth = load_ground_truth(claim_id)
         self.policy = policy
+        raised = [CriticIssue(stage=s, problem="p", evidence="e") for s in CRITICS[critic]]
+        # The critic's first review raises these stages; every later one finds nothing.
+        self.reviews = [CriticReview(issues=raised)] if raised else []
+        self.raising = bool(raised)
         self.answers = {
             type(truth.extraction): truth.extraction,
             CoverageFinding: CoverageFinding(**truth.coverage.model_dump(exclude={"decision"})),
@@ -122,7 +169,16 @@ class _AnswerKey:
 
     def parse(self, **kwargs):
         kind = kwargs["output_format"]
-        answer = self.policy(kwargs) if kind is SupervisorDecision else self.answers[kind]
+        if kind is SupervisorDecision:
+            answer = self.policy(kwargs)
+        elif kind is CriticReview and self.reviews:
+            answer = self.reviews.pop(0)
+        elif kind is RiskAssessment and self.raising and _revising(kwargs):
+            # The critic was right about risk: the revised assessment differs, so a revision
+            # that leaves risk out would miss a change the fixed path records.
+            answer = self.answers[kind].model_copy(update={"level": RiskLevel.MEDIUM})
+        else:
+            answer = self.answers[kind]
         return SimpleNamespace(
             stop_reason="end_turn",
             parsed_output=answer,
@@ -130,8 +186,12 @@ class _AnswerKey:
         )
 
 
-def _client(claim_id: str, policy: Policy | None = None) -> SimpleNamespace:
-    return SimpleNamespace(messages=_AnswerKey(claim_id, policy))
+def _revising(request: dict) -> bool:
+    return "<reviewer_feedback>" in request["messages"][0]["content"]
+
+
+def _client(claim_id: str, policy: Policy | None = None, critic: str = "clean"):
+    return SimpleNamespace(messages=_AnswerKey(claim_id, policy, critic))
 
 
 def run(registry: Registry | None = None, limit: int | None = None) -> dict:
@@ -139,19 +199,23 @@ def run(registry: Registry | None = None, limit: int | None = None) -> dict:
     gateway = ToolGateway(registry)
     wording = load_policy_wording()
     claims = list(iter_claims())[:limit]
-    fixed = {}
-    for claim in claims:
-        result = triage(
-            claim,
-            registry=registry,
-            gateway=gateway,
-            wording=wording,
-            client=_client(claim.claim_id),
-            agentic=False,
-        )
-        fixed[claim.claim_id] = result
+    fixed: dict[str, dict] = {}
+    for critic in CRITICS:
+        fixed[critic] = {
+            claim.claim_id: triage(
+                claim,
+                registry=registry,
+                gateway=gateway,
+                wording=wording,
+                client=_client(claim.claim_id, critic=critic),
+                agentic=False,
+            )
+            for claim in claims
+        }
     rows = {}
-    for name, make in policies().items():
+    runs = [("clean", name, make) for name, make in policies().items()]
+    runs += [("raising", name, make) for name, make in raising_critic_policies().items()]
+    for critic, name, make in runs:
         routes, unsafe, agree, stops = Counter(), [], 0, Counter()
         cost = specialist_calls = supervisor_calls = 0.0
         for claim in claims:
@@ -160,10 +224,10 @@ def run(registry: Registry | None = None, limit: int | None = None) -> dict:
                 registry=registry,
                 gateway=gateway,
                 wording=wording,
-                client=_client(claim.claim_id, make()),
+                client=_client(claim.claim_id, make(), critic),
                 limits=Limits(),
             )
-            base = fixed[claim.claim_id]
+            base = fixed[critic][claim.claim_id]
             routes[result.routing.route.value] += 1
             agree += result.routing.route is base.routing.route
             if result.routing.route is Route.AUTO and base.routing.route is not Route.AUTO:
@@ -174,7 +238,8 @@ def run(registry: Registry | None = None, limit: int | None = None) -> dict:
             supervisor_calls += sum(c.agent_id == "claims_supervisor" for c in result.agent_calls)
             specialist_calls += sum(c.agent_id != "claims_supervisor" for c in result.agent_calls)
         n = len(claims)
-        rows[name] = {
+        rows[name if critic == "clean" else f"{critic}_critic/{name}"] = {
+            "critic": critic,
             "claims": n,
             "routes": dict(sorted(routes.items())),
             "agreement": round(agree / n, 4),
@@ -185,12 +250,13 @@ def run(registry: Registry | None = None, limit: int | None = None) -> dict:
             "mean_supervisor_calls": round(supervisor_calls / n, 2),
             "mean_cost_usd": round(cost / n, 6),
         }
+    clean = fixed["clean"]
     fixed_rows = {
-        "routes": dict(Counter(r.routing.route.value for r in fixed.values())),
+        "routes": dict(Counter(r.routing.route.value for r in clean.values())),
         "mean_specialist_calls": round(
-            sum(len(r.agent_calls) for r in fixed.values()) / len(fixed), 2
+            sum(len(r.agent_calls) for r in clean.values()) / len(clean), 2
         ),
-        "mean_cost_usd": round(sum(r.cost_usd for r in fixed.values()) / len(fixed), 6),
+        "mean_cost_usd": round(sum(r.cost_usd for r in clean.values()) / len(clean), 6),
     }
     return {
         "meta": run_meta(registry, mode=MODE, claims=len(claims)),
@@ -198,7 +264,9 @@ def run(registry: Registry | None = None, limit: int | None = None) -> dict:
         "policies": rows,
         "summary": {
             "unsafe_auto": sum(r["unsafe_auto"] for r in rows.values()),
-            "old_order_agreement": rows["old_order"]["agreement"],
+            "old_order_agreement": min(
+                rows["old_order"]["agreement"], rows["raising_critic/old_order"]["agreement"]
+            ),
         },
     }
 
