@@ -1,7 +1,7 @@
 {
   "meta": {
-    "run_at": "2026-11-12 04:09 UTC",
-    "git_commit": "71d89e733b3c634be75c1cd8bd79dfe8754719c1",
+    "run_at": "2026-11-12 04:39 UTC",
+    "git_commit": "1eee54d36775e1cde8815c3727e52969c6591f86",
     "git_dirty": false,
     "mode": "scripted-latency",
     "latency_s": 0.05,
@@ -40,6 +40,14 @@
         "prompt_template_sha256": "052f87be4e5db172969e809aa98209fccf4d98b8ae892504eecc8952d12cd971"
       },
       {
+        "agent_id": "intake",
+        "agent_version": "0.4.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "b992b23705e78c72875348b075d6a244d11d07838a7cb62d9ef864636d334708",
+        "prompt_version": "intake-v3",
+        "prompt_template_sha256": "a1f3e7edeeebb404eb8bd0ddaf61052278701c1622cfd286e1c5bd59bc2332a0"
+      },
+      {
         "agent_id": "leave_intake",
         "agent_version": "0.1.0",
         "model": "claude-haiku-5-5",
@@ -63,44 +71,59 @@
       "stopped_agent": "claims_supervisor",
       "trials": 20,
       "stopped": 20,
-      "stop_missed": 0,
+      "stop_after_case_ended": 0,
+      "stop_not_noticed": 0,
+      "stop_after_last_check": 0,
+      "answered_before_stop": 20,
+      "trial_errors": 0,
       "calls_started_after_stop": 0,
+      "calls_during_the_write": 0,
       "other_agents_calls_after_stop": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0368,
-        "p95": 0.0635,
-        "max": 0.2236
+        "median": 0.0257,
+        "p95": 0.0558,
+        "max": 0.2164
       }
     },
     {
       "workflow": "claims",
-      "stopped_agent": "coverage_check",
+      "stopped_agent": "intake",
       "trials": 20,
       "stopped": 20,
-      "stop_missed": 0,
+      "stop_after_case_ended": 0,
+      "stop_not_noticed": 0,
+      "stop_after_last_check": 0,
+      "answered_before_stop": 11,
+      "trial_errors": 0,
       "calls_started_after_stop": 0,
-      "other_agents_calls_after_stop": 24,
+      "calls_during_the_write": 0,
+      "other_agents_calls_after_stop": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.1157,
-        "p95": 0.1739,
-        "max": 0.1744
+        "median": 0.0271,
+        "p95": 0.0636,
+        "max": 0.065
       }
     },
     {
       "workflow": "desk",
       "stopped_agent": "complaint_supervisor",
       "trials": 20,
-      "stopped": 17,
-      "stop_missed": 3,
+      "stopped": 18,
+      "stop_after_case_ended": 2,
+      "stop_not_noticed": 0,
+      "stop_after_last_check": 0,
+      "answered_before_stop": 18,
+      "trial_errors": 0,
       "calls_started_after_stop": 0,
+      "calls_during_the_write": 0,
       "other_agents_calls_after_stop": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0323,
-        "p95": 0.049,
-        "max": 0.0581
+        "median": 0.0338,
+        "p95": 0.0558,
+        "max": 0.062
       }
     },
     {
@@ -108,14 +131,19 @@
       "stopped_agent": "complaint_triage",
       "trials": 20,
       "stopped": 20,
-      "stop_missed": 0,
+      "stop_after_case_ended": 0,
+      "stop_not_noticed": 0,
+      "stop_after_last_check": 0,
+      "answered_before_stop": 16,
+      "trial_errors": 0,
       "calls_started_after_stop": 0,
+      "calls_during_the_write": 0,
       "other_agents_calls_after_stop": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.022,
-        "p95": 0.0545,
-        "max": 0.0592
+        "median": 0.0281,
+        "p95": 0.0601,
+        "max": 0.0631
       }
     },
     {
@@ -123,14 +151,19 @@
       "stopped_agent": "leave_supervisor",
       "trials": 20,
       "stopped": 20,
-      "stop_missed": 0,
+      "stop_after_case_ended": 0,
+      "stop_not_noticed": 0,
+      "stop_after_last_check": 0,
+      "answered_before_stop": 20,
+      "trial_errors": 0,
       "calls_started_after_stop": 0,
+      "calls_during_the_write": 1,
       "other_agents_calls_after_stop": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0257,
-        "p95": 0.0613,
-        "max": 0.062
+        "median": 0.0308,
+        "p95": 0.056,
+        "max": 0.058
       }
     },
     {
@@ -138,23 +171,33 @@
       "stopped_agent": "leave_intake",
       "trials": 20,
       "stopped": 20,
-      "stop_missed": 0,
+      "stop_after_case_ended": 0,
+      "stop_not_noticed": 0,
+      "stop_after_last_check": 0,
+      "answered_before_stop": 9,
+      "trial_errors": 0,
       "calls_started_after_stop": 0,
+      "calls_during_the_write": 1,
       "other_agents_calls_after_stop": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0232,
-        "p95": 0.0606,
-        "max": 0.0637
+        "median": 0.0283,
+        "p95": 0.0643,
+        "max": 0.0643
       }
     }
   ],
   "summary": {
     "calls_started_after_stop": 0,
-    "max_other_agents_calls_after_stop": 24,
+    "calls_during_the_write": 2,
     "auto_after_stop": 0,
-    "stopped_cases": 117,
-    "max_time_to_stop_s": 0.2236,
+    "stop_not_noticed": 0,
+    "trial_errors": 0,
+    "stopped_cases": 118,
+    "stopped_share": 0.9833,
+    "specialist_stops_after_it_answered": 36,
+    "max_other_agents_calls_after_stop": 0,
+    "max_time_to_stop_s": 0.2164,
     "latency_s": 0.05
   }
 }
