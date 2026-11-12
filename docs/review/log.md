@@ -796,3 +796,17 @@ values were escaped, only an explicit true or false counted, and the page stayed
 | No test covered non-boolean labels or an interrupted route | Low | Both tested |
 | Plausible: "never assumed to be the model" overstated what the log records; the README didn't mention the new column | Low | Both corrected |
 
+
+## Review 19 (branch `failure-drills`): failure drills (HM-31)
+
+**Reviewer:** the session that wrote the change, working through the governance-reviewer
+checklist (`.claude/agents/governance-reviewer.md`) by hand. The governance-reviewer agent itself
+was not run: this branch was built by a background worker that can't start other agents, so the
+agent review is still owed before merge. Other branches may add a review with the same number;
+the branch name tells them apart. 2 findings confirmed and 1 doc fix; all fixed, test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| An unforeseen error in one case (a locked database, a bug) ended the whole drill with a traceback and no report | Medium | It is recorded by its type and the case is flagged as left with no one (`test_an_unexpected_error_in_one_case_is_reported_not_fatal`) |
+| The design said the drill shows the HM-19 gap (a call in flight finishes), but the report didn't count cases in flight at the stop | Medium | The report counts them and how many were then decided automatically (`test_the_report_counts_cases_in_flight_at_the_stop`) |
+| The design and ADR named two mutation tests; there are three | Low | Corrected |

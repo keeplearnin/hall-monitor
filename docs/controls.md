@@ -36,6 +36,7 @@ Every hall-monitor control, mapped to the NIST AI Risk Management Framework 1.0 
 | [HM-26](#hm-26) | Complaint ingestion from CFPB | built | MEASURE 2.1, MANAGE 3.1 | RI-19 | MI-06 |
 | [HM-27](#hm-27) | Complaint triage, routed in code | built | GOVERN 3.2, MAP 3.5, MANAGE 2.4 | RI-04, RI-10, RI-14 | MI-21, MI-24 |
 | [HM-28](#hm-28) | Complaint desk evals, fairness and panel page | built | MEASURE 2.3, MEASURE 2.11, MEASURE 1.1 | RI-16 | MI-04, MI-05 |
+| [HM-31](#hm-31) | Failure drills | built | MEASURE 2.5, MEASURE 2.7, MANAGE 2.4 | RI-28 | MI-21 |
 
 ## Controls
 
@@ -413,6 +414,20 @@ python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB 
 - **FINOS mitigations:** MI-04 AI System Observability; MI-05 System Acceptance Testing
 - **Gaps:** The published result is the scripted run: its agent is a stand-in with fixed rules, so it measures the desk's code (routing, the code's urgency floor, drafts, the log, the counterfactual check), not the model's summaries, categories or urgency; the final urgency, specialist share and flagged rates also depend on the stand-in's rules. No live eval has been run. The answer key was written by one person from one day's snapshot and a few labels from CFPB's lists; it is not reviewed by anyone else. Group rates are reported, not gated, and are not adjusted for case mix, so they can't show bias in the agent's urgency on their own; the counterfactual check covers only the state and ZIP prefix, which the agent is never sent, so it can't flip by construction and shows only that location doesn't reach the decision. Tags are routed by code, so their rate is 1.0 by construction. CFPB's company response is a weak signal: a complaint closed with an explanation can still have been urgent. The panel has no sign-in (HM-20) and runs the static check on each page view.
 
+### HM-31
+
+**Failure drills** (built)
+
+python -m hall_monitor.drills runs the synthetic claims (twice by default, as separate cases) through the real claims workflow on threads, several at a time, into its own registry copy, audit log and checkpoints, with the model scripted from the answer key. A seeded plan gives a share of the cases one fault each, taking the kinds in turn: a wrong answer code can check (coverage pays more than was claimed), an answer of the wrong type, no answer, a truncated answer, an API connection error, an API timeout, a crash after the evidence pack is logged but before the checkpoint is saved, and the same claim submitted twice at once. When two thirds of the cases have begun, the risk agent's owner stops it in the drill's registry copy. An optional batch cost cap is held with reservations: a case reserves a ceiling before it starts and settles its logged cost after, and a case that would pass the cap isn't started and is logged as batch_budget_reached. Checks read the audit log and the workflow's status, not the runner's counts: every failed, crashed or stopped case ends with a person; no case is left in progress with no one; clean cases that finished before the stop were decided automatically exactly when the answer key routes them so; no case has two evidence packs or two final decisions; every injected failure shows in the log; no case costs more than its ceiling; the batch's logged cost is under the cap; and the log verifies. Exit code 1 on any problem. An unforeseen error in one case is recorded by its type and flagged, not fatal to the drill. Cases in flight at the stop are counted, with how many were then decided automatically. Mutation tests show the checks fail when the routing rule lets every claim through, when a stopped claim is left with no one, and when the cap never refuses.
+
+- **Code:** [`hall_monitor/drills.py`](../hall_monitor/drills.py) `plan`; [`hall_monitor/drills.py`](../hall_monitor/drills.py) `run`; [`hall_monitor/drills.py`](../hall_monitor/drills.py) `check`; [`hall_monitor/drills.py`](../hall_monitor/drills.py) `Budget`
+- **Tests:** [`tests/test_drills.py`](../tests/test_drills.py) `test_the_drill_passes_its_own_checks`; [`tests/test_drills.py`](../tests/test_drills.py) `test_every_injected_kind_of_failure_happened`; [`tests/test_drills.py`](../tests/test_drills.py) `test_every_faulted_or_stopped_case_ends_with_a_person`; [`tests/test_drills.py`](../tests/test_drills.py) `test_cases_untouched_by_any_failure_are_handled_normally`; [`tests/test_drills.py`](../tests/test_drills.py) `test_the_stop_reaches_every_case_started_after_it`; [`tests/test_drills.py`](../tests/test_drills.py) `test_a_crash_after_the_pack_is_logged_leaves_the_case_for_a_person`; [`tests/test_drills.py`](../tests/test_drills.py) `test_a_duplicate_submission_is_triaged_and_decided_once`; [`tests/test_drills.py`](../tests/test_drills.py) `test_the_batch_stays_under_its_cap_and_unstarted_cases_are_logged`; [`tests/test_drills.py`](../tests/test_drills.py) `test_the_cost_in_the_report_is_read_from_the_log`; [`tests/test_drills.py`](../tests/test_drills.py) `test_the_drill_never_touches_the_shipped_registry`; [`tests/test_drills.py`](../tests/test_drills.py) `test_the_checks_fail_when_a_failure_is_decided_automatically`; [`tests/test_drills.py`](../tests/test_drills.py) `test_the_checks_fail_when_a_case_is_left_with_no_one`; [`tests/test_drills.py`](../tests/test_drills.py) `test_the_checks_fail_when_the_cap_is_broken`; [`tests/test_drills.py`](../tests/test_drills.py) `test_the_report_counts_cases_in_flight_at_the_stop`; [`tests/test_drills.py`](../tests/test_drills.py) `test_an_unexpected_error_in_one_case_is_reported_not_fatal`
+- **Evidence:** *Pending live run:* `uv run python -m hall_monitor.drills --cap-usd 0.45 (results vary with thread timing; no report published yet)`
+- **NIST AI RMF:** MEASURE 2.5 (The AI system to be deployed is demonstrated to be valid and reliable); MEASURE 2.7 (AI system security and resilience – as identified in the map function – are evaluated and documented); MANAGE 2.4 (Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use)
+- **FINOS risks:** RI-28 Multi-Agent Trust Boundary Violations
+- **FINOS mitigations:** MI-21 Agent Decision Audit and Explainability
+- **Gaps:** The model is scripted from the answer key, so the faults are the ones written into the drill and the run says nothing about the agents' accuracy; a real model fails in other ways too. Claims workflow only: the complaint desk and the HR leave pipeline aren't drilled yet. Threads in one process against SQLite files, not separate processes or machines (the once-only checks have their own multi-process test, HM-05). Cases already running when the stop is written may finish, including automatically (HM-19 gap: a call in flight finishes); the report counts the cases in flight at the stop and how many were then decided automatically, and the checks don't fail on them. The cost cap belongs to the drill runner; the claims CLI has no batch cap. A case refused by the cap isn't retried, so part of the cap can go unspent. Results vary run to run with thread timing; the drill isn't run in CI beyond the tests, and no drill report is published.
+
 ## NIST AI RMF coverage
 
 | Subcategory | Controls |
@@ -432,15 +447,15 @@ python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB 
 | **MEASURE 1.1** Approaches and metrics for measurement of AI risks enumerated during the map function are selected for implementation starting with the most significant AI risks. The risks or trustworthiness characteristics that will not – or cannot – be measured are properly documented. | [HM-12](#hm-12), [HM-18](#hm-18), [HM-28](#hm-28) |
 | **MEASURE 2.1** Test sets, metrics, and details about the tools used during TEVV are documented. | [HM-12](#hm-12), [HM-26](#hm-26) |
 | **MEASURE 2.3** AI system performance or assurance criteria are measured qualitatively or quantitatively and demonstrated for conditions similar to deployment setting(s). Measures are documented. | [HM-07](#hm-07), [HM-12](#hm-12), [HM-28](#hm-28) |
-| **MEASURE 2.5** The AI system to be deployed is demonstrated to be valid and reliable. Limitations of the generalizability beyond the conditions under which the technology was developed are documented. | [HM-07](#hm-07), [HM-12](#hm-12), [HM-18](#hm-18) |
-| **MEASURE 2.7** AI system security and resilience – as identified in the map function – are evaluated and documented. | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15), [HM-25](#hm-25) |
+| **MEASURE 2.5** The AI system to be deployed is demonstrated to be valid and reliable. Limitations of the generalizability beyond the conditions under which the technology was developed are documented. | [HM-07](#hm-07), [HM-12](#hm-12), [HM-18](#hm-18), [HM-31](#hm-31) |
+| **MEASURE 2.7** AI system security and resilience – as identified in the map function – are evaluated and documented. | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15), [HM-25](#hm-25), [HM-31](#hm-31) |
 | **MEASURE 2.8** Risks associated with transparency and accountability – as identified in the map function – are examined and documented. | [HM-06](#hm-06), [HM-23](#hm-23) |
 | **MEASURE 2.9** The AI model is explained, validated, and documented, and AI system output is interpreted within its context – as identified in the map function – to inform responsible use and governance. | [HM-13](#hm-13) |
 | **MEASURE 2.10** Privacy risk of the AI system – as identified in the map function – is examined and documented. | [HM-10](#hm-10), [HM-11](#hm-11), [HM-22](#hm-22) |
 | **MEASURE 2.11** Fairness and bias – as identified in the map function – are evaluated and results are documented. | [HM-14](#hm-14), [HM-28](#hm-28) |
 | **MEASURE 3.1** Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts. | [HM-16](#hm-16), [HM-17](#hm-17) |
 | **MANAGE 1.3** Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented. Risk response options can include mitigating, transferring, avoiding, or accepting. | [HM-03](#hm-03), [HM-04](#hm-04), [HM-07](#hm-07), [HM-09](#hm-09), [HM-21](#hm-21), [HM-25](#hm-25) |
-| **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08), [HM-19](#hm-19), [HM-22](#hm-22), [HM-27](#hm-27) |
+| **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08), [HM-19](#hm-19), [HM-22](#hm-22), [HM-27](#hm-27), [HM-31](#hm-31) |
 | **MANAGE 3.1** AI risks and benefits from third-party resources are regularly monitored, and risk controls are applied and documented. | [HM-02](#hm-02), [HM-16](#hm-16), [HM-26](#hm-26) |
 | **MANAGE 4.1** Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management. | [HM-05](#hm-05), [HM-06](#hm-06), [HM-20](#hm-20), [HM-24](#hm-24) |
 | **MANAGE 4.3** Incidents and errors are communicated to relevant AI actors, including affected communities. Processes for tracking, responding to, and recovering from incidents and errors are followed and documented. | [HM-08](#hm-08) |
@@ -470,7 +485,7 @@ python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB 
 | RI-25 | Tool Chain Manipulation and Injection | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15), [HM-25](#hm-25) |
 | RI-26 | MCP Server Supply Chain Compromise | Not covered: The MCP server is first-party and runs in-process; nothing checks a third-party server's integrity because there isn't one. |
 | RI-27 | Agent State Persistence Poisoning | Not covered: Workflow checkpoints are local state. The evidence pack and triage result in a checkpoint are checked against the hashes in the audit log (HM-05); other checkpoint state isn't integrity-checked. |
-| RI-28 | Multi-Agent Trust Boundary Violations | [HM-09](#hm-09) |
+| RI-28 | Multi-Agent Trust Boundary Violations | [HM-09](#hm-09), [HM-31](#hm-31) |
 | RI-29 | Agent-Mediated Credential Discovery and Harvesting | Not covered: Agents hold no credentials; the API key stays in the host process. |
 | RI-30 | Skill/Plugin Supply Chain Compromise | Not covered: The system loads no skills or plugins. |
 
@@ -498,7 +513,7 @@ python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB 
 | MI-18 | Agent Authority Least Privilege Framework | [HM-03](#hm-03), [HM-22](#hm-22), [HM-25](#hm-25) |
 | MI-19 | Tool Chain Validation and Sanitization | [HM-03](#hm-03), [HM-09](#hm-09), [HM-25](#hm-25) |
 | MI-20 | MCP Server Security Governance | [HM-03](#hm-03) |
-| MI-21 | Agent Decision Audit and Explainability | [HM-06](#hm-06), [HM-07](#hm-07), [HM-13](#hm-13), [HM-20](#hm-20), [HM-23](#hm-23), [HM-24](#hm-24), [HM-27](#hm-27) |
+| MI-21 | Agent Decision Audit and Explainability | [HM-06](#hm-06), [HM-07](#hm-07), [HM-13](#hm-13), [HM-20](#hm-20), [HM-23](#hm-23), [HM-24](#hm-24), [HM-27](#hm-27), [HM-31](#hm-31) |
 | MI-22 | Multi-Agent Isolation and Segmentation | Not covered: Agents run in one process; they're separated by allow-lists and claim scope, not isolation. |
 | MI-23 | Agentic System Credential Protection Framework | Not covered: Agents hold no credentials (see RI-29), so there is nothing for them to protect. |
 | MI-24 | Human-in-the-Loop Action Approval Gate | [HM-04](#hm-04), [HM-05](#hm-05), [HM-08](#hm-08), [HM-23](#hm-23), [HM-27](#hm-27) |
@@ -531,6 +546,7 @@ python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB 
 | `complaint_quarantined` | [HM-26](#hm-26) |
 | `complaint_received` | [HM-27](#hm-27), [HM-09](#hm-09), [HM-10](#hm-10) |
 | `complaint_routed` | [HM-27](#hm-27), [HM-16](#hm-16) |
+| `batch_budget_reached` | [HM-31](#hm-31) |
 
 ## Sources
 
