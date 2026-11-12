@@ -14,9 +14,12 @@ from pathlib import Path
 
 from hall_monitor import no_send
 from hall_monitor.complaints.routing import REASONS
+from hall_monitor.complaints.supervisor import DeskAction
 from hall_monitor.panel import views
 from hall_monitor.panel.pages import badge, page, table, tag, usd
 from hall_monitor.panel.views import DESK_EVENTS
+
+DESK_ACTIONS = frozenset(a.value for a in DeskAction)
 
 QUEUES = ("specialist_review", "standard_queue")
 # Pull summary fields the page shows: counts and codes only.
@@ -65,6 +68,12 @@ def _source(scripted: object) -> str:
     return "model" if scripted is False else "unknown"
 
 
+def _steps_shown(c: dict) -> str:
+    if c["mode"] == "agentic":
+        return " → ".join(c["path"]) or "none recorded (stopped on the first turn)"
+    return "fixed order" if c["mode"] == "fixed" else "not recorded"
+
+
 def complaint_desk(src: views.Sources) -> dict:
     entries, problem = views._entries(src)
     ids = desk_ids(entries)
@@ -87,6 +96,8 @@ def complaint_desk(src: views.Sources) -> dict:
             "draft_kept": False,
             "agent_failed": False,
             "source": "not yet",
+            "path": [],
+            "mode": None,
         }
         for scope in unrouted
     ]
@@ -109,7 +120,17 @@ def complaint_desk(src: views.Sources) -> dict:
                 "draft_kept": isinstance(p.get("draft_sha256"), str),
                 "agent_failed": "agent_failed" in codes,
                 # A failed or interrupted triage has no answer, whoever was asked.
-                "source": "no answer" if "agent_failed" in codes else _source(p.get("scripted")),
+                # No triage answered (no category recorded): a failed agent, or an agentic run
+                # that ended before triage. A triage that answered and was stopped afterwards
+                # still answered.
+                "source": "no answer"
+                if p.get("category") is None
+                and ("agent_failed" in codes or p.get("mode") == "agentic")
+                else _source(p.get("scripted")),
+                # The steps the desk supervisor chose (ADR 0028), codes only.
+                "path": [a for a in (p.get("supervisor_path") or []) if a in DESK_ACTIONS],
+                # Entries before ADR 0028, and interrupted ones, don't say.
+                "mode": p.get("mode") if p.get("mode") in ("agentic", "fixed") else None,
             }
         )
     complaints.sort(
@@ -227,6 +248,7 @@ def complaints_page(data: dict, *, demo: bool) -> str:
             c["urgency"] or "unknown",
             badge(c["source"], "ok" if c["source"] == "model" else "warn"),
             "; ".join(c["explained"]) or "none",
+            _steps_shown(c),
             usd(c["cost_usd"]),
         )
         for c in data["complaints"]
@@ -235,7 +257,9 @@ def complaints_page(data: dict, *, demo: bool) -> str:
         "section",
         tag("h2", "Complaints"),
         table(
-            ["Complaint", "Queue", "Urgency", "Answered by", "Reasons", "Cost"], rows, "None yet."
+            ["Complaint", "Queue", "Urgency", "Answered by", "Reasons", "Steps chosen", "Cost"],
+            rows,
+            "None yet.",
         ),
     )
     pull_rows = [

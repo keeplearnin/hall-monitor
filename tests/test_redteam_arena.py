@@ -305,7 +305,10 @@ def test_every_agent_call_from_a_scripted_client_is_marked_scripted(tmp_path):
         calls = [e for e in audit.entries() if e["event"] == "agent_call"]
         assert calls and all(e["payload"]["scripted"] is True for e in calls)
         (routed,) = [e for e in audit.entries() if e["event"] == "complaint_routed"]
-        assert routed["payload"]["models"] == ["complaint_triage:scripted"]
+        assert routed["payload"]["models"] == [
+            "complaint_supervisor:scripted",
+            "complaint_triage:scripted",
+        ]
 
 
 def test_an_agent_call_from_a_model_client_is_not_marked_scripted(tmp_path):
@@ -321,10 +324,17 @@ def test_an_agent_call_from_a_model_client_is_not_marked_scripted(tmp_path):
         client=fake_client({ComplaintTriage: answer}),
         audit=audit,
     )
-    (call,) = [e for e in audit.entries() if e["event"] == "agent_call"]
+    (call,) = [
+        e
+        for e in audit.entries()
+        if e["event"] == "agent_call" and e["actor"] == "complaint_triage"
+    ]
     assert "scripted" not in call["payload"]
     (routed,) = [e for e in audit.entries() if e["event"] == "complaint_routed"]
-    assert routed["payload"]["models"] == ["complaint_triage:claude-haiku-5-5"]
+    assert routed["payload"]["models"] == [
+        "complaint_supervisor:claude-haiku-5-5",
+        "complaint_triage:claude-haiku-5-5",
+    ]
 
 
 def test_the_arena_never_traces_even_with_langfuse_keys_set(monkeypatch):

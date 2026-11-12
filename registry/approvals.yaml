@@ -6,6 +6,11 @@ agents:
     prompt_sha256: 807ec7586f140561e69384608f24b12d7cf0c09c4c1afcb13fcbf69cbbdef6ac
     prompt_version: claims-supervisor-v1
     version: 0.1.0
+  complaint_supervisor:
+    manifest_digest: ddd6adb7f93c35dd80cc1062e80583f9a64d90de8e3884dd94da240188fc357b
+    prompt_sha256: 2502da10e974368ce2d4b1798928801a4f78b6e403c659377f13062a127a34a4
+    prompt_version: complaint-supervisor-v1
+    version: 0.1.0
   complaint_triage:
     manifest_digest: 9c37e4240aa33fde88c8ed4ccd7bdee9a6cfecea74b427d88b1b84d2a87b9d15
     prompt_sha256: d601c2769d208f3af2f44cc89168ca4d5230b8d22075104aaae004e7b3d37039

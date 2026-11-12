@@ -5,6 +5,10 @@
   register win and this page is updated in the same pull request.
 - **Controls:** HM-25 (no reply, no send), HM-26 (ingestion), HM-27 (complaint triage),
   HM-28 (complaint evals and fairness). Numbers are assigned as each slice lands.
+- **Since built:** the desk now runs agentic within code's bounds (HM-32,
+  [ADR 0028](adr/0028-agent-picks-the-steps-code-holds-the-boundaries.md)): a desk supervisor
+  chooses triage, one re-check, finish or hand-off, and can only add review. The three reasons
+  it can add are in the routing table below.
 
 ## Why this example
 
@@ -151,6 +155,10 @@ complaint -> redact, scan for text aimed at the AI           (code)
 | `agent_disagrees_with_code` | the agent's urgency is lower than the code's floor |
 | `agent_raised_concern` | the agent raised a concern the code's rule didn't find |
 | `triage_interrupted` | triage started but was interrupted (a crash, or a killed run, caught by the next run) before it was routed |
+| `triage_disagreed` | the desk supervisor asked for a second, independent triage and the two disagreed on category, urgency or concerns ([ADR 0028](adr/0028-agent-picks-the-steps-code-holds-the-boundaries.md)) |
+| `supervisor_handed_off` | the desk supervisor handed the complaint to specialist review |
+| `triage_skipped` | the desk supervisor finished before any triage ran |
+| `supervisor_failed` | the desk supervisor failed, was stopped, ran out of budget or kept choosing steps code refused (the triage agent may have answered) |
 
 The label patterns are checked against every label in the pinned snapshot by a hand-written
 table in the tests, not by the patterns themselves (review 16 found two common labels missed).

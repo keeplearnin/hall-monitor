@@ -1,10 +1,11 @@
 {
   "meta": {
-    "run_at": "2026-11-12 02:09 UTC",
-    "git_commit": "e6be337a4b39234183757d772f194e282ccb4ba8",
+    "run_at": "2026-11-12 02:58 UTC",
+    "git_commit": "c570b488189ab239ba9c504428e2cdd80385ac58",
     "git_dirty": false,
     "mode": "scripted-answer-key",
     "claims": 36,
+    "complaints": 500,
     "agents": [
       {
         "agent_id": "claims_supervisor",
@@ -13,6 +14,22 @@
         "manifest_digest": "2bb9ad3f4395095c7237b7d3292a5e9a73e2f6f8c719f6daaa9e122c6b23b58f",
         "prompt_version": "claims-supervisor-v1",
         "prompt_template_sha256": "807ec7586f140561e69384608f24b12d7cf0c09c4c1afcb13fcbf69cbbdef6ac"
+      },
+      {
+        "agent_id": "complaint_supervisor",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "ddd6adb7f93c35dd80cc1062e80583f9a64d90de8e3884dd94da240188fc357b",
+        "prompt_version": "complaint-supervisor-v1",
+        "prompt_template_sha256": "2502da10e974368ce2d4b1798928801a4f78b6e403c659377f13062a127a34a4"
+      },
+      {
+        "agent_id": "complaint_triage",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "9c37e4240aa33fde88c8ed4ccd7bdee9a6cfecea74b427d88b1b84d2a87b9d15",
+        "prompt_version": "complaint-triage-v1",
+        "prompt_template_sha256": "d601c2769d208f3af2f44cc89168ca4d5230b8d22075104aaae004e7b3d37039"
       },
       {
         "agent_id": "coverage_check",
@@ -324,8 +341,157 @@
       "mean_cost_usd": 0.013167
     }
   },
+  "desk": {
+    "complaints": 500,
+    "fixed_queues": {
+      "standard_queue": 288,
+      "specialist_review": 212
+    },
+    "policies": {
+      "old_order": {
+        "complaints": 500,
+        "queues": {
+          "specialist_review": 212,
+          "standard_queue": 288
+        },
+        "agreement": 1.0,
+        "less_review": 0,
+        "less_review_complaints": [],
+        "reasons_added": {},
+        "mean_supervisor_calls": 2.0
+      },
+      "finish_at_once": {
+        "complaints": 500,
+        "queues": {
+          "specialist_review": 500
+        },
+        "agreement": 0.394,
+        "less_review": 0,
+        "less_review_complaints": [],
+        "reasons_added": {
+          "triage_skipped": 500
+        },
+        "mean_supervisor_calls": 1.0
+      },
+      "hand_off": {
+        "complaints": 500,
+        "queues": {
+          "specialist_review": 500
+        },
+        "agreement": 0.394,
+        "less_review": 0,
+        "less_review_complaints": [],
+        "reasons_added": {
+          "supervisor_handed_off": 500,
+          "triage_skipped": 500
+        },
+        "mean_supervisor_calls": 1.0
+      },
+      "repeat_triage": {
+        "complaints": 500,
+        "queues": {
+          "specialist_review": 500
+        },
+        "agreement": 0.424,
+        "less_review": 0,
+        "less_review_complaints": [],
+        "reasons_added": {
+          "supervisor_failed": 500
+        },
+        "mean_supervisor_calls": 4.0
+      },
+      "fails_at_once": {
+        "complaints": 500,
+        "queues": {
+          "specialist_review": 500
+        },
+        "agreement": 0.394,
+        "less_review": 0,
+        "less_review_complaints": [],
+        "reasons_added": {
+          "supervisor_failed": 500
+        },
+        "mean_supervisor_calls": 1.0
+      },
+      "recheck_agrees": {
+        "complaints": 500,
+        "queues": {
+          "specialist_review": 212,
+          "standard_queue": 288
+        },
+        "agreement": 1.0,
+        "less_review": 0,
+        "less_review_complaints": [],
+        "reasons_added": {},
+        "mean_supervisor_calls": 3.0
+      },
+      "recheck_plays_down": {
+        "complaints": 500,
+        "queues": {
+          "specialist_review": 500
+        },
+        "agreement": 0.424,
+        "less_review": 0,
+        "less_review_complaints": [],
+        "reasons_added": {
+          "agent_disagrees_with_code": 135,
+          "triage_disagreed": 500
+        },
+        "mean_supervisor_calls": 3.0
+      },
+      "noisy_1": {
+        "complaints": 500,
+        "queues": {
+          "specialist_review": 281,
+          "standard_queue": 219
+        },
+        "agreement": 0.856,
+        "less_review": 0,
+        "less_review_complaints": [],
+        "reasons_added": {
+          "supervisor_handed_off": 87,
+          "triage_skipped": 83
+        },
+        "mean_supervisor_calls": 2.07
+      },
+      "noisy_2": {
+        "complaints": 500,
+        "queues": {
+          "specialist_review": 272,
+          "standard_queue": 228
+        },
+        "agreement": 0.874,
+        "less_review": 0,
+        "less_review_complaints": [],
+        "reasons_added": {
+          "supervisor_failed": 1,
+          "supervisor_handed_off": 70,
+          "triage_skipped": 79
+        },
+        "mean_supervisor_calls": 2.03
+      },
+      "noisy_3": {
+        "complaints": 500,
+        "queues": {
+          "specialist_review": 288,
+          "standard_queue": 212
+        },
+        "agreement": 0.846,
+        "less_review": 0,
+        "less_review_complaints": [],
+        "reasons_added": {
+          "supervisor_failed": 1,
+          "supervisor_handed_off": 77,
+          "triage_skipped": 91
+        },
+        "mean_supervisor_calls": 2.06
+      }
+    }
+  },
   "summary": {
     "unsafe_auto": 0,
+    "desk_less_review": 0,
+    "desk_old_order_agreement": 1.0,
     "old_order_agreement": 1.0
   }
 }

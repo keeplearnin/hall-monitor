@@ -471,7 +471,7 @@ def test_the_case_trace_shows_each_supervisor_step_and_the_new_reasons():
 def test_no_supervisor_policy_gets_a_claim_through_that_the_fixed_path_sent_to_a_person():
     from hall_monitor.evals.agentic_compare import run
 
-    result = run(REGISTRY, limit=10)
+    result = run(REGISTRY, limit=10, desk_limit=10)
     assert result["summary"]["unsafe_auto"] == 0
     assert result["summary"]["old_order_agreement"] == 1.0
     assert result["policies"]["finish_at_once"]["routes"] == {"adjuster": 10}
@@ -538,3 +538,11 @@ def test_a_stop_at_finish_records_the_step_as_failed(registry_dir):
     assert "intake" in result.stopped_reason and "stopped" in result.stopped_reason
     assert result.supervisor_steps[-1].action is A.FINISH
     assert result.supervisor_steps[-1].outcome is StepOutcome.FAILED
+
+
+def test_the_published_eval_records_every_agent_it_ran():
+    """Review 23 finding 2: the desk metrics ran two complaint agents the meta didn't list."""
+    from hall_monitor.evals.agentic_compare import run
+
+    agents = {a["agent_id"] for a in run(REGISTRY, limit=2, desk_limit=2)["meta"]["agents"]}
+    assert {"claims_supervisor", "complaint_supervisor", "complaint_triage"} <= agents

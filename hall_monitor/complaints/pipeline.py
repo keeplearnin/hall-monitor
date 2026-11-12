@@ -21,7 +21,10 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections import Counter
+from collections.abc import Callable
+from dataclasses import dataclass
 
 import anthropic
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -30,10 +33,32 @@ from hall_monitor import tracing
 from hall_monitor.agents.base import AgentRefusedError
 from hall_monitor.complaints.drafts import DraftResponse, store_draft
 from hall_monitor.complaints.models import Complaint
-from hall_monitor.complaints.routing import ComplaintRoute, route_complaint
+from hall_monitor.complaints.routing import (
+    REASONS,
+    ComplaintRoute,
+    route_complaint,
+    urgency_floor,
+)
+from hall_monitor.complaints.routing import code_reasons as _code_reasons
+from hall_monitor.complaints.supervisor import (
+    AGENT_ID as SUPERVISOR,
+)
+from hall_monitor.complaints.supervisor import (
+    MAX_TRIAGES,
+    DeskAction,
+    DeskDecision,
+    DeskStep,
+    DeskView,
+    _Budget,
+    _LastStep,
+    _Triage,
+    run_desk_supervisor,
+)
+from hall_monitor.complaints.triage_agent import AGENT_ID as TRIAGE_AGENT
 from hall_monitor.complaints.triage_agent import (
     PROMPT_VERSION,
     ComplaintTriage,
+    Urgency,
     render_complaint,
     run_complaint_triage,
 )
@@ -41,7 +66,7 @@ from hall_monitor.gateway.cost import UnpricedModelError, call_cost
 from hall_monitor.gateway.injection import detect_in_texts
 from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.governance.audit import AlreadyRecorded, AuditLog
-from hall_monitor.models import AgentCall
+from hall_monitor.models import AgentCall, StepOutcome, StepRefusal
 from hall_monitor.registry import Registry, RegistryError
 
 ROUTED = "complaint_routed"
@@ -94,6 +119,26 @@ class ComplaintResult(BaseModel):
     agent_calls: list[AgentCall]
     stopped_reason: str | None
     cost_usd: float
+    # "agentic": the desk supervisor chose the steps (ADR 0028); "fixed": one triage, in code.
+    mode: str = "fixed"
+    triage_runs: int = 0
+    supervisor_steps: list[DeskStep] = []
+
+
+MAX_REFUSALS = 3
+
+
+@dataclass(frozen=True)
+class DeskLimits:
+    """A complaint's budget. The scripted order takes two supervisor steps; a re-check, three."""
+
+    max_steps: int = 6
+    max_cost_usd: float = 0.02
+    max_seconds: float = 120.0
+
+
+class DeskStopped(Exception):
+    """The desk loop ran out of budget or kept choosing refused steps."""
 
 
 def scope_id(complaint_id: str) -> str:
@@ -118,8 +163,14 @@ def triage_complaint(
     registry: Registry,
     client: anthropic.Anthropic,
     audit: AuditLog | None = None,
+    agentic: bool = True,
+    limits: DeskLimits | None = None,
+    clock: Callable[[], float] | None = None,
 ) -> ComplaintResult:
-    """The routed entry says whether the answer came from the scripted stand-in, read from the
+    """agentic=True (the default) lets the desk supervisor choose the steps within code's
+    bounds (ADR 0028); agentic=False runs the old fixed order, one triage.
+
+    The routed entry says whether the answer came from the scripted stand-in, read from the
     client itself (complaints/scripted.py), so a log never shows its answers as the model's."""
     scope = scope_id(complaint.complaint_id)
     if audit is not None and audit.has(scope, RECEIVED):
@@ -164,7 +215,18 @@ def triage_complaint(
 
     try:
         return _prepare(
-            complaint, scope, narrative, public, signals, redactions, registry, client, audit
+            complaint,
+            scope,
+            narrative,
+            public,
+            signals,
+            redactions,
+            registry,
+            client,
+            audit,
+            agentic,
+            limits or DeskLimits(),
+            clock or time.monotonic,
         )
     except BaseException:
         # A crash or interruption after the complaint was claimed: route it to a person now if
@@ -188,6 +250,9 @@ def _prepare(
     registry: Registry,
     client: anthropic.Anthropic,
     audit: AuditLog | None,
+    agentic: bool = False,
+    limits: DeskLimits | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> ComplaintResult:
     scripted = is_scripted(client)
     calls: list[AgentCall] = []
@@ -208,27 +273,71 @@ def _prepare(
             audit.append(scope, "agent_call", call.agent_id, payload)
 
     content = render_complaint(complaint, narrative, public)
+    triages: list[ComplaintTriage] = []
+    steps: list[DeskStep] = []
+
+    def record_step(step: DeskStep) -> None:
+        steps.append(step)
+        if audit is not None:
+            # Codes, counts and amounts only (DeskStep has no free-text field).
+            audit.append(scope, "supervisor_step", SUPERVISOR, step.model_dump(mode="json"))
+
+    def body() -> None:
+        if agentic:
+            pipeline_reasons.update(
+                _supervise(
+                    complaint,
+                    scope,
+                    content,
+                    signals,
+                    registry,
+                    client,
+                    calls,
+                    keep,
+                    triages,
+                    record_step,
+                    limits or DeskLimits(),
+                    clock,
+                )
+            )
+        else:
+            run = run_complaint_triage(complaint, content, registry, client, scope)
+            keep(run.call)
+            triages.append(run.output)
+
+    def failed_in(exc: BaseException) -> str:
+        """Which part failed: on the agentic path, anything but the triage call itself is the
+        supervisor's loop (review 23), so the reason doesn't blame the triage agent."""
+        if not agentic or getattr(exc, "desk_stage", None) == "triage":
+            return "agent_failed"
+        return "supervisor_failed"
+
+    failure = None
     try:
-        run = run_complaint_triage(complaint, content, registry, client, scope)
+        body()
+    except DeskStopped as exc:
+        stopped, failure = str(exc), "supervisor_failed"
     except AgentRefusedError as exc:
         keep(exc.call)
-        stopped = "agent refused or returned no usable output"
+        stopped, failure = "agent refused or returned no usable output", failed_in(exc)
     except RegistryError as exc:
         keep(getattr(exc, "partial_call", None))
-        stopped = f"hall pass refused ({type(exc).__name__})"
+        stopped, failure = f"hall pass refused ({type(exc).__name__})", failed_in(exc)
     except (anthropic.APIError, ValidationError) as exc:
         keep(getattr(exc, "partial_call", None))
-        stopped = f"{type(exc).__name__} from the model call"
+        stopped, failure = f"{type(exc).__name__} from the model call", failed_in(exc)
     except Exception as exc:  # anything unforeseen goes to a person; the type only
         keep(getattr(exc, "partial_call", None))
-        stopped = f"unexpected {type(exc).__name__}"
-    else:
-        keep(run.call)
-        triage = run.output
-    if triage is None:
+        stopped, failure = f"unexpected {type(exc).__name__}", failed_in(exc)
+    if failure == "supervisor_failed":
+        stopped = f"desk supervisor: {stopped}"
+    triage = triages[0] if triages else None
+    if failure is not None:
+        pipeline_reasons.add(failure)
+    elif triage is None and not agentic:
         pipeline_reasons.add("agent_failed")
 
-    route = route_complaint(complaint, triage, pipeline_reasons)
+    route = route_triages(complaint, triages, pipeline_reasons, agentic=agentic)
     draft_sha256, problems = None, []
     if triage is not None and triage.draft_acknowledgement.strip():
         problems = draft_problems(triage.draft_acknowledgement)
@@ -238,15 +347,17 @@ def _prepare(
                 DraftResponse(
                     complaint_id=scope,
                     text=triage.draft_acknowledgement,
-                    written_by=calls[-1].agent_id,
+                    written_by=TRIAGE_AGENT,  # not calls[-1]: the supervisor may have answered last
                     prompt_version=PROMPT_VERSION,
                 ),
             )
     cost, unknown = _cost(calls)
     if unknown:
         stopped = unknown if stopped is None else f"{stopped}; {unknown}"
-        if "agent_failed" not in route.reasons:
-            route = route_complaint(complaint, triage, pipeline_reasons | {"agent_failed"})
+        if not {"agent_failed", "supervisor_failed"} & set(route.reasons):
+            route = route_triages(
+                complaint, triages, pipeline_reasons | {"agent_failed"}, agentic=agentic
+            )
     result = ComplaintResult(
         complaint_id=complaint.complaint_id,
         scope_id=scope,
@@ -259,6 +370,9 @@ def _prepare(
         agent_calls=calls,
         stopped_reason=stopped,
         cost_usd=cost,
+        mode="agentic" if agentic else "fixed",
+        triage_runs=len(triages),
+        supervisor_steps=steps,
     )
     if audit is not None:
         audit.append(
@@ -285,17 +399,194 @@ def _prepare(
                     {f"{c.agent_id}:{'scripted' if scripted else c.model}" for c in calls}
                 ),
                 "scripted": scripted,
+                "mode": "agentic" if agentic else "fixed",
+                "triage_runs": len(triages),
+                "supervisor_path": [step.action.value for step in steps],
             },
             once=True,
         )
     return result
 
 
+def route_triages(
+    complaint: Complaint,
+    triages: list[ComplaintTriage],
+    pipeline_reasons: set[str],
+    *,
+    agentic: bool = False,
+) -> ComplaintRoute:
+    """The route with every triage's answer counted: each can add reasons and raise urgency,
+    none can remove either, and two triages that disagree send the complaint to specialist
+    review (triage_disagreed). With no triage, route_complaint's own rule."""
+    routes = [route_complaint(complaint, t, pipeline_reasons) for t in triages] or [
+        route_complaint(complaint, None, pipeline_reasons)
+    ]
+    reasons = set().union(*(r.reasons for r in routes))
+    if (
+        len(triages) > 1
+        and len({(t.category, t.urgency, frozenset(t.concerns)) for t in triages}) > 1
+    ):
+        reasons.add("triage_disagreed")
+    urgency = max((r.urgency for r in routes), key=lambda u: u.rank)
+    if agentic and not triages:
+        # The agentic desk ended before any agent read the complaint, however it ended (a
+        # finish or hand-off, a failure, a stop, the budget): no triage could raise its urgency,
+        # so it goes at the highest (the offline eval and review 23, ADR 0028). The fixed path
+        # keeps the code's floor, as it always has.
+        urgency = Urgency.HIGH
+    ordered = sorted(reasons)
+    return ComplaintRoute(
+        queue="specialist_review" if ordered else "standard_queue",
+        reasons=ordered,
+        explained=[REASONS[r] for r in ordered],
+        urgency_floor=routes[0].urgency_floor,
+        urgency=urgency,
+    )
+
+
+def _desk_refusal(decision: DeskDecision, triages: list[ComplaintTriage]) -> StepRefusal | None:
+    match decision.action:
+        case DeskAction.RUN_TRIAGE:
+            return StepRefusal.REPEAT_WITHOUT_CHANGE if triages else None
+        case DeskAction.RECHECK_TRIAGE:
+            if not triages:
+                return StepRefusal.PRECONDITION_UNMET
+            return StepRefusal.REPEAT_WITHOUT_CHANGE if len(triages) >= MAX_TRIAGES else None
+        case _:
+            return None
+
+
+def _supervise(
+    complaint: Complaint,
+    scope: str,
+    content: str,
+    signals: list[str],
+    registry: Registry,
+    client: anthropic.Anthropic,
+    calls: list[AgentCall],
+    keep: Callable[[AgentCall | None], None],
+    triages: list[ComplaintTriage],
+    record_step: Callable[[DeskStep], None],
+    limits: DeskLimits,
+    clock: Callable[[], float],
+) -> set[str]:
+    """The desk's agentic loop. Code checks, before each supervisor turn, the step budget; before
+    each model call, cost and time; before the chosen step runs, the supervisor's hall pass; and
+    before routing, every agent's. Returns the pipeline reasons the supervisor's ending adds:
+    supervisor_handed_off for a hand-off, triage_skipped if it ended before any triage ran.
+    Raises DeskStopped (budget, refusals) or the agent's own error; the caller sends the
+    complaint to specialist review as agent_failed."""
+    started = clock()
+    refusals = 0
+    reasons = code_reasons_for(complaint, signals)
+    last: DeskStep | None = None
+
+    def spend() -> None:
+        cost, unknown = _cost(calls)
+        if unknown is not None:  # an unpriced model would read as free: stop (review 23)
+            raise DeskStopped(f"budget can't be checked: {unknown}")
+        if cost >= limits.max_cost_usd:
+            raise DeskStopped(f"budget exhausted: cost reached {limits.max_cost_usd} USD")
+        if clock() - started >= limits.max_seconds:
+            raise DeskStopped(f"budget exhausted: {limits.max_seconds:g} seconds")
+
+    def record(decision: DeskDecision, outcome: StepOutcome, refusal=None, agents=()):
+        nonlocal last
+        last = DeskStep(
+            step=(last.step + 1) if last else 1,
+            action=decision.action,
+            reason=decision.reason,
+            outcome=outcome,
+            refusal=refusal,
+            agents=list(agents),
+            cost_usd=_cost(calls)[0],
+            seconds=round(clock() - started, 2),
+        )
+        record_step(last)
+
+    while True:
+        taken = last.step if last else 0
+        if taken >= limits.max_steps:
+            raise DeskStopped(f"budget exhausted: {limits.max_steps} supervisor steps")
+        spend()
+        view = DeskView(
+            code_reasons=sorted(reasons),
+            urgency_floor=urgency_floor(reasons),
+            injection_signals=len(signals),
+            triages=[
+                _Triage(
+                    category=t.category,
+                    urgency=t.urgency,
+                    confidence=t.confidence,
+                    concerns=list(t.concerns),
+                )
+                for t in triages
+            ],
+            max_triages=MAX_TRIAGES,
+            last_step=None
+            if last is None
+            else _LastStep(action=last.action, outcome=last.outcome, refusal=last.refusal),
+            budget_left=_Budget(
+                steps=limits.max_steps - taken,
+                cost_usd=round(max(limits.max_cost_usd - _cost(calls)[0], 0.0), 6),
+                seconds=round(max(limits.max_seconds - (clock() - started), 0.0), 1),
+            ),
+        )
+        run = run_desk_supervisor(scope, view, registry, client)
+        keep(run.call)
+        decision = run.output
+        if decision.action in (DeskAction.FINISH, DeskAction.HAND_OFF):
+            try:
+                for agent_id in dict.fromkeys(c.agent_id for c in calls):
+                    try:
+                        registry.require(agent_id)
+                    except Exception as exc:
+                        if agent_id != SUPERVISOR:  # the triage agent's stop is its own failure
+                            exc.desk_stage = "triage"  # type: ignore[attr-defined]
+                        raise
+            except Exception:
+                record(decision, StepOutcome.FAILED)
+                raise
+            handed = decision.action is DeskAction.HAND_OFF
+            record(decision, StepOutcome.HANDED_OFF if handed else StepOutcome.FINISHED)
+            ending = {"supervisor_handed_off"} if handed else set()
+            return ending | (set() if triages else {"triage_skipped"})
+        refusal = _desk_refusal(decision, triages)
+        if refusal is not None:
+            refusals += 1
+            record(decision, StepOutcome.REFUSED, refusal)
+            if refusals >= MAX_REFUSALS:
+                raise DeskStopped(f"supervisor loop: {MAX_REFUSALS} steps refused")
+            continue
+        try:
+            registry.require(SUPERVISOR)  # a stop made since it chose ends the step here
+            spend()
+        except Exception:
+            record(decision, StepOutcome.FAILED)
+            raise
+        try:
+            triage_run = run_complaint_triage(complaint, content, registry, client, scope)
+        except Exception as exc:
+            exc.desk_stage = "triage"  # type: ignore[attr-defined]
+            record(decision, StepOutcome.FAILED, agents=["complaint_triage"])
+            raise
+        keep(triage_run.call)
+        triages.append(triage_run.output)
+        record(decision, StepOutcome.RAN, agents=["complaint_triage"])
+
+
+def code_reasons_for(complaint: Complaint, signals: list[str]) -> set[str]:
+    """The code's reasons before any agent: CFPB's labels and tags, and the injection flag."""
+    return _code_reasons(complaint) | ({"text_addresses_ai"} if signals else set())
+
+
 def route_unfinished(complaint: Complaint, audit: AuditLog) -> ComplaintRoute:
     """Route a complaint whose triage started (its received entry is in the log) but never
     finished: to specialist review, as agent_failed and triage_interrupted, with the code's own
-    reasons. Raises AlreadyRecorded if it was routed meanwhile."""
+    reasons, at high urgency: no triage answer survived to raise it, so the complaint is treated
+    as unread, on either path (review 23). Raises AlreadyRecorded if it was routed meanwhile."""
     route = route_complaint(complaint, None, {"agent_failed", "triage_interrupted"})
+    route = route.model_copy(update={"urgency": Urgency.HIGH})
     audit.append(
         scope_id(complaint.complaint_id),
         "complaint_routed",  # ROUTED
@@ -313,6 +604,7 @@ def route_unfinished(complaint: Complaint, audit: AuditLog) -> ComplaintRoute:
             "draft_sha256": None,
             "draft_problems": [],
             "stopped_reason": "triage was interrupted before it was routed",
+            "mode": None,
             "cost_usd": None,
             "models": [],
             "scripted": None,
