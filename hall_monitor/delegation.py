@@ -103,6 +103,7 @@ class GrantBook:
         self._issued: dict[str, Grant] = {}
         self._allotted: dict[str, float] = {}
         self._spent: dict[str, float] = {}
+        self._budget_logged: set[str] = set()
         self._root: str | None = None
         self._closed = False
         # Issuing and handing off read and then write the allotment totals; one at a time.
@@ -204,7 +205,9 @@ class GrantBook:
             raise refuse("bad_allotment", "an allotment must be a non-negative amount")
         given = self._allotted.get(parent.grant_id, 0.0)
         used = given + self._spent.get(parent.grant_id, 0.0)
-        if used + budget_usd > parent.budget_usd + _SLACK:
+        # The parent keeps some of its allotment: with none left it couldn't make the call that
+        # reads the helper's answer, and every such case would stop.
+        if used + budget_usd >= parent.budget_usd - _SLACK:
             raise refuse(
                 "over_allotment",
                 f"{parent.holder!r} has {parent.budget_usd - used:.4f} USD of its allotment left",
@@ -240,6 +243,9 @@ class GrantBook:
         self._require_chain(grant)
         used = self._spent.get(grant.grant_id, 0.0) + self._allotted.get(grant.grant_id, 0.0)
         if used >= grant.budget_usd - _SLACK:
+            # Also reached when a helper's overshoot was charged up to this grant, or it landed
+            # exactly on its allotment: logged once either way.
+            self._log_budget_reached(grant)
             raise DelegationError(f"agent {grant.holder!r} has used its allotment")
         if tool is not None and tool not in grant.tools:
             raise DelegationError(f"agent {grant.holder!r}'s grant doesn't hold tool {tool!r}")
@@ -263,20 +269,29 @@ class GrantBook:
             spent = self._charge(grant, usd)
             over = spent + self._allotted.get(grant.grant_id, 0.0) > grant.budget_usd + _SLACK
         if over:
-            if self._audit is not None:
-                self._audit.append(
-                    self.scope,
-                    "grant_budget_reached",
-                    grant.holder,
-                    {
-                        "grant": grant.grant_id,
-                        "holder": grant.holder,
-                        "spent_usd": round(spent, 6),
-                        "budget_usd": grant.budget_usd,
-                    },
-                )
+            self._log_budget_reached(grant)
             raise DelegationError(
                 f"agent {grant.holder!r} has used its allotment of {grant.budget_usd:.4f} USD"
+            )
+
+    def _log_budget_reached(self, grant: Grant) -> None:
+        """Log grant_budget_reached once per grant, however it got there."""
+        with self._lock:
+            if grant.grant_id in self._budget_logged:
+                return
+            self._budget_logged.add(grant.grant_id)
+            spent = self._spent.get(grant.grant_id, 0.0)
+        if self._audit is not None:
+            self._audit.append(
+                self.scope,
+                "grant_budget_reached",
+                grant.holder,
+                {
+                    "grant": grant.grant_id,
+                    "holder": grant.holder,
+                    "spent_usd": round(spent, 6),
+                    "budget_usd": grant.budget_usd,
+                },
             )
 
     def _charge(self, grant: Grant, usd: float) -> float:

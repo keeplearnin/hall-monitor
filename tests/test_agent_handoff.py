@@ -224,7 +224,7 @@ def test_spending_reduces_what_a_grant_can_hand_on(registry, book):
     book.spend(root, 0.0008)
     with pytest.raises(DelegationError, match="allotment"):
         book.delegate(root, "researcher", budget_usd=0.0005)
-    book.delegate(root, "researcher", budget_usd=0.0002)
+    book.delegate(root, "researcher", budget_usd=0.0001)  # leaves the lead some for itself
 
 
 # Stops reach a running agent.
@@ -575,3 +575,37 @@ def test_a_handoff_runner_for_another_grant_is_refused(registry, book):
     other = GrantBook(registry, "cfpb-2002")
     with pytest.raises(ValueError):
         Delegated(other, root, lead_runner)
+
+
+# Review 22, re-review.
+
+
+def test_a_lead_pushed_over_by_a_helper_s_overshoot_logs_grant_budget_reached(book, audit):
+    root = book.issue("lead", budget_usd=1.0)
+    book.spend(root, 0.4)
+    child = book.delegate(root, "researcher", budget_usd=0.5)
+    with pytest.raises(DelegationError):
+        book.spend(child, 0.9)
+    with pytest.raises(DelegationError):
+        book.check(root)
+    grants = [e["payload"]["grant"] for e in _events(audit, "grant_budget_reached")]
+    assert grants.count(root.grant_id) == 1
+    assert grants.count(child.grant_id) == 1
+
+
+def test_a_grant_landing_exactly_on_its_budget_logs_once_when_it_stops(book, audit):
+    root = book.issue("lead", budget_usd=STEP_USD * 2)
+    book.spend(root, STEP_USD)
+    book.spend(root, STEP_USD)
+    for _ in range(2):
+        with pytest.raises(DelegationError):
+            book.check(root)
+    assert len(_events(audit, "grant_budget_reached")) == 1
+
+
+def test_a_lead_must_keep_some_budget_for_itself(book):
+    root = book.issue("lead", budget_usd=1.0)
+    book.delegate(root, "researcher", budget_usd=0.6)
+    with pytest.raises(DelegationError, match="allotment"):
+        book.delegate(root, "analyst", budget_usd=0.4)
+    book.check(root)

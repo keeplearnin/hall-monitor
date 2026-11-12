@@ -20,7 +20,8 @@ while it does: its reach, its spending, and the stop list.
 - **Spending is charged to the grant.** Each model call is priced from its usage and charged.
   Once a grant's own spending plus what it has handed on passes its allotment, the run stops and
   raises; the caller sends the case to a person. An unpriced model can't run under a grant.
-  Spending also reduces what a grant can hand on.
+  Spending also reduces what a grant can hand on, and a grant can't hand on all of its
+  allotment: a lead keeps some for the call that reads its helper's answer.
 - **A handoff is a tool, not a message.** A lead is offered `hand_off` with the helpers its hall
   pass names. Calling it asks the book for a child grant and starts the helper's own governed
   run in this process. It is not an MCP tool, never reaches the gateway and sends nothing (HM-25).

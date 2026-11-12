@@ -182,7 +182,8 @@ def test_children_s_allotments_can_t_add_up_to_more_than_the_parent_s(book):
     book.delegate(root, "researcher", budget_usd=0.6)
     with pytest.raises(DelegationError, match="allotment"):
         book.delegate(root, "analyst", budget_usd=0.5)
-    book.delegate(root, "analyst", budget_usd=0.4)
+    # A grant keeps some of its allotment for its own calls (review 22): 0.39, not 0.4.
+    book.delegate(root, "analyst", budget_usd=0.39)
 
 
 @pytest.mark.parametrize("budget", [-0.1, float("nan"), float("inf")])

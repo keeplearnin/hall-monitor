@@ -907,3 +907,12 @@ grant, the lead can't raise a helper's budget or reach, and existing agents keep
 | A helper's failure became a tool result and the lead finished normally, with the helper's call (versions, cost) lost to the caller | Medium | Every handoff's outcome and call is kept on the runner (`outcomes`, `complete`) so the crew pipeline can mark the case incomplete |
 | Plausible: nothing tied a handoff runner to the grant it runs under | Low | `Delegated` refuses a runner for another grant or book |
 | Plausible: a call the SDK bills and then raises on isn't charged | Low | Stated in HM-32's gaps and ADR 0028 |
+
+**Re-review of the fixes** (governance-reviewer, after the merge of `main`): the cascade
+arithmetic, the overshoot bound, fresh grants, kept outcomes and the merge all checked out.
+1 Medium and 1 Low, both fixed test-first:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A lead pushed over its allotment by a helper's overshoot, or landing exactly on it, stopped without `grant_budget_reached` in the log | Medium | The event is logged once per grant whenever a grant is stopped for its allotment, from `spend` or `check` |
+| A lead could allot its whole budget to helpers and then couldn't make the call that reads their answers, so every such case stopped | Low | A grant can't hand on all of its allotment; the delegation test's 0.6 + 0.4 now uses 0.39 |
