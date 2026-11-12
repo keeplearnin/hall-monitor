@@ -37,6 +37,7 @@ Every hall-monitor control, mapped to the NIST AI Risk Management Framework 1.0 
 | [HM-27](#hm-27) | Complaint triage, routed in code | built | GOVERN 3.2, MAP 3.5, MANAGE 2.4 | RI-04, RI-10, RI-14 | MI-21, MI-24 |
 | [HM-28](#hm-28) | Complaint desk evals, fairness and panel page | built | MEASURE 2.3, MEASURE 2.11, MEASURE 1.1 | RI-16 | MI-04, MI-05 |
 | [HM-29](#hm-29) | Delegated passes only narrow | built | GOVERN 1.4, MANAGE 1.3, MAP 3.5 | RI-24, RI-28 | MI-18, MI-21 |
+| [HM-32](#hm-32) | Agents act within their grant | built | GOVERN 1.4, MANAGE 1.3, MANAGE 2.4 | RI-24, RI-28 | MI-18, MI-21 |
 
 ## Controls
 
@@ -428,12 +429,26 @@ When an agent hands work to another, the pass only narrows. hall_monitor/delegat
 - **FINOS mitigations:** MI-18 Agent Authority Least Privilege Framework; MI-21 Agent Decision Audit and Explainability
 - **Gaps:** No agent uses grants yet: the crew's agents, tools and pipeline come in later slices, so this is the mechanism, tested with test manifests only. Allotments limit what a grant may give its children; spending against an allotment isn't checked until agents run. The book lives in memory for one run and isn't rebuilt from the audit log, so a crash loses it (the case then goes to a person, as any failure does). Grants are allow-lists checked in one process, not isolation (MI-22 stays not covered). The gateway enforces grants on tool calls; what an agent passes to another in its prompt is the crew pipeline's to control. A grant binds the case through its book; the gateway still limits a tool's arguments to the case only through scope_policy, which the caller must pass (review 19). The book is locked within one process only.
 
+### HM-32
+
+**Agents act within their grant** (built)
+
+run_agent, the one call path every agent uses, runs an agent that can delegate or be delegated to only under a grant from its case's book (hall_monitor/delegation.py): without one, or with another agent's, it is refused before any model call. Before every model call the book re-checks every agent in the grant's chain against the registry, so a stop on the lead halts its helpers between steps. Each model call is priced from its usage and charged to the grant (GrantBook.spend); when the grant's own spending plus what it has handed on passes its allotment, grant_budget_reached is logged and the run stops with the calls already made recorded; an unpriced model can't run under a grant; spending reduces what a grant may hand on. The agent is offered only its grant's tools, plus, for a lead given a handoff runner, a hand_off tool listing the helpers its hall pass names (hall_monitor/handoff.py). A handoff must be exactly a helper and a non-empty task (anything else is refused and logged); the book makes the helper's grant, with an allotment set by code and every data class the lead's grant holds, so a helper not approved for all of them is refused; the task reaches the helper fenced and escaped; the helper's validated answer returns to the lead as a tool result, and a helper's failure as its error type only. hand_off is not an MCP tool, never reaches the gateway and sends nothing.
+
+- **Code:** [`hall_monitor/agents/base.py`](../hall_monitor/agents/base.py) `run_agent`; [`hall_monitor/handoff.py`](../hall_monitor/handoff.py) `HandOff`; [`hall_monitor/handoff.py`](../hall_monitor/handoff.py) `handoff_definition`; [`hall_monitor/delegation.py`](../hall_monitor/delegation.py) `GrantBook`; [`hall_monitor/gateway/cost.py`](../hall_monitor/gateway/cost.py) `usage_cost`
+- **Tests:** [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_a_crew_agent_run_without_a_grant_is_refused_before_any_model_call`; [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_every_model_step_is_charged_to_the_grant`; [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_an_agent_over_its_allotment_stops_and_goes_to_a_person`; [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_stopping_the_lead_halts_it_between_steps`; [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_a_lead_hands_work_to_a_helper_under_a_narrower_grant`; [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_a_handoff_to_an_undeclared_helper_is_refused_and_the_lead_carries_on`; [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_a_task_carries_every_data_class_its_writer_holds`; [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_a_helper_s_failure_comes_back_as_an_error_never_an_answer`; [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_a_handoff_with_bad_input_is_refused`; [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_a_helper_s_task_is_fenced_and_escaped`; [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_the_helper_s_allotment_is_set_by_code_not_the_lead`; [`tests/test_agent_handoff.py`](../tests/test_agent_handoff.py) `test_spending_reduces_what_a_grant_can_hand_on`
+- **Evidence:** *Pending live run:* `the complaint crew (slice 4) running live under grants`
+- **NIST AI RMF:** GOVERN 1.4 (The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities); MANAGE 1.3 (Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented); MANAGE 2.4 (Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use)
+- **FINOS risks:** RI-24 Agent Action Authorization Bypass; RI-28 Multi-Agent Trust Boundary Violations
+- **FINOS mitigations:** MI-18 Agent Authority Least Privilege Framework; MI-21 Agent Decision Audit and Explainability
+- **Gaps:** No crew agents exist yet and nothing has run live; tested with scripted clients only. Spending is charged after each model call, so a run can overshoot its allotment by the call that crossed it. A task is taken to carry every data class its writer holds, so a helper meant to see less needs code-built input (the crew decides which). A helper's answer returns to the lead as a tool result; whether the lead treats it as data rests on its prompt and is measured only once the crew runs (the red-team arena can target it then). The book and its spending live in memory for one run.
+
 ## NIST AI RMF coverage
 
 | Subcategory | Controls |
 |---|---|
 | **GOVERN 1.1** Legal and regulatory requirements involving AI are understood, managed, and documented. | Not covered: Legal and regulatory requirements for claims handling aren't analysed; this is a reference implementation, not legal advice. |
-| **GOVERN 1.4** The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities. | [HM-03](#hm-03), [HM-25](#hm-25), [HM-29](#hm-29) |
+| **GOVERN 1.4** The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities. | [HM-03](#hm-03), [HM-25](#hm-25), [HM-29](#hm-29), [HM-32](#hm-32) |
 | **GOVERN 1.5** Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and organizational roles and responsibilities clearly defined, including determining the frequency of periodic review. | Not covered: CI checks every change, but nothing schedules periodic review of the risk process or its outcomes. |
 | **GOVERN 1.6** Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities. | [HM-01](#hm-01), [HM-20](#hm-20), [HM-22](#hm-22) |
 | **GOVERN 2.1** Roles and responsibilities and lines of communication related to mapping, measuring, and managing AI risks are documented and are clear to individuals and teams throughout the organization. | [HM-01](#hm-01), [HM-19](#hm-19) |
@@ -454,8 +469,8 @@ When an agent hands work to another, the pass only narrows. hall_monitor/delegat
 | **MEASURE 2.10** Privacy risk of the AI system – as identified in the map function – is examined and documented. | [HM-10](#hm-10), [HM-11](#hm-11), [HM-22](#hm-22) |
 | **MEASURE 2.11** Fairness and bias – as identified in the map function – are evaluated and results are documented. | [HM-14](#hm-14), [HM-28](#hm-28) |
 | **MEASURE 3.1** Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts. | [HM-16](#hm-16), [HM-17](#hm-17) |
-| **MANAGE 1.3** Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented. Risk response options can include mitigating, transferring, avoiding, or accepting. | [HM-03](#hm-03), [HM-04](#hm-04), [HM-07](#hm-07), [HM-09](#hm-09), [HM-21](#hm-21), [HM-25](#hm-25), [HM-29](#hm-29) |
-| **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08), [HM-19](#hm-19), [HM-22](#hm-22), [HM-27](#hm-27) |
+| **MANAGE 1.3** Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented. Risk response options can include mitigating, transferring, avoiding, or accepting. | [HM-03](#hm-03), [HM-04](#hm-04), [HM-07](#hm-07), [HM-09](#hm-09), [HM-21](#hm-21), [HM-25](#hm-25), [HM-29](#hm-29), [HM-32](#hm-32) |
+| **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08), [HM-19](#hm-19), [HM-22](#hm-22), [HM-27](#hm-27), [HM-32](#hm-32) |
 | **MANAGE 3.1** AI risks and benefits from third-party resources are regularly monitored, and risk controls are applied and documented. | [HM-02](#hm-02), [HM-16](#hm-16), [HM-26](#hm-26) |
 | **MANAGE 4.1** Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management. | [HM-05](#hm-05), [HM-06](#hm-06), [HM-20](#hm-20), [HM-24](#hm-24) |
 | **MANAGE 4.3** Incidents and errors are communicated to relevant AI actors, including affected communities. Processes for tracking, responding to, and recovering from incidents and errors are followed and documented. | [HM-08](#hm-08) |
@@ -481,11 +496,11 @@ When an agent hands work to another, the pass only narrows. hall_monitor/delegat
 | RI-20 | Reputational Risk | Not covered: Reputational risk is a business judgement; publishing results, failures included, is the only part this repo touches. |
 | RI-22 | Regulatory Compliance and Oversight | [HM-04](#hm-04), [HM-05](#hm-05), [HM-06](#hm-06), [HM-20](#hm-20), [HM-21](#hm-21), [HM-23](#hm-23), [HM-24](#hm-24) |
 | RI-23 | Intellectual Property (IP) and Copyright | Not covered: Intellectual property in model output isn't assessed. |
-| RI-24 | Agent Action Authorization Bypass | [HM-03](#hm-03), [HM-04](#hm-04), [HM-15](#hm-15), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23), [HM-25](#hm-25), [HM-29](#hm-29) |
+| RI-24 | Agent Action Authorization Bypass | [HM-03](#hm-03), [HM-04](#hm-04), [HM-15](#hm-15), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23), [HM-25](#hm-25), [HM-29](#hm-29), [HM-32](#hm-32) |
 | RI-25 | Tool Chain Manipulation and Injection | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15), [HM-25](#hm-25) |
 | RI-26 | MCP Server Supply Chain Compromise | Not covered: The MCP server is first-party and runs in-process; nothing checks a third-party server's integrity because there isn't one. |
 | RI-27 | Agent State Persistence Poisoning | Not covered: Workflow checkpoints are local state. The evidence pack and triage result in a checkpoint are checked against the hashes in the audit log (HM-05); other checkpoint state isn't integrity-checked. |
-| RI-28 | Multi-Agent Trust Boundary Violations | [HM-09](#hm-09), [HM-29](#hm-29) |
+| RI-28 | Multi-Agent Trust Boundary Violations | [HM-09](#hm-09), [HM-29](#hm-29), [HM-32](#hm-32) |
 | RI-29 | Agent-Mediated Credential Discovery and Harvesting | Not covered: Agents hold no credentials; the API key stays in the host process. |
 | RI-30 | Skill/Plugin Supply Chain Compromise | Not covered: The system loads no skills or plugins. |
 
@@ -510,10 +525,10 @@ When an agent hands work to another, the pass only narrows. hall_monitor/delegat
 | MI-15 | Using Large Language Models for Automated Evaluation (LLM-as-a-Judge) | [HM-07](#hm-07) |
 | MI-16 | Preserving Source Data Access Controls in AI Systems | [HM-03](#hm-03) |
 | MI-17 | AI Firewall Implementation and Management | [HM-09](#hm-09), [HM-25](#hm-25) |
-| MI-18 | Agent Authority Least Privilege Framework | [HM-03](#hm-03), [HM-22](#hm-22), [HM-25](#hm-25), [HM-29](#hm-29) |
+| MI-18 | Agent Authority Least Privilege Framework | [HM-03](#hm-03), [HM-22](#hm-22), [HM-25](#hm-25), [HM-29](#hm-29), [HM-32](#hm-32) |
 | MI-19 | Tool Chain Validation and Sanitization | [HM-03](#hm-03), [HM-09](#hm-09), [HM-25](#hm-25) |
 | MI-20 | MCP Server Security Governance | [HM-03](#hm-03) |
-| MI-21 | Agent Decision Audit and Explainability | [HM-06](#hm-06), [HM-07](#hm-07), [HM-13](#hm-13), [HM-20](#hm-20), [HM-23](#hm-23), [HM-24](#hm-24), [HM-27](#hm-27), [HM-29](#hm-29) |
+| MI-21 | Agent Decision Audit and Explainability | [HM-06](#hm-06), [HM-07](#hm-07), [HM-13](#hm-13), [HM-20](#hm-20), [HM-23](#hm-23), [HM-24](#hm-24), [HM-27](#hm-27), [HM-29](#hm-29), [HM-32](#hm-32) |
 | MI-22 | Multi-Agent Isolation and Segmentation | Not covered: Agents run in one process; they're separated by allow-lists and claim scope, not isolation. |
 | MI-23 | Agentic System Credential Protection Framework | Not covered: Agents hold no credentials (see RI-29), so there is nothing for them to protect. |
 | MI-24 | Human-in-the-Loop Action Approval Gate | [HM-04](#hm-04), [HM-05](#hm-05), [HM-08](#hm-08), [HM-23](#hm-23), [HM-27](#hm-27) |
@@ -543,7 +558,8 @@ When an agent hands work to another, the pass only narrows. hall_monitor/delegat
 | `egress_refused` | [HM-25](#hm-25) |
 | `draft_stored` | [HM-25](#hm-25), [HM-06](#hm-06) |
 | `delegation_granted` | [HM-29](#hm-29) |
-| `delegation_refused` | [HM-29](#hm-29) |
+| `delegation_refused` | [HM-29](#hm-29), [HM-32](#hm-32) |
+| `grant_budget_reached` | [HM-32](#hm-32) |
 | `complaint_pull` | [HM-26](#hm-26) |
 | `complaint_quarantined` | [HM-26](#hm-26) |
 | `complaint_received` | [HM-27](#hm-27), [HM-09](#hm-09), [HM-10](#hm-10) |
