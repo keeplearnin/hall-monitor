@@ -79,6 +79,14 @@
  "meta": {
   "agents": [
    {
+    "agent_id": "complaint_supervisor",
+    "agent_version": "0.1.0",
+    "manifest_digest": "ddd6adb7f93c35dd80cc1062e80583f9a64d90de8e3884dd94da240188fc357b",
+    "model": "claude-haiku-5-5",
+    "prompt_template_sha256": "2502da10e974368ce2d4b1798928801a4f78b6e403c659377f13062a127a34a4",
+    "prompt_version": "complaint-supervisor-v1"
+   },
+   {
     "agent_id": "complaint_triage",
     "agent_version": "0.1.0",
     "manifest_digest": "9c37e4240aa33fde88c8ed4ccd7bdee9a6cfecea74b427d88b1b84d2a87b9d15",
@@ -87,10 +95,10 @@
     "prompt_version": "complaint-triage-v1"
    }
   ],
-  "git_commit": "5d0c8873a0edc025084db040e5f24924e558bc2c",
-  "git_dirty": false,
+  "git_commit": "9378b19a0768b757b397c1e66920fa4cd64ce2c0",
+  "git_dirty": true,
   "mode": "scripted",
-  "run_at": "2026-11-11 18:44 UTC",
+  "run_at": "2026-11-12 02:49 UTC",
   "snapshot": "2026-10-01",
   "snapshot_manifest_sha256": "be882cd30552a7d503acde001b50fea4d8c33dd3e8f0d7ad63a6f04f1f510647",
   "snapshot_path": "data/cfpb/snapshots/2026-10-01"

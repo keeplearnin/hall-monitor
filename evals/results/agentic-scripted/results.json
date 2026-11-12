@@ -1,7 +1,7 @@
 {
   "meta": {
-    "run_at": "2026-11-12 02:35 UTC",
-    "git_commit": "9ef57b8ecdc86927264b822a580bb2a8dab6c8d9",
+    "run_at": "2026-11-12 02:48 UTC",
+    "git_commit": "9378b19a0768b757b397c1e66920fa4cd64ce2c0",
     "git_dirty": false,
     "mode": "scripted-answer-key",
     "claims": 36,
@@ -14,6 +14,22 @@
         "manifest_digest": "2bb9ad3f4395095c7237b7d3292a5e9a73e2f6f8c719f6daaa9e122c6b23b58f",
         "prompt_version": "claims-supervisor-v1",
         "prompt_template_sha256": "807ec7586f140561e69384608f24b12d7cf0c09c4c1afcb13fcbf69cbbdef6ac"
+      },
+      {
+        "agent_id": "complaint_supervisor",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "ddd6adb7f93c35dd80cc1062e80583f9a64d90de8e3884dd94da240188fc357b",
+        "prompt_version": "complaint-supervisor-v1",
+        "prompt_template_sha256": "2502da10e974368ce2d4b1798928801a4f78b6e403c659377f13062a127a34a4"
+      },
+      {
+        "agent_id": "complaint_triage",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "9c37e4240aa33fde88c8ed4ccd7bdee9a6cfecea74b427d88b1b84d2a87b9d15",
+        "prompt_version": "complaint-triage-v1",
+        "prompt_template_sha256": "d601c2769d208f3af2f44cc89168ca4d5230b8d22075104aaae004e7b3d37039"
       },
       {
         "agent_id": "coverage_check",
@@ -380,9 +396,22 @@
         "less_review": 0,
         "less_review_complaints": [],
         "reasons_added": {
-          "agent_failed": 500
+          "supervisor_failed": 500
         },
         "mean_supervisor_calls": 4.0
+      },
+      "fails_at_once": {
+        "complaints": 500,
+        "queues": {
+          "specialist_review": 500
+        },
+        "agreement": 0.394,
+        "less_review": 0,
+        "less_review_complaints": [],
+        "reasons_added": {
+          "supervisor_failed": 500
+        },
+        "mean_supervisor_calls": 1.0
       },
       "recheck_agrees": {
         "complaints": 500,
@@ -435,7 +464,7 @@
         "less_review": 0,
         "less_review_complaints": [],
         "reasons_added": {
-          "agent_failed": 1,
+          "supervisor_failed": 1,
           "supervisor_handed_off": 70,
           "triage_skipped": 79
         },
@@ -451,7 +480,7 @@
         "less_review": 0,
         "less_review_complaints": [],
         "reasons_added": {
-          "agent_failed": 1,
+          "supervisor_failed": 1,
           "supervisor_handed_off": 77,
           "triage_skipped": 91
         },

@@ -1,6 +1,6 @@
 # Agentic path against the fixed path (offline, scripted)
 
-Run 2026-11-12 02:35 UTC at 9ef57b8ecdc8, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
+Run 2026-11-12 02:48 UTC at 9378b19a0768, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
 
 Fixed path: routes {'auto': 16, 'adjuster': 20}, 5.0 specialist calls and 0.0124 USD per claim (fake token counts).
 
@@ -37,11 +37,12 @@ Fixed path: routes {'auto': 16, 'adjuster': 20}, 5.0 specialist calls and 0.0124
 | old_order | 100% | 0 | {'specialist_review': 212, 'standard_queue': 288} | - | 2.0 |
 | finish_at_once | 39% | 0 | {'specialist_review': 500} | {'triage_skipped': 500} | 1.0 |
 | hand_off | 39% | 0 | {'specialist_review': 500} | {'supervisor_handed_off': 500, 'triage_skipped': 500} | 1.0 |
-| repeat_triage | 42% | 0 | {'specialist_review': 500} | {'agent_failed': 500} | 4.0 |
+| repeat_triage | 42% | 0 | {'specialist_review': 500} | {'supervisor_failed': 500} | 4.0 |
+| fails_at_once | 39% | 0 | {'specialist_review': 500} | {'supervisor_failed': 500} | 1.0 |
 | recheck_agrees | 100% | 0 | {'specialist_review': 212, 'standard_queue': 288} | - | 3.0 |
 | recheck_plays_down | 42% | 0 | {'specialist_review': 500} | {'agent_disagrees_with_code': 135, 'triage_disagreed': 500} | 3.0 |
 | noisy_1 | 86% | 0 | {'specialist_review': 281, 'standard_queue': 219} | {'supervisor_handed_off': 87, 'triage_skipped': 83} | 2.07 |
-| noisy_2 | 87% | 0 | {'specialist_review': 272, 'standard_queue': 228} | {'agent_failed': 1, 'supervisor_handed_off': 70, 'triage_skipped': 79} | 2.03 |
-| noisy_3 | 85% | 0 | {'specialist_review': 288, 'standard_queue': 212} | {'agent_failed': 1, 'supervisor_handed_off': 77, 'triage_skipped': 91} | 2.06 |
+| noisy_2 | 87% | 0 | {'specialist_review': 272, 'standard_queue': 228} | {'supervisor_failed': 1, 'supervisor_handed_off': 70, 'triage_skipped': 79} | 2.03 |
+| noisy_3 | 85% | 0 | {'specialist_review': 288, 'standard_queue': 212} | {'supervisor_failed': 1, 'supervisor_handed_off': 77, 'triage_skipped': 91} | 2.06 |
 
 - **Less review:** complaints this policy gave less review than the fixed order (the standard queue instead of specialist review, a lower urgency, or one of the code's own reasons dropped). Must be 0. `recheck_plays_down` answers every re-check with low urgency and no concerns.
