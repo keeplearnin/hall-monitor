@@ -907,3 +907,10 @@ test-first.
 | The business summary, executive brief and README results table weren't updated: no mention that an AI now picks the order, or that every published score is from the fixed order | Medium | All three updated; the README results table says the rows predate the agentic path |
 | A stop landing between a FINISH choice and routing stopped the claim, but the last `supervisor_step` still said `finished` | Low | Hall passes are re-checked before the step is recorded; a stop then records it as `failed` (`test_a_stop_at_finish_records_the_step_as_failed`) |
 | The `Limits` docstring said the old order takes 13 steps (it takes 10, 11 with an intake retry); the published eval recorded a dirty WIP commit | Low | Docstring corrected; the eval republished from a clean commit |
+
+**Re-review of the fixes** (governance-reviewer, at `f0d15b2`, offline): all six fixes hold and
+no new findings. The repros that went automatic now stop for a person; with only the new refusal
+patched out the eval reports 16 unsafe autos, all from `raising_critic/revise_part`, and 0 with
+it. The new tests were seen failing before the fixes in the session, but code and tests landed in
+one commit, so history alone can't show the order. Cosmetic notes (roadmap order in the
+executive brief) fixed.
