@@ -455,3 +455,18 @@ def test_the_evidence_pack_shows_the_path_and_both_intakes(tmp_path):
     audit.close()
     assert pack["mode"] == "agentic" and pack["supervisor_path"][0] == "run_intake"
     assert pack["recheck_intake"]["intermittent"] != pack["request"]["intermittent"]
+
+
+def test_a_stop_on_the_intake_agent_after_it_answered_halts_at_the_next_step(registry_dir):
+    """Found by the kill-switch drill."""
+    registry = Registry.from_dir(registry_dir)
+
+    def answer(request):
+        decision = scripted_leave_answer(request)
+        if decision.action is A.ASSESS:
+            _stop(registry_dir, "leave_intake")
+        return decision
+
+    result, client = _run(supervisor=answer, registry=registry)
+    assert len(client.messages.supervisor_calls) == 2  # no third turn after the stop
+    assert result.route.route == "hr_review"

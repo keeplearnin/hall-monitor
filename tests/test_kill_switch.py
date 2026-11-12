@@ -672,3 +672,14 @@ def test_a_stop_reaches_a_symlinked_stop_list(registry_dir, tmp_path):
 def test_a_malformed_stop_list_fails_the_check_with_a_message(head):
     with pytest.raises(AppendOnlyError, match="isn't a stop list"):
         check_append_only({"stops": [_entry()]}, head)
+
+
+def test_the_kill_switch_drill_finds_no_call_or_automatic_route_after_a_stop():
+    """The drill (hall_monitor/evals/stop_timing.py), small: a stop written mid-case, from
+    another thread, halts every workflow with no call by the stopped agent after it."""
+    from hall_monitor.evals.stop_timing import run
+
+    result = run(trials=3, latency=0.02)
+    assert result["summary"]["calls_started_after_stop"] == 0
+    assert result["summary"]["auto_after_stop"] == 0
+    assert result["summary"]["stopped_cases"] > 0

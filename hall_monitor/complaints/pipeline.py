@@ -481,6 +481,17 @@ def _supervise(
     reasons = code_reasons_for(complaint, signals)
     last: DeskStep | None = None
 
+    def check_agents() -> None:
+        """A stop on any agent the complaint has used ends it at the next step (the kill-switch
+        drill); the triage agent's stop is its own failure."""
+        for agent_id in dict.fromkeys(c.agent_id for c in calls):
+            try:
+                registry.require(agent_id)
+            except Exception as exc:
+                if agent_id != SUPERVISOR:
+                    exc.desk_stage = "triage"  # type: ignore[attr-defined]
+                raise
+
     def spend() -> None:
         cost, unknown = _cost(calls)
         if unknown is not None:  # an unpriced model would read as free: stop (review 23)
@@ -509,6 +520,7 @@ def _supervise(
         if taken >= limits.max_steps:
             raise DeskStopped(f"budget exhausted: {limits.max_steps} supervisor steps")
         spend()
+        check_agents()
         view = DeskView(
             code_reasons=sorted(reasons),
             urgency_floor=urgency_floor(reasons),
@@ -560,6 +572,7 @@ def _supervise(
             continue
         try:
             registry.require(SUPERVISOR)  # a stop made since it chose ends the step here
+            check_agents()
             spend()
         except Exception:
             record(decision, StepOutcome.FAILED)

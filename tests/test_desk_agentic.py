@@ -454,3 +454,21 @@ def test_a_triage_that_answered_then_was_stopped_is_shown_as_answered(registry_d
     page = desk.complaint_desk(views.Sources(audit_db=tmp_path / "audit.sqlite"))
     (shown,) = [c for c in page["complaints"] if c["state"] == "routed"]
     assert shown["draft_kept"] and shown["source"] != "no answer"
+
+
+def test_a_stop_on_the_triage_agent_after_it_answered_halts_at_the_next_step(registry_dir):
+    """Found by the kill-switch drill."""
+    registry = Registry.from_dir(registry_dir)
+    turns = []
+
+    def answer_(request):
+        turns.append(1)
+        view = view_from_content(request["messages"][0]["content"])
+        if view.triages and len(turns) == 2:
+            _stop(registry_dir, "complaint_triage")
+            return _d(A.RECHECK_TRIAGE)
+        return scripted_desk_answer(request)
+
+    result, client = _run(answer_, registry=registry)
+    assert len(client.messages.calls) == 1  # the re-check never ran
+    assert "agent_failed" in result.route.reasons

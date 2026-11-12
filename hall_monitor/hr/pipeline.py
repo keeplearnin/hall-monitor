@@ -532,6 +532,14 @@ def _leave_view(ctx: _Leave) -> LeaveView:
     )
 
 
+def _check_agents(ctx: _Leave) -> None:
+    """A stop on any agent the request has used ends it at the next step (found by the
+    kill-switch drill); the note's agent is advisory and is checked at finish."""
+    for agent_id in dict.fromkeys(c.agent_id for c in ctx.calls):
+        if agent_id != "leave_explainer":
+            ctx.registry.require(agent_id)
+
+
 def _spend(ctx: _Leave) -> None:
     cost, unknown = _cost(ctx.calls)
     if unknown is not None:  # an unpriced model would read as free
@@ -667,6 +675,9 @@ def _supervise(ctx: _Leave) -> LeavePreparation:
             if len(ctx.steps) >= ctx.limits.max_steps:
                 raise _LeaveStopped(f"budget exhausted: {ctx.limits.max_steps} supervisor steps")
             _spend(ctx)
+            # A stop on any agent the request has used ends it here, at the next step (found by
+            # the kill-switch drill); the note's agent is advisory and is checked at finish.
+            _check_agents(ctx)
             run = run_leave_supervisor(ctx.message.id, _leave_view(ctx), ctx.registry, ctx.client)
             ctx.keep(run.call)
             decision = run.output
@@ -686,6 +697,7 @@ def _supervise(ctx: _Leave) -> LeavePreparation:
                 continue
             try:
                 ctx.registry.require(SUPERVISOR)  # a stop since it chose ends the step here
+                _check_agents(ctx)
                 if decision.action in (LeaveAction.RUN_INTAKE, LeaveAction.RECHECK_INTAKE):
                     _spend(ctx)
                     stage = "intake"

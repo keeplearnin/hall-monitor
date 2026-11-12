@@ -546,3 +546,21 @@ def test_the_published_eval_records_every_agent_it_ran():
 
     agents = {a["agent_id"] for a in run(REGISTRY, limit=2, desk_limit=2)["meta"]["agents"]}
     assert {"claims_supervisor", "complaint_supervisor", "complaint_triage"} <= agents
+
+
+def test_a_stop_on_a_specialist_that_already_answered_halts_the_claim_at_the_next_step(
+    registry_dir,
+):
+    """Found by the kill-switch drill: the claim ran on until routing re-checked the agents."""
+    registry = Registry.from_dir(registry_dir)
+
+    def answer(request):
+        decision = scripted_answer(request)
+        if decision.action is A.RUN_RISK_FRAUD:  # coverage has answered
+            _stop(registry_dir, "coverage_check")
+        return decision
+
+    result, client = _run(supervisor=answer, registry=registry)
+    assert "coverage_check" in result.stopped_reason
+    # The risk step it chose was refused before it ran, and nothing after.
+    assert client.messages.formats() == ["IntakeExtraction", "CoverageFinding"]
