@@ -108,8 +108,18 @@ Every request is still for a person to sign, and code still names the route and 
 - **The note stays advisory.** Finishing without it keeps the route and says why; a failed note
   is recorded, never a stop.
 - **Refusals, budgets (8 steps, 0.02 USD, 120 s, an unpriced cost) and the kill switch** send
-  the request to HR review as `supervisor_failed`; an intake failure is `pipeline_stopped`. No
-  evidence pack is stored unless an intake answered, so the request can be prepared again.
+  the request to HR review as `supervisor_failed`; an intake failure is `pipeline_stopped`.
+  Only an intake-call failure before any intake answered leaves the request with no evidence
+  pack, to be prepared again, as on the fixed path. Every ending the supervisor chose and every
+  failure of the supervisor stores the pack, so a hand-off or a broken supervisor never keeps a
+  request from HR (review 24 found a hand-off before intake left the request unsignable).
+- **The note's agent is advisory at finish too:** a stop on the explanation agent after it
+  answered drops the note and keeps the route.
+- **The person signing sees how it was prepared:** the evidence pack holds the mode, the
+  supervisor's path and, when two intakes disagreed, the re-check's intake to compare.
+- **Interrupted runs** (a killed process) leave the request "being prepared", with no pack, as
+  on the fixed path; preparing it again draws a new intake. Only someone who can kill the
+  process can do that, and the log shows both attempts.
 - **Logged:** each choice as `supervisor_step` in the request's scope, and the mode and path on
   `leave_prepared`, shown in the panel's case trace.
 

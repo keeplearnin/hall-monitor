@@ -905,7 +905,8 @@ controls:
   - id: HM-22
     name: Leave agents inside the shared controls (HR example)
     what: >-
-      Two agents prepare a leave request for a person, through the same call path, registry,
+      Two agents prepare a leave request for a person (since HM-32 a leave supervisor chooses
+      which runs and when; the rules still run on the first intake), through the same call path, registry,
       approvals, kill switch, data-class check and audit log as the claims agents
       (hall_monitor/hr/pipeline.py). The leave intake agent reads the employee's message after
       identifier redaction and returns dates, a reason category and yes-or-no facts only: its
@@ -1791,7 +1792,7 @@ controls:
       - tests/test_hr_agentic.py::test_a_recheck_after_the_rules_ran_is_refused
       - tests/test_hr_agentic.py::test_a_hand_off_keeps_the_code_s_role_and_adds_review
       - tests/test_hr_agentic.py::test_a_request_the_rules_never_saw_goes_to_the_most_senior_role
-      - tests/test_hr_agentic.py::test_running_out_of_money_before_intake_stores_no_evidence_pack
+      - tests/test_hr_agentic.py::test_a_choice_to_end_before_intake_leaves_the_request_decidable
       - tests/test_hr_agentic.py::test_stopping_the_supervisor_mid_run_stops_the_step_it_chose
       - tests/test_hr_agentic.py::test_the_supervisor_has_no_tools_and_never_sees_the_message
       - tests/test_hr_agentic.py::test_no_leave_policy_gives_a_request_less_review_than_the_fixed_order

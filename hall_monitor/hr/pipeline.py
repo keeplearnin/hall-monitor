@@ -92,6 +92,8 @@ class LeavePreparation(BaseModel):
     mode: str = "fixed"
     intake_runs: int = 0
     supervisor_steps: list[LeaveStep] = []
+    # The re-check's intake, for the person to compare (the rules ran on intake, the first).
+    recheck_intake: LeaveIntake | None = None
 
 
 def _canonical(value: object) -> str:
@@ -325,9 +327,20 @@ def prepare(
             """finish and stop read this function's variables: set them from the loop's."""
 
             def call(*args, **kwargs) -> LeavePreparation:
+                try:
+                    return sync_and(*args, **kwargs)
+                except Exception as exc:
+                    # Raised while recording the outcome (another run's pack stands, say): not
+                    # a failure of the loop to finish again (review 24).
+                    raise _Finishing(exc) from exc
+
+            def sync_and(*args, **kwargs) -> LeavePreparation:
                 nonlocal intake, request, assessment, explanation, explanation_problem
                 agentic_fields.update(
-                    mode="agentic", intake_runs=len(ctx.intakes), supervisor_steps=list(ctx.steps)
+                    mode="agentic",
+                    intake_runs=len(ctx.intakes),
+                    supervisor_steps=list(ctx.steps),
+                    recheck_intake=ctx.intakes[1] if len(ctx.intakes) > 1 else None,
                 )
                 intake = ctx.intakes[0] if ctx.intakes else None
                 request, assessment = ctx.request, ctx.assessment
@@ -337,7 +350,10 @@ def prepare(
             return call
 
         ctx.finish, ctx.stop = synced(finish), synced(stop)
-        return _supervise(ctx)
+        try:
+            return _supervise(ctx)
+        except _Finishing as finishing:
+            raise finishing.error from None
 
     try:
         run = run_leave_intake(message, text, registry, client)
@@ -417,6 +433,14 @@ class LeaveLimits:
     max_steps: int = 8
     max_cost_usd: float = 0.02
     max_seconds: float = 120.0
+
+
+class _Finishing(BaseException):  # noqa: N818 - not an error of its own; it carries one
+    """Carries an error raised while recording the outcome past the loop's own handlers."""
+
+    def __init__(self, error: Exception):
+        super().__init__(type(error).__name__)
+        self.error = error
 
 
 class _LeaveStopped(Exception):
@@ -547,11 +571,13 @@ def _assess(ctx: _Leave) -> tuple[str, list[str]] | None:
     """The rules on the first intake, with the fixed path's code checks. Returns the stop's
     reason and codes when a check fails, else None."""
     intake = ctx.intakes[0]
+    disagreed = len(ctx.intakes) > 1 and len({i.model_dump_json() for i in ctx.intakes}) > 1
+    flag = ["intake_disagreed"] if disagreed else []  # kept on every path (review 24)
     employee = ctx.employees.get(ctx.message.employee_id)
     if employee is None:
-        return ("no employee record for this request", ["facts_missing"])
+        return ("no employee record for this request", ["facts_missing", *flag])
     if intake.start is None or intake.end is None:
-        return ("the request doesn't give its dates", ["facts_missing"])
+        return ("the request doesn't give its dates", ["facts_missing", *flag])
     try:
         ctx.request = LeaveRequest(
             id=ctx.message.id,
@@ -561,16 +587,14 @@ def _assess(ctx: _Leave) -> tuple[str, list[str]] | None:
         )
     except ValidationError as exc:  # the type only, no values
         kinds = ", ".join(sorted({e["type"] for e in exc.errors()}))
-        return (f"the extracted request isn't valid ({kinds})", ["facts_missing"])
+        return (f"the extracted request isn't valid ({kinds})", ["facts_missing", *flag])
     try:
         ctx.assessment = assess(ctx.request, employee, ctx.company)
-        extra = list(ctx.flags)
-        if len(ctx.intakes) > 1 and len({i.model_dump_json() for i in ctx.intakes}) > 1:
-            extra.append("intake_disagreed")
+        extra = [*ctx.flags, *flag]
         ctx.route = _with(route_leave(ctx.assessment, ctx.request, employee, ctx.company), extra)
     except Exception as exc:
         ctx.assessment = None
-        return (f"unexpected {type(exc).__name__}", ["pipeline_stopped"])
+        return (f"unexpected {type(exc).__name__}", ["pipeline_stopped", *flag])
     ctx.record.assessed(intake, ctx.assessment, ctx.route)
     return None
 
@@ -605,15 +629,21 @@ def _end(ctx: _Leave, decision: LeaveDecision) -> LeavePreparation:
     """Finish or hand off. Code routes: without the rules, HR review (assessment_skipped);
     a hand-off adds supervisor_handed_off. Every outcome is for a person to sign."""
     for agent_id in dict.fromkeys(c.agent_id for c in ctx.calls):
+        if agent_id == "leave_explainer":  # advisory: a stop drops the note, not the request
+            try:
+                ctx.registry.require(agent_id)
+            except RegistryError:
+                ctx.explanation = None
+                ctx.explanation_problem = "the explanation agent was stopped after it answered"
+            continue
         ctx.registry.require(agent_id)  # a stop since an agent answered: not on its answer
     handed = decision.action is LeaveAction.HAND_OFF
     _step(ctx, decision, StepOutcome.HANDED_OFF if handed else StepOutcome.FINISHED)
     extra = ["supervisor_handed_off"] if handed else []
     if ctx.route is None:
+        # A choice, not an outage: the pack is stored so HR can sign it (review 24).
         return ctx.stop(
-            "the leave supervisor ended before the rules ran",
-            [*extra, "assessment_skipped"],
-            bool(ctx.intakes),
+            "the leave supervisor ended before the rules ran", [*extra, "assessment_skipped"]
         )
     route = _with(ctx.route, extra) if extra else ctx.route
     if ctx.explanation is None and ctx.explanation_problem is None:
@@ -680,7 +710,7 @@ def _supervise(ctx: _Leave) -> LeavePreparation:
                 raise
             _step(ctx, decision, StepOutcome.RAN, agents=agents)
     except _LeaveStopped as exc:
-        return _done(ctx, _failed(ctx, f"leave supervisor: {exc}", "supervisor"))
+        return _done(ctx, _failed(ctx, f"leave supervisor: {exc}", "supervisor", outage=False))
     except AgentRefusedError as exc:
         ctx.keep(exc.call)
         return _done(ctx, _failed(ctx, f"agent refused or returned no usable output: {exc}", stage))
@@ -695,9 +725,14 @@ def _supervise(ctx: _Leave) -> LeavePreparation:
         return _done(ctx, _failed(ctx, f"unexpected {type(exc).__name__}", stage))
 
 
-def _failed(ctx: _Leave, reason: str, stage: str) -> LeavePreparation:
+def _failed(ctx: _Leave, reason: str, stage: str, outage: bool = True) -> LeavePreparation:
+    """Only a failure of the intake call itself, before any intake answered, leaves the request
+    to be prepared again with no pack, as on the fixed path. Any failure of the supervisor or
+    its loop stores the pack, so a broken supervisor never keeps a request from HR (review 24
+    and the offline eval)."""
+    outage = outage and stage == "intake"
     code = "pipeline_stopped" if stage == "intake" else "supervisor_failed"
     if ctx.route is not None:  # the rules ran: keep their reasons, the role only goes up
         return ctx.finish(_with(ctx.route, [code]), reason)
     # The rules never ran: the most senior role decides (assessment_skipped).
-    return ctx.stop(reason, [code, "assessment_skipped"], bool(ctx.intakes))
+    return ctx.stop(reason, [code, "assessment_skipped"], bool(ctx.intakes) or not outage)

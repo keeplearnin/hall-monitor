@@ -29,6 +29,7 @@ import argparse
 import json
 import random
 import sys
+import tempfile
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
@@ -50,6 +51,7 @@ from hall_monitor.complaints.supervisor import view_from_content as desk_view_fr
 from hall_monitor.complaints.triage_agent import Confidence, Urgency
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.evals.meta import run_meta
+from hall_monitor.governance.audit import AuditLog
 from hall_monitor.hr.models import LeaveIntake
 from hall_monitor.hr.pipeline import prepare as prepare_leave
 from hall_monitor.hr.supervisor import (
@@ -540,37 +542,51 @@ class _LeaveScripted:
 def run_leave(registry: Registry) -> dict:
     """Every synthetic leave request on the fixed order and under each policy. less_review
     counts requests a policy gave less review than the fixed order: the specialist's light
-    path where the fixed order chose HR review, a less senior role, or (when the rules ran)
-    one of their reasons dropped. It must be zero."""
+    path where the fixed order chose HR review, a less senior role, (when the rules ran) one of
+    their reasons dropped, or no evidence pack where the fixed order stored one, so nobody
+    could sign it. It must be zero."""
     from hall_monitor.hr.data import load_company, load_employees, load_messages
     from hall_monitor.hr.routing import Role
 
     company, employees, messages = load_company(), load_employees(), load_messages()
 
     def run(message, policy=None, disagree=False, agentic=True):
+        """The preparation and whether an evidence pack was stored (HR can sign only then)."""
         client = SimpleNamespace(messages=_LeaveScripted(policy, disagree))
-        return prepare_leave(
-            message,
-            employees=employees,
-            company=company,
-            registry=registry,
-            client=client,
-            agentic=agentic,
-        )
+        with tempfile.TemporaryDirectory() as tmp:
+            audit = AuditLog(Path(tmp) / "audit.sqlite")
+            try:
+                result = prepare_leave(
+                    message,
+                    employees=employees,
+                    company=company,
+                    registry=registry,
+                    client=client,
+                    agentic=agentic,
+                    audit=audit,
+                )
+                packed = audit.has(message.id, "leave_evidence")
+            finally:
+                audit.close()
+        return result, packed
 
-    fixed = {m.id: run(m, agentic=False).route for m in messages}
+    fixed = {}
+    for m in messages:
+        result, packed = run(m, agentic=False)
+        fixed[m.id] = (result.route, packed)
     rows = {}
     for name, (make, disagree) in leave_policies().items():
         less, agree, routes, extra, supervisor_calls = [], 0, Counter(), Counter(), 0
         for m in messages:
-            result = run(m, make(), disagree)
-            base, route = fixed[m.id], result.route
+            result, packed = run(m, make(), disagree)
+            (base, base_packed), route = fixed[m.id], result.route
             routes[route.route] += 1
             agree += route == base
             lighter = route.route == "specialist_sign_off" and base.route != route.route
             junior = Role[route.decided_by.upper()] < Role[base.decided_by.upper()]
             dropped = result.assessment is not None and not set(base.reasons) <= set(route.reasons)
-            if lighter or junior or dropped:
+            unsignable = base_packed and not packed  # review 24: no pack, nobody can sign
+            if lighter or junior or dropped or unsignable:
                 less.append(m.id)
             extra.update(set(route.reasons) - set(base.reasons))
             supervisor_calls += sum(c.agent_id == "leave_supervisor" for c in result.agent_calls)
@@ -586,7 +602,7 @@ def run_leave(registry: Registry) -> dict:
         }
     return {
         "requests": len(messages),
-        "fixed_routes": dict(Counter(r.route for r in fixed.values())),
+        "fixed_routes": dict(Counter(r.route for r, _ in fixed.values())),
         "policies": rows,
     }
 
@@ -664,7 +680,8 @@ def report(result: dict) -> str:
         "",
         "- **Less review:** requests this policy gave less review than the fixed order (the "
         "specialist's light path instead of HR review, a less senior role, or, where the rules "
-        "ran, one of their reasons dropped). Must be 0. `recheck_disagrees` answers every "
+        "ran, one of their reasons dropped, or no evidence pack where the fixed order stored "
+        "one). Must be 0. `recheck_disagrees` answers every "
         "re-check with the opposite intermittent answer.",
         "",
     ]

@@ -200,14 +200,32 @@ def test_running_out_of_steps_goes_to_hr_review():
     assert result.route.route == "hr_review" and "supervisor_failed" in result.route.reasons
 
 
-def test_running_out_of_money_before_intake_stores_no_evidence_pack(tmp_path):
+def test_running_out_of_money_before_intake_still_leaves_the_request_decidable(tmp_path):
+    """Not an outage: preparing again would run out the same way, so the pack is stored and
+    HR can sign it (review 24); only a failed model call leaves it to be prepared again."""
     audit = AuditLog(tmp_path / "audit.sqlite")
     result, client = _run(limits=LeaveLimits(max_cost_usd=0.0002), audit=audit)
     events = [e["event"] for e in audit.entries(CLEAN)]
     audit.close()
     assert client.messages.calls == []
-    assert result.route.route == "hr_review"
-    assert "leave_evidence" not in events  # nothing to sign: it can be prepared again
+    assert result.route.route == "hr_review" and _role(result.route) == Role.HR_DIRECTOR
+    assert "leave_evidence" in events
+
+
+def test_a_supervisor_outage_before_intake_still_reaches_hr(tmp_path):
+    """A broken supervisor must never keep requests from HR; only an intake failure is left
+    to be prepared again, as on the fixed path."""
+    import anthropic
+    import httpx
+
+    def outage(request):
+        raise anthropic.APIConnectionError(request=httpx.Request("POST", "https://x"))
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    result, _ = _run(supervisor=outage, audit=audit)
+    events = [e["event"] for e in audit.entries(CLEAN)]
+    audit.close()
+    assert "leave_evidence" in events and _role(result.route) == Role.HR_DIRECTOR
 
 
 def test_running_out_of_time_goes_to_hr_review():
@@ -334,3 +352,123 @@ def test_a_request_the_rules_never_saw_goes_to_the_most_senior_role(how):
     result, _ = _run(DIRECTOR, supervisor)
     assert result.route.route == "hr_review"
     assert _role(result.route) == Role.HR_DIRECTOR
+
+
+# --- Review 24 findings ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("ending", [A.HAND_OFF, A.FINISH])
+def test_a_choice_to_end_before_intake_leaves_the_request_decidable(ending, tmp_path):
+    """Finding 1: a hand-off before intake stored no evidence pack, so HR could never sign it."""
+    from hall_monitor.hr import signoff
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    result, _ = _run(supervisor=_d(ending), audit=audit)
+    events = [e["event"] for e in audit.entries(CLEAN)]
+    state = signoff.status(audit, CLEAN)["state"]
+    audit.close()
+    assert "leave_evidence" in events
+    assert "can be prepared again" not in state
+    assert _role(result.route) == Role.HR_DIRECTOR
+
+
+def test_a_stop_on_the_explainer_after_it_answered_keeps_the_route(registry_dir):
+    """Finding 2: the advisory note's agent being stopped before finish stopped the request."""
+    registry = Registry.from_dir(registry_dir)
+
+    def answer(request):
+        decision = scripted_leave_answer(request)
+        if decision.action is A.FINISH:
+            _stop(registry_dir, "leave_explainer")
+        return decision
+
+    result, _ = _run(supervisor=answer, registry=registry)
+    fixed, _ = _run(agentic=False)
+    assert result.route == fixed.route and result.stopped_reason is None
+    assert result.explanation is None and result.explanation_problem
+
+
+def test_a_disagreeing_recheck_is_flagged_even_when_the_first_intake_fails_a_check():
+    """Finding 3: a failed code check returned before the intakes were compared."""
+    calls = []
+
+    def intake(request):
+        calls.append(1)
+        answer = _intake_for(request)
+        return answer.model_copy(update={"start": None}) if len(calls) == 1 else answer
+
+    def answer(request):
+        view = _view(request)
+        if len(view.intakes) == 1 and view.rules is None:
+            return _d(A.RECHECK_INTAKE, R.INTAKE_DOUBTFUL)
+        return scripted_leave_answer(request)
+
+    result, _ = _run(supervisor=answer, intake=intake)
+    assert {"facts_missing", "intake_disagreed"} <= set(result.route.reasons)
+
+
+def test_the_hr_eval_records_the_leave_supervisor():
+    """Finding 4: the HR eval's metadata listed only the two leave agents."""
+    import inspect
+
+    from hall_monitor.hr import evals
+
+    assert '"leave_supervisor"' in inspect.getsource(evals)
+
+
+def test_two_agentic_preparations_at_once_log_one_prepared_entry_each(tmp_path):
+    """Finding 5: the losing run's refused evidence pack was caught and finished a second time."""
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    _run(audit=audit)
+    with pytest.raises(ValueError, match="already"):
+        # The once-only pack refuses the second run, as on the fixed path.
+        from hall_monitor.hr import pipeline
+
+        ctx_message = MESSAGES[CLEAN]
+        client = fake_client({LeaveIntake: _intake_for, LeaveExplanation: _explanation})
+        original = pipeline.AuditLog.has
+
+        def has(self, *a, **k):  # as if the first run hadn't finished when this one checked
+            return False
+
+        pipeline.AuditLog.has = has
+        try:
+            prepare(
+                ctx_message,
+                employees=EMPLOYEES,
+                company=COMPANY,
+                registry=REGISTRY,
+                client=client,
+                audit=audit,
+            )
+        finally:
+            pipeline.AuditLog.has = original
+    prepared = [e for e in audit.entries(CLEAN) if e["event"] == "leave_prepared"]
+    audit.close()
+    assert len(prepared) == 2  # one per run, none extra
+
+
+def test_the_evidence_pack_shows_the_path_and_both_intakes(tmp_path):
+    """Finding 7a: a person signing an intake_disagreed request couldn't see what disagreed."""
+    calls = []
+
+    def intake(request):
+        calls.append(1)
+        answer = _intake_for(request)
+        if len(calls) == 1:
+            return answer
+        return answer.model_copy(update={"intermittent": not answer.intermittent})
+
+    def answer(request):
+        view = _view(request)
+        if len(view.intakes) == 1 and view.rules is None:
+            return _d(A.RECHECK_INTAKE, R.INTAKE_DOUBTFUL)
+        return scripted_leave_answer(request)
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    _run(supervisor=answer, intake=intake, audit=audit)
+    (entry,) = [e for e in audit.entries(CLEAN) if e["event"] == "leave_evidence"]
+    pack = audit.get_evidence(entry["payload"]["evidence_sha256"])
+    audit.close()
+    assert pack["mode"] == "agentic" and pack["supervisor_path"][0] == "run_intake"
+    assert pack["recheck_intake"]["intermittent"] != pack["request"]["intermittent"]
