@@ -20,16 +20,20 @@ each attack, then rewrites the ones that were blocked and tries again.
 - **The attacker is deterministic in slice 1.** Synthetic seeds, rewritten by a fixed list of
   mutations, so a run is repeatable and the published result is checked against the code on
   every pull request.
-- **Adaptive rounds.** Each round applies the next mutation only to seeds not yet through.
+- **Adaptive rounds.** Each round applies the next mutation to every seed that hasn't caused
+  harm yet. A seed that only beat a defence layer or inflated urgency keeps being tried, so every
+  round still checks it for harm.
 - **The judge is code and reads the seed, not the defence.** A breach is defined by what the
-  attacker planted and what must hold (must-route complaints, no agent text in the log), never
-  by the defence's own patterns.
+  attacker planted and by a human label of whether a specialist should see the complaint
+  (`must_route`, written from the whole complaint), never by the defence's own patterns. Tests
+  check the label one way only: a complaint the code must route is labelled must-route.
 - **Harm, layer and trade-off are reported apart.** A failed detector isn't counted as harm when
   routing still holds; the agent raising urgency is the desk's accepted design, reported so its
   cost shows.
-- **Tests hold the harm line on routing and the log.** Must-route misses and agent text in the
-  log must stay at zero. Kept drafts with a delivery path are published as found, not gated,
-  until they are fixed.
+- **Tests hold the harm line where the code claims it.** A complaint whose labels or tags call
+  for a specialist is never played down, and no text reaches the log. Must-route complaints
+  shown only in the narrative and kept drafts with a delivery path are published as found, not
+  gated, until they are fixed.
 
 ## Alternatives considered
 
@@ -40,6 +44,9 @@ each attack, then rewrites the ones that were blocked and tries again.
 
 ## Consequences
 
-The first run shows gaps in the draft check (it reads text undecoded) and in the injection
-detector (entities encoded twice, look-alike letters). They are published, not hidden, and
-listed as gaps. No live attacker or defender has been run.
+The first run shows three gaps. Routing reads only CFPB's labels and tags, so a must-route
+complaint that says what happened only in its narrative goes to the standard queue (3 of 3 such
+seeds, round 1). The draft check misses promises in words it doesn't list (one seed, plain
+text, round 1) and reads text undecoded (four seeds hidden with entities or full-width forms).
+The injection detector misses entities encoded twice and look-alike letters. They are
+published, not hidden, and listed as gaps. No live attacker or defender has been run.

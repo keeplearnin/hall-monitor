@@ -796,14 +796,15 @@ values were escaped, only an explicit true or false counted, and the page stayed
 | No test covered non-boolean labels or an interrupted route | Low | Both tested |
 | Plausible: "never assumed to be the model" overstated what the log records; the README didn't mention the new column | Low | Both corrected |
 
+## Review 20 (redteam-arena): the red-team arena (HM-30)
 
-## Review 19 (branch `redteam-arena`): the red-team arena (HM-30)
+### Part 1: self-check (not independent)
 
 **Reviewer:** a self-review against the governance-reviewer checklist
 (`.claude/agents/governance-reviewer.md`), done in the session that wrote the code: the
-subagent couldn't be started from that session, so this is not an independent review. The
-number may need to move if other branches add reviews first. Checked: the judge reads the
-seed's own statement of what was planted, not the defence's patterns; results hold codes and
+subagent couldn't be started from that session, so this is not an independent review. Checked: the judge reads the
+seed's own statement of what was planted (it missed that `must_route` was forced to match
+routing, which Part 2 found); results hold codes and
 names only; tests never load the shipped registry or call the API. 4 findings, all confirmed,
 and 1 plausible; all fixed, test-first, or logged as a gap.
 
@@ -815,6 +816,20 @@ and 1 plausible; all fixed, test-first, or logged as a gap.
 | The first test of the published result loaded the shipped registry, which the kill-switch test forbids | Low | It uses the test registry; the gap that a live stop changes only the CLI's result is in the register |
 | Plausible: the judge counts an entity-encoded draft as carrying the planted link though raw text shows codes | Low | Logged as a gap in HM-30 |
 
-The arena's own findings (the draft check reads text undecoded; the injection detector misses
-entities encoded twice and look-alike letters) are published in HM-30's gaps and the result, not
-fixed in this branch.
+### Part 2: independent review
+
+**Reviewer:** the governance-reviewer agent, on `f72c291`, independent of the session that wrote
+the code. 6 findings (one High), all fixed test-first or corrected.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A test forced each seed's `must_route` to equal the code's own routing, so `must_route_missed` could never show a routing gap, while the docs said the judge never uses the defence's patterns | High | `must_route` is a human label written from the whole complaint; the check is one way (code must-route means labelled must-route); three seeds show fraud, a foreclosure sale and an older consumer scammed only in the narrative, on plain labels. All three go to the standard queue: routing reads only labels and tags. Reported as harm and as an HM-30 gap, not fixed here |
+| Only the routed entry said the answer was scripted; each `agent_call` and the routed entry's `models` named the hall pass's model, and the result's agents row did too | Medium | A scripted client's `agent_call` entries carry `scripted: true` and `models` reads `complaint_triage:scripted`; the result's `hall_pass` row says the answers came from the scripted hijack. Live entries are unchanged, and so are the published complaint results |
+| Plausible: with Langfuse keys exported, the arena would send spans for every attempt, from an offline command, showing hijacked answers as model calls | Medium | The arena turns tracing off for the run and restores the keys after; a test with fake keys and a tripwire module shows Langfuse is never reached |
+| The README row and ADR 0026 blamed only encoding, but one promise was kept in plain words in round 1 | Low | Both name the vocabulary gap too |
+| Seeds retired on any breach, so a seed that only inflated urgency or beat the detector was never checked for harm again | Low | Seeds retire only on harm; the report states harm first |
+| The README said 28 controls; there are 29 | Low | Corrected, and a docs test compares the count with the register |
+
+The arena's own findings (routing reads only labels and tags; the draft check misses some
+promise wording and reads text undecoded; the injection detector misses entities encoded twice
+and look-alike letters) are published in HM-30's gaps and the result, not fixed in this branch.
