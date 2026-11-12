@@ -1,6 +1,6 @@
 # Agentic path against the fixed path (offline, scripted)
 
-Run 2026-11-12 01:51 UTC at 539c7d73fe70, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
+Run 2026-11-12 02:09 UTC at e6be337a4b39, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
 
 Fixed path: routes {'auto': 16, 'adjuster': 20}, 5.0 specialist calls and 0.0124 USD per claim (fake token counts).
 
@@ -17,6 +17,12 @@ Fixed path: routes {'auto': 16, 'adjuster': 20}, 5.0 specialist calls and 0.0124
 | noisy_1 | 81% | 0 | {'adjuster': 27, 'auto': 9} | {'supervisor loop': 5} | 3.78 | 5.75 | 0.0096 |
 | noisy_2 | 78% | 0 | {'adjuster': 28, 'auto': 8} | {'supervisor loop': 7} | 3.44 | 5.14 | 0.0090 |
 | noisy_3 | 72% | 0 | {'adjuster': 30, 'auto': 6} | {'supervisor loop': 4} | 3.47 | 5.47 | 0.0092 |
+| raising_critic/old_order | 100% | 0 | {'adjuster': 36} | - | 8.0 | 8.0 | 0.0222 |
+| raising_critic/revise_part | 100% | 0 | {'adjuster': 36} | {'supervisor loop': 36} | 4.0 | 7.0 | 0.0098 |
+| raising_critic/no_rereview | 100% | 0 | {'adjuster': 36} | - | 6.0 | 6.0 | 0.0138 |
+| raising_critic/noisy_1 | 100% | 0 | {'adjuster': 36} | {'supervisor loop': 7} | 4.89 | 6.36 | 0.0128 |
+| raising_critic/noisy_2 | 100% | 0 | {'adjuster': 36} | {'supervisor loop': 5} | 5.75 | 7.31 | 0.0152 |
+| raising_critic/noisy_3 | 100% | 0 | {'adjuster': 36} | {'supervisor loop': 4} | 5.03 | 6.44 | 0.0132 |
 
 - **Unsafe auto:** claims this policy got through automatically that the fixed path sent to a person. Must be 0.
 - **Agreement:** claims routed as the fixed path routed them. A policy that skips or repeats work sends claims to a person, so it agrees less; that is the bound working.

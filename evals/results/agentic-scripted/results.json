@@ -1,8 +1,8 @@
 {
   "meta": {
-    "run_at": "2026-11-12 01:51 UTC",
-    "git_commit": "539c7d73fe706c16a8846e6a3567cbdbd7817f75",
-    "git_dirty": true,
+    "run_at": "2026-11-12 02:09 UTC",
+    "git_commit": "e6be337a4b39234183757d772f194e282ccb4ba8",
+    "git_dirty": false,
     "mode": "scripted-answer-key",
     "claims": 36,
     "agents": [
@@ -66,6 +66,7 @@
   },
   "policies": {
     "old_order": {
+      "critic": "clean",
       "claims": 36,
       "routes": {
         "adjuster": 20,
@@ -80,6 +81,7 @@
       "mean_cost_usd": 0.0136
     },
     "finish_at_once": {
+      "critic": "clean",
       "claims": 36,
       "routes": {
         "adjuster": 36
@@ -93,6 +95,7 @@
       "mean_cost_usd": 0.0002
     },
     "skip_coverage": {
+      "critic": "clean",
       "claims": 36,
       "routes": {
         "adjuster": 36
@@ -106,6 +109,7 @@
       "mean_cost_usd": 0.0006
     },
     "skip_risk": {
+      "critic": "clean",
       "claims": 36,
       "routes": {
         "adjuster": 36
@@ -119,6 +123,7 @@
       "mean_cost_usd": 0.0048
     },
     "skip_critic": {
+      "critic": "clean",
       "claims": 36,
       "routes": {
         "adjuster": 36
@@ -132,6 +137,7 @@
       "mean_cost_usd": 0.0052
     },
     "skip_recommendation": {
+      "critic": "clean",
       "claims": 36,
       "routes": {
         "adjuster": 36
@@ -145,6 +151,7 @@
       "mean_cost_usd": 0.0094
     },
     "repeat_intake": {
+      "critic": "clean",
       "claims": 36,
       "routes": {
         "adjuster": 36
@@ -160,6 +167,7 @@
       "mean_cost_usd": 0.001
     },
     "hand_off": {
+      "critic": "clean",
       "claims": 36,
       "routes": {
         "adjuster": 36
@@ -173,6 +181,7 @@
       "mean_cost_usd": 0.0002
     },
     "noisy_1": {
+      "critic": "clean",
       "claims": 36,
       "routes": {
         "adjuster": 27,
@@ -189,6 +198,7 @@
       "mean_cost_usd": 0.009611
     },
     "noisy_2": {
+      "critic": "clean",
       "claims": 36,
       "routes": {
         "adjuster": 28,
@@ -205,6 +215,7 @@
       "mean_cost_usd": 0.009
     },
     "noisy_3": {
+      "critic": "clean",
       "claims": 36,
       "routes": {
         "adjuster": 30,
@@ -219,6 +230,98 @@
       "mean_specialist_calls": 3.47,
       "mean_supervisor_calls": 5.47,
       "mean_cost_usd": 0.009178
+    },
+    "raising_critic/old_order": {
+      "critic": "raising",
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {},
+      "mean_specialist_calls": 8.0,
+      "mean_supervisor_calls": 8.0,
+      "mean_cost_usd": 0.0222
+    },
+    "raising_critic/revise_part": {
+      "critic": "raising",
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {
+        "supervisor loop": 36
+      },
+      "mean_specialist_calls": 4.0,
+      "mean_supervisor_calls": 7.0,
+      "mean_cost_usd": 0.0098
+    },
+    "raising_critic/no_rereview": {
+      "critic": "raising",
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {},
+      "mean_specialist_calls": 6.0,
+      "mean_supervisor_calls": 6.0,
+      "mean_cost_usd": 0.0138
+    },
+    "raising_critic/noisy_1": {
+      "critic": "raising",
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {
+        "supervisor loop": 7
+      },
+      "mean_specialist_calls": 4.89,
+      "mean_supervisor_calls": 6.36,
+      "mean_cost_usd": 0.012806
+    },
+    "raising_critic/noisy_2": {
+      "critic": "raising",
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {
+        "supervisor loop": 5
+      },
+      "mean_specialist_calls": 5.75,
+      "mean_supervisor_calls": 7.31,
+      "mean_cost_usd": 0.015172
+    },
+    "raising_critic/noisy_3": {
+      "critic": "raising",
+      "claims": 36,
+      "routes": {
+        "adjuster": 36
+      },
+      "agreement": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_claims": [],
+      "stops": {
+        "supervisor loop": 4
+      },
+      "mean_specialist_calls": 5.03,
+      "mean_supervisor_calls": 6.44,
+      "mean_cost_usd": 0.013167
     }
   },
   "summary": {
