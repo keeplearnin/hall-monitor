@@ -52,6 +52,7 @@ def run(complaints: list[Complaint], audit: AuditLog, client, registry: Registry
         "specialist_review": 0,
         "standard_queue": 0,
         "agent_failed": 0,
+        "supervisor_failed": 0,
         "cost_usd": 0.0,
     }
     for complaint in complaints:
@@ -76,6 +77,7 @@ def run(complaints: list[Complaint], audit: AuditLog, client, registry: Registry
         summary["triaged"] += 1
         summary[result.route.queue] += 1
         summary["agent_failed"] += "agent_failed" in result.route.reasons
+        summary["supervisor_failed"] += "supervisor_failed" in result.route.reasons
         summary["cost_usd"] = round(summary["cost_usd"] + result.cost_usd, 6)
     return summary
 

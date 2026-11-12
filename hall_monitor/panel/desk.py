@@ -120,7 +120,12 @@ def complaint_desk(src: views.Sources) -> dict:
                 "draft_kept": isinstance(p.get("draft_sha256"), str),
                 "agent_failed": "agent_failed" in codes,
                 # A failed or interrupted triage has no answer, whoever was asked.
-                "source": "no answer" if "agent_failed" in codes else _source(p.get("scripted")),
+                # No triage answered: a failed agent, or an agentic run that ended before triage
+                # (no category recorded), whoever was asked.
+                "source": "no answer"
+                if "agent_failed" in codes
+                or (p.get("mode") == "agentic" and p.get("category") is None)
+                else _source(p.get("scripted")),
                 # The steps the desk supervisor chose (ADR 0028), codes only.
                 "path": [a for a in (p.get("supervisor_path") or []) if a in DESK_ACTIONS],
                 # Entries before ADR 0028, and interrupted ones, don't say.

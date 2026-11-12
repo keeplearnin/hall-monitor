@@ -371,3 +371,65 @@ def test_an_unknown_cost_stops_the_desk_loop(monkeypatch):
     assert client.messages.calls == []
     assert "cost unknown" in result.stopped_reason
     assert result.route.queue == "specialist_review"
+
+
+# --- Review 23 re-review findings -----------------------------------------------------------------
+
+
+def test_a_live_run_where_every_supervisor_call_fails_fails_the_gate():
+    """Re-review A: supervisor_failed wasn't counted, so an eval where the supervisor never
+    worked once passed with agent_failed 0."""
+    from hall_monitor.complaints import evals
+    from hall_monitor.complaints.ingest import PINNED_NAME, load_pinned
+
+    client = fake_client({ComplaintTriage: answer(), DeskDecision: CriticReview(issues=[])})
+    data = evals.evaluate(load_pinned(PINNED_NAME)[:5], client, REGISTRY, "live")
+    assert data["summary"]["supervisor_failed"] == 5
+    import yaml
+
+    from hall_monitor.governance.controls import ROOT
+
+    gate = yaml.safe_load((ROOT / "evals" / "gate.yaml").read_text())
+    desk_checks = [c for c in gate["checks"] if c["name"].startswith("Complaint desk")]
+    assert desk_checks and all(c["max"]["supervisor_failed"] == 0 for c in desk_checks)
+
+
+def test_the_desk_page_says_no_answer_when_no_triage_ran(tmp_path):
+    """Re-review B: a supervisor failing on its first turn showed "model"."""
+    from hall_monitor.panel import desk, views
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    _run(CriticReview(issues=[]), audit=audit)
+    audit.close()
+    page = desk.complaint_desk(views.Sources(audit_db=tmp_path / "audit.sqlite"))
+    (shown,) = [c for c in page["complaints"] if c["state"] == "routed"]
+    assert shown["source"] == "no answer"
+
+
+def test_a_stopped_triage_agent_caught_at_finish_is_the_agent_s_failure(registry_dir):
+    """Re-review C: the stop was blamed on the supervisor."""
+    registry = Registry.from_dir(registry_dir)
+
+    def answer_(request):
+        decision = scripted_desk_answer(request)
+        if decision.action is A.FINISH:
+            _stop(registry_dir, "complaint_triage")
+        return decision
+
+    result, _ = _run(answer_, registry=registry)
+    assert "agent_failed" in result.route.reasons
+    assert "supervisor_failed" not in result.route.reasons
+
+
+def test_an_interrupted_run_before_triage_goes_at_high_urgency(tmp_path):
+    """Re-review D: route_unfinished kept the floor for a complaint no agent read."""
+
+    def interrupt(request):
+        raise KeyboardInterrupt
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    with pytest.raises(KeyboardInterrupt):
+        _run(interrupt, audit=audit, triage=_high_fraud())
+    (routed,) = [e for e in audit.entries() if e["event"] == "complaint_routed"]
+    audit.close()
+    assert routed["payload"]["urgency"] == "high"

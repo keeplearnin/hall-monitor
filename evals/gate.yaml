@@ -70,6 +70,7 @@ checks:
     max:
       errors: 0
       agent_failed: 0
+      supervisor_failed: 0
       must_route_floor_below_high: 0
       must_route_missed: 0
       must_route_below_high: 0
@@ -86,6 +87,7 @@ checks:
     max:
       errors: 0
       agent_failed: 0
+      supervisor_failed: 0
       must_route_floor_below_high: 0
       egress_refusals: 0
       must_route_missed: 0

@@ -538,7 +538,12 @@ def _supervise(
         if decision.action in (DeskAction.FINISH, DeskAction.HAND_OFF):
             try:
                 for agent_id in dict.fromkeys(c.agent_id for c in calls):
-                    registry.require(agent_id)
+                    try:
+                        registry.require(agent_id)
+                    except Exception as exc:
+                        if agent_id != SUPERVISOR:  # the triage agent's stop is its own failure
+                            exc.desk_stage = "triage"  # type: ignore[attr-defined]
+                        raise
             except Exception:
                 record(decision, StepOutcome.FAILED)
                 raise
@@ -578,8 +583,10 @@ def code_reasons_for(complaint: Complaint, signals: list[str]) -> set[str]:
 def route_unfinished(complaint: Complaint, audit: AuditLog) -> ComplaintRoute:
     """Route a complaint whose triage started (its received entry is in the log) but never
     finished: to specialist review, as agent_failed and triage_interrupted, with the code's own
-    reasons. Raises AlreadyRecorded if it was routed meanwhile."""
+    reasons, at high urgency: no triage answer survived to raise it, so the complaint is treated
+    as unread, on either path (review 23). Raises AlreadyRecorded if it was routed meanwhile."""
     route = route_complaint(complaint, None, {"agent_failed", "triage_interrupted"})
+    route = route.model_copy(update={"urgency": Urgency.HIGH})
     audit.append(
         scope_id(complaint.complaint_id),
         "complaint_routed",  # ROUTED

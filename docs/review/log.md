@@ -934,3 +934,14 @@ triage; the reviewer judged that honest and pointed to the real hole, finding 1.
 | agent_failed now also covered supervisor failures, so a triage that answered (draft kept) was explained as the triage agent failing and the page said "no answer" | Medium | A new reason, supervisor_failed, for anything but the triage call; the stop reason says "desk supervisor:" (`test_a_supervisor_failure_after_triage_is_not_reported_as_a_triage_failure`) |
 | The routed entry had no mode, so the page labelled an agentic run with no recorded steps, an interrupted one, or an old entry "fixed order" | Medium | The routed entry records mode; the page says fixed order only when the entry says fixed (`test_the_desk_page_never_calls_an_agentic_run_fixed_order`) |
 | An unpriced model counted as 0 USD inside the loop, so the cost cap never tripped | Low | The loop stops when a cost can't be priced (`test_an_unknown_cost_stops_the_desk_loop`) |
+
+**Re-review of the fixes** (governance-reviewer, at `6383e23`, offline): the five fixes hold
+and the repros pass. It found one High regression and four smaller issues, all fixed test-first:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The complaint evals and the batch summary counted only agent_failed, so a live run where every supervisor call failed would pass the gate (the Review 17 High returning) | High | supervisor_failed is counted in the eval summary and the batch summary and gated at 0 in both complaint checks (`test_a_live_run_where_every_supervisor_call_fails_fails_the_gate`) |
+| The desk page showed "model" for an agentic run that failed before any triage (a regression from finding 3) | Medium | An agentic entry with no category shows "no answer" (`test_the_desk_page_says_no_answer_when_no_triage_ran`) |
+| A stop on the triage agent, caught at finish, was blamed on the supervisor | Low | A stopped agent other than the supervisor is agent_failed (`test_a_stopped_triage_agent_caught_at_finish_is_the_agent_s_failure`) |
+| An interrupted run before triage went through route_unfinished at the floor, contradicting "however the loop ended" | Low | An interrupted triage goes at high urgency on either path (`test_an_interrupted_run_before_triage_goes_at_high_urgency`); the docs say so |
+| The scripted complaint results were republished from a dirty tree though the commit said clean | Low | Republished from a clean commit |

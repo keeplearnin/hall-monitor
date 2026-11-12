@@ -192,6 +192,8 @@ def evaluate(complaints: list[Complaint], client, registry: Registry, mode: str)
         "complaints": len(complaints),
         "errors": errors,
         "agent_failed": sum("agent_failed" in r["reasons"] for r in scored),
+        # The desk supervisor's failures are their own reason (ADR 0028); gated like the agent's.
+        "supervisor_failed": sum("supervisor_failed" in r["reasons"] for r in scored),
         "audit_chain_verified": verified,
         "must_route_total": len(must),
         "must_route_missed": sum(r["queue"] != "specialist_review" for r in must),
