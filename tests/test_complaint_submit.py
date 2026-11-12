@@ -403,7 +403,9 @@ def test_an_identifier_typed_in_a_label_is_refused_before_the_model_sees_it(tmp_
     assert fake.messages.calls == [] and _entries(tmp_path) == []
 
 
-@pytest.mark.parametrize("text", ["x\x85y", "x‮y", "x​y", "x\x07y"])
+@pytest.mark.parametrize(
+    "text", ["x\x85y", "x\u202ey", "x\u200by", "x\x07y", "x\u2028y", "x\u3164y"]
+)
 def test_control_and_invisible_characters_are_refused(tmp_path, text):
     client = _app(tmp_path)
     assert _submit(client, issue=text).status_code == 400

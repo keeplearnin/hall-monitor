@@ -1136,7 +1136,9 @@ controls:
       it can't take edited text. A request that stops before the rules ran keeps no message (the
       log has only its keyed hash), so the submitter has to type it again. The result page reports only on requests this run of
       the form added, from memory, so after a restart it no longer finds them (the panel still
-      does).
+      does). A same-origin post with a non-ASCII token makes the token comparison raise, so it
+      gets a bare server error instead of a 403 (found in Review 24; fixed in the complaint
+      form, not yet here).
 
   - id: HM-25
     name: No reply, no send
@@ -1811,7 +1813,8 @@ controls:
       takes CFPB's structured fields: a product from the pinned snapshot's list only, an issue
       and optional sub-issue (300 characters each), CFPB's two tags and an optional narrative
       (10,000 characters); anything else, a repeated field, control or invisible format
-      characters (C0 and C1 controls, bidi overrides, zero-width marks) or an over-long value is
+      characters (C0 and C1 controls, bidi overrides, zero-width marks, line and paragraph
+      separators, blank-looking fillers) or an over-long value is
       refused before anything is logged. CFPB's labels are a fixed list and the pipeline doesn't
       redact them, so an issue or sub-issue holding anything redaction would remove (an email
       address, phone number, SSN and the like) is refused too; the narrative is redacted by the

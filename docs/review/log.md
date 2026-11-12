@@ -971,3 +971,11 @@ for the owner to confirm (ADR 0029 is Proposed). Every finding was fixed test-fi
 
 Not changed: a live submission that fails before any model call still uses its slot in the
 spend cap (errs on the safe side; the gaps say so).
+
+**Re-review of the fixes** (governance-reviewer, at `d733e10`, offline, no client
+built): all eight fixes hold, no regression, nothing at Medium or above. Two Lows, fixed:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Line and paragraph separators and the blank-looking Hangul fillers passed the character check | Low | Refused too (`test_control_and_invisible_characters_are_refused`) |
+| The leave form's non-ASCII-token 500 was logged as a follow-up only here, not in its register gaps | Low | Added to HM-24's gaps; the fix itself stays a follow-up |

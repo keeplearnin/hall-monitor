@@ -78,11 +78,18 @@ TAGS = {f"tag_{t.value}": t for t in Tag}
 TAG_LABELS = {Tag.OLDER_AMERICAN: "Older American", Tag.SERVICEMEMBER: "Servicemember"}
 FIELDS = {"product", "issue", "sub_issue", "narrative"}
 
+# Letters that display as blank (the Hangul fillers).
+_BLANK_LETTERS = frozenset("\u115f\u1160\u3164\uffa0")
+
 
 def _invisible(text: str, allowed: str = "") -> bool:
     """Control and format characters (C0 and C1 controls, bidi overrides, zero-width marks),
     which could hide text from a person reading the log's subject or the agent's input."""
-    return any(unicodedata.category(ch) in ("Cc", "Cf") and ch not in allowed for ch in text)
+    return any(
+        (unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp") or ch in _BLANK_LETTERS)
+        and ch not in allowed
+        for ch in text
+    )
 
 
 def _has_identifier(label: str) -> bool:
