@@ -36,6 +36,7 @@ Every hall-monitor control, mapped to the NIST AI Risk Management Framework 1.0 
 | [HM-26](#hm-26) | Complaint ingestion from CFPB | built | MEASURE 2.1, MANAGE 3.1 | RI-19 | MI-06 |
 | [HM-27](#hm-27) | Complaint triage, routed in code | built | GOVERN 3.2, MAP 3.5, MANAGE 2.4 | RI-04, RI-10, RI-14 | MI-21, MI-24 |
 | [HM-28](#hm-28) | Complaint desk evals, fairness and panel page | built | MEASURE 2.3, MEASURE 2.11, MEASURE 1.1 | RI-16 | MI-04, MI-05 |
+| [HM-29](#hm-29) | Delegated passes only narrow | built | GOVERN 1.4, MANAGE 1.3, MAP 3.5 | RI-24, RI-28 | MI-18, MI-21 |
 
 ## Controls
 
@@ -413,12 +414,26 @@ python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB 
 - **FINOS mitigations:** MI-04 AI System Observability; MI-05 System Acceptance Testing
 - **Gaps:** The published result is the scripted run: its agent is a stand-in with fixed rules, so it measures the desk's code (routing, the code's urgency floor, drafts, the log, the counterfactual check), not the model's summaries, categories or urgency; the final urgency, specialist share and flagged rates also depend on the stand-in's rules. No live eval has been run. The answer key was written by one person from one day's snapshot and a few labels from CFPB's lists; it is not reviewed by anyone else. Group rates are reported, not gated, and are not adjusted for case mix, so they can't show bias in the agent's urgency on their own; the counterfactual check covers only the state and ZIP prefix, which the agent is never sent, so it can't flip by construction and shows only that location doesn't reach the decision. Tags are routed by code, so their rate is 1.0 by construction. CFPB's company response is a weak signal: a complaint closed with an explanation can still have been urgent. The panel has no sign-in (HM-20) and runs the static check on each page view.
 
+### HM-29
+
+**Delegated passes only narrow** (built)
+
+When an agent hands work to another, the pass only narrows. hall_monitor/delegation.py keeps a grant book per case: code issues the first grant (the lead agent's manifest, for one case scope), and each handoff makes a child grant whose tools and data classes must be inside both the parent grant and the helper's own manifest. A handoff must be listed in the delegating agent's manifest (may_delegate_to, part of the approved hall pass), can't hand work to an agent already in the chain, and stops two handoffs below the pipeline. Asking for more than the parent holds is refused and logged, never trimmed. What a grant allots its children can't add up to more than its own allotment. A grant counts only if the case's book issued it, unchanged; every use checks every agent in its chain against the registry, so stopping the lead stops its helpers at once; closing the book ends every grant. The tool gateway refuses a tool call, and offers no tools, to any agent that can delegate or be delegated to unless it comes with a grant its case's book issued to that agent, and checks the tool and the data classes it returns against the grant. Every grant and refusal is logged (delegation_granted, delegation_refused) with IDs, the chain, tool names, data classes and amounts; names a model could have written are logged only if they are plain identifiers.
+
+- **Code:** [`hall_monitor/delegation.py`](../hall_monitor/delegation.py) `GrantBook`; [`hall_monitor/delegation.py`](../hall_monitor/delegation.py) `Grant`; [`hall_monitor/registry.py`](../hall_monitor/registry.py) `AgentManifest`; [`hall_monitor/registry.py`](../hall_monitor/registry.py) `Registry`; [`hall_monitor/tools/gateway.py`](../hall_monitor/tools/gateway.py) `ToolGateway`
+- **Tests:** [`tests/test_delegation.py`](../tests/test_delegation.py) `test_a_child_grant_defaults_to_the_overlap_of_parent_and_manifest`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_a_helper_never_gets_more_than_the_agent_that_asked`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_asking_for_a_tool_the_helper_s_manifest_lacks_is_refused_not_trimmed`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_a_handoff_not_in_the_manifest_is_refused_and_logged`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_an_agent_already_in_the_chain_can_t_be_handed_work_again`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_a_chain_stops_two_handoffs_below_the_pipeline`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_children_s_allotments_can_t_add_up_to_more_than_the_parent_s`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_stopping_the_lead_stops_every_helper_working_for_it`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_a_grant_the_book_didn_t_issue_is_refused`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_closing_the_book_ends_every_grant`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_a_crew_agent_s_tool_call_without_a_grant_is_refused`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_the_gateway_refuses_what_the_grant_doesn_t_hold_though_the_manifest_does`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_delegation_entries_hold_ids_names_and_amounts_only`; [`tests/test_delegation.py`](../tests/test_delegation.py) `test_an_empty_handoff_list_leaves_the_digest_unchanged`
+- **Evidence:** *Pending live run:* `the complaint crew (slice 3) running under grants`
+- **NIST AI RMF:** GOVERN 1.4 (The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities); MANAGE 1.3 (Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented); MAP 3.5 (Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function)
+- **FINOS risks:** RI-24 Agent Action Authorization Bypass; RI-28 Multi-Agent Trust Boundary Violations
+- **FINOS mitigations:** MI-18 Agent Authority Least Privilege Framework; MI-21 Agent Decision Audit and Explainability
+- **Gaps:** No agent uses grants yet: the crew's agents, tools and pipeline come in later slices, so this is the mechanism, tested with test manifests only. Allotments limit what a grant may give its children; spending against an allotment isn't checked until agents run. The book lives in memory for one run and isn't rebuilt from the audit log, so a crash loses it (the case then goes to a person, as any failure does). Grants are allow-lists checked in one process, not isolation (MI-22 stays not covered). The gateway enforces grants on tool calls; what an agent passes to another in its prompt is the crew pipeline's to control.
+
 ## NIST AI RMF coverage
 
 | Subcategory | Controls |
 |---|---|
 | **GOVERN 1.1** Legal and regulatory requirements involving AI are understood, managed, and documented. | Not covered: Legal and regulatory requirements for claims handling aren't analysed; this is a reference implementation, not legal advice. |
-| **GOVERN 1.4** The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities. | [HM-03](#hm-03), [HM-25](#hm-25) |
+| **GOVERN 1.4** The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities. | [HM-03](#hm-03), [HM-25](#hm-25), [HM-29](#hm-29) |
 | **GOVERN 1.5** Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and organizational roles and responsibilities clearly defined, including determining the frequency of periodic review. | Not covered: CI checks every change, but nothing schedules periodic review of the risk process or its outcomes. |
 | **GOVERN 1.6** Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities. | [HM-01](#hm-01), [HM-20](#hm-20), [HM-22](#hm-22) |
 | **GOVERN 2.1** Roles and responsibilities and lines of communication related to mapping, measuring, and managing AI risks are documented and are clear to individuals and teams throughout the organization. | [HM-01](#hm-01), [HM-19](#hm-19) |
@@ -427,7 +442,7 @@ python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB 
 | **GOVERN 6.1** Policies and procedures are in place that address AI risks associated with third-party entities, including risks of infringement of a third-party's intellectual property or other rights. | Not covered: Third-party policies, including intellectual-property risk from the model provider, aren't addressed; the model is pinned, not assessed. |
 | **MAP 1.1** Intended purposes, potentially beneficial uses, context-specific laws, norms and expectations, and prospective settings in which the AI system will be deployed are understood and documented. | [HM-01](#hm-01), [HM-18](#hm-18) |
 | **MAP 2.1** The specific tasks and methods used to implement the tasks that the AI system will support are defined (e.g., classifiers, generative models, recommenders). | [HM-18](#hm-18) |
-| **MAP 3.5** Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function. | [HM-04](#hm-04), [HM-05](#hm-05), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23), [HM-25](#hm-25), [HM-27](#hm-27) |
+| **MAP 3.5** Processes for human oversight are defined, assessed, and documented in accordance with organizational policies from the govern function. | [HM-04](#hm-04), [HM-05](#hm-05), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23), [HM-25](#hm-25), [HM-27](#hm-27), [HM-29](#hm-29) |
 | **MAP 4.1** Approaches for mapping AI technology and legal risks of its components – including the use of third-party data or software – are in place, followed, and documented, as are risks of infringement of a third party's intellectual property or other rights. | Not covered: Legal and intellectual-property risks of third-party components aren't mapped. |
 | **MEASURE 1.1** Approaches and metrics for measurement of AI risks enumerated during the map function are selected for implementation starting with the most significant AI risks. The risks or trustworthiness characteristics that will not – or cannot – be measured are properly documented. | [HM-12](#hm-12), [HM-18](#hm-18), [HM-28](#hm-28) |
 | **MEASURE 2.1** Test sets, metrics, and details about the tools used during TEVV are documented. | [HM-12](#hm-12), [HM-26](#hm-26) |
@@ -439,7 +454,7 @@ python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB 
 | **MEASURE 2.10** Privacy risk of the AI system – as identified in the map function – is examined and documented. | [HM-10](#hm-10), [HM-11](#hm-11), [HM-22](#hm-22) |
 | **MEASURE 2.11** Fairness and bias – as identified in the map function – are evaluated and results are documented. | [HM-14](#hm-14), [HM-28](#hm-28) |
 | **MEASURE 3.1** Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts. | [HM-16](#hm-16), [HM-17](#hm-17) |
-| **MANAGE 1.3** Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented. Risk response options can include mitigating, transferring, avoiding, or accepting. | [HM-03](#hm-03), [HM-04](#hm-04), [HM-07](#hm-07), [HM-09](#hm-09), [HM-21](#hm-21), [HM-25](#hm-25) |
+| **MANAGE 1.3** Responses to the AI risks deemed high priority, as identified by the map function, are developed, planned, and documented. Risk response options can include mitigating, transferring, avoiding, or accepting. | [HM-03](#hm-03), [HM-04](#hm-04), [HM-07](#hm-07), [HM-09](#hm-09), [HM-21](#hm-21), [HM-25](#hm-25), [HM-29](#hm-29) |
 | **MANAGE 2.4** Mechanisms are in place and applied, and responsibilities are assigned and understood, to supersede, disengage, or deactivate AI systems that demonstrate performance or outcomes inconsistent with intended use. | [HM-01](#hm-01), [HM-08](#hm-08), [HM-19](#hm-19), [HM-22](#hm-22), [HM-27](#hm-27) |
 | **MANAGE 3.1** AI risks and benefits from third-party resources are regularly monitored, and risk controls are applied and documented. | [HM-02](#hm-02), [HM-16](#hm-16), [HM-26](#hm-26) |
 | **MANAGE 4.1** Post-deployment AI system monitoring plans are implemented, including mechanisms for capturing and evaluating input from users and other relevant AI actors, appeal and override, decommissioning, incident response, recovery, and change management. | [HM-05](#hm-05), [HM-06](#hm-06), [HM-20](#hm-20), [HM-24](#hm-24) |
@@ -466,11 +481,11 @@ python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB 
 | RI-20 | Reputational Risk | Not covered: Reputational risk is a business judgement; publishing results, failures included, is the only part this repo touches. |
 | RI-22 | Regulatory Compliance and Oversight | [HM-04](#hm-04), [HM-05](#hm-05), [HM-06](#hm-06), [HM-20](#hm-20), [HM-21](#hm-21), [HM-23](#hm-23), [HM-24](#hm-24) |
 | RI-23 | Intellectual Property (IP) and Copyright | Not covered: Intellectual property in model output isn't assessed. |
-| RI-24 | Agent Action Authorization Bypass | [HM-03](#hm-03), [HM-04](#hm-04), [HM-15](#hm-15), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23), [HM-25](#hm-25) |
+| RI-24 | Agent Action Authorization Bypass | [HM-03](#hm-03), [HM-04](#hm-04), [HM-15](#hm-15), [HM-21](#hm-21), [HM-22](#hm-22), [HM-23](#hm-23), [HM-25](#hm-25), [HM-29](#hm-29) |
 | RI-25 | Tool Chain Manipulation and Injection | [HM-03](#hm-03), [HM-09](#hm-09), [HM-15](#hm-15), [HM-25](#hm-25) |
 | RI-26 | MCP Server Supply Chain Compromise | Not covered: The MCP server is first-party and runs in-process; nothing checks a third-party server's integrity because there isn't one. |
 | RI-27 | Agent State Persistence Poisoning | Not covered: Workflow checkpoints are local state. The evidence pack and triage result in a checkpoint are checked against the hashes in the audit log (HM-05); other checkpoint state isn't integrity-checked. |
-| RI-28 | Multi-Agent Trust Boundary Violations | [HM-09](#hm-09) |
+| RI-28 | Multi-Agent Trust Boundary Violations | [HM-09](#hm-09), [HM-29](#hm-29) |
 | RI-29 | Agent-Mediated Credential Discovery and Harvesting | Not covered: Agents hold no credentials; the API key stays in the host process. |
 | RI-30 | Skill/Plugin Supply Chain Compromise | Not covered: The system loads no skills or plugins. |
 
@@ -495,10 +510,10 @@ python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB 
 | MI-15 | Using Large Language Models for Automated Evaluation (LLM-as-a-Judge) | [HM-07](#hm-07) |
 | MI-16 | Preserving Source Data Access Controls in AI Systems | [HM-03](#hm-03) |
 | MI-17 | AI Firewall Implementation and Management | [HM-09](#hm-09), [HM-25](#hm-25) |
-| MI-18 | Agent Authority Least Privilege Framework | [HM-03](#hm-03), [HM-22](#hm-22), [HM-25](#hm-25) |
+| MI-18 | Agent Authority Least Privilege Framework | [HM-03](#hm-03), [HM-22](#hm-22), [HM-25](#hm-25), [HM-29](#hm-29) |
 | MI-19 | Tool Chain Validation and Sanitization | [HM-03](#hm-03), [HM-09](#hm-09), [HM-25](#hm-25) |
 | MI-20 | MCP Server Security Governance | [HM-03](#hm-03) |
-| MI-21 | Agent Decision Audit and Explainability | [HM-06](#hm-06), [HM-07](#hm-07), [HM-13](#hm-13), [HM-20](#hm-20), [HM-23](#hm-23), [HM-24](#hm-24), [HM-27](#hm-27) |
+| MI-21 | Agent Decision Audit and Explainability | [HM-06](#hm-06), [HM-07](#hm-07), [HM-13](#hm-13), [HM-20](#hm-20), [HM-23](#hm-23), [HM-24](#hm-24), [HM-27](#hm-27), [HM-29](#hm-29) |
 | MI-22 | Multi-Agent Isolation and Segmentation | Not covered: Agents run in one process; they're separated by allow-lists and claim scope, not isolation. |
 | MI-23 | Agentic System Credential Protection Framework | Not covered: Agents hold no credentials (see RI-29), so there is nothing for them to protect. |
 | MI-24 | Human-in-the-Loop Action Approval Gate | [HM-04](#hm-04), [HM-05](#hm-05), [HM-08](#hm-08), [HM-23](#hm-23), [HM-27](#hm-27) |
@@ -527,6 +542,8 @@ python -m hall_monitor.complaints.evals runs every complaint in the pinned CFPB 
 | `leave_information_requested` | [HM-23](#hm-23) |
 | `egress_refused` | [HM-25](#hm-25) |
 | `draft_stored` | [HM-25](#hm-25), [HM-06](#hm-06) |
+| `delegation_granted` | [HM-29](#hm-29) |
+| `delegation_refused` | [HM-29](#hm-29) |
 | `complaint_pull` | [HM-26](#hm-26) |
 | `complaint_quarantined` | [HM-26](#hm-26) |
 | `complaint_received` | [HM-27](#hm-27), [HM-09](#hm-09), [HM-10](#hm-10) |
