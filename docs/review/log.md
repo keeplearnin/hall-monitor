@@ -892,3 +892,25 @@ fixed test-first:
 |---|---|---|
 | Any ValueError was taken as the workflow's own refusal and stored as text, so an unexpected one (including a pydantic ValidationError, which repeats input) was never flagged | Medium | Only a duplicate's second submission may be refused, and only with the workflow's four known refusals, recorded as a fixed label; any other ValueError is unexpected, recorded by its type |
 | The docs said masked faults are those after the risk step; wrong answers stopped before routing and faults on the risk agent are masked too | Low | Design and docstring reworded |
+
+## Review 22 (agentic-claims): the claims supervisor within code-held bounds (HM-32)
+
+**Reviewer:** the governance-reviewer agent, run independently on branch `claude/agentic-claims`
+at `e2e9d47`, with offline repros (no API calls). 6 findings confirmed; all fixed, the code ones
+test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A revise naming only some of the stages the critic raised was allowed; with a critic that then came back clean, the unrevised issue vanished and claim_001 went through automatically where the fixed path (which revises every raised stage) sent it to a person | High | A revise must send back exactly the raised stages, or it is refused as `not_every_raised_stage` (`test_revising_only_some_of_the_stages_the_critic_raised_is_refused`) |
+| The docs said no supervisor policy beat the fixed path, but the offline eval's critic never raised an issue, so no revision ever ran and the gate couldn't see the lever above | High | The eval adds a critic that raises coverage and risk once and then finds nothing, with a risk agent whose revised answer differs, and policies that revise part, skip the second review, or act noisily. With the refusal removed, `revise_part` gets 16 claims through that the fixed path sent to a person; with it, none |
+| The budget overshoot was documented as one specialist's run, but a revision including intake runs three agents with no check between them, after the supervisor's own call | Medium | Cost and time are checked before every model call the loop makes, each agent of a revision included, so the overshoot is one agent's run (`test_a_revision_stops_between_agents_when_the_budget_runs_out`); ADR, register and docstring say so |
+| The business summary, executive brief and README results table weren't updated: no mention that an AI now picks the order, or that every published score is from the fixed order | Medium | All three updated; the README results table says the rows predate the agentic path |
+| A stop landing between a FINISH choice and routing stopped the claim, but the last `supervisor_step` still said `finished` | Low | Hall passes are re-checked before the step is recorded; a stop then records it as `failed` (`test_a_stop_at_finish_records_the_step_as_failed`) |
+| The `Limits` docstring said the old order takes 13 steps (it takes 10, 11 with an intake retry); the published eval recorded a dirty WIP commit | Low | Docstring corrected; the eval republished from a clean commit |
+
+**Re-review of the fixes** (governance-reviewer, at `f0d15b2`, offline): all six fixes hold and
+no new findings. The repros that went automatic now stop for a person; with only the new refusal
+patched out the eval reports 16 unsafe autos, all from `raising_critic/revise_part`, and 0 with
+it. The new tests were seen failing before the fixes in the session, but code and tests landed in
+one commit, so history alone can't show the order. Cosmetic notes (roadmap order in the
+executive brief) fixed.

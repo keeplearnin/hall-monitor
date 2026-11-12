@@ -437,6 +437,11 @@ class TriageRecorder:
         }
 
     @staticmethod
+    def _supervisor_step(step) -> tuple[str, dict]:
+        # Codes, counts and amounts only (SupervisorStep has no free-text field).
+        return "claims_supervisor", step.model_dump(mode="json")
+
+    @staticmethod
     def _revision(record) -> tuple[str, dict]:
         return record.stage.value, {
             "round": record.round,

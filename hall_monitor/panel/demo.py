@@ -29,6 +29,7 @@ from types import SimpleNamespace
 import yaml
 
 from hall_monitor.agents.base import escape
+from hall_monitor.agents.supervisor import scripted_answer
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.governance.approval import AdjusterDecision
 from hall_monitor.governance.signing import demo_private_key
@@ -43,6 +44,7 @@ from hall_monitor.models import (
     NextStep,
     Recommendation,
     RiskAssessment,
+    SupervisorDecision,
 )
 from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR, Registry
 from hall_monitor.tools.gateway import ToolGateway
@@ -67,9 +69,12 @@ class _ScriptedMessages:
         }
 
     def parse(self, **kwargs):
+        kind = kwargs["output_format"]
+        # The supervisor follows the old fixed order (agents/supervisor.py), scripted.
+        answer = scripted_answer(kwargs) if kind is SupervisorDecision else self.answers[kind]
         return SimpleNamespace(
             stop_reason="end_turn",
-            parsed_output=self.answers[kwargs["output_format"]],
+            parsed_output=answer,
             usage=SimpleNamespace(input_tokens=1000, output_tokens=200),
         )
 

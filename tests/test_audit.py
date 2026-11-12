@@ -122,7 +122,15 @@ def test_an_automatic_claim_leaves_a_complete_trail(tmp_path):
 
     events = [e["event"] for e in entries]
     assert events[0] == "claim_submitted"
-    assert events.count("agent_call") == 5  # intake, coverage, risk, critic, recommendation
+    specialists = [
+        e["actor"]
+        for e in entries
+        if e["event"] == "agent_call" and e["actor"] != "claims_supervisor"
+    ]
+    assert specialists == ["intake", "coverage_check", "risk_fraud", "critic", "recommendation"]
+    # The supervisor chose each step and finished; every choice is in the trail (ADR 0028).
+    steps = [e["payload"] for e in entries if e["event"] == "supervisor_step"]
+    assert [s["action"] for s in steps][-1] == "finish" and len(steps) == 6
     assert "tool_call" in events and "triage_result" in events and "evidence_pack" in events
     assert events[-1] == "final_decision" and entries[-1]["actor"] == "auto"
 

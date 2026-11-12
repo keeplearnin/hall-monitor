@@ -30,6 +30,18 @@ checks:
       control_false_alarm_rate: 0.1
       errors: 0
 
+  # The agentic claims path (HM-32, ADR 0028), offline: scripted supervisor policies, some
+  # hostile, against the fixed path, with the specialists answering from the answer key. It
+  # measures code's bounds; no live supervisor has been evaluated.
+  - name: Agentic claims path against the fixed path, scripted
+    results: evals/results/agentic-scripted/results.json
+    required: true
+    mode: scripted-answer-key
+    min:
+      old_order_agreement: 1.0
+    max:
+      unsafe_auto: 0
+
   - name: Adversarial suite
     results: evals/results/adversarial/results.json
     required: false  # not yet run live

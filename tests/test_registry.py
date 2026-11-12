@@ -15,6 +15,7 @@ from hall_monitor.registry import (
 from tests.fakes import TEST_REGISTRY_DIR
 
 EXPECTED_AGENTS = {
+    "claims_supervisor",
     "intake",
     "coverage_check",
     "critic",
@@ -160,7 +161,8 @@ def test_the_approved_prompt_covers_the_untrusted_claim_notice():
         "leave_intake": UNTRUSTED_REQUEST_NOTICE,
         "complaint_triage": UNTRUSTED_COMPLAINT_NOTICE,
     }
-    readers_of_nothing_untrusted = {"recommendation", "leave_explainer"}
+    # The supervisor reads a view code builds from codes and amounts (ADR 0028).
+    readers_of_nothing_untrusted = {"recommendation", "leave_explainer", "claims_supervisor"}
     assert set(notices) | readers_of_nothing_untrusted == set(AGENT_MODULES)
     for agent_id, module in AGENT_MODULES.items():
         assert "{untrusted}" not in module.SYSTEM_PROMPT, agent_id

@@ -1,5 +1,7 @@
 """Pipeline wiring and the routing rule, with the Claude client faked out (no network)."""
 
+import functools
+import sys
 from datetime import date
 
 import anthropic
@@ -35,11 +37,23 @@ from hall_monitor.models import (
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry, load_approvals
 from hall_monitor.tools.gateway import ToolGateway
-from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth
+from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth, specialists
 
 CLAIMS = list(iter_claims())
 REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
 GATEWAY = ToolGateway(REGISTRY)
+_TRIAGE = triage
+
+
+@pytest.fixture(autouse=True, params=["agentic", "fixed"])
+def mode(request, monkeypatch):
+    """Every test here runs on both paths: the supervisor following the old order (the fakes'
+    default) must give what the fixed path gives (ADR 0028)."""
+    agentic = request.param == "agentic"
+    monkeypatch.setattr(
+        sys.modules[__name__], "triage", functools.partial(_TRIAGE, agentic=agentic)
+    )
+    return request.param
 
 
 @pytest.mark.parametrize("claim", CLAIMS, ids=lambda c: c.claim_id)
@@ -56,7 +70,7 @@ def test_correct_agent_outputs_give_the_expected_route(claim):
     )
 
     assert result.routing.route == truth.route
-    assert [c.agent_id for c in result.agent_calls] == [
+    assert [c.agent_id for c in specialists(result.agent_calls)] == [
         "intake",
         "coverage_check",
         "risk_fraud",
@@ -64,7 +78,7 @@ def test_correct_agent_outputs_give_the_expected_route(claim):
         "recommendation",
     ]
     assert result.coverage.decision == truth.coverage.decision
-    for call, sent in zip(result.agent_calls, client.messages.calls, strict=True):
+    for call, sent in zip(specialists(result.agent_calls), client.messages.calls, strict=True):
         assert sent["model"] == REGISTRY.get(call.agent_id).model == call.model
 
 
@@ -331,14 +345,17 @@ def test_critic_can_be_switched_off():
 
 def test_refusal_stops_the_claim_and_keeps_its_cost():
     claim = CLAIMS[0]
-    client = fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)), "refusal")
+    outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
+    client = fake_client(outputs, {kind: "refusal" for kind in outputs})  # every specialist
 
     result = triage(claim, registry=REGISTRY, gateway=GATEWAY, wording=WORDING, client=client)
 
     assert result.stopped_reason and "refused" in result.stopped_reason
     assert result.routing.route is Route.ADJUSTER
     assert result.extraction is None
-    assert [c.agent_id for c in result.agent_calls] == ["intake"]  # the refused call is costed
+    assert [c.agent_id for c in specialists(result.agent_calls)] == [
+        "intake"
+    ]  # the refused call is costed
 
 
 def test_api_error_stops_the_claim():
@@ -373,7 +390,7 @@ def test_every_call_records_what_ran():
     claim = CLAIMS[0]
     result, _ = _triage(claim, outputs_from_truth(load_ground_truth(claim.claim_id)))
     approvals = load_approvals()
-    for call in result.agent_calls:
+    for call in specialists(result.agent_calls):
         assert len(call.system_prompt_sha256) == 64 and len(call.input_sha256) == 64
         assert call.prompt_template_sha256 == approvals[call.agent_id]["prompt_sha256"]
         assert call.stop_reason == "end_turn"
@@ -434,8 +451,14 @@ def test_events_are_reported_as_they_happen():
         gateway=GATEWAY,
         wording=WORDING,
         client=client,
-        on_event=lambda event, item: events.append(event),
+        on_event=lambda event, item: events.append((event, item)),
     )
+    supervisor = ("supervisor_step", "claims_supervisor")
+    events = [
+        e
+        for e, item in events
+        if e not in supervisor[:1] and getattr(item, "agent_id", "") != supervisor[1]
+    ]
     # The policy lookup is reported between intake and the coverage check, not at the end.
     assert events[:3] == ["claim_submitted", "agent_call", "tool_call"]
     assert events[-1] == "triage_result" and events.count("triage_result") == 1
