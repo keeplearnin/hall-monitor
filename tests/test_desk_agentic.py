@@ -433,3 +433,24 @@ def test_an_interrupted_run_before_triage_goes_at_high_urgency(tmp_path):
     (routed,) = [e for e in audit.entries() if e["event"] == "complaint_routed"]
     audit.close()
     assert routed["payload"]["urgency"] == "high"
+
+
+def test_a_triage_that_answered_then_was_stopped_is_shown_as_answered(registry_dir, tmp_path):
+    """Final re-review note: a stop at finish made it agent_failed, and the page said "no
+    answer" beside a kept draft."""
+    from hall_monitor.panel import desk, views
+
+    registry = Registry.from_dir(registry_dir)
+
+    def answer_(request):
+        decision = scripted_desk_answer(request)
+        if decision.action is A.FINISH:
+            _stop(registry_dir, "complaint_triage")
+        return decision
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    _run(answer_, registry=registry, audit=audit)
+    audit.close()
+    page = desk.complaint_desk(views.Sources(audit_db=tmp_path / "audit.sqlite"))
+    (shown,) = [c for c in page["complaints"] if c["state"] == "routed"]
+    assert shown["draft_kept"] and shown["source"] != "no answer"

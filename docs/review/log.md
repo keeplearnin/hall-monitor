@@ -945,3 +945,8 @@ and the repros pass. It found one High regression and four smaller issues, all f
 | A stop on the triage agent, caught at finish, was blamed on the supervisor | Low | A stopped agent other than the supervisor is agent_failed (`test_a_stopped_triage_agent_caught_at_finish_is_the_agent_s_failure`) |
 | An interrupted run before triage went through route_unfinished at the floor, contradicting "however the loop ended" | Low | An interrupted triage goes at high urgency on either path (`test_an_interrupted_run_before_triage_goes_at_high_urgency`); the docs say so |
 | The scripted complaint results were republished from a dirty tree though the commit said clean | Low | Republished from a clean commit |
+
+**Final check** (governance-reviewer, at `00f8619`): fixes A to E confirmed, nothing new at
+Medium or above. One Low, from fix C: a triage that answered (draft kept) and was then stopped
+was shown as "no answer". Fixed test-first: the page says "no answer" only when no category was
+recorded (`test_a_triage_that_answered_then_was_stopped_is_shown_as_answered`).
