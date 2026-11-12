@@ -490,6 +490,9 @@ def test_only_hr_managers_and_directors_may_deny_or_extend():
         "bonding_window",
         "past_entitlement",
         "retaliation_risk",
+        # The agentic path routed the request before the rules ran: the most senior role
+        # decides, since nobody knows which role the rules would name (ADR 0028).
+        "assessment_skipped",
     }
     for code, (_, role) in REASONS.items():
         assert (role.label != "leave_specialist") is (code in may_deny_or_extend), code

@@ -141,6 +141,13 @@ def evidence_pack(prepared) -> dict:
         # What the employee wrote, identifiers redacted: the person checks the extraction
         # against it. Erasable with the pack; never in the log.
         "message": prepared.message_redacted,
+        # How it was prepared (ADR 0028): the supervisor's path, and the re-check's intake to
+        # compare with the request when two intakes disagreed.
+        "mode": getattr(prepared, "mode", "fixed"),
+        "supervisor_path": [s.action.value for s in getattr(prepared, "supervisor_steps", [])],
+        "recheck_intake": None
+        if getattr(prepared, "recheck_intake", None) is None
+        else prepared.recheck_intake.model_dump(mode="json"),
         "nonce": secrets.token_hex(16),
     }
 

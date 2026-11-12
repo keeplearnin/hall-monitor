@@ -905,7 +905,8 @@ controls:
   - id: HM-22
     name: Leave agents inside the shared controls (HR example)
     what: >-
-      Two agents prepare a leave request for a person, through the same call path, registry,
+      Two agents prepare a leave request for a person (since HM-32 a leave supervisor chooses
+      which runs and when; the rules still run on the first intake), through the same call path, registry,
       approvals, kill switch, data-class check and audit log as the claims agents
       (hall_monitor/hr/pipeline.py). The leave intake agent reads the employee's message after
       identifier redaction and returns dates, a reason category and yes-or-no facts only: its
@@ -1694,7 +1695,7 @@ controls:
   - id: HM-32
     name: The agent picks the steps, code holds the boundaries
     what: >-
-      The claims workflow and the complaint desk run agentic by default. Claims: a supervisor agent (claims_supervisor, its
+      The claims workflow, the complaint desk and HR leave run agentic by default. Claims: a supervisor agent (claims_supervisor, its
       own manifest and approved prompt, no tools) chooses each next step from a closed list
       (run intake, coverage, risk, the critic or the recommendation, revise the stages the
       critic raised, finish, hand off), with a reason code. It sees a view code builds from
@@ -1725,7 +1726,15 @@ controls:
       or stopped triage agent is agent_failed; both are counted in the complaint evals and gated
       at zero. An interrupted triage goes at high urgency on either path. No reply, no send (HM-25) is unchanged. The offline eval runs all 500
       pinned complaints on both paths under scripted desk policies; the gate requires that
-      none gives a complaint less review than the fixed order.
+      none gives a complaint less review than the fixed order. HR leave runs the same way
+      (leave_supervisor, codes only, no tools): intake, one re-check before the rules, the rules
+      in code, the explanation, finish or hand-off. The rules always run on the first intake;
+      disagreeing intakes add intake_disagreed; a hand-off adds supervisor_handed_off and keeps
+      the code's role; a request routed before the rules ran gets assessment_skipped, decided
+      by an HR director. Refusals, a budget (8 steps, 0.02 USD, 120 seconds) and the kill
+      switch send it to HR review as supervisor_failed. The offline eval runs all 28 synthetic
+      requests under scripted leave policies; the gate requires that none gets a lighter route
+      or a less senior role than the fixed order.
     status: partial
     code:
       - hall_monitor/agentic.py::supervise
@@ -1738,6 +1747,9 @@ controls:
       - hall_monitor/evals/agentic_compare.py::run_desk
       - hall_monitor/complaints/supervisor.py::DeskView
       - hall_monitor/complaints/pipeline.py::route_triages
+      - hall_monitor/hr/supervisor.py::LeaveView
+      - hall_monitor/hr/pipeline.py::LeaveLimits
+      - hall_monitor/evals/agentic_compare.py::run_leave
     tests:
       - tests/test_agentic.py::test_the_supervisor_s_answer_has_no_route_field
       - tests/test_agentic.py::test_finishing_before_a_required_step_ran_goes_to_a_person
@@ -1777,6 +1789,15 @@ controls:
       - tests/test_agentic.py::test_the_published_eval_records_every_agent_it_ran
       - tests/test_desk_agentic.py::test_a_live_run_where_every_supervisor_call_fails_fails_the_gate
       - tests/test_desk_agentic.py::test_an_interrupted_run_before_triage_goes_at_high_urgency
+      - tests/test_hr_agentic.py::test_ending_before_the_rules_goes_to_hr_review
+      - tests/test_hr_agentic.py::test_the_rules_run_on_the_first_intake_and_a_disagreeing_recheck_adds_review
+      - tests/test_hr_agentic.py::test_a_recheck_after_the_rules_ran_is_refused
+      - tests/test_hr_agentic.py::test_a_hand_off_keeps_the_code_s_role_and_adds_review
+      - tests/test_hr_agentic.py::test_a_request_the_rules_never_saw_goes_to_the_most_senior_role
+      - tests/test_hr_agentic.py::test_a_choice_to_end_before_intake_leaves_the_request_decidable
+      - tests/test_hr_agentic.py::test_stopping_the_supervisor_mid_run_stops_the_step_it_chose
+      - tests/test_hr_agentic.py::test_the_supervisor_has_no_tools_and_never_sees_the_message
+      - tests/test_hr_agentic.py::test_no_leave_policy_gives_a_request_less_review_than_the_fixed_order
       - tests/test_pipeline.py::test_correct_agent_outputs_give_the_expected_route
     evidence:
       - evals/results/agentic-scripted/results.json
@@ -1786,10 +1807,11 @@ controls:
       risks: [RI-24, RI-28]
       mitigations: [MI-18, MI-21]
     gaps: >-
-      Claims and the complaint desk so far: HR leave still runs a fixed order. The desk's
+      The fixed HR path still gives a leave specialist a request whose intake failed; only
+      the agentic path escalates an unassessed request to an HR director. The desk's
       re-check uses the same model and prompt, so its two answers aren't independent in any
       strong sense; the eval's "less review" counts only the code's own reasons, since the
-      agent's can't exist when no triage ran. No live run of either supervisor has been made, so how well it chooses (how often it hands off or skips
+      agent's can't exist when no triage ran. No live run of any supervisor has been made, so how well it chooses (how often it hands off or skips
       work and sends claims to a person) is unmeasured; the published live eval results were
       scored on the fixed path with earlier agent versions, and the gate's stale check doesn't
       flag that they predate the supervisor. The order is no longer deterministic: with a live

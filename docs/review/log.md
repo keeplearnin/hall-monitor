@@ -979,3 +979,30 @@ built): all eight fixes hold, no regression, nothing at Medium or above. Two Low
 |---|---|---|
 | Line and paragraph separators and the blank-looking Hangul fillers passed the character check | Low | Refused too (`test_control_and_invisible_characters_are_refused`) |
 | The leave form's non-ASCII-token 500 was logged as a follow-up only here, not in its register gaps | Low | Added to HM-24's gaps; the fix itself stays a follow-up |
+
+## Review 25 (agentic-hr): the leave supervisor (HM-32)
+
+**Reviewer:** the governance-reviewer agent, run independently on branch `claude/agentic-hr` at
+`96e1639`, with offline repros (no API calls). 7 findings confirmed; all fixed test-first
+(each new test was run and seen failing before the fix), or documented where noted.
+
+Before the review, the session's own offline leave eval found that a request routed before the
+rules ran went to a leave specialist where the rules name an HR manager or director (9 of 28);
+`assessment_skipped` now carries the HR director role (`test_a_request_the_rules_never_saw_goes_to_the_most_senior_role`).
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A hand-off or finish before any intake stored no evidence pack (a rule meant for outages), so HR could never sign the request; injection-flagged requests hit it first, since the prompt says to hand those off | High | Only an intake-call failure leaves no pack; every supervisor choice and supervisor failure stores it (`test_a_choice_to_end_before_intake_leaves_the_request_decidable`, `test_a_supervisor_outage_before_intake_still_reaches_hr`). The leave eval now counts a missing pack as less review, and it then caught a wrong-type supervisor answer leaving 28 requests unsignable, fixed by the same rule |
+| The finish-time hall-pass check included the advisory explanation agent, so a stop on it after it answered stopped the request | Medium | A stop on it drops the note and keeps the route (`test_a_stop_on_the_explainer_after_it_answered_keeps_the_route`) |
+| A failed code check returned before the intakes were compared, so intake_disagreed was lost | Medium | The disagreement is kept on every path (`test_a_disagreeing_recheck_is_flagged_even_when_the_first_intake_fails_a_check`) |
+| The HR eval's metadata didn't list the leave supervisor | Medium | Listed (`test_the_hr_eval_records_the_leave_supervisor`) |
+| A run that lost the race to prepare a request caught the refused pack and finished a second time | Low | An error while recording the outcome is raised past the loop's handlers, as on the fixed path (`test_two_agentic_preparations_at_once_log_one_prepared_entry_each`) |
+| Interrupted runs weren't documented for HR | Low | Documented in ADR 0028 (same window as the fixed path) |
+| The evidence pack didn't show the mode, path or the re-check's intake; HM-22, the submit page and the CLI described only the fixed order | Low | The pack holds them (`test_the_evidence_pack_shows_the_path_and_both_intakes`); the docs updated |
+
+**Re-review of the fixes** (governance-reviewer, at `61a0792`, offline): all seven fixes hold,
+nothing new at Medium or above. With the old pack rule patched back in, the leave eval reports
+28 requests with less review. Noted as a deliberate cost, stated in ADR 0028: a supervisor
+outage before intake files the request with an HR director (nothing extracted) rather than
+leaving it to be prepared again. The race test now uses pytest's monkeypatch.
+

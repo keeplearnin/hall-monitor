@@ -1,0 +1,10 @@
+id: leave_supervisor
+name: Leave supervisor
+version: 0.1.0
+owner: own-401
+purpose: Choose a leave request's next step (run the intake agent, one independent re-check, the rules in code, the explanation agent, finish, or hand off to HR review). Sees codes only, has no tools, and never chooses a route or role; code routes every request to a person to sign.
+risk_tier: medium
+status: active
+model: claude-haiku-5-5
+allowed_tools: []
+data_classes: [health]

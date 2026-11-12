@@ -371,7 +371,16 @@ _SHOWN_FIELDS |= {
     # the weeks would let anyone with the panel work out a sensitive reason; HR reads them in
     # the review CLI, and the overview counts them across requests.
     "leave_assessed": {"intake_hmac", "assessment_hmac", "route"},
-    "leave_prepared": {"route", "explanation_hmac", "cost_usd", "models"},
+    "leave_prepared": {
+        "route",
+        "explanation_hmac",
+        "cost_usd",
+        "models",
+        # The leave supervisor's path (ADR 0028): codes only.
+        "mode",
+        "intake_runs",
+        "supervisor_path",
+    },
     "leave_evidence": {"evidence_sha256"},
     "leave_decision": {
         "decided_by",
@@ -413,6 +422,11 @@ _HR_STOPS = (
     r"no employee record for this request",
     r"the request doesn't give its dates",
     r"the extracted request isn't valid \([a-z_, ]+\)",
+    # The leave supervisor's own stops (hr/pipeline.py, ADR 0028).
+    r"the leave supervisor ended before the rules ran",
+    rf"leave supervisor: (?:budget exhausted: (?:\d+ supervisor steps|cost reached {_N} USD|"
+    rf"{_N} seconds)|supervisor loop: \d+ steps refused|budget can't be checked: cost unknown: "
+    r"no price for model '[\w.-]+' in PRICES_PER_MTOK)",
 )
 _HR_COST = r"cost unknown: no price for model '[\w.-]+' in PRICES_PER_MTOK"
 _HR_STOP_RE = re.compile(rf"(?:{'|'.join(_HR_STOPS)})(?:; {_HR_COST})?|{_HR_COST}")

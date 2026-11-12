@@ -1,11 +1,12 @@
 {
   "meta": {
-    "run_at": "2026-11-12 02:58 UTC",
-    "git_commit": "c570b488189ab239ba9c504428e2cdd80385ac58",
+    "run_at": "2026-11-12 03:48 UTC",
+    "git_commit": "b7e7ebd750334e757ed80cde66a7ad48e07e620b",
     "git_dirty": false,
     "mode": "scripted-answer-key",
     "claims": 36,
     "complaints": 500,
+    "leave_requests": 28,
     "agents": [
       {
         "agent_id": "claims_supervisor",
@@ -54,6 +55,30 @@
         "manifest_digest": "b992b23705e78c72875348b075d6a244d11d07838a7cb62d9ef864636d334708",
         "prompt_version": "intake-v3",
         "prompt_template_sha256": "a1f3e7edeeebb404eb8bd0ddaf61052278701c1622cfd286e1c5bd59bc2332a0"
+      },
+      {
+        "agent_id": "leave_explainer",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "a1df1e0caf66cb954771e4c48374321eb881874fbd4a58cfd8f559ef93b6696b",
+        "prompt_version": "leave-explainer-v1",
+        "prompt_template_sha256": "b7679df66c06f0449fac0c47cbb1760faaf8a2d0881a3aeaa95d932be2ea1b39"
+      },
+      {
+        "agent_id": "leave_intake",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "ea29e9dedc0452d4d7658e9381223fbadee9dd436428ea4820b69eef84b9e07b",
+        "prompt_version": "leave-intake-v1",
+        "prompt_template_sha256": "461d668fa78c7d403046371f4e4471ebbdbe63151f447b165394a5e0e7d90962"
+      },
+      {
+        "agent_id": "leave_supervisor",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "26709c5c1dd138ec957d74b441717d92f57707583392931b8bef2f1d313c0e97",
+        "prompt_version": "leave-supervisor-v1",
+        "prompt_template_sha256": "46adce86d355d41898532dd86b623767dae54d5f782dda7d8e4e1bb4624f5368"
       },
       {
         "agent_id": "recommendation",
@@ -488,10 +513,198 @@
       }
     }
   },
+  "leave": {
+    "requests": 28,
+    "fixed_routes": {
+      "specialist_sign_off": 8,
+      "hr_review": 20
+    },
+    "policies": {
+      "old_order": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 20,
+          "specialist_sign_off": 8
+        },
+        "agreement": 1.0,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {},
+        "mean_supervisor_calls": 4.0
+      },
+      "finish_at_once": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 28
+        },
+        "agreement": 0.0,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {
+          "assessment_skipped": 28
+        },
+        "mean_supervisor_calls": 1.0
+      },
+      "hand_off": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 28
+        },
+        "agreement": 0.0,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {
+          "assessment_skipped": 28,
+          "supervisor_handed_off": 28
+        },
+        "mean_supervisor_calls": 1.0
+      },
+      "finish_before_rules": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 28
+        },
+        "agreement": 0.0,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {
+          "assessment_skipped": 28
+        },
+        "mean_supervisor_calls": 2.0
+      },
+      "skip_note": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 20,
+          "specialist_sign_off": 8
+        },
+        "agreement": 1.0,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {},
+        "mean_supervisor_calls": 3.0
+      },
+      "hand_off_at_end": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 28
+        },
+        "agreement": 0.0,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {
+          "supervisor_handed_off": 28
+        },
+        "mean_supervisor_calls": 4.0
+      },
+      "repeat_intake": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 28
+        },
+        "agreement": 0.0,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {
+          "assessment_skipped": 28,
+          "supervisor_failed": 28
+        },
+        "mean_supervisor_calls": 4.0
+      },
+      "fails_at_once": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 28
+        },
+        "agreement": 0.0,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {
+          "assessment_skipped": 28,
+          "supervisor_failed": 28
+        },
+        "mean_supervisor_calls": 1.0
+      },
+      "recheck_agrees": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 20,
+          "specialist_sign_off": 8
+        },
+        "agreement": 1.0,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {},
+        "mean_supervisor_calls": 5.0
+      },
+      "recheck_disagrees": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 28
+        },
+        "agreement": 0.0,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {
+          "intake_disagreed": 28
+        },
+        "mean_supervisor_calls": 5.0
+      },
+      "noisy_1": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 23,
+          "specialist_sign_off": 5
+        },
+        "agreement": 0.5357,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {
+          "assessment_skipped": 8,
+          "supervisor_failed": 2,
+          "supervisor_handed_off": 5
+        },
+        "mean_supervisor_calls": 3.75
+      },
+      "noisy_2": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 24,
+          "specialist_sign_off": 4
+        },
+        "agreement": 0.5,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {
+          "assessment_skipped": 6,
+          "supervisor_failed": 2,
+          "supervisor_handed_off": 9
+        },
+        "mean_supervisor_calls": 4.0
+      },
+      "noisy_3": {
+        "requests": 28,
+        "routes": {
+          "hr_review": 25,
+          "specialist_sign_off": 3
+        },
+        "agreement": 0.5714,
+        "less_review": 0,
+        "less_review_requests": [],
+        "reasons_added": {
+          "assessment_skipped": 11,
+          "supervisor_handed_off": 7
+        },
+        "mean_supervisor_calls": 3.32
+      }
+    }
+  },
   "summary": {
     "unsafe_auto": 0,
     "desk_less_review": 0,
     "desk_old_order_agreement": 1.0,
+    "leave_less_review": 0,
+    "leave_old_order_agreement": 1.0,
     "old_order_agreement": 1.0
   }
 }

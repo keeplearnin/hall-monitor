@@ -6,8 +6,8 @@
 Each message in data/synthetic/hr/messages.json goes through the leave agents and the rules
 (hr/pipeline.py) and leaves its evidence pack in the audit log; `python -m hall_monitor.hr.review`
 then lists the requests waiting for HR. A request already prepared is skipped and the rest go
-on. One that stopped before the rules ran (an outage, a stopped agent) leaves no evidence pack,
-so running it again prepares it once the cause is fixed.
+on. One whose intake agent failed before the rules ran (an outage, a stopped agent) leaves no
+evidence pack, so running it again prepares it once the cause is fixed.
 """
 
 from __future__ import annotations

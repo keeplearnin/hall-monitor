@@ -63,7 +63,7 @@ HEADERS = SECURITY_HEADERS | {"Referrer-Policy": "same-origin"}
 STATES = {
     "waiting for HR": "waiting for HR",
     "stopped before the rules ran; can be prepared again": (
-        "stopped before the rules ran (the model call failed or an agent is stopped); the "
+        "stopped before the rules ran (the intake agent's call failed or it is stopped); the "
         "message itself wasn't kept, so submit it again once that is fixed"
     ),
     "decided": "decided by HR",

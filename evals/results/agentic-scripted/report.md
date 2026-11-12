@@ -1,6 +1,6 @@
 # Agentic path against the fixed path (offline, scripted)
 
-Run 2026-11-12 02:58 UTC at c570b488189a, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
+Run 2026-11-12 03:48 UTC at b7e7ebd75033, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
 
 Fixed path: routes {'auto': 16, 'adjuster': 20}, 5.0 specialist calls and 0.0124 USD per claim (fake token counts).
 
@@ -46,3 +46,25 @@ Fixed path: routes {'auto': 16, 'adjuster': 20}, 5.0 specialist calls and 0.0124
 | noisy_3 | 85% | 0 | {'specialist_review': 288, 'standard_queue': 212} | {'supervisor_failed': 1, 'supervisor_handed_off': 77, 'triage_skipped': 91} | 2.06 |
 
 - **Less review:** complaints this policy gave less review than the fixed order (the standard queue instead of specialist review, a lower urgency, or one of the code's own reasons dropped). Must be 0. `recheck_plays_down` answers every re-check with low urgency and no concerns.
+
+## HR leave
+
+28 synthetic leave requests, the agents answering from the answer key; fixed order routes {'specialist_sign_off': 8, 'hr_review': 20}. Every request is for a person to sign either way.
+
+| Policy | Same route and role | Less review | Routes | Reasons added | Supervisor calls |
+|---|---|---|---|---|---|
+| old_order | 100% | 0 | {'hr_review': 20, 'specialist_sign_off': 8} | - | 4.0 |
+| finish_at_once | 0% | 0 | {'hr_review': 28} | {'assessment_skipped': 28} | 1.0 |
+| hand_off | 0% | 0 | {'hr_review': 28} | {'assessment_skipped': 28, 'supervisor_handed_off': 28} | 1.0 |
+| finish_before_rules | 0% | 0 | {'hr_review': 28} | {'assessment_skipped': 28} | 2.0 |
+| skip_note | 100% | 0 | {'hr_review': 20, 'specialist_sign_off': 8} | - | 3.0 |
+| hand_off_at_end | 0% | 0 | {'hr_review': 28} | {'supervisor_handed_off': 28} | 4.0 |
+| repeat_intake | 0% | 0 | {'hr_review': 28} | {'assessment_skipped': 28, 'supervisor_failed': 28} | 4.0 |
+| fails_at_once | 0% | 0 | {'hr_review': 28} | {'assessment_skipped': 28, 'supervisor_failed': 28} | 1.0 |
+| recheck_agrees | 100% | 0 | {'hr_review': 20, 'specialist_sign_off': 8} | - | 5.0 |
+| recheck_disagrees | 0% | 0 | {'hr_review': 28} | {'intake_disagreed': 28} | 5.0 |
+| noisy_1 | 54% | 0 | {'hr_review': 23, 'specialist_sign_off': 5} | {'assessment_skipped': 8, 'supervisor_failed': 2, 'supervisor_handed_off': 5} | 3.75 |
+| noisy_2 | 50% | 0 | {'hr_review': 24, 'specialist_sign_off': 4} | {'assessment_skipped': 6, 'supervisor_failed': 2, 'supervisor_handed_off': 9} | 4.0 |
+| noisy_3 | 57% | 0 | {'hr_review': 25, 'specialist_sign_off': 3} | {'assessment_skipped': 11, 'supervisor_handed_off': 7} | 3.32 |
+
+- **Less review:** requests this policy gave less review than the fixed order (the specialist's light path instead of HR review, a less senior role, or, where the rules ran, one of their reasons dropped, or no evidence pack where the fixed order stored one). Must be 0. `recheck_disagrees` answers every re-check with the opposite intermittent answer.
