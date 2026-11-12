@@ -1689,6 +1689,76 @@ controls:
       thread timing; the drill isn't run in CI beyond the tests, and no drill report is
       published.
 
+  - id: HM-32
+    name: Agents act within their grant
+    what: >-
+      run_agent, the one call path every agent uses, runs an agent that can delegate or be
+      delegated to only under a grant from its case's book (hall_monitor/delegation.py): without
+      one, or with another agent's, it is refused before any model call. Before every model call
+      the book re-checks every agent in the grant's chain against the registry, so a stop on the
+      lead halts its helpers between steps. Each model call is priced from its usage and charged
+      to the grant (GrantBook.spend); when the grant's own spending plus what it has handed on
+      reaches its allotment (including through a helper's overshoot charged up to it), it makes
+      no further call, grant_budget_reached is logged once for that grant, and the run stops
+      with the calls already made recorded; a grant can't hand on all of its allotment, so a
+      lead always keeps some for the call that reads its helper's answer; an unpriced model can't run under a grant; spending reduces what a
+      grant may hand on. The agent is offered only its grant's tools, plus, for a lead given a
+      handoff runner, a hand_off tool listing the helpers its hall pass names
+      (hall_monitor/handoff.py). A handoff must be exactly a helper and a non-empty task
+      (anything else is refused and logged); the book makes the helper's grant, with an
+      allotment set by code and every data class the lead's grant holds, so a helper not approved
+      for all of them is refused; the task reaches the helper fenced and escaped; the helper's
+      validated answer returns to the lead as a tool result, and a helper's failure as its
+      error type only. A helper code gave no allotment is refused before any call; a grant with
+      nothing left makes no further call; a second handoff to the same helper gets a fresh
+      grant; what a helper spends past its allotment is charged to its parent too, so the first
+      grant's spending is the case's. Every handoff's outcome (answered, refused or failed, with
+      the helper's call) is kept on the runner so the caller can mark the case incomplete.
+      hand_off is not an MCP tool, never reaches the gateway and sends nothing.
+    status: built
+    code:
+      - hall_monitor/agents/base.py::run_agent
+      - hall_monitor/handoff.py::HandOff
+      - hall_monitor/handoff.py::handoff_definition
+      - hall_monitor/delegation.py::GrantBook
+      - hall_monitor/gateway/cost.py::usage_cost
+    tests:
+      - tests/test_agent_handoff.py::test_a_crew_agent_run_without_a_grant_is_refused_before_any_model_call
+      - tests/test_agent_handoff.py::test_every_model_step_is_charged_to_the_grant
+      - tests/test_agent_handoff.py::test_an_agent_over_its_allotment_stops_and_goes_to_a_person
+      - tests/test_agent_handoff.py::test_stopping_the_lead_halts_it_between_steps
+      - tests/test_agent_handoff.py::test_a_lead_hands_work_to_a_helper_under_a_narrower_grant
+      - tests/test_agent_handoff.py::test_a_handoff_to_an_undeclared_helper_is_refused_and_the_lead_carries_on
+      - tests/test_agent_handoff.py::test_a_task_carries_every_data_class_its_writer_holds
+      - tests/test_agent_handoff.py::test_a_helper_s_failure_comes_back_as_an_error_never_an_answer
+      - tests/test_agent_handoff.py::test_a_handoff_with_bad_input_is_refused
+      - tests/test_agent_handoff.py::test_a_helper_s_task_is_fenced_and_escaped
+      - tests/test_agent_handoff.py::test_the_helper_s_allotment_is_set_by_code_not_the_lead
+      - tests/test_agent_handoff.py::test_spending_reduces_what_a_grant_can_hand_on
+      - tests/test_agent_handoff.py::test_a_case_s_spending_reaches_the_lead_s_grant_and_stops_it
+      - tests/test_agent_handoff.py::test_a_helper_without_a_code_set_allotment_is_refused_before_any_model_call
+      - tests/test_agent_handoff.py::test_a_second_handoff_to_the_same_helper_gets_a_fresh_grant
+      - tests/test_agent_handoff.py::test_a_helper_s_failure_and_its_cost_are_visible_to_the_caller
+      - tests/test_agent_handoff.py::test_a_handoff_runner_for_another_grant_is_refused
+      - tests/test_agent_handoff.py::test_a_lead_pushed_over_by_a_helper_s_overshoot_logs_grant_budget_reached
+      - tests/test_agent_handoff.py::test_a_lead_must_keep_some_budget_for_itself
+    evidence:
+      - "pending: the complaint crew (slice 4) running live under grants"
+    nist: [GOVERN 1.4, MANAGE 1.3, MANAGE 2.4]
+    finos:
+      risks: [RI-24, RI-28]
+      mitigations: [MI-18, MI-21]
+    gaps: >-
+      No crew agents exist yet and nothing has run live; tested with scripted clients only.
+      Spending is charged after each model call, so a case can overshoot by at most one call
+      per grant in its tree; a call the SDK bills and then raises on (for example a parse
+      error) isn't charged. Marking a case incomplete from the handoff outcomes is the crew
+      pipeline's job (slice 4). A task is taken to carry every data class its writer holds, so a
+      helper meant to see less needs code-built input (the crew decides which). A helper's
+      answer returns to the lead as a tool result; whether the lead treats it as data rests on
+      its prompt and is measured only once the crew runs (the red-team arena can target it then). The book
+      and its spending live in memory for one run.
+
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 not_covered:
   - ref: GOVERN 1.1
@@ -1761,7 +1831,8 @@ audit_events:
   egress_refused: [HM-25]
   draft_stored: [HM-25, HM-06]
   delegation_granted: [HM-29]
-  delegation_refused: [HM-29]
+  delegation_refused: [HM-29, HM-32]
+  grant_budget_reached: [HM-32]
   complaint_pull: [HM-26]
   complaint_quarantined: [HM-26]
   complaint_received: [HM-27, HM-09, HM-10]

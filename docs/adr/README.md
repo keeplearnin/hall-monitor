@@ -34,6 +34,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0025](0025-delegated-passes-only-narrow.md) | When an agent hands work to another, the pass only narrows | HM-29 |
 | [0026](0026-red-team-arena-judged-by-code.md) | A red-team arena against a hijacked agent, judged by code | HM-30 |
 | [0027](0027-failure-drills.md) | Fail many agents at once on purpose, and check the outcome in code | HM-31 |
+| [0028](0028-agents-act-within-their-grant.md) | Agents act within their grant: spend is charged, and handoffs are a tool that starts a governed run | HM-32 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".

@@ -892,3 +892,27 @@ fixed test-first:
 |---|---|---|
 | Any ValueError was taken as the workflow's own refusal and stored as text, so an unexpected one (including a pydantic ValidationError, which repeats input) was never flagged | Medium | Only a duplicate's second submission may be refused, and only with the workflow's four known refusals, recorded as a fixed label; any other ValueError is unexpected, recorded by its type |
 | The docs said masked faults are those after the risk step; wrong answers stopped before routing and faults on the risk agent are masked too | Low | Design and docstring reworded |
+
+## Review 22 (agent-loop): agents act within their grant (HM-32)
+
+**Reviewer:** the governance-reviewer agent, before the pull request, with offline scripted
+probes. It confirmed no path gives a crew agent a model call, tool or helper without a valid
+grant, the lead can't raise a helper's budget or reach, and existing agents keep their path.
+3 findings confirmed and 2 plausible; all fixed, test-first, or stated as a gap.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A parent's budget counted what it allotted, not what helpers spent: a helper's overshoot never reached the lead, and a helper missing from the allotments still made one paid call (a case reached 150% of its root budget and finished normally) | High | A helper code gave no allotment is refused before any call; a grant with nothing left makes no further call; spending past a helper's allotment is charged up to its parent, so the root's spending is the case's; the docs now say a case overshoots by at most one call per grant in its tree |
+| A second handoff to the same helper produced the identical grant, overwriting it and charging the parent's allotment twice | Medium | Grants carry their issue order, so each handoff is a fresh grant with its own spending |
+| A helper's failure became a tool result and the lead finished normally, with the helper's call (versions, cost) lost to the caller | Medium | Every handoff's outcome and call is kept on the runner (`outcomes`, `complete`) so the crew pipeline can mark the case incomplete |
+| Plausible: nothing tied a handoff runner to the grant it runs under | Low | `Delegated` refuses a runner for another grant or book |
+| Plausible: a call the SDK bills and then raises on isn't charged | Low | Stated in HM-32's gaps and ADR 0028 |
+
+**Re-review of the fixes** (governance-reviewer, after the merge of `main`): the cascade
+arithmetic, the overshoot bound, fresh grants, kept outcomes and the merge all checked out.
+1 Medium and 1 Low, both fixed test-first:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A lead pushed over its allotment by a helper's overshoot, or landing exactly on it, stopped without `grant_budget_reached` in the log | Medium | The event is logged once per grant whenever a grant is stopped for its allotment, from `spend` or `check` |
+| A lead could allot its whole budget to helpers and then couldn't make the call that reads their answers, so every such case stopped | Low | A grant can't hand on all of its allotment; the delegation test's 0.6 + 0.4 now uses 0.39 |

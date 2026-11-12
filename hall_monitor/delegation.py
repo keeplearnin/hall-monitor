@@ -58,6 +58,9 @@ class Grant(BaseModel):
     data_classes: tuple[DataClass, ...]
     budget_usd: float = Field(ge=0, allow_inf_nan=False)
     parent: str | None
+    # Issue order within the book, so a second handoff to the same helper is a new grant with
+    # its own spending, not the first one again.
+    seq: int = Field(default=0, ge=0)
 
     @property
     def grant_id(self) -> str:
@@ -99,6 +102,8 @@ class GrantBook:
         self._audit = audit
         self._issued: dict[str, Grant] = {}
         self._allotted: dict[str, float] = {}
+        self._spent: dict[str, float] = {}
+        self._budget_logged: set[str] = set()
         self._root: str | None = None
         self._closed = False
         # Issuing and handing off read and then write the allotment totals; one at a time.
@@ -124,6 +129,7 @@ class GrantBook:
             data_classes=_sorted_classes(manifest.data_classes),
             budget_usd=budget_usd,
             parent=None,
+            seq=len(self._issued) + 1,
         )
         self._root = grant.grant_id
         return self._record(grant, actor=PIPELINE)
@@ -198,10 +204,13 @@ class GrantBook:
         ):
             raise refuse("bad_allotment", "an allotment must be a non-negative amount")
         given = self._allotted.get(parent.grant_id, 0.0)
-        if given + budget_usd > parent.budget_usd + _SLACK:
+        used = given + self._spent.get(parent.grant_id, 0.0)
+        # The parent keeps some of its allotment: with none left it couldn't make the call that
+        # reads the helper's answer, and every such case would stop.
+        if used + budget_usd >= parent.budget_usd - _SLACK:
             raise refuse(
                 "over_allotment",
-                f"{parent.holder!r} has {parent.budget_usd - given:.4f} USD of its allotment left",
+                f"{parent.holder!r} has {parent.budget_usd - used:.4f} USD of its allotment left",
             )
 
         grant = Grant(
@@ -212,6 +221,7 @@ class GrantBook:
             data_classes=child_classes,
             budget_usd=budget_usd,
             parent=parent.grant_id,
+            seq=len(self._issued) + 1,
         )
         self._allotted[parent.grant_id] = given + budget_usd
         return self._record(grant, actor=parent.holder)
@@ -231,6 +241,12 @@ class GrantBook:
         if not self._is_issued(grant):
             raise DelegationError(f"that grant was not issued for {self.scope}")
         self._require_chain(grant)
+        used = self._spent.get(grant.grant_id, 0.0) + self._allotted.get(grant.grant_id, 0.0)
+        if used >= grant.budget_usd - _SLACK:
+            # Also reached when a helper's overshoot was charged up to this grant, or it landed
+            # exactly on its allotment: logged once either way.
+            self._log_budget_reached(grant)
+            raise DelegationError(f"agent {grant.holder!r} has used its allotment")
         if tool is not None and tool not in grant.tools:
             raise DelegationError(f"agent {grant.holder!r}'s grant doesn't hold tool {tool!r}")
         if carries is not None:
@@ -239,6 +255,67 @@ class GrantBook:
                 raise DelegationError(
                     f"agent {grant.holder!r}'s grant doesn't hold {_names(extra)} data"
                 )
+
+    def spend(self, grant: Grant, usd: float) -> None:
+        """Charge a model call to the grant (HM-32). The charge is always recorded, since the
+        money is spent; if the grant's own spending plus what it has handed on is now over its
+        allotment, it is refused from here on and this raises, so the run stops and the case
+        goes to a person. A run can overshoot by at most the step that crossed the line."""
+        if not (isinstance(usd, int | float) and math.isfinite(usd)) or usd < 0:
+            raise ValueError("a charge must be a non-negative amount")
+        with self._lock:
+            if not self._is_issued(grant):
+                raise DelegationError(f"that grant was not issued for {self.scope}")
+            spent = self._charge(grant, usd)
+            over = spent + self._allotted.get(grant.grant_id, 0.0) > grant.budget_usd + _SLACK
+        if over:
+            self._log_budget_reached(grant)
+            raise DelegationError(
+                f"agent {grant.holder!r} has used its allotment of {grant.budget_usd:.4f} USD"
+            )
+
+    def _log_budget_reached(self, grant: Grant) -> None:
+        """Log grant_budget_reached once per grant, however it got there."""
+        with self._lock:
+            if grant.grant_id in self._budget_logged:
+                return
+            self._budget_logged.add(grant.grant_id)
+            spent = self._spent.get(grant.grant_id, 0.0)
+        if self._audit is not None:
+            self._audit.append(
+                self.scope,
+                "grant_budget_reached",
+                grant.holder,
+                {
+                    "grant": grant.grant_id,
+                    "holder": grant.holder,
+                    "spent_usd": round(spent, 6),
+                    "budget_usd": grant.budget_usd,
+                },
+            )
+
+    def _charge(self, grant: Grant, usd: float) -> float:
+        """Add usd to the grant's spending. Whatever goes past its allotment is charged to its
+        parent as well, and so on up, so the first grant's spending is the whole case's and a
+        helper's overshoot stops the lead at its next step. Called under the lock."""
+        allotted = self._allotted.get(grant.grant_id, 0.0)
+        before = self._spent.get(grant.grant_id, 0.0)
+        after = before + usd
+        self._spent[grant.grant_id] = after
+        excess = max(0.0, after + allotted - grant.budget_usd) - max(
+            0.0, before + allotted - grant.budget_usd
+        )
+        if excess > 0 and grant.parent is not None and grant.parent in self._issued:
+            self._charge(self._issued[grant.parent], excess)
+        return after
+
+    def record_refusal(self, parent: Grant, to: str, code: str) -> None:
+        """Log a handoff refused before the book was asked (a malformed request)."""
+        self._log_refusal(parent, to, code, None, None, 0.0)
+
+    def spent(self, grant: Grant) -> float:
+        """What the grant's holder has spent on model calls so far."""
+        return self._spent.get(grant.grant_id, 0.0)
 
     def close(self) -> None:
         """End every grant in the book."""

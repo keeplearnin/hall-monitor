@@ -19,18 +19,38 @@ class UnpricedModelError(ValueError):
     pass
 
 
-def call_cost(call: AgentCall) -> float:
+def require_price(model: str) -> None:
+    if model not in PRICES_PER_MTOK:
+        raise UnpricedModelError(f"no price for model {model!r} in PRICES_PER_MTOK")
+
+
+def usage_cost(
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    cache_creation_input_tokens: int = 0,
+    cache_read_input_tokens: int = 0,
+) -> float:
     """input_tokens counts only uncached input; cached reads and writes are priced separately."""
-    if call.model not in PRICES_PER_MTOK:
-        raise UnpricedModelError(f"no price for model {call.model!r} in PRICES_PER_MTOK")
-    input_price, output_price = PRICES_PER_MTOK[call.model]
+    require_price(model)
+    input_price, output_price = PRICES_PER_MTOK[model]
     cents = (
-        call.input_tokens * input_price
-        + call.cache_creation_input_tokens * input_price * CACHE_WRITE_MULTIPLIER
-        + call.cache_read_input_tokens * input_price * CACHE_READ_MULTIPLIER
-        + call.output_tokens * output_price
+        input_tokens * input_price
+        + cache_creation_input_tokens * input_price * CACHE_WRITE_MULTIPLIER
+        + cache_read_input_tokens * input_price * CACHE_READ_MULTIPLIER
+        + output_tokens * output_price
     )
     return cents / 1_000_000
+
+
+def call_cost(call: AgentCall) -> float:
+    return usage_cost(
+        call.model,
+        call.input_tokens,
+        call.output_tokens,
+        call.cache_creation_input_tokens,
+        call.cache_read_input_tokens,
+    )
 
 
 def cost_by_agent(calls: list[AgentCall]) -> dict[str, float]:

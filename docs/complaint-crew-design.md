@@ -25,7 +25,7 @@ sent to anyone (HM-25 applies unchanged), and a person still owns every complain
 | Agent | Job | Tools | Data it may see |
 |---|---|---|---|
 | `crew_lead` | Reads the triaged complaint, decides which helpers to ask and what to ask them, and assembles their answers | none of its own | PII, financial |
-| `rules_researcher` | Says which consumer finance rules the complaint touches (for example Regulation E for an unauthorised transfer, Regulation Z for a billing dispute, the FDCPA for debt collection) and cites the section | `reg_lookup` | none: it gets the labels only |
+| `rules_researcher` | Says which consumer finance rules the complaint touches (for example Regulation E for an unauthorised transfer, Regulation Z for a billing dispute, the FDCPA for debt collection) and cites the section | `reg_lookup` | PII, financial: a task the lead writes may carry them (slice 2) |
 | `pattern_analyst` | Says whether the desk has seen a run of complaints like this one recently | `complaint_patterns` | financial (counts only) |
 | `case_writer` | Writes the case file for the specialist from the helpers' answers | none | PII, financial |
 
@@ -67,9 +67,10 @@ data, not instructions.
 
 ## How data is kept small
 
-- The rules researcher gets the product, issue and sub-issue only. Its grant carries no data
-  classes, so a tool returning personal or financial data would be refused to it even if the
-  lead asked.
+- A task one agent writes for another is taken to carry every data class the writer holds
+  (slice 2), so a helper is handed work only if its hall pass allows all of them. A helper meant
+  to see no personal data (for example a rules researcher given only the labels) has to get its
+  input from code, not from a task the lead wrote; slice 4 decides which helpers work that way.
 - The pattern tool returns counts by product and issue over time for the whole desk, never other
   complaints' records, and suppresses any count under five. It doesn't break counts down by
   state or ZIP region: HM-28's counterfactual check keeps location out of what agents see, and
@@ -83,20 +84,28 @@ data, not instructions.
 1. **Delegation in code (HM-29).** `hall_monitor/delegation.py` (grants and the grant book), the
    `may_delegate_to` manifest field, the gateway's grant check, two audit events, this design and
    ADR 0025. No new agents, no model calls. Test-first.
-2. **The two read-only tools.** `reg_lookup` over the committed rules index and
-   `complaint_patterns` over the desk's store, behind `ToolGateway`, in the read-only catalogue.
-3. **The crew.** Four manifests, prompts and approvals; the crew pipeline with a scripted stand-in
+2. **Agents act within their grant (HM-32).** The one agent call path (`run_agent`) runs a crew
+   agent only under a grant: every round checks the grant's chain, every model call is charged
+   to its allotment and a run over it stops, and its tools are the grant's. A lead is offered a
+   `hand_off` tool (`hall_monitor/handoff.py`) that starts a helper's governed run under a child
+   grant, with an allotment set by code, and returns its answer as data. ADR 0028. Still no crew
+   agents and no model calls: tested with scripted clients.
+3. **The read-only tools.** `reg_lookup` over a committed rules index and `complaint_patterns`
+   over the desk's store, behind `ToolGateway`, in the read-only catalogue.
+4. **The crew.** Four manifests, prompts and approvals; the crew pipeline with a scripted stand-in
    and a fake client; the code's minimum plan (a must-route complaint always gets the rules
    researcher); failures and stops end with the complaint still in specialist review and the case
-   file marked incomplete.
-4. **Evals and the panel.** Case files scored against a hand-written key of which rules each
-   label touches; a panel page showing each case's grant tree, refusals and cost.
+   file marked incomplete. Then the first live run, under a hard budget.
+5. **Evals and the panel.** Case files scored against a hand-written key of which rules each
+   label touches, against a code-only baseline; a panel page showing each case's grant tree,
+   refusals and cost.
 
 ## What this doesn't do
 
 - Agents still run in one process. Grants are allow-lists checked in code, not isolation
   (FINOS MI-22 stays not covered).
-- In slice 1 a grant's allotment limits what it may give its children; spending against the
-  allotment is checked from slice 3, when agents run.
+- Spending is charged after each model call, and what a helper spends past its allotment is
+  charged to the lead's grant as well, so a case overshoots by at most one call per grant in its
+  tree (slice 2).
 - The grant book lives in memory for one run. A crash loses it, and the case goes to a person
   with no case file, as any failure does.
