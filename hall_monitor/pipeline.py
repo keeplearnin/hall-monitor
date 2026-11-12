@@ -14,9 +14,11 @@ is reference text and is passed in directly.
 from __future__ import annotations
 
 import re
+import time
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import anthropic
 from pydantic import BaseModel, ValidationError
@@ -45,11 +47,15 @@ from hall_monitor.models import (
     ReviewedStage,
     RevisionRecord,
     RiskAssessment,
+    SupervisorStep,
     ToolCall,
     TriageResult,
 )
 from hall_monitor.registry import Registry, RegistryError
 from hall_monitor.tools.gateway import ToolGateway
+
+if TYPE_CHECKING:
+    from hall_monitor.agentic import Limits
 
 MAX_REVISIONS = 2
 
@@ -100,6 +106,7 @@ class _Run:
         self.reviews: list[CriticReview] = _Recorded("critic_review", self.on_event)
         self.history: list[RevisionRecord] = _Recorded("revision", self.on_event)
         self.code_corrections: list[str] = _Recorded("code_correction", self.on_event)
+        self.steps: list[SupervisorStep] = _Recorded("supervisor_step", self.on_event)
 
     def output[T](self, run: AgentRun[T]) -> T:
         self.calls.append(run.call)
@@ -176,18 +183,49 @@ def triage(
     critic: bool = True,
     model_routing: bool = False,
     on_event: EventSink | None = None,
+    agentic: bool = True,
+    limits: Limits | None = None,
+    clock: Callable[[], float] | None = None,
 ) -> TriageResult:
     """model_routing=False (the default) runs every agent on its main model.
 
+    agentic=True (the default) lets the claims supervisor choose the steps within code's
+    bounds (agentic.py, ADR 0028), under limits (the claim's step, cost and time budget) and
+    clock (for wall-clock time; time.monotonic by default). agentic=False runs the fixed order
+    below, kept as the comparison the agentic path is evaluated against.
+
     on_event, if given, is called as each thing happens: "claim_submitted" (a dict with the
     original claim, the redaction counts and the injection signals), then "agent_call",
-    "tool_call", "critic_review", "revision" and "code_correction" in the order they occur, and
+    "tool_call", "critic_review", "revision", "code_correction" and (agentic only)
+    "supervisor_step" in the order they occur, and
     "triage_result" last. The workflow writes each to the audit log at once. If recording
     fails, the claim doesn't proceed: a failure mid-run stops it for a person, and a failure
     at either end raises.
     """
+    if agentic:
+        from hall_monitor.agentic import Limits as _Limits
+        from hall_monitor.agentic import supervise
+
+        budget, now = limits or _Limits(), clock or time.monotonic
+
+        def body(claim, run, registry, gateway, wording, client, critic, model_routing, signals):
+            return supervise(
+                claim,
+                run,
+                registry,
+                gateway,
+                wording,
+                client,
+                critic,
+                model_routing,
+                signals,
+                budget,
+                now,
+            )
+    else:
+        body = _triage
     result = _triage_with_stop(
-        claim, registry, wording, gateway, client, critic, model_routing, on_event
+        claim, registry, wording, gateway, client, critic, model_routing, on_event, body
     )
     if on_event is not None:
         on_event("triage_result", result)
@@ -203,6 +241,7 @@ def _triage_with_stop(
     critic: bool,
     model_routing: bool,
     on_event: EventSink | None,
+    body: Callable[..., TriageResult],
 ) -> TriageResult:
     client = client or anthropic.Anthropic()
     gateway = gateway or ToolGateway(registry)
@@ -221,7 +260,7 @@ def _triage_with_stop(
             {"claim": original, "redactions": redactions, "injection_signals": signals},
         )
     try:
-        result = _triage(
+        result = body(
             claim, run, registry, gateway, wording, client, critic, model_routing, signals
         )
         return result.model_copy(
@@ -266,6 +305,8 @@ def _triage_with_stop(
         cost_usd=cost,
         redactions=redactions,
         injection_signals=signals,
+        mode="fixed" if body is _triage else "agentic",
+        supervisor_steps=run.steps,
     )
 
 

@@ -1,0 +1,10 @@
+id: claims_supervisor
+name: Claims supervisor
+version: 0.1.0
+owner: own-301
+purpose: Choose which claims step runs next (intake, coverage, risk, critic, revision, recommendation), or finish or hand off. Sees codes and amounts only, has no tools, and never routes a claim; code checks every choice and decides the route.
+risk_tier: medium
+status: active
+model: claude-haiku-5-5
+allowed_tools: []
+data_classes: [financial, health]

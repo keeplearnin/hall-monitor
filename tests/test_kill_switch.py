@@ -389,10 +389,13 @@ def test_a_stop_after_an_agent_answers_still_sends_the_claim_to_a_person(registr
     client = fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)))
     answer = client.messages.parse
 
+    stopped = []
+
     def parse(**kwargs):
         response = answer(**kwargs)
-        if len(client.messages.calls) == 1:
+        if len(client.messages.calls) == 1 and not stopped:
             _stop(registry_dir)  # intake has answered; its owner stops it now
+            stopped.append(True)
         return response
 
     client.messages.parse = parse

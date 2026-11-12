@@ -51,6 +51,7 @@ import anthropic
 import yaml
 from langgraph.checkpoint.sqlite import SqliteSaver
 
+from hall_monitor.agents.supervisor import scripted_answer
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.governance.audit import AuditLog
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
@@ -166,7 +167,11 @@ class _Answers:
 
     def parse(self, **kwargs):
         kind = kwargs["output_format"].__name__
-        answer, stop_reason = self.answers[kind], "end_turn"
+        if kind == "SupervisorDecision":  # the old fixed order, as a scripted supervisor
+            answer = scripted_answer(kwargs)
+        else:
+            answer = self.answers[kind]
+        stop_reason = "end_turn"
         if kind == self.case.agent:
             # No request object: nothing was sent, and only egress.py may use httpx (HM-25).
             request = None
