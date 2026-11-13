@@ -87,6 +87,14 @@
   .road .now { background: color-mix(in srgb, var(--pass) 16%, transparent); }
   footer { border-top: 1px solid var(--rule); padding-top: 14px; color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 24px; }
   footer a { color: inherit; }
+  /* Printing (docs/pdf/hall-monitor-executive-briefing.pdf): two tall pages, colours kept,
+     the regulator's questions starting page 2 so none splits. */
+  @media print {
+    @page { size: 1200px 1600px; margin: 0; }
+    html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sheet { padding-inline: 40px; }
+    h2:has(+ ul.qa) { break-before: page; }
+  }
 </style>
 </head>
 <body>
