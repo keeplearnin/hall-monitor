@@ -159,6 +159,7 @@ complaint -> redact, scan for text aimed at the AI           (code)
 | `supervisor_handed_off` | the desk supervisor handed the complaint to specialist review |
 | `triage_skipped` | the desk supervisor finished before any triage ran |
 | `supervisor_failed` | the desk supervisor failed, was stopped, ran out of budget or kept choosing steps code refused (the triage agent may have answered) |
+| `spend_refused` | the desk's spending cap was reached, its budgets aren't approved or the spend ledger couldn't be reached: refused before any model call, so no agent read it (HM-34, [ADR 0030](adr/0030-cost-governance-budgets-and-caps.md)) |
 
 The label patterns are checked against every label in the pinned snapshot by a hand-written
 table in the tests, not by the patterns themselves (review 16 found two common labels missed).

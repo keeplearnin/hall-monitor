@@ -98,6 +98,12 @@ REASONS: dict[str, tuple[str, Role]] = {
         "the request was routed before the rules ran, so the most senior role decides",
         Role.HR_DIRECTOR,
     ),
+    # Cost governance (HM-34): refused before any model call, so the rules never ran.
+    "spend_refused": (
+        "the leave spending cap was reached, its budgets aren't approved or the spend ledger "
+        "couldn't be reached; nothing was extracted, so the most senior role decides",
+        Role.HR_DIRECTOR,
+    ),
     "supervisor_failed": (
         "the leave supervisor failed, was stopped, ran out of budget or kept choosing steps "
         "code refused",
@@ -120,6 +126,7 @@ PIPELINE_REASONS = frozenset(
         "supervisor_handed_off",
         "assessment_skipped",
         "supervisor_failed",
+        "spend_refused",
     }
 )
 

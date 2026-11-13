@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from hall_monitor import tracing
 from hall_monitor.agents.base import AgentRefusedError
+from hall_monitor.budgets import SpendRefused
 from hall_monitor.complaints.drafts import DraftResponse, store_draft
 from hall_monitor.complaints.models import Complaint
 from hall_monitor.complaints.routing import (
@@ -68,6 +69,7 @@ from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.governance.audit import AlreadyRecorded, AuditLog
 from hall_monitor.models import AgentCall, StepOutcome, StepRefusal
 from hall_monitor.registry import Registry, RegistryError
+from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 
 ROUTED = "complaint_routed"
 RECEIVED = "complaint_received"
@@ -166,9 +168,15 @@ def triage_complaint(
     agentic: bool = True,
     limits: DeskLimits | None = None,
     clock: Callable[[], float] | None = None,
+    spend: SpendLedger | None = None,
 ) -> ComplaintResult:
     """agentic=True (the default) lets the desk supervisor choose the steps within code's
     bounds (ADR 0028); agentic=False runs the old fixed order, one triage.
+
+    Before any model call the desk's approved budget is read from registry/budgets.yaml, and
+    with spend (the ledger the live entry points pass) the complaint's cost is reserved against
+    the complaints daily and monthly caps (HM-34, ADR 0030). A refusal sends it to specialist
+    review as spend_refused, with no model call; limits overrides the case budget (tests).
 
     The routed entry says whether the answer came from the scripted stand-in, read from the
     client itself (complaints/scripted.py), so a log never shows its answers as the model's."""
@@ -225,8 +233,9 @@ def triage_complaint(
             client,
             audit,
             agentic,
-            limits or DeskLimits(),
+            limits,
             clock or time.monotonic,
+            spend,
         )
     except BaseException:
         # A crash or interruption after the complaint was claimed: route it to a person now if
@@ -253,8 +262,10 @@ def _prepare(
     agentic: bool = False,
     limits: DeskLimits | None = None,
     clock: Callable[[], float] = time.monotonic,
+    spend: SpendLedger | None = None,
 ) -> ComplaintResult:
     scripted = is_scripted(client)
+    start: CaseStart | None = None
     calls: list[AgentCall] = []
     pipeline_reasons = {"text_addresses_ai"} if signals else set()
     triage: ComplaintTriage | None = None
@@ -283,6 +294,11 @@ def _prepare(
             audit.append(scope, "supervisor_step", SUPERVISOR, step.model_dump(mode="json"))
 
     def body() -> None:
+        nonlocal start
+        # Before any model call: the approved case budget and, with a ledger, the complaint's
+        # reservation against the desk's caps (HM-34).
+        start = start_case("complaints", scope, spend)
+        case = start.budget
         if agentic:
             pipeline_reasons.update(
                 _supervise(
@@ -296,7 +312,7 @@ def _prepare(
                     keep,
                     triages,
                     record_step,
-                    limits or DeskLimits(),
+                    limits or DeskLimits(case.max_steps, case.max_cost_usd, case.max_seconds),
                     clock,
                 )
             )
@@ -315,6 +331,8 @@ def _prepare(
     failure = None
     try:
         body()
+    except SpendRefused as exc:  # a fixed template: budgets not approved, or a cap reached
+        stopped, failure = str(exc), "spend_refused"
     except DeskStopped as exc:
         stopped, failure = str(exc), "supervisor_failed"
     except AgentRefusedError as exc:
@@ -352,6 +370,8 @@ def _prepare(
                 ),
             )
     cost, unknown = _cost(calls)
+    # What the complaint cost, freeing the rest of its reservation; unpriced stays reserved.
+    finish_case(spend, start, None if unknown else cost)
     if unknown:
         stopped = unknown if stopped is None else f"{stopped}; {unknown}"
         if not {"agent_failed", "supervisor_failed"} & set(route.reasons):

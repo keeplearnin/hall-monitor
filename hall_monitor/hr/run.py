@@ -24,9 +24,12 @@ from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog
 from hall_monitor.hr.data import load_company, load_employees, load_messages
 from hall_monitor.hr.pipeline import prepare
 from hall_monitor.registry import Registry
+from hall_monitor.spend import DEFAULT_SPEND_DB, SpendLedger
 
 
-def run(request_ids: list[str], audit_db: Path, client=None) -> list[dict]:
+def run(
+    request_ids: list[str], audit_db: Path, client=None, spend: SpendLedger | None = None
+) -> list[dict]:
     """Prepare each request into the log; the route each got. Unknown IDs are refused."""
     messages = {m.id: m for m in load_messages()}
     unknown = [r for r in request_ids if r not in messages]
@@ -47,6 +50,7 @@ def run(request_ids: list[str], audit_db: Path, client=None) -> list[dict]:
                 registry=registry,
                 client=client,
                 audit=audit,
+                spend=spend,
             )
             results.append(
                 {
@@ -74,7 +78,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("name request IDs or pass --all")
     load_dotenv()
     try:
-        results = run(ids, args.audit_db)
+        # It calls the Claude API, so it is held to the leave caps (HM-34).
+        results = run(ids, args.audit_db, spend=SpendLedger(DEFAULT_SPEND_DB))
     except ValueError as exc:  # prepared by another run at the same moment
         print(str(exc), file=sys.stderr)
         return 1

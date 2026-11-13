@@ -52,6 +52,7 @@ from hall_monitor.panel import demo
 from hall_monitor.panel.app import LOCAL_HOSTS, SECURITY_HEADERS
 from hall_monitor.panel.pages import CSP, Safe, esc, tag
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, Registry
+from hall_monitor.spend import DEFAULT_SPEND_DB, SpendLedger
 
 DEFAULT_PORT = 8766  # the panel is on 8765
 DEMO_DIR = demo.DEFAULT_OUT
@@ -142,6 +143,7 @@ def create_app(
     registry_dir: Path = DEFAULT_REGISTRY_DIR,
     client=None,
     max_requests: int = 20,
+    spend: SpendLedger | None = None,
 ) -> Starlette:
     """The form. Live mode calls `client` (the Claude client); demo mode uses the scripted one."""
     if not live:
@@ -278,6 +280,8 @@ def create_app(
                 registry=Registry.from_dir(registry_dir),
                 client=client,
                 audit=audit,
+                # Live submissions are held to the leave caps (HM-34).
+                spend=spend if live else None,
             )
         finally:
             audit.close()
@@ -385,6 +389,7 @@ def main(argv: list[str] | None = None) -> int:
             audit_db=args.audit_db,
             client=default_client(),
             max_requests=args.max_requests,
+            spend=SpendLedger(DEFAULT_SPEND_DB),
         )
     import uvicorn
 

@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from hall_monitor import tracing
 from hall_monitor.agents.base import AgentRefusedError, default_client
+from hall_monitor.budgets import SpendRefused
 from hall_monitor.gateway.cost import UnpricedModelError, call_cost
 from hall_monitor.gateway.injection import detect_in_texts
 from hall_monitor.gateway.redaction import redact_text
@@ -65,6 +66,7 @@ from hall_monitor.hr.supervisor import (
 )
 from hall_monitor.models import AgentCall, StepOutcome, StepRefusal
 from hall_monitor.registry import Registry, RegistryError
+from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 
 
 class LeavePreparation(BaseModel):
@@ -242,9 +244,16 @@ def prepare(
     agentic: bool = True,
     limits: LeaveLimits | None = None,
     clock: Callable[[], float] | None = None,
+    spend: SpendLedger | None = None,
 ) -> LeavePreparation:
     """agentic=True (the default) lets the leave supervisor choose the steps within code's
-    bounds (ADR 0028); agentic=False runs the old fixed order: intake, the rules, the note."""
+    bounds (ADR 0028); agentic=False runs the old fixed order: intake, the rules, the note.
+
+    Before any model call the leave budget is read from registry/budgets.yaml, and with spend
+    (the ledger the live entry points pass) the request's cost is reserved against the leave
+    daily and monthly caps (HM-34, ADR 0030). A refusal sends it to HR review by an HR director
+    as spend_refused, with no model call, and its evidence pack is stored so it can be signed;
+    limits overrides the case budget (tests)."""
     if audit is not None and audit.has(message.id, "leave_evidence"):
         # The log, not anything else, says whether a request was prepared: it isn't prepared,
         # and decided, twice.
@@ -262,10 +271,13 @@ def prepare(
     explanation_problem = None
     flags = ["text_addresses_ai"] if signals else []
     agentic_fields: dict = {}  # the agentic path's mode and path, set before it finishes
+    start: CaseStart | None = None
 
     def finish(final: LeaveRoute, reason: str | None, pack: bool = True) -> LeavePreparation:
         nonlocal explanation_problem
         cost, unknown = _cost(calls)
+        # What the request cost, freeing the rest of its reservation; unpriced stays reserved.
+        finish_case(spend, start, None if unknown else cost)
         if unknown is not None:  # a cost that can't be shown is a failure too; keeps the reasons
             final = _with(final, ["pipeline_stopped"])
             reason = unknown if reason is None else f"{reason}; {unknown}"
@@ -304,6 +316,16 @@ def prepare(
             calls.append(call)
             record.agent_call(call)
 
+    try:
+        # Before any model call: the approved case budget and, with a ledger, the request's
+        # reservation against the leave caps (HM-34).
+        start = start_case("leave", message.id, spend)
+    except SpendRefused as exc:  # a fixed template: budgets not approved, or a cap reached
+        if agentic:
+            agentic_fields["mode"] = "agentic"
+        return stop(str(exc), ["spend_refused"])
+    case = start.budget
+
     if agentic:
         ctx = _Leave(
             message=message,
@@ -319,7 +341,7 @@ def prepare(
             finish=finish,
             stop=stop,
             record=record,
-            limits=limits or LeaveLimits(),
+            limits=limits or LeaveLimits(case.max_steps, case.max_cost_usd, case.max_seconds),
             clock=clock or time.monotonic,
         )
 

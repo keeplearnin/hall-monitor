@@ -56,3 +56,5 @@ agents:
     prompt_sha256: b69322452de055c6ee520caad71512bcb12194d3baede986f84a9ae1fdec467f
     prompt_version: risk-fraud-v2
     version: 0.4.0
+budgets:
+  digest: e819785a85c69e69561c38fba0d27830caa7a487b0c1c3d5f2749e5c176151eb

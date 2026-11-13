@@ -21,6 +21,7 @@ from hall_monitor import tracing
 from hall_monitor.data import load_claim, load_policy_wording
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, Registry
+from hall_monitor.spend import DEFAULT_SPEND_DB, SpendLedger
 from hall_monitor.tools.gateway import ToolGateway
 from hall_monitor.workflow import DEFAULT_CHECKPOINTS, open_workflow
 
@@ -30,6 +31,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--claim", type=Path, required=True, help="Path to a claim JSON file.")
     parser.add_argument("--registry", type=Path, default=DEFAULT_REGISTRY_DIR)
     parser.add_argument("--checkpoints", type=Path, default=DEFAULT_CHECKPOINTS)
+    parser.add_argument(
+        "--spend-db",
+        type=Path,
+        default=DEFAULT_SPEND_DB,
+        help="spend ledger holding the daily and monthly caps (HM-34)",
+    )
     parser.add_argument("--no-critic", action="store_true", help="Skip the critic review loop.")
     parser.add_argument(
         "--model-routing",
@@ -69,6 +76,7 @@ def main(argv: list[str] | None = None) -> int:
                 wording=load_policy_wording(),
                 critic=not args.no_critic,
                 model_routing=args.model_routing,
+                spend=SpendLedger(args.spend_db),
             )
             print(result.model_dump_json(indent=2))
             return 0
@@ -79,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
             wording=load_policy_wording(),
             critic=not args.no_critic,
             model_routing=args.model_routing,
+            spend=SpendLedger(args.spend_db),
         ) as workflow:
             try:
                 status = workflow.submit(claim, restart=args.fresh)

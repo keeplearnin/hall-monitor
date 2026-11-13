@@ -36,6 +36,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0027](0027-failure-drills.md) | Fail many agents at once on purpose, and check the outcome in code | HM-31 |
 | [0028](0028-agent-picks-the-steps-code-holds-the-boundaries.md) | The agent picks the steps; code holds the boundaries | HM-32 |
 | [0029](0029-complaint-submission-form.md) | Typed-in complaints reach the desk through a separate form, not the panel | HM-33 |
+| [0030](0030-cost-governance-budgets-and-caps.md) | Cost governance: approved budgets and spending caps | HM-34 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".

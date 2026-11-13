@@ -28,6 +28,7 @@ from hall_monitor.agents import (
     risk_fraud,
     supervisor,
 )
+from hall_monitor.budgets import load_budgets
 from hall_monitor.complaints import supervisor as complaint_supervisor
 from hall_monitor.complaints import triage_agent
 from hall_monitor.hr import leave_explainer, leave_intake
@@ -109,7 +110,11 @@ if __name__ == "__main__":
         "# a change to this file is an approval and should be reviewed as one.\n"
     )
     body = yaml.safe_dump(
-        {"agents": current_approvals(resume=_resume(args.resume) if args.resume else None)},
+        {
+            "agents": current_approvals(resume=_resume(args.resume) if args.resume else None),
+            # The spending limits and prices (HM-34): approved by digest, like a hall pass.
+            "budgets": {"digest": load_budgets().digest()},
+        },
         sort_keys=True,
     )
     (DEFAULT_REGISTRY_DIR / APPROVALS_FILENAME).write_text(header + body)

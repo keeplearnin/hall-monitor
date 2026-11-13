@@ -37,6 +37,7 @@ from hall_monitor.agents.intake import run_intake
 from hall_monitor.agents.recommendation import run_recommendation
 from hall_monitor.agents.risk_fraud import run_risk_fraud
 from hall_monitor.amounts import source_text
+from hall_monitor.budgets import CaseBudget, SpendRefused
 from hall_monitor.gateway.cost import UnpricedModelError, call_cost
 from hall_monitor.gateway.injection import SIGNALS, detect_instructions
 from hall_monitor.gateway.redaction import redact_claim
@@ -58,6 +59,7 @@ from hall_monitor.models import (
     TriageResult,
 )
 from hall_monitor.registry import Registry, RegistryError
+from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 from hall_monitor.tools.gateway import ToolGateway
 
 if TYPE_CHECKING:
@@ -136,6 +138,13 @@ def _cost(run: _Run) -> float:
     return round(sum(call_cost(c) for c in run.calls), 6)
 
 
+def _known_cost(run: _Run) -> float | None:
+    try:
+        return _cost(run)
+    except UnpricedModelError:
+        return None
+
+
 def _lookup(extraction: IntakeExtraction, gateway: ToolGateway, run: _Run) -> PolicyRecord | None:
     return gateway.lookup_policy(extraction.policy_number, run.tool_calls)
 
@@ -192,8 +201,15 @@ def triage(
     agentic: bool = True,
     limits: Limits | None = None,
     clock: Callable[[], float] | None = None,
+    spend: SpendLedger | None = None,
 ) -> TriageResult:
     """model_routing=False (the default) runs every agent on its main model.
+
+    Before any model call the claim's approved budget is read from registry/budgets.yaml, and
+    with spend (the ledger the live entry points pass) its cost is reserved against the claims
+    daily and monthly caps (HM-34, ADR 0030). Budgets that aren't approved, or a cap the claim
+    would pass, send it to an adjuster with no model call; limits overrides the case budget
+    (tests).
 
     agentic=True (the default) lets the claims supervisor choose the steps within code's
     bounds (agentic.py, ADR 0028), under limits (the claim's step, cost and time budget) and
@@ -212,9 +228,12 @@ def triage(
         from hall_monitor.agentic import Limits as _Limits
         from hall_monitor.agentic import supervise
 
-        budget, now = limits or _Limits(), clock or time.monotonic
+        now = clock or time.monotonic
 
-        def body(claim, run, registry, gateway, wording, client, critic, model_routing, signals):
+        def body(
+            claim, run, registry, gateway, wording, client, critic, model_routing, signals, case
+        ):
+            budget = limits or _Limits(case.max_steps, case.max_cost_usd, case.max_seconds)
             return supervise(
                 claim,
                 run,
@@ -231,7 +250,7 @@ def triage(
     else:
         body = _triage
     result = _triage_with_stop(
-        claim, registry, wording, gateway, client, critic, model_routing, on_event, body
+        claim, registry, wording, gateway, client, critic, model_routing, on_event, body, spend
     )
     if on_event is not None:
         on_event("triage_result", result)
@@ -248,6 +267,7 @@ def _triage_with_stop(
     model_routing: bool,
     on_event: EventSink | None,
     body: Callable[..., TriageResult],
+    spend: SpendLedger | None = None,
 ) -> TriageResult:
     client = client or default_client()
     gateway = gateway or ToolGateway(registry)
@@ -265,57 +285,88 @@ def _triage_with_stop(
             "claim_submitted",
             {"claim": original, "redactions": redactions, "injection_signals": signals},
         )
+    start: CaseStart | None = None
     try:
-        result = body(
-            claim, run, registry, gateway, wording, client, critic, model_routing, signals
+        try:
+            # Before any model call: the approved case budget and, with a ledger, the claim's
+            # reservation against the claims caps (HM-34). A refusal sends it to a person.
+            start = start_case("claims", claim.claim_id, spend)
+            result = body(
+                claim,
+                run,
+                registry,
+                gateway,
+                wording,
+                client,
+                critic,
+                model_routing,
+                signals,
+                start.budget,
+            )
+            return result.model_copy(
+                update={
+                    "cost_usd": _cost(run),
+                    "redactions": redactions,
+                    "injection_signals": signals,
+                }
+            )
+        except AgentRefusedError as exc:
+            run.calls.append(exc.call)
+            reason = f"agent refused or returned no usable output: {exc}"
+        except (anthropic.APIError, ValidationError) as exc:
+            _keep_partial(run, exc)
+            reason = f"{type(exc).__name__} from the model call"
+        except RegistryError as exc:
+            _keep_partial(run, exc)
+            reason = f"hall pass refused: {exc}"
+        except SpendRefused as exc:  # a fixed template: budgets not approved, or a cap reached
+            reason = str(exc)
+        except PipelineStopped as exc:
+            # A budget can stop an agent between its tool rounds: keep the rounds it already sent.
+            _keep_partial(run, exc)
+            reason = str(exc)
+        except Exception as exc:  # anything unforeseen (a tool server error, say) goes to a person
+            _keep_partial(run, exc)
+            # The type only: an unforeseen error's text can repeat model-written tool arguments,
+            # and the reason reaches the audit log and the evidence pack.
+            reason = f"unexpected {type(exc).__name__}"
+        try:
+            cost = _cost(run)
+        except UnpricedModelError as exc:  # the claim still goes to a person; its cost is unknown
+            cost, reason = 0.0, f"{reason}; cost unknown: {exc}"
+        return TriageResult(
+            claim_id=claim.claim_id,
+            extraction=run.extraction,
+            coverage=None,
+            risk=None,
+            recommendation=Recommendation(
+                next_step=NextStep.REQUEST_INFORMATION,
+                reasons=[reason[:1].upper() + reason[1:] + "."],
+            ),
+            routing=route_stopped(reason),
+            agent_calls=run.calls,
+            critic_reviews=run.reviews,
+            revision_history=run.history,
+            code_corrections=run.code_corrections,
+            tool_calls=run.tool_calls,
+            revisions=run.revisions,
+            stopped_reason=reason,
+            cost_usd=cost,
+            redactions=redactions,
+            injection_signals=signals,
+            mode="fixed" if body is _triage else "agentic",
+            supervisor_steps=run.steps,
         )
-        return result.model_copy(
-            update={"cost_usd": _cost(run), "redactions": redactions, "injection_signals": signals}
-        )
-    except AgentRefusedError as exc:
-        run.calls.append(exc.call)
-        reason = f"agent refused or returned no usable output: {exc}"
-    except (anthropic.APIError, ValidationError) as exc:
-        _keep_partial(run, exc)
-        reason = f"{type(exc).__name__} from the model call"
-    except RegistryError as exc:
-        _keep_partial(run, exc)
-        reason = f"hall pass refused: {exc}"
-    except PipelineStopped as exc:
-        # A budget can stop an agent between its tool rounds: keep the rounds it already sent.
-        _keep_partial(run, exc)
-        reason = str(exc)
-    except Exception as exc:  # anything unforeseen (a tool server error, say) goes to a person
-        _keep_partial(run, exc)
-        # The type only: an unforeseen error's text can repeat model-written tool arguments,
-        # and the reason reaches the audit log and the evidence pack.
-        reason = f"unexpected {type(exc).__name__}"
-    try:
-        cost = _cost(run)
-    except UnpricedModelError as exc:  # the claim still goes to a person; its cost is unknown
-        cost, reason = 0.0, f"{reason}; cost unknown: {exc}"
-    return TriageResult(
-        claim_id=claim.claim_id,
-        extraction=run.extraction,
-        coverage=None,
-        risk=None,
-        recommendation=Recommendation(
-            next_step=NextStep.REQUEST_INFORMATION, reasons=[reason[:1].upper() + reason[1:] + "."]
-        ),
-        routing=route_stopped(reason),
-        agent_calls=run.calls,
-        critic_reviews=run.reviews,
-        revision_history=run.history,
-        code_corrections=run.code_corrections,
-        tool_calls=run.tool_calls,
-        revisions=run.revisions,
-        stopped_reason=reason,
-        cost_usd=cost,
-        redactions=redactions,
-        injection_signals=signals,
-        mode="fixed" if body is _triage else "agentic",
-        supervisor_steps=run.steps,
-    )
+
+    except BaseException:
+        # Interrupted (KeyboardInterrupt, SystemExit): the request in flight may have been
+        # billed, so the reservation keeps counting in full, as a crash's does.
+        start = None
+        raise
+    finally:
+        # What the claim cost, freeing the rest of its reservation; an unpriced cost stays
+        # reserved in full.
+        finish_case(spend, start, _known_cost(run))
 
 
 def _triage(
@@ -328,6 +379,7 @@ def _triage(
     critic: bool,
     model_routing: bool,
     injection_signals: list[str],
+    case: CaseBudget | None = None,  # the fixed path has no per-case budget; caps still apply
 ) -> TriageResult:
     # Intake, then a code check that the policy exists. One retry with the problem spelled out.
     run.extraction = run.output(run_intake(claim, registry, client))

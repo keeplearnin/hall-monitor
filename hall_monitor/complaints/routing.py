@@ -45,6 +45,11 @@ REASONS: dict[str, str] = {
         "the desk supervisor failed, was stopped, ran out of budget or kept choosing steps code "
         "refused"
     ),
+    # Cost governance (HM-34): refused before any model call.
+    "spend_refused": (
+        "the desk's spending cap was reached, its budgets aren't approved or the spend ledger "
+        "couldn't be reached; no agent read it"
+    ),
 }
 # Reasons only the pipeline gives (complaints/pipeline.py), not the rule on the fields.
 PIPELINE_REASONS = frozenset(
@@ -56,6 +61,7 @@ PIPELINE_REASONS = frozenset(
         "supervisor_handed_off",
         "triage_skipped",
         "supervisor_failed",
+        "spend_refused",
     }
 )
 
