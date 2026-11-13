@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -54,6 +55,10 @@ class ToolAccess:
     log: list[ToolCall] = field(default_factory=list)
     # The claim's own policy number: lookups for any other policy are refused.
     scope_policy: str | None = None
+    # The case's budget, checked before each later tool round with the rounds this agent has
+    # already sent; raises to stop the agent. Without it, a budget checked only between agents
+    # could be overrun by a whole tool loop, up to MAX_TOOL_ROUNDS + 1 bounded calls.
+    check_budget: Callable[[AgentCall], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -141,6 +146,8 @@ def run_agent[T: BaseModel](
                 # Checked again before each later round, so a stop made mid-claim halts the agent
                 # here; a refused tool call alone would go back to the model as an error.
                 registry.require(agent_id, prompt_sha256=template_sha256)
+                if tools is not None and tools.check_budget is not None:
+                    tools.check_budget(record(None))
             response = client.messages.parse(
                 model=model,
                 max_tokens=16000,

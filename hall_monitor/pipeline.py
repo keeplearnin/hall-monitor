@@ -282,6 +282,8 @@ def _triage_with_stop(
         _keep_partial(run, exc)
         reason = f"hall pass refused: {exc}"
     except PipelineStopped as exc:
+        # A budget can stop an agent between its tool rounds: keep the rounds it already sent.
+        _keep_partial(run, exc)
         reason = str(exc)
     except Exception as exc:  # anything unforeseen (a tool server error, say) goes to a person
         _keep_partial(run, exc)

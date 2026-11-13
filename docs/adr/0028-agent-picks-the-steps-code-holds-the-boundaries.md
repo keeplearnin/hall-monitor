@@ -36,9 +36,13 @@ not used here. If a supervisor is ever given tools, its specialist calls should 
   raised (all of them, as the fixed path does), or one past `MAX_REVISIONS`, is refused; nothing runs, the refusal is logged and shown to the supervisor,
   and after three refusals the claim stops for a person.
 - **Budgets per claim:** steps (16), checked before every turn, finish included; cost
-  (0.25 USD) and wall-clock time (300 s), checked before every model call the loop makes, the
-  supervisor's and each specialist's, each agent of a revision included. Running out stops the
-  claim for a person, and the overshoot is at most one agent's run with its tool loop.
+  (0.25 USD) and wall-clock time (300 s), checked before every model request the loop makes:
+  the supervisor's, each specialist's, each agent of a revision, and each later round of a
+  specialist's tool loop (counting the rounds that agent has already sent). Running out stops
+  the claim for a person, and the overshoot is at most one model request, about two minutes
+  live with the bounded client. Until 2026-11-13 the check ran only before each agent started,
+  so a tool-using specialist could run up to seven requests, about 14 minutes, past the time
+  budget (review 27).
 - **The kill switch at every step.** The supervisor's hall pass is checked when it is asked;
   before every supervisor turn and before the step it chose runs, code re-checks every agent
   the case has used, so a stop on any of them ends the case at the next step; each specialist
