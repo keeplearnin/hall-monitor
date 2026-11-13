@@ -64,6 +64,7 @@ from hall_monitor.panel import demo
 from hall_monitor.panel.app import LOCAL_HOSTS, SECURITY_HEADERS
 from hall_monitor.panel.pages import CSP, Safe, esc, tag
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, Registry
+from hall_monitor.spend import DEFAULT_SPEND_DB, SpendLedger
 
 DEFAULT_PORT = 8767  # the panel is on 8765, the leave form on 8766
 DEMO_DIR = demo.DEFAULT_OUT
@@ -187,6 +188,7 @@ def create_app(
     registry_dir: Path = DEFAULT_REGISTRY_DIR,
     client=None,
     max_complaints: int = 5,
+    spend: SpendLedger | None = None,
 ) -> Starlette:
     """The form. Demo mode uses the scripted stand-in; live mode uses `client` if given (tests
     pass a fake) or else builds the desk's guarded client for each submission."""
@@ -353,6 +355,8 @@ def create_app(
                     registry=Registry.from_dir(registry_dir),
                     client=desk_client,
                     audit=audit,
+                    # Live submissions are held to the desk's caps (HM-34).
+                    spend=spend if live else None,
                 )
             except AlreadyTriaged:  # an ID already used: vanishingly rare
                 raise _Refused(409, "Something went wrong; submit it again.") from None
@@ -471,7 +475,12 @@ def main(argv: list[str] | None = None) -> int:
         from dotenv import load_dotenv
 
         load_dotenv()
-        app = create_app(live=True, audit_db=args.audit_db, max_complaints=args.max_complaints)
+        app = create_app(
+            live=True,
+            audit_db=args.audit_db,
+            max_complaints=args.max_complaints,
+            spend=SpendLedger(DEFAULT_SPEND_DB),
+        )
         print(
             f"Live: each complaint calls the Claude API (Haiku), typically well under a cent; "
             f"the desk makes no further model call once one has cost {PER_COMPLAINT_BUDGET} "

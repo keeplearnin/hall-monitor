@@ -37,12 +37,19 @@ from hall_monitor.complaints.store import DEFAULT_STORE, ComplaintStore
 from hall_monitor.egress import audit_refusals, model_client
 from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AlreadyRecorded, AuditLog
 from hall_monitor.registry import Registry
+from hall_monitor.spend import DEFAULT_SPEND_DB, SpendLedger
 
 DEMO_AUDIT_DB = DEFAULT_AUDIT_DB.parent / "demo" / "complaints-audit.sqlite"
 MAX_LIVE = 500
 
 
-def run(complaints: list[Complaint], audit: AuditLog, client, registry: Registry) -> dict:
+def run(
+    complaints: list[Complaint],
+    audit: AuditLog,
+    client,
+    registry: Registry,
+    spend: SpendLedger | None = None,
+) -> dict:
     """Triage each complaint not already in the log; a summary of what happened. A complaint a
     killed run claimed but never routed goes to specialist review now (interrupted)."""
     summary = {
@@ -70,7 +77,9 @@ def run(complaints: list[Complaint], audit: AuditLog, client, registry: Registry
             summary["skipped"] += 1
             continue
         try:
-            result = triage_complaint(complaint, registry=registry, client=client, audit=audit)
+            result = triage_complaint(
+                complaint, registry=registry, client=client, audit=audit, spend=spend
+            )
         except AlreadyTriaged:  # another run took it between the check and the write
             summary["skipped"] += 1
             continue
@@ -118,7 +127,10 @@ def main(argv: list[str] | None = None) -> int:
         else:
             load_dotenv()
             client = model_client(on_refused=audit_refusals(audit))
-        summary = run(complaints, audit, client, Registry.from_dir())
+        # Live runs are held to the desk's daily and monthly caps (HM-34); scripted ones cost
+        # nothing real, so they aren't counted.
+        spend = None if args.demo else SpendLedger(DEFAULT_SPEND_DB)
+        summary = run(complaints, audit, client, Registry.from_dir(), spend)
     finally:
         audit.close()
         tracing.flush()

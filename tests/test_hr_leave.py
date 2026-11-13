@@ -493,6 +493,8 @@ def test_only_hr_managers_and_directors_may_deny_or_extend():
         # The agentic path routed the request before the rules ran: the most senior role
         # decides, since nobody knows which role the rules would name (ADR 0028).
         "assessment_skipped",
+        # Refused at the spending cap before any model call, so the rules never ran (HM-34).
+        "spend_refused",
     }
     for code, (_, role) in REASONS.items():
         assert (role.label != "leave_specialist") is (code in may_deny_or_extend), code

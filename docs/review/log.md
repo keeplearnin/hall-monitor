@@ -1084,3 +1084,21 @@ fix removed. One new finding, fixed test-first:
 | Finding | Severity | Outcome |
 |---|---|---|
 | On a budget stop mid-loop, the failed step was recorded before the agent's partial rounds were kept, so the step that ends the claim showed a cost well under the budget (0.0006 against 0.0126 in the probe) | Low | The partial rounds are kept before the failed step is recorded, once; `test_the_cost_budget_counts_the_rounds_a_specialist_has_already_sent` checks the step's cost equals the claim's and that the rounds are recorded once |
+
+## Review 28 (cost-governance): approved budgets and spending caps (HM-34)
+
+**Reviewer:** the governance-reviewer agent, on the uncommitted `cost-governance` branch, offline,
+with fault injection and mutation copies in the scratchpad (no repo edits, no API calls). 7
+findings, none High, all fixed test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A ledger error (locked past its timeout, a disk error) escaped HR's `prepare` as an exception: the request was logged as submitted but never routed, and the leave form returned a 500 | Medium | `start_case` turns any ledger error into `spend ledger unavailable (<type>)`, a refusal: every workflow sends the case to a person with no model call (`test_a_broken_ledger_sends_a_leave_request_to_an_hr_director`, and its claims and desk twins) |
+| On the desk, the same fault was blamed on the supervisor or the triage agent | Medium | It is `spend_refused`, blaming no agent (`test_a_broken_ledger_sends_a_complaint_to_specialist_review_blaming_no_agent`) |
+| The main live claims path (`open_workflow` → `build_graph` → `triage`) was untested past `open_workflow`: removing the ledger there survived every test | Medium | `test_the_claims_workflow_holds_a_claim_to_the_cap` |
+| Nothing showed the prices came from the approved file: a hard-coded table survived the tests | Medium | `test_call_cost_uses_the_approved_prices_and_picks_up_an_approved_change`, `test_call_cost_prices_nothing_while_the_budgets_are_unapproved` |
+| The desk and leave case budgets from the file were untested | Low | Twins of the claims test |
+| No pipeline-level test that an unpriced claim stays reserved in full | Low | `test_an_unpriced_claim_stays_reserved_in_full` |
+| Prices were read once at import, so a long-running form or panel kept old prices after an approved change, though the docs said changes need no restart | Low | Prices are read again whenever the budgets or approvals file changes (`gateway/cost.py` `_refresh`) |
+| Plausible: an interrupted claim settled at its cost so far, not counting the request in flight | Low | It stays reserved in full (`test_an_interrupted_claim_stays_reserved_in_full`); a ledger failing while settling leaves the reservation counted and doesn't fail the routed case (`test_a_ledger_that_fails_while_settling_doesn_t_lose_the_case`) |
+| The seeded critic eval's live calls weren't listed among the uncapped evals; a dead test marker | Low | Listed in the ADR and HM-34 gaps; marker removed |

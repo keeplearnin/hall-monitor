@@ -1926,6 +1926,66 @@ controls:
       identifiers, not names. The result page reports only on complaints this run added, from
       memory.
 
+  - id: HM-34
+    name: Approved budgets and spending caps
+    what: >-
+      Each workflow's case budget (steps, cost, seconds), its daily and monthly spending caps and
+      its owner, and the price table every cost is computed from, live in registry/budgets.yaml,
+      approved by digest in approvals.yaml like a hall pass (python -m hall_monitor.approvals).
+      The claims, desk and leave pipelines read it at the start of every case, before any model
+      call: a file that isn't the approved version, or can't be read, refuses the case, and with
+      it unapproved no model has a price, so every cost is unknown and goes to a person. The live
+      entry points (hall_monitor.run, complaints.run --live, complaints.submit --live, hr.run,
+      hr.submit --live) pass a spend ledger (var/spend.sqlite): each case reserves its whole case
+      budget against its workflow's daily and monthly caps inside BEGIN IMMEDIATE, shared by
+      every process on the machine, and settles at what it cost when it ends (an interrupted or
+      unpriced case, or a failed settle, stays reserved in full). Prices are read again whenever
+      the budgets or approvals file changes. A case that would pass a cap, or finds the ledger
+      unreachable, is refused with no model call and goes to a person: a claim to an adjuster, a
+      complaint to specialist review (spend_refused), a leave request to an HR director
+      (spend_refused) with its evidence pack stored. The reasons are fixed templates, shown on
+      the panel. The ledger holds workflow names, case IDs, amounts and times only.
+    status: built
+    code:
+      - hall_monitor/budgets.py::approved_budgets
+      - hall_monitor/budgets.py::Budgets
+      - hall_monitor/spend.py::SpendLedger
+      - hall_monitor/spend.py::start_case
+      - hall_monitor/gateway/cost.py::_approved_prices
+      - hall_monitor/pipeline.py::_triage_with_stop
+      - hall_monitor/complaints/pipeline.py::_prepare
+      - hall_monitor/hr/pipeline.py::prepare
+    tests:
+      - tests/test_spend.py::test_an_unreviewed_change_to_the_budgets_is_refused
+      - tests/test_spend.py::test_a_price_change_needs_approval_too
+      - tests/test_spend.py::test_with_unapproved_budgets_no_model_has_a_price
+      - tests/test_spend.py::test_the_daily_cap_refuses_a_case_that_would_pass_it
+      - tests/test_spend.py::test_the_monthly_cap_counts_every_day_of_the_month
+      - tests/test_spend.py::test_two_processes_can_t_both_take_the_last_of_a_cap
+      - tests/test_spend.py::test_a_claim_over_the_cap_goes_to_a_person_with_no_model_call
+      - tests/test_spend.py::test_a_complaint_over_the_cap_goes_to_specialist_review_with_no_model_call
+      - tests/test_spend.py::test_a_leave_request_over_the_cap_goes_to_an_hr_director_with_no_model_call
+      - tests/test_spend.py::test_a_claim_s_case_budget_comes_from_the_approved_file
+      - tests/test_spend.py::test_a_live_form_s_submission_is_held_to_the_cap
+      - tests/test_spend.py::test_the_claims_cli_passes_the_ledger
+    evidence: []
+    nist: [MANAGE 3.1, MEASURE 3.1]
+    finos:
+      risks: []
+      mitigations: [MI-09]
+    gaps: >-
+      Caps are per workflow, not per agent; per-agent caps and signed spend approvals for a live
+      run over a threshold are slice 2. The evals' live runs (baseline, fairness, adversarial,
+      the seeded critic eval, complaint evals) aren't held to the caps; they run only when a person states the cost
+      first. Demo and scripted runs aren't counted. Each case reserves its whole case budget, so
+      many cases at once can be refused before the cap is really spent; a crash or an unpriced
+      cost leaves a reservation counting in full until the day or month rolls over, with no tool
+      yet to release it. The ledger is one machine's SQLite file: several machines would need a
+      shared store. The budgets file is read from the shipped registry directory, whatever
+      registry a run is given. The case budgets were set from the fixed path's published costs
+      and the caps are a demo starting point, not tuned on live runs. Days and months are UTC.
+      No page shows spend against the caps yet (slice 3).
+
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 
 

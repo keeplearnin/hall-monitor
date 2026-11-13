@@ -230,6 +230,17 @@ _HALL_PASS = (
 )
 _STOP_LIST = r"hall pass refused: [\w .()'-]+; every agent is refused"
 _UNEXPECTED = r"unexpected [A-Za-z]+"
+
+
+def _spend(workflow: str) -> str:
+    """Refused before any model call (spend.py, budgets.py; HM-34)."""
+    return (
+        rf"spend (?:ledger unavailable \([A-Za-z]+\)|"
+        rf"cap reached: (?:daily|monthly) {workflow} cap of {_N} USD|budgets not "
+        r"approved: budgets\.yaml (?:is not the approved version|can't be read \([A-Za-z]+\)))"
+    )
+
+
 _STOPS = (
     rf"agent refused or returned no usable output: [a-z_]+ (?:declined claim {_ID}|was still "
     rf"calling tools after \d+ rounds|returned no complete output for {_ID})",
@@ -241,6 +252,7 @@ _STOPS = (
     # The agentic path's own stops (agentic.py, ADR 0028).
     rf"budget exhausted: (?:\d+ supervisor steps|cost reached {_N} USD|{_N} seconds)",
     r"supervisor loop: \d+ steps refused",
+    _spend("claims"),
 )
 _COST_UNKNOWN = r"(?:; cost unknown: no price for model '[\w.-]+' in PRICES_PER_MTOK)?"
 _STOP = rf"(?:{'|'.join(_STOPS)}){_COST_UNKNOWN}"
@@ -424,6 +436,7 @@ _HR_STOPS = (
     r"the extracted request isn't valid \([a-z_, ]+\)",
     # The leave supervisor's own stops (hr/pipeline.py, ADR 0028).
     r"the leave supervisor ended before the rules ran",
+    _spend("leave"),
     rf"leave supervisor: (?:budget exhausted: (?:\d+ supervisor steps|cost reached {_N} USD|"
     rf"{_N} seconds)|supervisor loop: \d+ steps refused|budget can't be checked: cost unknown: "
     r"no price for model '[\w.-]+' in PRICES_PER_MTOK)",
