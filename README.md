@@ -130,12 +130,13 @@ Every model call goes through one function that checks the agent's approved hall
 
 - [`docs/architecture.html`](docs/architecture.html), for engineering managers and architects
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
-- [`docs/business-summary.md`](docs/business-summary.md), a one-page business summary in plain English
+- [`docs/business-summary.md`](docs/business-summary.md), a business summary in plain English
+- [`docs/pdf/`](docs/pdf/README.md), PDFs to share: architecture and functionality diagrams (four pages, the controls page read from the register) and the executive briefing
 - [`docs/board-brief.md`](docs/board-brief.md), one page for a board or risk committee: the risks, the evidence, what isn't proven and the decisions a pilot would need
 - [`docs/readiness-checklist.md`](docs/readiness-checklist.md), what a CIO and a Chief AI Officer would check, each item pass, partial or gap with its proof, and the top gaps
 - [`docs/model-cards.md`](docs/model-cards.md), the AI use inventory and a model card per agent, generated from the registry and the published results
 - [`docs/threat-model-agentic.md`](docs/threat-model-agentic.md), STRIDE for the agentic loop; [`docs/runbook.md`](docs/runbook.md), deploy, stop, restart, roll back and recover, with the kill-switch drill; [`docs/regulatory-mapping.md`](docs/regulatory-mapping.md), ISO/IEC 42001 and the EU AI Act, informally
-- [`docs/adr/`](docs/adr/README.md), 19 architecture decision records: why each design choice was made and what it costs
+- [`docs/adr/`](docs/adr/README.md), 30 architecture decision records: why each design choice was made and what it costs
 - [`docs/review/`](docs/review/README.md), the external review package and a log of every review so far and what it changed
 
 GitHub shows HTML files as source, so download them and open them in a browser.

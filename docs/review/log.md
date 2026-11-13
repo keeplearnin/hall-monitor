@@ -1124,3 +1124,18 @@ cover cost governance. 11 findings, none High, all fixed by rewording.
 | "The AI's answer has no free-text field" after naming two agents | Low | "The first AI's" |
 | The runbook's cap message missed "monthly" and the amount | Low | Full template and workflow names |
 | An open reservation counts until the month rolls over too; the kill-switch drill is HM-19 | Low | Both corrected |
+
+## Review 30 (docs-pdf): the architecture and functionality diagrams
+
+**Reviewer:** the governance-reviewer agent, on the diagram text (`docs/pdf/make_diagrams.py`)
+against the code, registry, budgets and reports, offline. It rebuilt the PDF from the script and
+ran the full suite. 6 findings, none High, all fixed by rewording; the controls page regrouped.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| "60 s per attempt, 2 attempts" for every Claude call: the desk's guarded client is one 120 s attempt | Medium | Both stated |
+| "A stop ends the case at this step": HR's note agent is not re-checked; a stop on it drops the note | Low | Stated |
+| `run_agent()` credited with the case-budget check before every request: each workflow's loop makes it, `run_agent()` only between tool rounds | Low | Credited to the loop |
+| "Call record with tokens and cost": the record holds tokens; cost is computed from them | Low | Reworded |
+| "Specialists: every complaint": every complaint goes to a person, specialists only for flagged ones | Low | Reworded |
+| The gateway box implied `cfpb_complaint_search` is allow-listed per agent (it serves the desk's ingest only), and "draft kept" omitted that a draft failing the check is dropped | Low | Both reworded |
