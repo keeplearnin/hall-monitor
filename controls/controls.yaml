@@ -1822,8 +1822,9 @@ controls:
       scored on the fixed path with earlier agent versions, and the gate's stale check doesn't
       flag that they predate the supervisor. The order is no longer deterministic: with a live
       model, runs of one claim can take different paths at different cost. Cost and time are
-      checked before each model call, so a call already running can overshoot by its own cost
-      and time (one agent's tool loop, bounded by MAX_TOOL_ROUNDS); a model call in flight when a stop
+      checked before each model request, each round of a specialist's tool loop included, so
+      the request already running can overshoot by its own cost and time (about two minutes
+      live); the desk and HR agents have no tools, so theirs are one request each; a model call in flight when a stop
       is written finishes (HM-19 gap). The supervisor's view is built by code, but the claim
       type and amounts in it come from the intake agent, which read the claim. The budget's
       numbers are set from the fixed path's published costs, not tuned on live supervisor runs.

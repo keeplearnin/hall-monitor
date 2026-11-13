@@ -5,8 +5,9 @@ closed list. Before anything runs, code checks, in this order:
 
 1. **Budget.** Steps, cost and wall-clock time for the claim. Running out stops the claim for a
    person. Steps are checked before every supervisor turn, finish included; cost and time
-   before every model call the loop makes (the supervisor's and each specialist's, each agent
-   of a revision included), so the overshoot is at most one agent's run with its tool loop.
+   before every model request the loop makes (the supervisor's, each specialist's, each agent
+   of a revision, and each later round of a specialist's tool loop, counting the rounds it has
+   already sent), so the overshoot is at most one model request.
 2. **Kill switch and hall pass.** The supervisor's own hall pass is checked when it is asked
    and again before the step it chose runs, so stopping the supervisor stops its work at the
    next step; each specialist checks its own on every model and tool call (agents/base.py).
@@ -56,8 +57,10 @@ from hall_monitor.agents.supervisor import (
     run_supervisor,
 )
 from hall_monitor.amounts import source_text
+from hall_monitor.gateway.cost import call_cost
 from hall_monitor.governance.routing import route_claim
 from hall_monitor.models import (
+    AgentCall,
     ClaimSubmission,
     CoverageAssessment,
     CriticReview,
@@ -221,10 +224,12 @@ def _check_budget(ctx: _Context) -> None:
     _check_spend(ctx)
 
 
-def _check_spend(ctx: _Context) -> None:
-    """Cost and time, checked before every model call the loop makes: the supervisor's and each
-    specialist's, including each agent inside one revision."""
-    if _cost(ctx.run) >= ctx.limits.max_cost_usd:
+def _check_spend(ctx: _Context, sent: AgentCall | None = None) -> None:
+    """Cost and time, checked before every model call the loop makes: the supervisor's, each
+    specialist's, each agent inside one revision, and each later round of a specialist's tool
+    loop (sent: the rounds that agent has already made, not yet in the claim's record)."""
+    spent = _cost(ctx.run) + (call_cost(sent) if sent is not None else 0.0)
+    if spent >= ctx.limits.max_cost_usd:
         raise PipelineStopped(f"budget exhausted: cost reached {ctx.limits.max_cost_usd} USD")
     if ctx.elapsed() >= ctx.limits.max_seconds:
         raise PipelineStopped(f"budget exhausted: {ctx.limits.max_seconds:g} seconds")
@@ -310,7 +315,11 @@ def _run_intake(ctx: _Context, state: _State) -> None:
     if state.policy is not None:
         if state.tools is None:
             state.tools = ToolAccess(
-                ctx.gateway, run.tool_calls, scope_policy=state.policy.policy_number
+                ctx.gateway,
+                run.tool_calls,
+                scope_policy=state.policy.policy_number,
+                # Between a specialist's tool rounds too, not only before it starts.
+                check_budget=lambda sent: _check_spend(ctx, sent),
             )
         else:
             state.tools.scope_policy = state.policy.policy_number
@@ -610,8 +619,13 @@ def supervise(
             registry.require(SUPERVISOR)
             _recheck(ctx)
             _execute(ctx, state, decision)
-        except Exception:
+        except Exception as exc:
             # Recorded even when the step failed part-way, so the path shows where it stopped.
+            # Rounds an interrupted agent already sent are kept first, so the step's cost
+            # includes them, and only once: the pipeline won't append them again.
+            if (call := getattr(exc, "partial_call", None)) is not None:
+                ctx.run.calls.append(call)
+                exc.partial_call = None  # type: ignore[attr-defined]
             _record(ctx, state, decision, StepOutcome.FAILED)
             raise
         _record(ctx, state, decision, StepOutcome.RAN)

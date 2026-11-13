@@ -246,6 +246,93 @@ def test_running_out_of_time_stops_the_claim_for_a_person():
     assert result.stopped_reason == "budget exhausted: 250 seconds"
 
 
+def _tool_round(request_id):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        stop_reason="tool_use",
+        content=[
+            SimpleNamespace(
+                type="tool_use", id="t1", name="policy_lookup", input={"policy_number": "x"}
+            )
+        ],
+        parsed_output=None,
+        _request_id=request_id,
+        usage=SimpleNamespace(input_tokens=1000, output_tokens=200),
+    )
+
+
+def test_the_time_budget_holds_inside_a_specialist_s_tool_loop():
+    """Review of 2026-11-13: time was checked only before each agent started, so a specialist
+    calling tools for its six rounds (each call bounded at about two minutes live) could run
+    some fourteen minutes past a 300-second budget. It is now checked before every later round
+    too; the rounds already sent stay in the record with their cost."""
+    now = [0.0]
+    outputs = outputs_from_truth(load_ground_truth("claim_001"))
+    client = fake_client(outputs)
+    answer = client.messages.parse
+    rounds = []
+
+    def parse(**kwargs):
+        if kwargs["output_format"] is CoverageFinding:
+            rounds.append(1)
+            now[0] += 100.0  # each round takes 100 s
+            return _tool_round(f"req_{len(rounds)}")
+        return answer(**kwargs)
+
+    client.messages.parse = parse
+    result = triage(
+        CLAIMS["claim_001"],
+        registry=REGISTRY,
+        gateway=GATEWAY,
+        wording=WORDING,
+        client=client,
+        limits=Limits(max_seconds=250),
+        clock=lambda: now[0],
+    )
+    assert result.routing.route is Route.ADJUSTER
+    assert result.stopped_reason == "budget exhausted: 250 seconds"
+    assert len(rounds) == 3  # checked before rounds 2, 3 and 4: 0 s, 100 s, 200 s, then 300 s
+    coverage = [c for c in result.agent_calls if c.agent_id == "coverage_check"]
+    assert len(coverage) == 1 and coverage[0].request_ids == ["req_1", "req_2", "req_3"]
+    assert result.supervisor_steps[-1].outcome is StepOutcome.FAILED
+
+
+def test_the_cost_budget_counts_the_rounds_a_specialist_has_already_sent():
+    """The cost check between tool rounds includes that agent's own rounds so far, which
+    aren't yet in the claim's record."""
+    outputs = outputs_from_truth(load_ground_truth("claim_001"))
+    client = fake_client(outputs)
+    answer = client.messages.parse
+    rounds = []
+
+    def parse(**kwargs):
+        if kwargs["output_format"] is CoverageFinding:
+            rounds.append(1)
+            return _tool_round(f"req_{len(rounds)}")
+        return answer(**kwargs)
+
+    client.messages.parse = parse
+    ample = Limits(max_cost_usd=10.0)
+    first, _ = _run(limits=ample)  # a clean claim's cost, for scale
+    tight = Limits(max_cost_usd=first.cost_usd)
+    result = triage(
+        CLAIMS["claim_001"],
+        registry=REGISTRY,
+        gateway=GATEWAY,
+        wording=WORDING,
+        client=client,
+        limits=tight,
+    )
+    assert result.stopped_reason.startswith("budget exhausted: cost")
+    assert len(rounds) < 7  # stopped inside the loop, not after it ran out of rounds
+    # The failed step that ends the claim shows the cost including the rounds that caused the
+    # stop, and the rounds are recorded once (review 27 re-check).
+    assert result.supervisor_steps[-1].cost_usd == result.cost_usd
+    coverage = [c for c in result.agent_calls if c.agent_id == "coverage_check"]
+    assert len(coverage) == 1 and len(coverage[0].request_ids) == len(rounds)
+
+
 def test_the_budget_is_checked_before_finishing():
     """A claim whose last step took it over budget doesn't finish on that step."""
     steps = []
@@ -513,7 +600,8 @@ def test_revising_only_some_of_the_stages_the_critic_raised_is_refused(raised, r
 
 def test_a_revision_stops_between_agents_when_the_budget_runs_out():
     """Review 22 finding 3: a revision that includes intake runs three agents; the budget is
-    checked before each, so the overshoot is at most one agent's run."""
+    checked before each (and before each of a specialist's later tool rounds), so the overshoot
+    is at most one model request."""
     outputs = outputs_from_truth(load_ground_truth("claim_001"))
     outputs[CriticReview] = _critic_raises_then_clean(ReviewedStage.INTAKE)
     # At the fake's token counts the claim has cost 0.0094 when the revision starts; its intake

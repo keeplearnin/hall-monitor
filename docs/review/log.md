@@ -1060,3 +1060,27 @@ switch now fails the drill and the gate. Four new issues, none High, all fixed o
 | Plausible: 60 s per attempt may stop long Sonnet answers live | Low | Stated in item 39; needs a live smoke test |
 | Minor: nothing checked the pipelines use the bounded client; the CFPB GET was missing from the threat model's destinations | Low | `test_the_pipelines_use_the_bounded_client_when_none_is_passed`; the threat model lists it |
 
+
+## Review 27 (agentic-loop): a code and design review of the claims supervisor loop (HM-32)
+
+**Reviewer:** Claude, reviewing `hall_monitor/agentic.py`, `agents/supervisor.py` and ADR 0028
+on `main` at `1fbf957`, with throwaway probe tests (no API calls). The core holds: the answer has
+no route field, the view carries codes and amounts only, a repeat on unchanged inputs is refused
+(so there's no shopping for a clean critic review), and two hostile probes (a supervisor that
+skips the critic's revisions, a critic that never clears) both ended with a person.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The claim's cost and time budget was checked only before each agent started, so a tool-using specialist could run its whole tool loop (up to seven requests, about 14 minutes live) past the 300 s budget. Review 26 had logged this as a stated gap | Medium | Checked before each later tool round too, through `ToolAccess.check_budget`, counting the rounds that agent has already sent; a budget stop keeps those rounds in the record with their cost. `test_the_time_budget_holds_inside_a_specialist_s_tool_loop` (ran all 7 rounds before) and `test_the_cost_budget_counts_the_rounds_a_specialist_has_already_sent` (fails without the sent rounds counted) |
+| The bounded loop is written three times (claims, desk, HR), each with its own refusal count, budget checks and re-check of used agents; the drill's per-step re-check had to be fixed in all three | Medium (design) | Not changed here. Proposed: one shared loop with per-workflow refusal, execute and result hooks, before the complaint crew adds a fourth |
+| Plausible: a model with no price on the claims path is reported as "unexpected UnpricedModelError", and if it is raised while a failed step is being recorded, that step is missing from the trail | Low | Not changed; the claim still goes to a person |
+
+**Re-check** (the governance-reviewer agent, on the uncommitted fix, offline, with mutation
+copies): the fix holds; the kill switch is checked before the budget on every round; no call is
+recorded twice; no `ToolAccess` with a budget reaches the fixed path, the drills, the desk or HR
+(their agents pass no tools); the docs match the code; each new test fails with its part of the
+fix removed. One new finding, fixed test-first:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| On a budget stop mid-loop, the failed step was recorded before the agent's partial rounds were kept, so the step that ends the claim showed a cost well under the budget (0.0006 against 0.0126 in the probe) | Low | The partial rounds are kept before the failed step is recorded, once; `test_the_cost_budget_counts_the_rounds_a_specialist_has_already_sent` checks the step's cost equals the claim's and that the rounds are recorded once |
