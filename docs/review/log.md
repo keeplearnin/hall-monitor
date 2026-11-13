@@ -1102,3 +1102,25 @@ findings, none High, all fixed test-first.
 | Prices were read once at import, so a long-running form or panel kept old prices after an approved change, though the docs said changes need no restart | Low | Prices are read again whenever the budgets or approvals file changes (`gateway/cost.py` `_refresh`) |
 | Plausible: an interrupted claim settled at its cost so far, not counting the request in flight | Low | It stays reserved in full (`test_an_interrupted_claim_stays_reserved_in_full`); a ledger failing while settling leaves the reservation counted and doesn't fail the routed case (`test_a_ledger_that_fails_while_settling_doesn_t_lose_the_case`) |
 | The seeded critic eval's live calls weren't listed among the uncapped evals; a dead test marker | Low | Listed in the ADR and HM-34 gaps; marker removed |
+
+## Review 29 (docs-week-refresh): the functional and technical documents brought up to date
+
+**Reviewer:** the governance-reviewer agent, on the uncommitted docs diff, offline (it ran the
+runbook's ledger query on a scratch ledger). The business summary, board brief, executive brief
+and architecture page now cover HR leave, the complaint desk, the supervisors, the stress tests,
+the readiness checklist and cost governance; the runbook, threat model and regulatory mapping
+cover cost governance. 11 findings, none High, all fixed by rewording.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The threat model said there was no per-day cap, next to the new row describing the caps | Medium | Reworded to name the caps |
+| "The system can never reply to or contact anyone" (and like wording on four pages) went past HM-25: the guard covers the desk only, and the static check catches an ordinary sending capability, not a hidden one | Medium | "The desk is built never to reply…", with the check's limit stated; the architecture heading names the desk |
+| The architecture page rated the whole complaint desk built | Medium | Partial: not run live, the form proposed |
+| "72 claim runs at once": the drill runs 8 at a time, has no published report, and its guarantee is for cases that started | Medium | Reworded |
+| "Planted text can't steer" the supervisor: its codes and amounts come from an agent that read the text | Medium | "can't reach it directly", with why |
+| "No case got less review" for claims, where the eval measures unsafe autos | Low | The readiness checklist's wording |
+| Caps described without saying they hold for live runs only | Low | "live" added |
+| "Many processes racing": the test uses threads with their own connections | Low | Reworded |
+| "The AI's answer has no free-text field" after naming two agents | Low | "The first AI's" |
+| The runbook's cap message missed "monthly" and the amount | Low | Full template and workflow names |
+| An open reservation counts until the month rolls over too; the kill-switch drill is HM-19 | Low | Both corrected |

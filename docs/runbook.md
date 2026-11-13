@@ -86,6 +86,30 @@ uv run python -m hall_monitor.approvals --resume stop-0001   # writes registry/a
 Commit the change and open a PR; the diff to `approvals.yaml` is the approval. Stops are never
 removed (CI checks the file is append-only), so a restart can't be done by deleting the stop.
 
+## Spending limits (budgets and caps)
+
+`registry/budgets.yaml` sets each workflow's case budget (steps, USD, seconds), its daily and
+monthly caps and owner, and the model price table (HM-34, ADR 0030). Days and months are UTC.
+
+- **Change a cap, a case budget or a price:** edit the file on a branch, run
+  `uv run python -m hall_monitor.approvals` (it records the file's digest in `approvals.yaml`)
+  and get the diff reviewed by the workflow's owner. Until the new digest is approved every case
+  goes to a person with no model call (`spend budgets not approved`), and no model has a price.
+  A merged change takes effect at the next case, prices included; nothing needs a restart.
+- **See today's spend** (settled cost plus open reservations), read-only:
+
+  ```bash
+  sqlite3 -readonly var/spend.sqlite "SELECT workflow, ROUND(SUM(COALESCE(actual_usd, reserved_usd)), 4) AS committed, SUM(actual_usd IS NULL) AS open FROM spend WHERE day = strftime('%Y-%m-%d','now') GROUP BY workflow"
+  ```
+
+- **Only live runs count:** `hall_monitor.run`, `complaints.run --live`, `complaints.submit
+  --live`, `hr.run` and `hr.submit --live` pass the ledger. Demo and scripted runs, and the evals'
+  live runs, aren't held to the caps yet (state the cost before running an eval, CLAUDE.md).
+- **Open reservations:** a crash, an interrupted run, an unpriced cost or a ledger that failed
+  while settling leaves a case's reservation counting in full until the day (or month) rolls
+  over. There is no tool yet to release one; don't edit the ledger by hand during the day unless
+  the owner agrees, and note it in the review log.
+
 ## Roll back a change
 
 1. Revert the commit (`git revert <sha>`) on a branch and open a PR. A reverted prompt or
@@ -104,6 +128,9 @@ removed (CI checks the file is append-only), so a restart can't be done by delet
 | Two runs of the same case at once | Nothing; one wins | The once-only entries refuse the second (`test_two_agentic_runs_of_one_claim_at_once_record_one_result`, failure drills) |
 | Model API outage | Cases stop for a person; rerun later | Every failure routes to a person; no value is invented (ADR 0007) |
 | Supervisor misbehaving (loops, hands everything off) | Stop it (above); cases go to people | Refusals and budgets bound each case; the eval shows no policy gets a case less review |
+| Cases arriving with `spend cap reached: daily (or monthly) <workflow> cap of N USD` (workflow `claims`, `complaints` or `leave`) | Work them as any case with a person; if the cap is too low, change it (above) with the owner's review | No model call was made; the case went to a person at the cap (claims to an adjuster, complaints to specialist review, leave to an HR director) |
+| Every case says `spend budgets not approved` | Someone changed `registry/budgets.yaml` without an approval: review the change, then approve or revert it | Fails closed: no model call, no price, every case with a person |
+| Cases say `spend ledger unavailable (OperationalError)` | Check `var/spend.sqlite` is writable and not held open by another tool; the ledger waits 30 s for a lock | The cap can't be checked, so the case goes to a person, blaming no agent |
 | Suspected tampering with the log | `uv run python -m hall_monitor.audit verify --expect-seq N --expect-hash H` against an anchored head from `audit head` | Hash chain plus an anchor kept elsewhere; anchoring is manual today |
 | A checkpoint file was restored or edited | Nothing to do; a decision on it is refused | Decisions check the evidence pack and the log, not the checkpoint (HM-05) |
 | Evidence pack changed after it was stored | The decision is refused and logged | Packs stored by hash (HM-05) |

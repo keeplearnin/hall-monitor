@@ -101,9 +101,9 @@
 <body>
 <main class="sheet">
   <header>
-    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · after milestone 11 · November 2026</span></div>
+    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · updated 13 November 2026 · claims, HR leave and a complaint desk</span></div>
     <h1>Governance sits in the call path, the tool gateway, the router and the record, not inside the model</h1>
-    <p class="lede">Five agents triage a claim, and a supervisor agent chooses which runs next from codes and amounts only, never the claim text; code refuses steps whose inputs aren't ready, holds a budget per claim and decides the route (ADR 0028). Every model call goes through one function that checks the agent's approved hall pass, calls the model the pass names, runs any tool calls through a gateway that enforces the pass's allow-list, validates typed output and records what ran. A critic checks the work and sends errors back. Routing to a human is a plain code rule that checks facts, not the agents' labels; claims routed to a person wait at an approval gate, and every step goes into a hash-chained audit log. Python 3.12, Claude Haiku 5.5 and Sonnet 5.5, Pydantic, fastmcp, LangGraph, SQLite, Langfuse.</p>
+    <p class="lede">Five agents triage a claim, and a supervisor agent chooses which runs next from codes and amounts only, never the claim text; code refuses steps whose inputs aren't ready, holds a budget per claim and decides the route (ADR 0028). Every model call goes through one function that checks the agent's approved hall pass, calls the model the pass names, runs any tool calls through a gateway that enforces the pass's allow-list, validates typed output and records what ran. A critic checks the work and sends errors back. Routing to a human is a plain code rule that checks facts, not the agents' labels; claims routed to a person wait at an approval gate, and every step goes into a hash-chained audit log. The same core (registry and approvals, <code>run_agent()</code>, the tool gateway, the kill switch, the audit log, supervisors bounded by code, and approved budgets and spending caps) also runs an HR leave workflow and a complaint desk on public CFPB data; the diagram shows the claims path. Python 3.12, Claude Haiku 5.5 and Sonnet 5.5, Pydantic, fastmcp, LangGraph, SQLite, Langfuse.</p>
   </header>
 
   <figure>
@@ -251,7 +251,8 @@
           <dt>each tool call</dt><dd>who called, which tool, arguments, allowed or refused (and why), hash of the result</dd>
           <dt>each critic review</dt><dd>the issues raised, and every revision's before and after</dd>
           <dt>code checks</dt><dd>identifiers redacted (counts by type), injection signals, policy-number corrections</dd>
-          <dt>the route</dt><dd>auto or adjuster, with every reason</dd>
+          <dt>each supervisor step</dt><dd>the action, its reason code, the stages, what code did with it (ran, refused and why), the agents run, cost and time so far; no free text</dd>
+          <dt>the route</dt><dd>auto or adjuster, with every reason (a spend refusal included)</dd>
           <dt>the decision</dt><dd>who decided (signed with the adjuster's key), the AI's recommendation, any override and why, the evidence hash</dd>
           <dt>the audit log</dt><dd>all of the above as hash-chained entries; IDs, hashes and decisions only, never claim text</dd>
         </dl>
@@ -267,6 +268,8 @@
           <li><b>Injection: defence in depth.</b><span>Claim text is escaped and fenced, a code detector routes suspicious claims to a person, and lookups can't leave the claim's scope.</span></li>
           <li><b>A record that shows tampering.</b><span>Hash-chained and append-only. Copy the chain head elsewhere: that's what catches a full rewrite.</span></li>
           <li><b>Cheaper models only when measured.</b><span>Economy routing is approved per manifest but off until evaluated. The critic never economises.</span></li>
+          <li><b>Spend is approved and capped.</b><span>registry/budgets.yaml holds each workflow's case budget, daily and monthly caps and the price table, approved by digest like a hall pass. Each live case reserves its budget in a ledger (var/spend.sqlite, BEGIN IMMEDIATE) before any model call; over a cap, unapproved budgets or an unreachable ledger send it to a person. The budget is checked again before every model request, tool rounds included (ADR 0030).</span></li>
+          <li><b>The complaint desk sends nothing.</b><span>One allow-listed egress path for the desk, a read-only tool catalogue and drafts with no delivery fields; a static CI check fails on an ordinary sending capability; a deliberately hidden one needs review. Claims and HR call the model through the SDK's own client (ADR 0021).</span></li>
         </ul>
       </div>
     </div>
@@ -292,6 +295,12 @@
               <tr><td>Eval harness and seeded critic test</td><td class="where">evals/</td><td><span class="chip built">built</span></td><td>HM-12, 13</td></tr>
               <tr><td>Adversarial suite, fairness check</td><td class="where">evals/</td><td><span class="chip part">needs live run</span></td><td>HM-14, 15</td></tr>
               <tr><td>CI eval gate; controls mapped to NIST AI RMF and FINOS AIGF</td><td class="where">evals/gate.py, controls/</td><td><span class="chip built">built</span></td><td>HM-17</td></tr>
+              <tr><td>Read-only control panel</td><td class="where">panel/</td><td><span class="chip built">built</span></td><td>HM-20</td></tr>
+              <tr><td>HR leave: rules in code, agents inside the shared controls, signed sign-off, request form</td><td class="where">hr/</td><td><span class="chip part">partial</span></td><td>HM-21 to 24</td></tr>
+              <tr><td>Complaint desk: no reply or send, CFPB ingestion, triage routed in code, evals, form (not run live; form proposed)</td><td class="where">egress.py, no_send.py, complaints/</td><td><span class="chip part">partial</span></td><td>HM-25 to 28, 33</td></tr>
+              <tr><td>Delegated passes that only narrow</td><td class="where">delegation.py</td><td><span class="chip built">built</span></td><td>HM-29</td></tr>
+              <tr><td>Red-team arena; failure drills; kill-switch drill</td><td class="where">redteam/, drills.py, evals/stop_timing.py</td><td><span class="chip part">partial</span></td><td>HM-19, 30, 31</td></tr>
+              <tr><td>Approved budgets, prices and daily and monthly spending caps</td><td class="where">budgets.py, spend.py, registry/budgets.yaml</td><td><span class="chip built">built</span></td><td>HM-34</td></tr>
             </tbody>
           </table>
         </div>
@@ -314,7 +323,7 @@
   </section>
 
   <footer>
-    <span>Reference implementation; synthetic data only.</span>
+    <span>Reference implementation; synthetic data, plus 500 real public CFPB complaints, minimised, for the desk.</span>
     <span>Run it: <code>uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json</code></span>
     <a href="https://github.com/keeplearnin/hall-monitor">github.com/keeplearnin/hall-monitor</a>
   </footer>
