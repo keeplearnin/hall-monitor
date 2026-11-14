@@ -29,6 +29,7 @@ from types import SimpleNamespace
 import yaml
 
 from hall_monitor.agents.base import escape
+from hall_monitor.agents.supervisor import scripted_answer
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.governance.approval import AdjusterDecision
 from hall_monitor.governance.signing import demo_private_key
@@ -36,6 +37,7 @@ from hall_monitor.hr import signoff
 from hall_monitor.hr.data import load_company, load_employees, load_messages, load_requests
 from hall_monitor.hr.models import LeaveExplanation, LeaveIntake
 from hall_monitor.hr.pipeline import prepare
+from hall_monitor.hr.supervisor import LeaveDecision, scripted_leave_answer
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.models import (
     CoverageFinding,
@@ -43,6 +45,7 @@ from hall_monitor.models import (
     NextStep,
     Recommendation,
     RiskAssessment,
+    SupervisorDecision,
 )
 from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR, Registry
 from hall_monitor.tools.gateway import ToolGateway
@@ -67,9 +70,12 @@ class _ScriptedMessages:
         }
 
     def parse(self, **kwargs):
+        kind = kwargs["output_format"]
+        # The supervisor follows the old fixed order (agents/supervisor.py), scripted.
+        answer = scripted_answer(kwargs) if kind is SupervisorDecision else self.answers[kind]
         return SimpleNamespace(
             stop_reason="end_turn",
-            parsed_output=self.answers[kwargs["output_format"]],
+            parsed_output=answer,
             usage=SimpleNamespace(input_tokens=1000, output_tokens=200),
         )
 
@@ -84,7 +90,9 @@ class _ScriptedLeaveMessages:
 
     def parse(self, **kwargs):
         content = kwargs["messages"][0]["content"]
-        if kwargs["output_format"] is LeaveIntake:
+        if kwargs["output_format"] is LeaveDecision:  # the old order, scripted (ADR 0028)
+            answer = scripted_leave_answer(kwargs)
+        elif kwargs["output_format"] is LeaveIntake:
             found = next(m for m in self.messages if escape(m.text[:60]) in content)
             fields = set(LeaveIntake.model_fields)
             answer = LeaveIntake(**self.requests[found.id].model_dump(include=fields))

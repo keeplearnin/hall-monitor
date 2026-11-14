@@ -893,6 +893,253 @@ fixed test-first:
 | Any ValueError was taken as the workflow's own refusal and stored as text, so an unexpected one (including a pydantic ValidationError, which repeats input) was never flagged | Medium | Only a duplicate's second submission may be refused, and only with the workflow's four known refusals, recorded as a fixed label; any other ValueError is unexpected, recorded by its type |
 | The docs said masked faults are those after the risk step; wrong answers stopped before routing and faults on the risk agent are masked too | Low | Design and docstring reworded |
 
+## Review 22 (agentic-claims): the claims supervisor within code-held bounds (HM-32)
+
+**Reviewer:** the governance-reviewer agent, run independently on branch `claude/agentic-claims`
+at `e2e9d47`, with offline repros (no API calls). 6 findings confirmed; all fixed, the code ones
+test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A revise naming only some of the stages the critic raised was allowed; with a critic that then came back clean, the unrevised issue vanished and claim_001 went through automatically where the fixed path (which revises every raised stage) sent it to a person | High | A revise must send back exactly the raised stages, or it is refused as `not_every_raised_stage` (`test_revising_only_some_of_the_stages_the_critic_raised_is_refused`) |
+| The docs said no supervisor policy beat the fixed path, but the offline eval's critic never raised an issue, so no revision ever ran and the gate couldn't see the lever above | High | The eval adds a critic that raises coverage and risk once and then finds nothing, with a risk agent whose revised answer differs, and policies that revise part, skip the second review, or act noisily. With the refusal removed, `revise_part` gets 16 claims through that the fixed path sent to a person; with it, none |
+| The budget overshoot was documented as one specialist's run, but a revision including intake runs three agents with no check between them, after the supervisor's own call | Medium | Cost and time are checked before every model call the loop makes, each agent of a revision included, so the overshoot is one agent's run (`test_a_revision_stops_between_agents_when_the_budget_runs_out`); ADR, register and docstring say so |
+| The business summary, executive brief and README results table weren't updated: no mention that an AI now picks the order, or that every published score is from the fixed order | Medium | All three updated; the README results table says the rows predate the agentic path |
+| A stop landing between a FINISH choice and routing stopped the claim, but the last `supervisor_step` still said `finished` | Low | Hall passes are re-checked before the step is recorded; a stop then records it as `failed` (`test_a_stop_at_finish_records_the_step_as_failed`) |
+| The `Limits` docstring said the old order takes 13 steps (it takes 10, 11 with an intake retry); the published eval recorded a dirty WIP commit | Low | Docstring corrected; the eval republished from a clean commit |
+
+**Re-review of the fixes** (governance-reviewer, at `f0d15b2`, offline): all six fixes hold and
+no new findings. The repros that went automatic now stop for a person; with only the new refusal
+patched out the eval reports 16 unsafe autos, all from `raising_critic/revise_part`, and 0 with
+it. The new tests were seen failing before the fixes in the session, but code and tests landed in
+one commit, so history alone can't show the order. Cosmetic notes (roadmap order in the
+executive brief) fixed.
+
+## Review 23 (agentic-complaints): the complaint desk supervisor (HM-32)
+
+**Reviewer:** the governance-reviewer agent, run independently on branch
+`claude/agentic-complaints` at `86b1262`, with offline repros (no API calls). 5 findings
+confirmed; all fixed test-first (each new test was run and seen failing before the fix).
+
+Before the review, the session's own offline desk eval found that ending before triage kept the
+code's floor urgency where the fixed order's triage could have raised it (77 of 500 complaints);
+fixed test-first (`test_a_complaint_no_agent_read_goes_at_high_urgency`). The eval's "less review"
+check was also narrowed to the code's own reasons, since the agent's can't exist without a
+triage; the reviewer judged that honest and pointed to the real hole, finding 1.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A stop before any triage (supervisor error or wrong type, a budget hit, the kill switch, refusals) counted as agent_failed and kept the floor urgency; a fraud complaint the fixed order put at high went at normal, contradicting the docs | High | On the agentic path a complaint no agent read goes at high urgency however the loop ended (`test_a_supervisor_failure_before_triage_goes_at_high_urgency`, `test_a_stopped_supervisor_before_triage_goes_at_high_urgency`); the desk eval adds a policy that fails on its first turn, so the gate covers it |
+| Published results didn't record every agent they ran: the agentic eval's meta listed only claims agents though it carries desk metrics; the complaint eval and the arena listed only complaint_triage | High | The agentic eval records the claims and both desk agents (`test_the_published_eval_records_every_agent_it_ran`); the complaint eval records the supervisor; the arena records it as `supervisor_hall_pass`. The scripted complaint and arena results are republished |
+| agent_failed now also covered supervisor failures, so a triage that answered (draft kept) was explained as the triage agent failing and the page said "no answer" | Medium | A new reason, supervisor_failed, for anything but the triage call; the stop reason says "desk supervisor:" (`test_a_supervisor_failure_after_triage_is_not_reported_as_a_triage_failure`) |
+| The routed entry had no mode, so the page labelled an agentic run with no recorded steps, an interrupted one, or an old entry "fixed order" | Medium | The routed entry records mode; the page says fixed order only when the entry says fixed (`test_the_desk_page_never_calls_an_agentic_run_fixed_order`) |
+| An unpriced model counted as 0 USD inside the loop, so the cost cap never tripped | Low | The loop stops when a cost can't be priced (`test_an_unknown_cost_stops_the_desk_loop`) |
+
+**Re-review of the fixes** (governance-reviewer, at `6383e23`, offline): the five fixes hold
+and the repros pass. It found one High regression and four smaller issues, all fixed test-first:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The complaint evals and the batch summary counted only agent_failed, so a live run where every supervisor call failed would pass the gate (the Review 17 High returning) | High | supervisor_failed is counted in the eval summary and the batch summary and gated at 0 in both complaint checks (`test_a_live_run_where_every_supervisor_call_fails_fails_the_gate`) |
+| The desk page showed "model" for an agentic run that failed before any triage (a regression from finding 3) | Medium | An agentic entry with no category shows "no answer" (`test_the_desk_page_says_no_answer_when_no_triage_ran`) |
+| A stop on the triage agent, caught at finish, was blamed on the supervisor | Low | A stopped agent other than the supervisor is agent_failed (`test_a_stopped_triage_agent_caught_at_finish_is_the_agent_s_failure`) |
+| An interrupted run before triage went through route_unfinished at the floor, contradicting "however the loop ended" | Low | An interrupted triage goes at high urgency on either path (`test_an_interrupted_run_before_triage_goes_at_high_urgency`); the docs say so |
+| The scripted complaint results were republished from a dirty tree though the commit said clean | Low | Republished from a clean commit |
+
+**Final check** (governance-reviewer, at `00f8619`): fixes A to E confirmed, nothing new at
+Medium or above. One Low, from fix C: a triage that answered (draft kept) and was then stopped
+was shown as "no answer". Fixed test-first: the page says "no answer" only when no category was
+recorded (`test_a_triage_that_answered_then_was_stopped_is_shown_as_answered`).
+
+## Review 24 (complaint-form): the complaint submission form (HM-33)
+
+**Reviewer:** governance-reviewer agent, read-only, on `98617ee` against main, offline (one of
+its repro scripts may have let a single request without an API key reach the messages endpoint
+through the guarded client; no cost, and it dropped that case). New functionality: its scope is
+for the owner to confirm (ADR 0029 is Proposed). Every finding was fixed test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Issue and sub-issue are typed on the form but, as CFPB's fixed labels, never redacted: an email or SSN typed there reached the model, while the register implied every field was redacted | High | A label holding anything redaction would remove is refused before anything is logged; the narrative is still redacted by the pipeline (`test_an_identifier_typed_in_a_label_is_refused_before_the_model_sees_it`; `test_every_cfpb_issue_label_is_accepted_as_typed` shows CFPB's own labels still pass). A name in a label still reaches the model; the gaps say so |
+| "The typed-in text is kept nowhere" was false in live mode: a kept draft is stored in full and may quote it | Medium | Reworded in the ADR, register and README: the log never holds it; a kept draft may quote it, a name included |
+| The panel promised "the next run routes it" for an unrouted form complaint, which no run will route | Medium | The desk page says a `cfpb-syn-` complaint has no run to route it and a person should pick it up (`test_the_desk_page_doesn_t_promise_a_rerun_for_a_form_complaint`) |
+| No test of the pipeline-exception paths (the 500 page, a crash after the complaint was received, the "not routed" result page) | Medium | `test_a_crash_before_the_desk_received_it_adds_nothing`, `test_a_crash_after_it_was_received_is_routed_to_a_person`, `test_an_unrouted_submission_shows_received_not_routed` |
+| A non-ASCII token made `hmac.compare_digest` raise: a bare 500 without the security headers | Low | Compared as bytes; 403 (`test_a_non_ascii_token_is_refused_not_a_server_error`). The leave form has the same pattern; listed as a follow-up, not changed here |
+| "Control characters" covered only C0 and DEL; C1 controls, bidi overrides and zero-width marks were accepted | Low | Control and format characters refused in every field (`test_control_and_invisible_characters_are_refused`) |
+| The cost wording called 0.02 USD a cap; the desk checks it before each call, so the last call can pass it | Low | Reworded on the page, the start-up line, the ADR, the register and the README |
+| HM-33 sat below the register's "not addressed" comment | Low | Moved above it |
+
+Not changed: a live submission that fails before any model call still uses its slot in the
+spend cap (errs on the safe side; the gaps say so).
+
+**Re-review of the fixes** (governance-reviewer, at `d733e10`, offline, no client
+built): all eight fixes hold, no regression, nothing at Medium or above. Two Lows, fixed:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Line and paragraph separators and the blank-looking Hangul fillers passed the character check | Low | Refused too (`test_control_and_invisible_characters_are_refused`) |
+| The leave form's non-ASCII-token 500 was logged as a follow-up only here, not in its register gaps | Low | Added to HM-24's gaps; the fix itself stays a follow-up |
+
+## Review 25 (agentic-hr): the leave supervisor (HM-32)
+
+**Reviewer:** the governance-reviewer agent, run independently on branch `claude/agentic-hr` at
+`96e1639`, with offline repros (no API calls). 7 findings confirmed; all fixed test-first
+(each new test was run and seen failing before the fix), or documented where noted.
+
+Before the review, the session's own offline leave eval found that a request routed before the
+rules ran went to a leave specialist where the rules name an HR manager or director (9 of 28);
+`assessment_skipped` now carries the HR director role (`test_a_request_the_rules_never_saw_goes_to_the_most_senior_role`).
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A hand-off or finish before any intake stored no evidence pack (a rule meant for outages), so HR could never sign the request; injection-flagged requests hit it first, since the prompt says to hand those off | High | Only an intake-call failure leaves no pack; every supervisor choice and supervisor failure stores it (`test_a_choice_to_end_before_intake_leaves_the_request_decidable`, `test_a_supervisor_outage_before_intake_still_reaches_hr`). The leave eval now counts a missing pack as less review, and it then caught a wrong-type supervisor answer leaving 28 requests unsignable, fixed by the same rule |
+| The finish-time hall-pass check included the advisory explanation agent, so a stop on it after it answered stopped the request | Medium | A stop on it drops the note and keeps the route (`test_a_stop_on_the_explainer_after_it_answered_keeps_the_route`) |
+| A failed code check returned before the intakes were compared, so intake_disagreed was lost | Medium | The disagreement is kept on every path (`test_a_disagreeing_recheck_is_flagged_even_when_the_first_intake_fails_a_check`) |
+| The HR eval's metadata didn't list the leave supervisor | Medium | Listed (`test_the_hr_eval_records_the_leave_supervisor`) |
+| A run that lost the race to prepare a request caught the refused pack and finished a second time | Low | An error while recording the outcome is raised past the loop's handlers, as on the fixed path (`test_two_agentic_preparations_at_once_log_one_prepared_entry_each`) |
+| Interrupted runs weren't documented for HR | Low | Documented in ADR 0028 (same window as the fixed path) |
+| The evidence pack didn't show the mode, path or the re-check's intake; HM-22, the submit page and the CLI described only the fixed order | Low | The pack holds them (`test_the_evidence_pack_shows_the_path_and_both_intakes`); the docs updated |
+
+**Re-review of the fixes** (governance-reviewer, at `61a0792`, offline): all seven fixes hold,
+nothing new at Medium or above. With the old pack rule patched back in, the leave eval reports
+28 requests with less review. Noted as a deliberate cost, stated in ADR 0028: a supervisor
+outage before intake files the request with an HR director (nothing extracted) rather than
+leaving it to be prepared again. The race test now uses pytest's monkeypatch.
+
+## Finding from the kill-switch drill (agentic-readiness)
+
+The new offline drill (`python -m hall_monitor.evals.stop_timing`) writes a stop from another
+thread while a case runs. It found that stopping a specialist after it had answered let the case
+run on (up to 31 more model calls across 20 cases) until routing re-checked every agent; nothing
+went through without review, but the stop didn't take effect at the next step. Fixed test-first
+in all three workflows: every supervisor turn and every chosen step re-checks every agent the
+case has used (`test_a_stop_on_a_specialist_that_already_answered_halts_the_claim_at_the_next_step`,
+`test_a_stop_on_the_intake_agent_after_it_answered_halts_at_the_next_step`; the desk's test
+already passed, since its only specialist is checked by both later steps). The drill is gated:
+no call by the stopped agent after its stop, nothing through without review.
+
+
+## Review 26 (agentic-readiness): a skeptical CIO and Chief AI Officer review of the readiness evidence
+
+**Reviewer:** the governance-reviewer agent playing both roles, on branch
+`claude/agentic-readiness` at `2db8d4d`, with probes and runtime mutations in the scratchpad (no
+repo edits, no API calls). 14 findings confirmed, 2 plausible, 3 status downgrades and 9 missing
+items. Code findings fixed test-first; doc findings corrected; the checklist went from 19 pass,
+10 partial, 6 gap (35 items) to 16 pass, 16 partial, 12 gap (44 items).
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The drill dropped every case that didn't notice the stop, so with the kill switch patched out every gated key stayed 0 and the gate passed | High | Every stop written before the case ended counts; a stop on disk followed by an unrefused call is a failure; at least 75% of trials must stop; gated (`test_the_drill_fails_when_the_kill_switch_is_broken`) |
+| The claims specialist row never had its agent answer before the stop, so it didn't test the bug the fix was for | Medium | The claims drill stops `intake`, and each row reports how often the agent had answered first; gated at least once (`test_the_drill_stops_specialists_that_have_already_answered`) |
+| "At most one supervisor turn" and "about one 50 ms call" were false for an agent not used yet | Medium | Reworded in the report, the runbook and the checklist |
+| The SDK defaults (600 s, two retries) let one call run about 30 minutes past a case's time budget, so time caps and time-to-stop were understated | Medium | Every agent's default client is bounded at 60 s per attempt, two attempts (`default_client`, `test_the_default_model_client_bounds_each_call`); the docs state the two-minute worst case |
+| A chosen step refused by the new re-check wasn't recorded on the claims path | Medium | Recorded as failed (`test_a_chosen_step_refused_by_a_stop_is_recorded`) |
+| The loop-top re-checks had no tests of their own | Medium | One per workflow: a stop during a specialist's call means no further supervisor turn |
+| The threat model called egress.py the only outbound path | Medium | Says the desk only; claims and HR use the SDK's client |
+| Checklist item 18 and item 25 (Art. 12, 14) passed on public demo signing keys, with no log retention or operator-understanding measures | Medium | Both Partial; the mapping says why |
+| Art. 50 cited for telling the employee | Medium | Re-cited as Art. 26(11), with Art. 86 |
+| High-risk status stated as fact, with no Art. 6(3) and missing obligations (Art. 4, 17, 43, 49, 72, 73) | Medium | Hedged ("likely Annex III 4(b), subject to Art. 6(3)"); the articles added as gaps; application dates flagged to confirm |
+| The drill's metadata listed only the stopped agents | Low | Records every agent that made a call |
+| A stop on the leave intake agent after it answered was blamed on the supervisor | Low | Attributed to the intake agent (pipeline_stopped) |
+| Runbook "up to about 31 more calls" was across 20 cases; the write window, thread errors and a duplicated desk check | Low | Reworded; calls during the write counted apart; thread errors recorded; the desk reuses its check |
+| Plausible: "a live model can't exceed them" overclaims; the model cards treat a result with no mode as live | Low | Item 29 reworded; the mode rule noted |
+
+Status changes: the runbook (item 1), who-approved-what (18) and EU AI Act logging and oversight
+(25) went to Partial. Missing items added: incident response, retention and erasure, backup and
+recovery, latency and capacity, identity and key custody, reviewer training (gaps); vendor and
+model risk, data sent to the provider, continuity when a supervisor is stopped (partial).
+
+**Re-check of the fixes** (the same reviewer, at `8743433`, offline): the fixes hold; a broken
+switch now fails the drill and the gate. Four new issues, none High, all fixed or stated:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| With the per-step re-checks removed, every gated drill key still passed | Medium | The drill gates calls after a stop on an agent the case had already used: no specialist call, and at most the one supervisor turn already past its check when the stop landed (a full run showed that race once) (`test_the_drill_fails_without_the_per_step_re_check`) |
+| HR's post-choice check was untested: without it the rules ran on a stopped intake agent's answer | Low | `test_a_stop_on_intake_during_the_supervisor_s_turn_keeps_the_rules_from_running` (fails with the check removed) |
+| The time overrun for a tool-using agent is up to about 14 minutes (seven requests), not two | Low | Checklist item 6 and the threat model say so; time-to-stop stays about two minutes |
+| Plausible: 60 s per attempt may stop long Sonnet answers live | Low | Stated in item 39; needs a live smoke test |
+| Minor: nothing checked the pipelines use the bounded client; the CFPB GET was missing from the threat model's destinations | Low | `test_the_pipelines_use_the_bounded_client_when_none_is_passed`; the threat model lists it |
+
+
+## Review 27 (agentic-loop): a code and design review of the claims supervisor loop (HM-32)
+
+**Reviewer:** Claude, reviewing `hall_monitor/agentic.py`, `agents/supervisor.py` and ADR 0028
+on `main` at `1fbf957`, with throwaway probe tests (no API calls). The core holds: the answer has
+no route field, the view carries codes and amounts only, a repeat on unchanged inputs is refused
+(so there's no shopping for a clean critic review), and two hostile probes (a supervisor that
+skips the critic's revisions, a critic that never clears) both ended with a person.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The claim's cost and time budget was checked only before each agent started, so a tool-using specialist could run its whole tool loop (up to seven requests, about 14 minutes live) past the 300 s budget. Review 26 had logged this as a stated gap | Medium | Checked before each later tool round too, through `ToolAccess.check_budget`, counting the rounds that agent has already sent; a budget stop keeps those rounds in the record with their cost. `test_the_time_budget_holds_inside_a_specialist_s_tool_loop` (ran all 7 rounds before) and `test_the_cost_budget_counts_the_rounds_a_specialist_has_already_sent` (fails without the sent rounds counted) |
+| The bounded loop is written three times (claims, desk, HR), each with its own refusal count, budget checks and re-check of used agents; the drill's per-step re-check had to be fixed in all three | Medium (design) | Not changed here. Proposed: one shared loop with per-workflow refusal, execute and result hooks, before the complaint crew adds a fourth |
+| Plausible: a model with no price on the claims path is reported as "unexpected UnpricedModelError", and if it is raised while a failed step is being recorded, that step is missing from the trail | Low | Not changed; the claim still goes to a person |
+
+**Re-check** (the governance-reviewer agent, on the uncommitted fix, offline, with mutation
+copies): the fix holds; the kill switch is checked before the budget on every round; no call is
+recorded twice; no `ToolAccess` with a budget reaches the fixed path, the drills, the desk or HR
+(their agents pass no tools); the docs match the code; each new test fails with its part of the
+fix removed. One new finding, fixed test-first:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| On a budget stop mid-loop, the failed step was recorded before the agent's partial rounds were kept, so the step that ends the claim showed a cost well under the budget (0.0006 against 0.0126 in the probe) | Low | The partial rounds are kept before the failed step is recorded, once; `test_the_cost_budget_counts_the_rounds_a_specialist_has_already_sent` checks the step's cost equals the claim's and that the rounds are recorded once |
+
+## Review 28 (cost-governance): approved budgets and spending caps (HM-34)
+
+**Reviewer:** the governance-reviewer agent, on the uncommitted `cost-governance` branch, offline,
+with fault injection and mutation copies in the scratchpad (no repo edits, no API calls). 7
+findings, none High, all fixed test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A ledger error (locked past its timeout, a disk error) escaped HR's `prepare` as an exception: the request was logged as submitted but never routed, and the leave form returned a 500 | Medium | `start_case` turns any ledger error into `spend ledger unavailable (<type>)`, a refusal: every workflow sends the case to a person with no model call (`test_a_broken_ledger_sends_a_leave_request_to_an_hr_director`, and its claims and desk twins) |
+| On the desk, the same fault was blamed on the supervisor or the triage agent | Medium | It is `spend_refused`, blaming no agent (`test_a_broken_ledger_sends_a_complaint_to_specialist_review_blaming_no_agent`) |
+| The main live claims path (`open_workflow` → `build_graph` → `triage`) was untested past `open_workflow`: removing the ledger there survived every test | Medium | `test_the_claims_workflow_holds_a_claim_to_the_cap` |
+| Nothing showed the prices came from the approved file: a hard-coded table survived the tests | Medium | `test_call_cost_uses_the_approved_prices_and_picks_up_an_approved_change`, `test_call_cost_prices_nothing_while_the_budgets_are_unapproved` |
+| The desk and leave case budgets from the file were untested | Low | Twins of the claims test |
+| No pipeline-level test that an unpriced claim stays reserved in full | Low | `test_an_unpriced_claim_stays_reserved_in_full` |
+| Prices were read once at import, so a long-running form or panel kept old prices after an approved change, though the docs said changes need no restart | Low | Prices are read again whenever the budgets or approvals file changes (`gateway/cost.py` `_refresh`) |
+| Plausible: an interrupted claim settled at its cost so far, not counting the request in flight | Low | It stays reserved in full (`test_an_interrupted_claim_stays_reserved_in_full`); a ledger failing while settling leaves the reservation counted and doesn't fail the routed case (`test_a_ledger_that_fails_while_settling_doesn_t_lose_the_case`) |
+| The seeded critic eval's live calls weren't listed among the uncapped evals; a dead test marker | Low | Listed in the ADR and HM-34 gaps; marker removed |
+
+## Review 29 (docs-week-refresh): the functional and technical documents brought up to date
+
+**Reviewer:** the governance-reviewer agent, on the uncommitted docs diff, offline (it ran the
+runbook's ledger query on a scratch ledger). The business summary, board brief, executive brief
+and architecture page now cover HR leave, the complaint desk, the supervisors, the stress tests,
+the readiness checklist and cost governance; the runbook, threat model and regulatory mapping
+cover cost governance. 11 findings, none High, all fixed by rewording.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The threat model said there was no per-day cap, next to the new row describing the caps | Medium | Reworded to name the caps |
+| "The system can never reply to or contact anyone" (and like wording on four pages) went past HM-25: the guard covers the desk only, and the static check catches an ordinary sending capability, not a hidden one | Medium | "The desk is built never to reply…", with the check's limit stated; the architecture heading names the desk |
+| The architecture page rated the whole complaint desk built | Medium | Partial: not run live, the form proposed |
+| "72 claim runs at once": the drill runs 8 at a time, has no published report, and its guarantee is for cases that started | Medium | Reworded |
+| "Planted text can't steer" the supervisor: its codes and amounts come from an agent that read the text | Medium | "can't reach it directly", with why |
+| "No case got less review" for claims, where the eval measures unsafe autos | Low | The readiness checklist's wording |
+| Caps described without saying they hold for live runs only | Low | "live" added |
+| "Many processes racing": the test uses threads with their own connections | Low | Reworded |
+| "The AI's answer has no free-text field" after naming two agents | Low | "The first AI's" |
+| The runbook's cap message missed "monthly" and the amount | Low | Full template and workflow names |
+| An open reservation counts until the month rolls over too; the kill-switch drill is HM-19 | Low | Both corrected |
+
+## Review 30 (docs-pdf): the architecture and functionality diagrams
+
+**Reviewer:** the governance-reviewer agent, on the diagram text (`docs/pdf/make_diagrams.py`)
+against the code, registry, budgets and reports, offline. It rebuilt the PDF from the script and
+ran the full suite. 6 findings, none High, all fixed by rewording; the controls page regrouped.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| "60 s per attempt, 2 attempts" for every Claude call: the desk's guarded client is one 120 s attempt | Medium | Both stated |
+| "A stop ends the case at this step": HR's note agent is not re-checked; a stop on it drops the note | Low | Stated |
+| `run_agent()` credited with the case-budget check before every request: each workflow's loop makes it, `run_agent()` only between tool rounds | Low | Credited to the loop |
+| "Call record with tokens and cost": the record holds tokens; cost is computed from them | Low | Reworded |
+| "Specialists: every complaint": every complaint goes to a person, specialists only for flagged ones | Low | Reworded |
+| The gateway box implied `cfpb_complaint_search` is allow-listed per agent (it serves the desk's ingest only), and "draft kept" omitted that a draft failing the check is dropped | Low | Both reworded |
+
 ## Review 31 (agent-loop): agents act within their grant (HM-35)
 
 **Reviewer:** the governance-reviewer agent, before the pull request, with offline scripted

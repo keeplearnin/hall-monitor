@@ -214,7 +214,10 @@ def test_live_mode_stops_at_its_spend_cap(tmp_path):
 
 
 def test_a_request_that_stops_before_the_rules_says_to_submit_it_again(tmp_path):
-    client = _app(tmp_path, live=True, client=fake_client(stop_reason="refusal"))
+    from hall_monitor.hr.models import LeaveIntake
+
+    # The intake agent refuses: only its failure leaves a request to be submitted again.
+    client = _app(tmp_path, live=True, client=fake_client(stop_reason={LeaveIntake: "refusal"}))
     message = MESSAGES["lr_001"]
     response = _submit(client, employee_id=message.employee_id, text=message.text)
     page = client.get(response.headers["location"]).text

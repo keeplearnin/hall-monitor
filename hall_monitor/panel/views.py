@@ -33,7 +33,7 @@ from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog, ChainHead
 from hall_monitor.governance.controls import REGISTER, load_register
 from hall_monitor.hr.routing import REASONS as LEAVE_REASONS
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
-from hall_monitor.models import AgentCall
+from hall_monitor.models import AgentCall, SupervisorStep
 from hall_monitor.registry import (
     APPROVALS_FILENAME,
     DEFAULT_REGISTRY_DIR,
@@ -230,6 +230,17 @@ _HALL_PASS = (
 )
 _STOP_LIST = r"hall pass refused: [\w .()'-]+; every agent is refused"
 _UNEXPECTED = r"unexpected [A-Za-z]+"
+
+
+def _spend(workflow: str) -> str:
+    """Refused before any model call (spend.py, budgets.py; HM-34)."""
+    return (
+        rf"spend (?:ledger unavailable \([A-Za-z]+\)|"
+        rf"cap reached: (?:daily|monthly) {workflow} cap of {_N} USD|budgets not "
+        r"approved: budgets\.yaml (?:is not the approved version|can't be read \([A-Za-z]+\)))"
+    )
+
+
 _STOPS = (
     rf"agent refused or returned no usable output: [a-z_]+ (?:declined claim {_ID}|was still "
     rf"calling tools after \d+ rounds|returned no complete output for {_ID})",
@@ -238,6 +249,10 @@ _STOPS = (
     _STOP_LIST,
     r"no policy record found (?:for the policy number on the claim|after the critic's correction)",
     _UNEXPECTED,
+    # The agentic path's own stops (agentic.py, ADR 0028).
+    rf"budget exhausted: (?:\d+ supervisor steps|cost reached {_N} USD|{_N} seconds)",
+    r"supervisor loop: \d+ steps refused",
+    _spend("claims"),
 )
 _COST_UNKNOWN = r"(?:; cost unknown: no price for model '[\w.-]+' in PRICES_PER_MTOK)?"
 _STOP = rf"(?:{'|'.join(_STOPS)}){_COST_UNKNOWN}"
@@ -260,6 +275,8 @@ _REASONS = (
     r"critic changed [a-z_.]+(?:, [a-z_.]+)*",
     rf"claim text addresses the AI: {_CODES}",
     rf"pipeline stopped: {_STOP}",
+    r"supervisor handed the claim to a person \([a-z_]+\)",
+    r"required steps missing or out of date: [a-z_ ]+(?:, [a-z_ ]+)*",
 )
 _REJECTIONS = (
     r"the decision names an adjuster who isn't registered",
@@ -345,6 +362,8 @@ _SHOWN_FIELDS = {
         "models",
     },
     "evidence_pack": {"evidence_sha256", "result_sha256"},
+    # Codes, counts and amounts only (ADR 0028): the path the supervisor took.
+    "supervisor_step": set(SupervisorStep.model_fields),
     "decision_rejected": {"submitted_hmac"},
     "final_decision": (set(FinalDecision.model_fields) - {"adjuster_name", "reason"})
     | {"reason_hmac"},
@@ -364,7 +383,16 @@ _SHOWN_FIELDS |= {
     # the weeks would let anyone with the panel work out a sensitive reason; HR reads them in
     # the review CLI, and the overview counts them across requests.
     "leave_assessed": {"intake_hmac", "assessment_hmac", "route"},
-    "leave_prepared": {"route", "explanation_hmac", "cost_usd", "models"},
+    "leave_prepared": {
+        "route",
+        "explanation_hmac",
+        "cost_usd",
+        "models",
+        # The leave supervisor's path (ADR 0028): codes only.
+        "mode",
+        "intake_runs",
+        "supervisor_path",
+    },
     "leave_evidence": {"evidence_sha256"},
     "leave_decision": {
         "decided_by",
@@ -406,6 +434,12 @@ _HR_STOPS = (
     r"no employee record for this request",
     r"the request doesn't give its dates",
     r"the extracted request isn't valid \([a-z_, ]+\)",
+    # The leave supervisor's own stops (hr/pipeline.py, ADR 0028).
+    r"the leave supervisor ended before the rules ran",
+    _spend("leave"),
+    rf"leave supervisor: (?:budget exhausted: (?:\d+ supervisor steps|cost reached {_N} USD|"
+    rf"{_N} seconds)|supervisor loop: \d+ steps refused|budget can't be checked: cost unknown: "
+    r"no price for model '[\w.-]+' in PRICES_PER_MTOK)",
 )
 _HR_COST = r"cost unknown: no price for model '[\w.-]+' in PRICES_PER_MTOK"
 _HR_STOP_RE = re.compile(rf"(?:{'|'.join(_HR_STOPS)})(?:; {_HR_COST})?|{_HR_COST}")

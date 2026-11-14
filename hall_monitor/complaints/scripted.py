@@ -11,6 +11,7 @@ import html
 import re
 from types import SimpleNamespace
 
+from hall_monitor.complaints.supervisor import DeskDecision, scripted_desk_answer
 from hall_monitor.complaints.triage_agent import (
     Category,
     ComplaintTriage,
@@ -74,9 +75,13 @@ class _ScriptedMessages:
     def parse(self, **kwargs):
         self.calls += 1
         content = kwargs["messages"][0]["content"]
+        if kwargs["output_format"] is DeskDecision:  # the desk's old order, scripted
+            answer = scripted_desk_answer(kwargs)
+        else:
+            answer = scripted_triage(content)
         return SimpleNamespace(
             stop_reason="end_turn",
-            parsed_output=scripted_triage(content),
+            parsed_output=answer,
             usage=SimpleNamespace(input_tokens=0, output_tokens=0),
         )
 

@@ -25,12 +25,20 @@ RESERVED_AGENT_ID = "pipeline"  # the tool gateway's PIPELINE_ACTOR
 DEFAULT_REGISTRY_DIR = Path(__file__).resolve().parents[1] / "registry"
 SCHEMA_FILENAME = "agent_manifest.schema.json"
 APPROVALS_FILENAME = "approvals.yaml"
+BUDGETS_FILENAME = "budgets.yaml"
 ADJUSTERS_FILENAME = "adjusters.yaml"
 OWNERS_FILENAME = "owners.yaml"
 HR_STAFF_FILENAME = "hr_staff.yaml"
 # Files in registry/ that are not agent manifests.
 NON_MANIFEST_FILES = frozenset(
-    {APPROVALS_FILENAME, ADJUSTERS_FILENAME, OWNERS_FILENAME, STOPS_FILENAME, HR_STAFF_FILENAME}
+    {
+        APPROVALS_FILENAME,
+        ADJUSTERS_FILENAME,
+        OWNERS_FILENAME,
+        STOPS_FILENAME,
+        HR_STAFF_FILENAME,
+        BUDGETS_FILENAME,
+    }
 )
 
 

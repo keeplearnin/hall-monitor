@@ -11,7 +11,7 @@ import json
 import anthropic
 
 from hall_monitor import tracing
-from hall_monitor.agents.base import AgentRun, escape, run_agent
+from hall_monitor.agents.base import AgentRun, default_client, escape, run_agent
 from hall_monitor.hr.eligibility import Assessment
 from hall_monitor.hr.models import LeaveExplanation
 from hall_monitor.hr.routing import LeaveRoute
@@ -67,7 +67,7 @@ def run_leave_explainer(
     return run_agent(
         AGENT_ID,
         registry=registry,
-        client=client or anthropic.Anthropic(),
+        client=client or default_client(),
         system=SYSTEM_PROMPT,
         content=render_result(assessment, route),
         output_format=LeaveExplanation,

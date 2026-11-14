@@ -192,6 +192,8 @@ def evaluate(complaints: list[Complaint], client, registry: Registry, mode: str)
         "complaints": len(complaints),
         "errors": errors,
         "agent_failed": sum("agent_failed" in r["reasons"] for r in scored),
+        # The desk supervisor's failures are their own reason (ADR 0028); gated like the agent's.
+        "supervisor_failed": sum("supervisor_failed" in r["reasons"] for r in scored),
         "audit_chain_verified": verified,
         "must_route_total": len(must),
         "must_route_missed": sum(r["queue"] != "specialist_review" for r in must),
@@ -285,7 +287,8 @@ def run(mode: str, limit: int | None = None, out: Path | None = None) -> dict:
         data["summary"]["egress_refusals"] = len(refused)
     data["meta"] = run_meta(
         registry,
-        [AGENT_ID],
+        # The desk supervisor chose the steps (ADR 0028), so its hall pass is part of the run.
+        [AGENT_ID, "complaint_supervisor"],
         mode=mode,
         snapshot=PINNED_NAME,
         snapshot_manifest_sha256=PINNED_MANIFESTS[PINNED_NAME],

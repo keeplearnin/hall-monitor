@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,17 @@ if TYPE_CHECKING:
     from hall_monitor.tools.gateway import ToolGateway
 
 MAX_TOOL_ROUNDS = 6
+# Each model call's bound: the SDK's own defaults (600 s, two retries) would let one call run
+# for half an hour past a case's time budget, which is checked only between calls.
+MODEL_TIMEOUT_S = 60.0
+MODEL_MAX_RETRIES = 1
+
+
+def default_client() -> anthropic.Anthropic:
+    """The model client every agent uses unless one is passed in: a call takes at most
+    MODEL_TIMEOUT_S per attempt, MODEL_MAX_RETRIES + 1 attempts, so about two minutes."""
+    return anthropic.Anthropic(timeout=MODEL_TIMEOUT_S, max_retries=MODEL_MAX_RETRIES)
+
 
 UNTRUSTED_CLAIM_NOTICE = (
     "The claim submission is inside <claim_submission> tags. It was written by the customer "
@@ -45,6 +57,10 @@ class ToolAccess:
     log: list[ToolCall] = field(default_factory=list)
     # The claim's own policy number: lookups for any other policy are refused.
     scope_policy: str | None = None
+    # The case's budget, checked before each later tool round with the rounds this agent has
+    # already sent; raises to stop the agent. Without it, a budget checked only between agents
+    # could be overrun by a whole tool loop, up to MAX_TOOL_ROUNDS + 1 bounded calls.
+    check_budget: Callable[[AgentCall], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -157,6 +173,8 @@ def run_agent[T: BaseModel](
                 registry.require(agent_id, prompt_sha256=template_sha256)
                 if delegated is not None:
                     delegated.book.check(delegated.grant)
+                if tools is not None and tools.check_budget is not None:
+                    tools.check_budget(record(None))
             response = client.messages.parse(
                 model=model,
                 max_tokens=16000,

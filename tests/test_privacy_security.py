@@ -534,3 +534,43 @@ def test_eval_claim_variants_have_valid_claim_ids():
     variants += [name_variant(claim, policies, history, g, NAMES[g])[0] for g in NAMES]
     for variant in variants:
         ClaimSubmission.model_validate(variant.model_dump(mode="json"))
+
+
+def test_the_default_model_client_bounds_each_call():
+    """CIO/CAIO review finding 4: the SDK's defaults (600 s, two retries) let one call run for
+    half an hour past the case's time budget."""
+    from hall_monitor.agents.base import MODEL_MAX_RETRIES, MODEL_TIMEOUT_S, default_client
+
+    client = default_client()
+    assert client.timeout == MODEL_TIMEOUT_S == 60.0
+    assert client.max_retries == MODEL_MAX_RETRIES == 1
+
+
+def test_the_pipelines_use_the_bounded_client_when_none_is_passed(monkeypatch):
+    """Review 26 re-check: only the factory was tested; a pipeline reverting to the SDK's
+    default client would have passed."""
+    import hall_monitor.hr.pipeline as hr_pipeline
+    import hall_monitor.pipeline as claims_pipeline
+    from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
+    from hall_monitor.hr.data import load_company, load_employees, load_messages
+    from hall_monitor.registry import Registry
+    from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth
+
+    used = []
+    claim = next(iter_claims())
+
+    def bounded():
+        used.append(True)
+        return fake_client(outputs_from_truth(load_ground_truth(claim.claim_id)))
+
+    monkeypatch.setattr(claims_pipeline, "default_client", bounded)
+    monkeypatch.setattr(hr_pipeline, "default_client", bounded)
+    registry = Registry.from_dir(TEST_REGISTRY_DIR)
+    claims_pipeline.triage(claim, registry=registry, wording=load_policy_wording())
+    hr_pipeline.prepare(
+        load_messages()[0],
+        employees=load_employees(),
+        company=load_company(),
+        registry=registry,
+    )
+    assert len(used) == 2

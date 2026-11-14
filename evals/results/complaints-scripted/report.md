@@ -1,6 +1,6 @@
 # Complaint desk eval (scripted)
 
-Snapshot `2026-10-01` (500 public CFPB complaints, manifest `be882cd30552`), run 2026-11-11 18:44 UTC.
+Snapshot `2026-10-01` (500 public CFPB complaints, manifest `be882cd30552`), run 2026-11-12 02:57 UTC.
 
 **The agent here is a scripted stand-in with fixed rules, not the model.** The routing metrics measure the desk's code (must_route_floor_below_high is the code's own floor, before any agent raised it); the final urgency, the specialist share and the flagged rates below also depend on the stand-in's rules. It says nothing about the model's summaries, categories or urgency.
 
@@ -9,6 +9,7 @@ Snapshot `2026-10-01` (500 public CFPB complaints, manifest `be882cd30552`), run
 | complaints | 500 |
 | errors | 0 |
 | agent_failed | 0 |
+| supervisor_failed | 0 |
 | audit_chain_verified | True |
 | must_route_total | 197 |
 | must_route_missed | 0 |

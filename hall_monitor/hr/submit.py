@@ -42,6 +42,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.routing import Route
 
+from hall_monitor.agents.base import default_client
 from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog
 from hall_monitor.hr import signoff
 from hall_monitor.hr.data import load_company, load_employees, load_messages
@@ -51,6 +52,7 @@ from hall_monitor.panel import demo
 from hall_monitor.panel.app import LOCAL_HOSTS, SECURITY_HEADERS
 from hall_monitor.panel.pages import CSP, Safe, esc, tag
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, Registry
+from hall_monitor.spend import DEFAULT_SPEND_DB, SpendLedger
 
 DEFAULT_PORT = 8766  # the panel is on 8765
 DEMO_DIR = demo.DEFAULT_OUT
@@ -63,7 +65,7 @@ HEADERS = SECURITY_HEADERS | {"Referrer-Policy": "same-origin"}
 STATES = {
     "waiting for HR": "waiting for HR",
     "stopped before the rules ran; can be prepared again": (
-        "stopped before the rules ran (the model call failed or an agent is stopped); the "
+        "stopped before the rules ran (the intake agent's call failed or it is stopped); the "
         "message itself wasn't kept, so submit it again once that is fixed"
     ),
     "decided": "decided by HR",
@@ -141,6 +143,7 @@ def create_app(
     registry_dir: Path = DEFAULT_REGISTRY_DIR,
     client=None,
     max_requests: int = 20,
+    spend: SpendLedger | None = None,
 ) -> Starlette:
     """The form. Live mode calls `client` (the Claude client); demo mode uses the scripted one."""
     if not live:
@@ -277,6 +280,8 @@ def create_app(
                 registry=Registry.from_dir(registry_dir),
                 client=client,
                 audit=audit,
+                # Live submissions are held to the leave caps (HM-34).
+                spend=spend if live else None,
             )
         finally:
             audit.close()
@@ -376,15 +381,15 @@ def main(argv: list[str] | None = None) -> int:
             live=False, audit_db=DEMO_DIR / "audit.sqlite", registry_dir=DEMO_DIR / "registry"
         )
     else:
-        import anthropic
         from dotenv import load_dotenv
 
         load_dotenv()
         app = create_app(
             live=True,
             audit_db=args.audit_db,
-            client=anthropic.Anthropic(),
+            client=default_client(),
             max_requests=args.max_requests,
+            spend=SpendLedger(DEFAULT_SPEND_DB),
         )
     import uvicorn
 

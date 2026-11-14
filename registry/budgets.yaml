@@ -1,0 +1,32 @@
+# Spending limits and model prices (HM-34, ADR 0030). A change to this file is a spend
+# approval: record it with `uv run python -m hall_monitor.approvals`, which writes its digest to
+# approvals.yaml, and review the diff as one. Until it is approved, every case goes to a person.
+#
+# The case budgets were set from the published costs of the fixed path (the largest claim cost
+# about 0.05 USD), not tuned on live supervisor runs. The daily and monthly caps are a starting
+# point for a demo deployment, not a recommendation. Days and months are UTC.
+prices:
+  as_of: "2026-10-01"  # Anthropic list prices, USD per million tokens
+  per_mtok_usd:
+    claude-haiku-5-5: {input: 0.10, output: 0.50}
+    claude-sonnet-5-5: {input: 2.00, output: 10.00}
+  # Prompt caching (5-minute entries): writing costs 1.25x the input price, reading 0.1x.
+  cache_write_multiplier: 1.25
+  cache_read_multiplier: 0.10
+
+workflows:
+  claims:
+    owner: own-301
+    case: {max_steps: 16, max_cost_usd: 0.25, max_seconds: 300}
+    daily_usd: 5.00
+    monthly_usd: 50.00
+  complaints:
+    owner: own-501
+    case: {max_steps: 6, max_cost_usd: 0.02, max_seconds: 120}
+    daily_usd: 1.00
+    monthly_usd: 10.00
+  leave:
+    owner: own-401
+    case: {max_steps: 8, max_cost_usd: 0.02, max_seconds: 120}
+    daily_usd: 1.00
+    monthly_usd: 10.00

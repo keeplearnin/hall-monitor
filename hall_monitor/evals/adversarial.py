@@ -18,10 +18,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-import anthropic
 from dotenv import load_dotenv
 
 from hall_monitor import tracing
+from hall_monitor.agents.base import default_client
 from hall_monitor.data import DATA_DIR, iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.evals.meta import run_meta
 from hall_monitor.evals.scoring import is_infrastructure_stop
@@ -174,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
         "registry": registry,
         "gateway": ToolGateway(registry),
         "wording": load_policy_wording(),
-        "client": anthropic.Anthropic(),
+        "client": default_client(),
     }
     claims = {c.claim_id: c for c in iter_claims()}
     cases = load_cases()

@@ -2,8 +2,9 @@
 
     uv run python -m hall_monitor.hr.evals --out evals/results/hr-intake   # 28 requests, < $0.10
 
-Each synthetic message goes through the whole pipeline (intake agent, the rules in code, the
-explanation agent). Intake is scored field by field against the structured request the message
+Each synthetic message goes through the whole pipeline, agentic by default (the leave supervisor
+choosing the intake agent, the rules in code and the explanation agent, ADR 0028). Intake is
+scored field by field against the structured request the message
 describes (data/synthetic/hr/requests.json); the end-to-end result against the answer key
 (ground_truth.json). An intake error the rules can't see (a wrong date, the wrong family member)
 shows up here, not in routing: that is what this eval is for. No result has been published yet.
@@ -101,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
         result = run(registry)
     finally:
         tracing.flush()
-    result["meta"] = run_meta(registry, ["leave_intake", "leave_explainer"])
+    result["meta"] = run_meta(registry, ["leave_intake", "leave_explainer", "leave_supervisor"])
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "results.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result["summary"], indent=2))

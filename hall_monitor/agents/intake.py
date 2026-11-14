@@ -8,6 +8,7 @@ from hall_monitor import tracing
 from hall_monitor.agents.base import (
     UNTRUSTED_CLAIM_NOTICE,
     AgentRun,
+    default_client,
     join_content,
     render_claim,
     run_agent,
@@ -49,7 +50,7 @@ def run_intake(
     return run_agent(
         AGENT_ID,
         registry=registry,
-        client=client or anthropic.Anthropic(),
+        client=client or default_client(),
         system=SYSTEM_PROMPT,
         content=join_content(render_claim(claim), feedback),
         output_format=IntakeExtraction,

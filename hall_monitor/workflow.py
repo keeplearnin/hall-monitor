@@ -46,6 +46,7 @@ from hall_monitor.governance.audit import (
 from hall_monitor.models import ClaimSubmission, Route, TriageResult
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
+from hall_monitor.spend import SpendLedger
 from hall_monitor.tools.gateway import ToolGateway
 
 DEFAULT_CHECKPOINTS = Path(__file__).resolve().parents[1] / "var" / "checkpoints.sqlite"
@@ -70,6 +71,7 @@ def build_graph(
     client: anthropic.Anthropic | None = None,
     critic: bool = True,
     model_routing: bool = False,
+    spend: SpendLedger | None = None,
 ) -> StateGraph:
     adjusters = load_adjusters()
 
@@ -84,6 +86,7 @@ def build_graph(
             critic=critic,
             model_routing=model_routing,
             on_event=TriageRecorder(audit, claim.claim_id),
+            spend=spend,
         )
         pack = build_evidence_pack(result, claim)
         digest = audit.put_evidence(pack)

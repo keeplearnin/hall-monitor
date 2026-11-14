@@ -295,6 +295,88 @@ class RevisionRecord(BaseModel):
     changed_fields: list[str]
 
 
+class SupervisorAction(StrEnum):
+    """What the claims supervisor may choose next (ADR 0028). A closed set: anything else fails
+    validation, and code checks each choice before it runs."""
+
+    RUN_INTAKE = "run_intake"
+    RUN_COVERAGE_CHECK = "run_coverage_check"
+    RUN_RISK_FRAUD = "run_risk_fraud"
+    RUN_CRITIC = "run_critic"
+    REVISE = "revise"  # send the stages the critic raised back for correction
+    RUN_RECOMMENDATION = "run_recommendation"
+    FINISH = "finish"  # ask code to route the claim; code alone can choose auto
+    HAND_OFF = "hand_off"  # send the claim to a person now
+
+
+class SupervisorReason(StrEnum):
+    """Why the supervisor chose its action: a code, so the audit log holds no free text."""
+
+    NEEDS_EXTRACTION = "needs_extraction"
+    NEEDS_POLICY = "needs_policy"
+    NEEDS_COVERAGE = "needs_coverage"
+    NEEDS_RISK = "needs_risk"
+    NEEDS_REVIEW = "needs_review"
+    RERUN_AFTER_CHANGE = "rerun_after_change"
+    CRITIC_RAISED_ISSUES = "critic_raised_issues"
+    READY_TO_RECOMMEND = "ready_to_recommend"
+    WORK_COMPLETE = "work_complete"
+    INJECTION_SUSPECTED = "injection_suspected"
+    STEP_REFUSED = "step_refused"
+    REVISIONS_EXHAUSTED = "revisions_exhausted"
+    BUDGET_LOW = "budget_low"
+    UNCERTAIN = "uncertain"
+
+
+class SupervisorDecision(BaseModel):
+    """What the supervisor agent returns: one next step. It has no route field: it can ask code
+    to finish, never choose auto."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: SupervisorAction
+    reason: SupervisorReason
+    stages: list[ReviewedStage] = Field(
+        default_factory=list, description="For revise only: the stages to send back."
+    )
+
+
+class StepOutcome(StrEnum):
+    RAN = "ran"
+    FAILED = "failed"  # the step started and an agent or a code check stopped the claim
+    REFUSED = "refused"  # code refused the choice; nothing ran
+    FINISHED = "finished"
+    HANDED_OFF = "handed_off"
+
+
+class StepRefusal(StrEnum):
+    """Why code refused a supervisor's choice."""
+
+    PRECONDITION_UNMET = "precondition_unmet"  # the step's inputs aren't there yet
+    REPEAT_WITHOUT_CHANGE = "repeat_without_change"  # its inputs haven't changed since it ran
+    CRITIC_OFF = "critic_off"
+    NO_CRITIC_ISSUES = "no_critic_issues"  # revise without a current review that raised issues
+    STAGE_WITHOUT_ISSUE = "stage_without_issue"  # revise a stage the critic didn't raise
+    NOT_EVERY_RAISED_STAGE = "not_every_raised_stage"  # leave out a stage the critic raised
+    REVISIONS_EXHAUSTED = "revisions_exhausted"
+
+
+class SupervisorStep(BaseModel):
+    """One step the supervisor chose, as the audit log records it: codes, counts and amounts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    step: int
+    action: SupervisorAction
+    reason: SupervisorReason
+    stages: list[ReviewedStage] = Field(default_factory=list)
+    outcome: StepOutcome
+    refusal: StepRefusal | None = None
+    agents: list[str] = Field(default_factory=list)  # specialist agents the step ran
+    cost_usd: float  # the claim's cost so far, after the step
+    seconds: float  # wall-clock time so far, after the step
+
+
 class TriageResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -318,6 +400,10 @@ class TriageResult(BaseModel):
     revisions: int = 0
     critic_unresolved: bool = False
     stopped_reason: str | None = None
+    # "agentic": a supervisor agent chose the steps, within code's bounds (ADR 0028); "fixed":
+    # code ran them in a fixed order. Results written before the supervisor say "fixed".
+    mode: Literal["agentic", "fixed"] = "fixed"
+    supervisor_steps: list[SupervisorStep] = Field(default_factory=list)
 
 
 # --- Ground truth ---------------------------------------------------------

@@ -145,15 +145,15 @@ def test_the_drill_never_touches_the_shipped_registry(drill):
 def test_the_checks_fail_when_a_failure_is_decided_automatically(tmp_path, monkeypatch):
     """Mutation: if the routing rule let every claim through, a wrong answer would be paid
     automatically, and the drill must say so."""
+    import hall_monitor.agentic as agentic_module
     import hall_monitor.pipeline as pipeline_module
     from hall_monitor.governance.routing import RoutingDecision
     from hall_monitor.models import Route
 
-    monkeypatch.setattr(
-        pipeline_module,
-        "route_claim",
-        lambda *a, **k: RoutingDecision(route=Route.AUTO, reasons=[]),
-    )
+    for module in (pipeline_module, agentic_module):
+        monkeypatch.setattr(
+            module, "route_claim", lambda *a, **k: RoutingDecision(route=Route.AUTO, reasons=[])
+        )
     report = drills.run(tmp_path, rounds=1, workers=2, seed=11, fault_share=1.0, limit=24)
     assert any("decided automatically" in p for p in report["problems"])
 
@@ -241,11 +241,13 @@ def _without_over_claim_rule(real):
 def test_the_checks_fail_when_the_over_claim_rule_is_removed(tmp_path, monkeypatch):
     """Review 21 finding 1: a wrong answer on a claim that goes to a person anyway proved
     nothing. The check now asks for the over-claim reason itself in the logged routing."""
+    import hall_monitor.agentic as agentic_module
     import hall_monitor.pipeline as pipeline_module
 
-    monkeypatch.setattr(
-        pipeline_module, "route_claim", _without_over_claim_rule(pipeline_module.route_claim)
-    )
+    for module in (pipeline_module, agentic_module):
+        monkeypatch.setattr(
+            module, "route_claim", _without_over_claim_rule(pipeline_module.route_claim)
+        )
     report = drills.run(
         tmp_path, rounds=1, workers=4, seed=3, fault_share=0.6, stop_after=24, cap_usd=0.2
     )

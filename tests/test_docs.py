@@ -78,3 +78,17 @@ def test_the_readme_counts_the_controls_in_the_register():
     count = len(yaml.safe_load((ROOT / "controls" / "controls.yaml").read_text())["controls"])
     readme = (ROOT / "README.md").read_text()
     assert f"Framework mapping | {count} controls in `controls/controls.yaml`" in readme
+
+
+def test_the_readiness_checklist_counts_match_its_rows():
+    """The summary line in docs/readiness-checklist.md must match the table's statuses."""
+    import re
+
+    text = (ROOT / "docs" / "readiness-checklist.md").read_text()
+    statuses = re.findall(r"^\| \d+ \| [^|]+ \| \*\*(Pass|Partial|Gap)\*\* \|", text, re.M)
+    counts = {s: statuses.count(s) for s in ("Pass", "Partial", "Gap")}
+    line = (
+        f"**Count:** {counts['Pass']} pass, {counts['Partial']} partial, {counts['Gap']} gap "
+        f"({len(statuses)} items)."
+    )
+    assert line in text, line

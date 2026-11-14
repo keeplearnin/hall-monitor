@@ -20,9 +20,19 @@ from types import ModuleType
 
 import yaml
 
-from hall_monitor.agents import coverage_check, critic, intake, recommendation, risk_fraud
+from hall_monitor.agents import (
+    coverage_check,
+    critic,
+    intake,
+    recommendation,
+    risk_fraud,
+    supervisor,
+)
+from hall_monitor.budgets import load_budgets
+from hall_monitor.complaints import supervisor as complaint_supervisor
 from hall_monitor.complaints import triage_agent
 from hall_monitor.hr import leave_explainer, leave_intake
+from hall_monitor.hr import supervisor as leave_supervisor
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
 from hall_monitor.registry import (
     APPROVALS_FILENAME,
@@ -33,9 +43,9 @@ from hall_monitor.registry import (
     load_approvals,
 )
 
-CLAIMS_MODULES = (intake, coverage_check, risk_fraud, critic, recommendation)
-HR_MODULES = (leave_intake, leave_explainer)
-COMPLAINT_MODULES = (triage_agent,)
+CLAIMS_MODULES = (intake, coverage_check, risk_fraud, critic, recommendation, supervisor)
+HR_MODULES = (leave_intake, leave_explainer, leave_supervisor)
+COMPLAINT_MODULES = (triage_agent, complaint_supervisor)
 CLAIMS_AGENTS = tuple(m.AGENT_ID for m in CLAIMS_MODULES)
 AGENT_MODULES: dict[str, ModuleType] = {
     m.AGENT_ID: m for m in CLAIMS_MODULES + HR_MODULES + COMPLAINT_MODULES
@@ -100,7 +110,11 @@ if __name__ == "__main__":
         "# a change to this file is an approval and should be reviewed as one.\n"
     )
     body = yaml.safe_dump(
-        {"agents": current_approvals(resume=_resume(args.resume) if args.resume else None)},
+        {
+            "agents": current_approvals(resume=_resume(args.resume) if args.resume else None),
+            # The spending limits and prices (HM-34): approved by digest, like a hall pass.
+            "budgets": {"digest": load_budgets().digest()},
+        },
         sort_keys=True,
     )
     (DEFAULT_REGISTRY_DIR / APPROVALS_FILENAME).write_text(header + body)
