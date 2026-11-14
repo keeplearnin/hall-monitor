@@ -893,7 +893,7 @@ fixed test-first:
 | Any ValueError was taken as the workflow's own refusal and stored as text, so an unexpected one (including a pydantic ValidationError, which repeats input) was never flagged | Medium | Only a duplicate's second submission may be refused, and only with the workflow's four known refusals, recorded as a fixed label; any other ValueError is unexpected, recorded by its type |
 | The docs said masked faults are those after the risk step; wrong answers stopped before routing and faults on the risk agent are masked too | Low | Design and docstring reworded |
 
-## Review 22 (agent-loop): agents act within their grant (HM-32)
+## Review 31 (agent-loop): agents act within their grant (HM-35)
 
 **Reviewer:** the governance-reviewer agent, before the pull request, with offline scripted
 probes. It confirmed no path gives a crew agent a model call, tool or helper without a valid
@@ -906,7 +906,7 @@ grant, the lead can't raise a helper's budget or reach, and existing agents keep
 | A second handoff to the same helper produced the identical grant, overwriting it and charging the parent's allotment twice | Medium | Grants carry their issue order, so each handoff is a fresh grant with its own spending |
 | A helper's failure became a tool result and the lead finished normally, with the helper's call (versions, cost) lost to the caller | Medium | Every handoff's outcome and call is kept on the runner (`outcomes`, `complete`) so the crew pipeline can mark the case incomplete |
 | Plausible: nothing tied a handoff runner to the grant it runs under | Low | `Delegated` refuses a runner for another grant or book |
-| Plausible: a call the SDK bills and then raises on isn't charged | Low | Stated in HM-32's gaps and ADR 0028 |
+| Plausible: a call the SDK bills and then raises on isn't charged | Low | Stated in HM-35's gaps and ADR 0031 |
 
 **Re-review of the fixes** (governance-reviewer, after the merge of `main`): the cascade
 arithmetic, the overshoot bound, fresh grants, kept outcomes and the merge all checked out.

@@ -1,4 +1,4 @@
-"""HM-32: agents act within their grant: tool loops, spend and handoffs under delegation."""
+"""HM-35: agents act within their grant: tool loops, spend and handoffs under delegation."""
 
 from __future__ import annotations
 
@@ -442,7 +442,7 @@ def test_agents_outside_a_crew_run_as_before(registry, gateway):
     assert run.output.text == "done" and log[0].allowed
 
 
-# Review 22.
+# Review 31.
 
 
 def test_a_case_s_spending_reaches_the_lead_s_grant_and_stops_it(registry, gateway, book, audit):
@@ -577,7 +577,7 @@ def test_a_handoff_runner_for_another_grant_is_refused(registry, book):
         Delegated(other, root, lead_runner)
 
 
-# Review 22, re-review.
+# Review 31, re-review.
 
 
 def test_a_lead_pushed_over_by_a_helper_s_overshoot_logs_grant_budget_reached(book, audit):

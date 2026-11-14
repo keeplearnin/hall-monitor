@@ -1689,7 +1689,7 @@ controls:
       thread timing; the drill isn't run in CI beyond the tests, and no drill report is
       published.
 
-  - id: HM-32
+  - id: HM-35
     name: Agents act within their grant
     what: >-
       run_agent, the one call path every agent uses, runs an agent that can delegate or be
@@ -1831,8 +1831,8 @@ audit_events:
   egress_refused: [HM-25]
   draft_stored: [HM-25, HM-06]
   delegation_granted: [HM-29]
-  delegation_refused: [HM-29, HM-32]
-  grant_budget_reached: [HM-32]
+  delegation_refused: [HM-29, HM-35]
+  grant_budget_reached: [HM-35]
   complaint_pull: [HM-26]
   complaint_quarantined: [HM-26]
   complaint_received: [HM-27, HM-09, HM-10]

@@ -1,7 +1,7 @@
-# ADR 0028: Agents act within their grant; a handoff is a tool that starts a governed run
+# ADR 0031: Agents act within their grant; a handoff is a tool that starts a governed run
 
 - **Status:** Accepted (complaint crew, second slice)
-- **Control:** [HM-32](../controls.md#hm-32)
+- **Control:** [HM-35](../controls.md#hm-35)
 
 ## Context
 

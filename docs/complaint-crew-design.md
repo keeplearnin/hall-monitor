@@ -84,11 +84,11 @@ data, not instructions.
 1. **Delegation in code (HM-29).** `hall_monitor/delegation.py` (grants and the grant book), the
    `may_delegate_to` manifest field, the gateway's grant check, two audit events, this design and
    ADR 0025. No new agents, no model calls. Test-first.
-2. **Agents act within their grant (HM-32).** The one agent call path (`run_agent`) runs a crew
+2. **Agents act within their grant (HM-35).** The one agent call path (`run_agent`) runs a crew
    agent only under a grant: every round checks the grant's chain, every model call is charged
    to its allotment and a run over it stops, and its tools are the grant's. A lead is offered a
    `hand_off` tool (`hall_monitor/handoff.py`) that starts a helper's governed run under a child
-   grant, with an allotment set by code, and returns its answer as data. ADR 0028. Still no crew
+   grant, with an allotment set by code, and returns its answer as data. ADR 0031. Still no crew
    agents and no model calls: tested with scripted clients.
 3. **The read-only tools.** `reg_lookup` over a committed rules index and `complaint_patterns`
    over the desk's store, behind `ToolGateway`, in the read-only catalogue.

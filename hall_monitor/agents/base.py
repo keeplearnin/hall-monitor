@@ -93,7 +93,7 @@ def run_agent[T: BaseModel](
     values, such as the recommendation agent's summary, could be confirmed by guessing. It stays
     on the returned call, for the caller to log as a keyed hash.
 
-    delegated (HM-32): an agent that can delegate or be delegated to runs only under a grant
+    delegated (HM-35): an agent that can delegate or be delegated to runs only under a grant
     from its case's book, and is refused before any model call without one. Every round checks
     the grant (its whole chain against the registry); every model call is charged to it, and a
     run over its allotment stops. Its tools are the grant's, plus ``hand_off`` to the helpers

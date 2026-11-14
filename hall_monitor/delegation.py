@@ -257,7 +257,7 @@ class GrantBook:
                 )
 
     def spend(self, grant: Grant, usd: float) -> None:
-        """Charge a model call to the grant (HM-32). The charge is always recorded, since the
+        """Charge a model call to the grant (HM-35). The charge is always recorded, since the
         money is spent; if the grant's own spending plus what it has handed on is now over its
         allotment, it is refused from here on and this raises, so the run stops and the case
         goes to a person. A run can overshoot by at most the step that crossed the line."""

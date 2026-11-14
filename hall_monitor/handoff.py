@@ -1,4 +1,4 @@
-"""Handoffs: an agent hands part of its work to another, under a narrower grant (HM-32).
+"""Handoffs: an agent hands part of its work to another, under a narrower grant (HM-35).
 
 A lead agent running under a grant (hall_monitor/delegation.py) is offered one extra tool,
 ``hand_off``, naming the helpers its hall pass may delegate to. When it calls it:
