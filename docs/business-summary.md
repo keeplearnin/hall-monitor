@@ -1,6 +1,6 @@
 # hall-monitor: business summary
 
-*Updated 13 November 2026: three worked examples, AI that chooses its own steps, and approved
+*Updated 14 November 2026: three worked examples, AI that chooses its own steps, and approved
 spending limits. Plain English.*
 
 ## The problem
@@ -169,7 +169,7 @@ always did.
 | Live results | A scored run of everything built since milestone 4, the three supervisors, the attack tests, and a fairness test that checks whether changing only the customer's name changes the outcome |
 | Spending, part two | Caps per AI step, a signed sign-off before any live run over a set amount, and a page showing spend against the caps |
 | Fixing the attack findings | Escalating complaints whose seriousness shows only in the free text, and catching hidden links and promises in drafts |
-| A team of AIs on one complaint | A lead AI handing parts of a case to helpers, each with no more access than it was given (the access rules are built; the team isn't) |
+| A team of AIs on one complaint | A lead AI handing parts of a case to helpers, each with no more access than it was given and a budget set by code, every AI call charged to it (these rules are built; the team isn't) |
 | External review | Review by people outside the project. The package is ready ([review](review/README.md)); none has happened yet |
 
 ## The ask

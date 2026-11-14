@@ -17,7 +17,7 @@ from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas
 
-AS_OF = "13 Nov 2026"
+AS_OF = "14 Nov 2026"
 REPO = Path(__file__).resolve().parents[2]
 OUT = str(
     Path(sys.argv[1])
@@ -302,9 +302,9 @@ def page_architecture(c):
         "core",
         "run_agent(): every model call",
         [
-            "hall pass + prompt-hash check, data-class check, kill switch on every call; case "
-            "budget between tool rounds (the loop checks it before each agent); typed output only; "
-            "call record with tokens (cost computed from them)"
+            "hall pass + prompt-hash check, data-class check, kill switch on every call; budget "
+            "guards between tool rounds (a claim's case budget, a crew agent's grant); typed "
+            "output only; call record with tokens (cost computed from them)"
         ],
     )
     hw = (ww - 18) / 2
@@ -468,6 +468,14 @@ def page_architecture(c):
             ],
         ),
         (
+            "Grant book (crew)",
+            [
+                "per case: a helper's grant only narrows (HM-29)",
+                "each call charged to it; over its allotment the agent stops; hand_off to "
+                "declared helpers only (HM-35)",
+            ],
+        ),
+        (
             "Owners and roles",
             [
                 "owners, adjusters with authority limits, HR staff with roles",
@@ -477,8 +485,8 @@ def page_architecture(c):
     ]
     y = top + 18
     for t_, ls in g:
-        box(c, gx + 6, y, gw - 12, 92, "gov", t_, ls, size=6.4)
-        y += 98
+        box(c, gx + 6, y, gw - 12, 74, "gov", t_, ls, size=6.2)
+        y += 80
 
     # Arrows (short and direct)
     arrow(c, M + 124, top + 150, wx, top + 150, None)
@@ -897,6 +905,20 @@ def page_workflows(c):
             c.roundRect(cx, T(y + rh - 4), cw, rh - 4, 4, stroke=1, fill=1)
             wrapped(c, cx + 6, y + 6, cw - 12, cell, 7, "Helvetica", INK)
         y += rh
+    wrapped(
+        c,
+        x0,
+        y + 6,
+        W - 2 * M,
+        "In progress: a complaint investigation crew, where a lead agent hands parts of a "
+        "specialist-review complaint to helper agents. Built so far: grants that only narrow when "
+        "work is handed on (HM-29), and agents held to them, with every call charged to the "
+        "grant, a run over its allotment stopped, and handoffs only to helpers the hall pass "
+        "names (HM-35). No crew agents exist yet; tested with scripted clients only.",
+        7.2,
+        "Helvetica-Oblique",
+        MUTED,
+    )
     footer(c)
 
 

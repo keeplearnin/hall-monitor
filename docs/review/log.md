@@ -1182,3 +1182,15 @@ stated.
 | HM-29 still named "slice 3" and said spending wasn't checked; the design's controls line missed HM-35 | Low | Updated |
 | Plausible: inside a workflow with a case budget, the lead's between-round cost check doesn't see helpers' spending until the step returns | Low | Stated in HM-35's gaps (slice 4) |
 | Duplicated gateway branches, usage read twice per response, `act` rebuilt every round, a pass-through `make_hand_off` | Low (cleanup) | Merged into one path; `act` defined once; `make_hand_off` removed |
+
+## Review 33 (docs-after-crew): the diagrams and functional docs after the grant work (HM-35)
+
+**Reviewer:** the governance-reviewer agent, on the docs diff and the regenerated PDFs, offline,
+against `delegation.py`, `handoff.py`, `agents/base.py`, HM-29 and HM-35, ADR 0031 and both test
+files. No false or overstated claims; 2 Low wording points and one register tidy-up, all fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Plausible: "every model call is charged" leaves out a call that errors after billing (an HM-35 gap) | Low | The architecture page's decision says so |
+| The threat model's new residual missed two HM-35 gaps: a billed-then-raised call isn't charged, and a workflow's case budget sees helpers' spending only when the step returns | Low | Both added |
+| HM-35's tests list didn't name the two tests Review 32 added | Low | Added |
