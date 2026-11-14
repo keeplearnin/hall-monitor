@@ -199,8 +199,10 @@ class GrantBook:
                 f"agent {_safe(to)!r} may not be given {_names(wider_tools | wider_classes)}: "
                 f"outside {parent.holder!r}'s grant or {_safe(to)!r}'s manifest",
             )
-        if not (isinstance(budget_usd, int | float) and math.isfinite(budget_usd)) or (
-            budget_usd < 0
+        if (
+            isinstance(budget_usd, bool)
+            or not (isinstance(budget_usd, int | float) and math.isfinite(budget_usd))
+            or budget_usd < 0
         ):
             raise refuse("bad_allotment", "an allotment must be a non-negative amount")
         given = self._allotted.get(parent.grant_id, 0.0)
@@ -261,7 +263,11 @@ class GrantBook:
         money is spent; if the grant's own spending plus what it has handed on is now over its
         allotment, it is refused from here on and this raises, so the run stops and the case
         goes to a person. A run can overshoot by at most the step that crossed the line."""
-        if not (isinstance(usd, int | float) and math.isfinite(usd)) or usd < 0:
+        if (
+            isinstance(usd, bool)
+            or not (isinstance(usd, int | float) and math.isfinite(usd))
+            or usd < 0
+        ):
             raise ValueError("a charge must be a non-negative amount")
         with self._lock:
             if not self._is_issued(grant):
@@ -273,6 +279,22 @@ class GrantBook:
             raise DelegationError(
                 f"agent {grant.holder!r} has used its allotment of {grant.budget_usd:.4f} USD"
             )
+
+    def exhaust(self, grant: Grant) -> None:
+        """A call was made but its cost can't be priced: charge the rest of the grant's allotment
+        (and, through the usual cascade, nothing more to its parents), log grant_budget_reached
+        and raise, so the run stops. Spending then reads at least the allotment, never lower
+        than what was spent within it."""
+        with self._lock:
+            if not self._is_issued(grant):
+                raise DelegationError(f"that grant was not issued for {self.scope}")
+            left = grant.budget_usd - self._spent.get(grant.grant_id, 0.0)
+            left -= self._allotted.get(grant.grant_id, 0.0)
+            self._charge(grant, max(0.0, left))
+        self._log_budget_reached(grant)
+        raise DelegationError(
+            f"agent {grant.holder!r}'s last call cost can't be priced: its allotment is used up"
+        )
 
     def _log_budget_reached(self, grant: Grant) -> None:
         """Log grant_budget_reached once per grant, however it got there."""

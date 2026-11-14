@@ -29,10 +29,11 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from hall_monitor.delegation import Grant, GrantBook
+from hall_monitor.gateway.cost import UnpricedModelError, usage_cost
 from hall_monitor.registry import RegistryError
 
 if TYPE_CHECKING:
-    from hall_monitor.agents.base import AgentRun
+    from hall_monitor.agents.base import AgentRun, Usage
     from hall_monitor.models import AgentCall
 
 HANDOFF_TOOL = "hand_off"
@@ -78,6 +79,22 @@ class Delegated:
             self.hand_off.parent != self.grant or self.hand_off.book is not self.book
         ):
             raise ValueError("a handoff runner works only for its own grant and book")
+
+    # The grant as run_agent's budget guard (agents/base.py BudgetGuard).
+
+    def before_round(self, sent: AgentCall) -> None:
+        self.book.check(self.grant)
+
+    def after_call(self, model: str, usage: Usage) -> None:
+        """Charge the call just made to the grant. A call that can't be priced (the prices went
+        away mid-run, as an unapproved budgets.yaml does) was still billed: it uses up the
+        grant, so the run stops and the grant's spending can't read lower than what was spent."""
+        try:
+            usd = usage_cost(model, *usage)
+        except UnpricedModelError:
+            self.book.exhaust(self.grant)
+            return
+        self.book.spend(self.grant, usd)
 
 
 @dataclass(frozen=True)
@@ -144,7 +161,10 @@ class HandOff:
             )
         allotment = self.allotments.get(helper)
         declared = helper in self.book.registry.get(self.parent.holder).may_delegate_to
-        if declared and not (isinstance(allotment, int | float) and allotment > 0):
+        valid = (
+            isinstance(allotment, int | float) and not isinstance(allotment, bool) and allotment > 0
+        )
+        if declared and not valid:
             # Code sets every helper's allotment; a helper it gave none to makes no call.
             self.book.record_refusal(self.parent, helper, "no_allotment")
             return self._refused(helper, "no_allotment", f"no allotment is set for {helper!r}")
@@ -184,13 +204,3 @@ def _label(name: str) -> str:
     from hall_monitor.delegation import _safe
 
     return _safe(name)
-
-
-def make_hand_off(
-    book: GrantBook,
-    parent: Grant,
-    *,
-    run_helper: Callable[[Grant, str], AgentRun],
-    allotments: Mapping[str, float],
-) -> HandOff:
-    return HandOff(book, parent, run_helper=run_helper, allotments=allotments)

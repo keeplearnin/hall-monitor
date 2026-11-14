@@ -63,7 +63,7 @@ from hall_monitor.complaints.triage_agent import (
     render_complaint,
     run_complaint_triage,
 )
-from hall_monitor.gateway.cost import UnpricedModelError, call_cost
+from hall_monitor.gateway.cost import UnpricedModelError, total_cost
 from hall_monitor.gateway.injection import detect_in_texts
 from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.governance.audit import AlreadyRecorded, AuditLog
@@ -153,7 +153,7 @@ def draft_problems(text: str) -> list[str]:
 
 def _cost(calls: list[AgentCall]) -> tuple[float, str | None]:
     try:
-        return round(sum(call_cost(c) for c in calls), 6), None
+        return round(total_cost(calls), 6), None
     except UnpricedModelError as exc:
         return 0.0, f"cost unknown: {exc}"
 

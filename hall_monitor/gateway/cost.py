@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from hall_monitor.budgets import SpendRefused, approved_budgets
 from hall_monitor.models import AgentCall
 from hall_monitor.registry import APPROVALS_FILENAME, BUDGETS_FILENAME, DEFAULT_REGISTRY_DIR
@@ -63,22 +65,22 @@ class UnpricedModelError(ValueError):
     pass
 
 
-def require_price(model: str) -> None:
-    _refresh()  # prices from the approved budgets.yaml, read again when it changes (HM-34)
+def _price(model: str) -> tuple[float, float]:
     if model not in PRICES_PER_MTOK:
         raise UnpricedModelError(f"no price for model {model!r} in PRICES_PER_MTOK")
+    return PRICES_PER_MTOK[model]
 
 
-def usage_cost(
+def _cost(
     model: str,
     input_tokens: int,
     output_tokens: int,
     cache_creation_input_tokens: int = 0,
     cache_read_input_tokens: int = 0,
 ) -> float:
-    """input_tokens counts only uncached input; cached reads and writes are priced separately."""
-    require_price(model)
-    input_price, output_price = PRICES_PER_MTOK[model]
+    """input_tokens counts only uncached input; cached reads and writes are priced separately.
+    Uses the prices as last read; the public functions below refresh them first."""
+    input_price, output_price = _price(model)
     cents = (
         input_tokens * input_price
         + cache_creation_input_tokens * input_price * CACHE_WRITE_MULTIPLIER
@@ -88,8 +90,8 @@ def usage_cost(
     return cents / 1_000_000
 
 
-def call_cost(call: AgentCall) -> float:
-    return usage_cost(
+def _of(call: AgentCall) -> float:
+    return _cost(
         call.model,
         call.input_tokens,
         call.output_tokens,
@@ -98,8 +100,39 @@ def call_cost(call: AgentCall) -> float:
     )
 
 
+def require_price(model: str) -> None:
+    _refresh()  # prices from the approved budgets.yaml, read again when it changes (HM-34)
+    _price(model)
+
+
+def usage_cost(
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    cache_creation_input_tokens: int = 0,
+    cache_read_input_tokens: int = 0,
+) -> float:
+    _refresh()
+    return _cost(
+        model, input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens
+    )
+
+
+def call_cost(call: AgentCall) -> float:
+    _refresh()
+    return _of(call)
+
+
+def total_cost(calls: Iterable[AgentCall]) -> float:
+    """A case's cost: the prices are refreshed once, not once per call (the pipelines sum
+    every call before each model request)."""
+    _refresh()
+    return sum(_of(call) for call in calls)
+
+
 def cost_by_agent(calls: list[AgentCall]) -> dict[str, float]:
+    _refresh()
     totals: dict[str, float] = {}
     for call in calls:
-        totals[call.agent_id] = totals.get(call.agent_id, 0.0) + call_cost(call)
+        totals[call.agent_id] = totals.get(call.agent_id, 0.0) + _of(call)
     return totals

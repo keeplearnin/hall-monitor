@@ -3,8 +3,8 @@
 - **Status:** Proposed (Hari, 2026-11-11: "lets start with 1"). Written before the code, on the
   branch, so the reasoning is recorded. Where the build differs, the ADRs and the controls
   register win and this page is updated in the same pull request.
-- **Controls:** HM-29 (delegation narrows, slice 1). Later slices take the next numbers as they
-  land.
+- **Controls:** HM-29 (delegation narrows, slice 1), HM-35 (agents act within their grant,
+  slice 2). Later slices take the next numbers as they land.
 - **Builds on:** the complaint desk ([design](complaint-desk-design.md), HM-25 to HM-28).
 
 ## Why this example

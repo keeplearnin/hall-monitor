@@ -53,5 +53,8 @@ nothing has run live: tested with scripted clients only. Spending is charged aft
 so each grant can overshoot by the call that crossed its line; what a helper spends past its
 allotment is charged to the lead's grant too, so the first grant's spending is the whole case's
 and the lead stops at its next step. A case can therefore overshoot by at most one call per
-grant in its tree. A call the SDK bills but then raises on isn't charged. A helper meant to see no personal
+grant in its tree. A call the SDK bills but then raises on isn't charged; a call made after
+the prices went away (HM-34) uses up its grant, so the run stops. The grant and the claims case
+budget are held through one interface in `run_agent` (`BudgetGuard`), and a crew agent needs its
+tool gateway, so every tool call it makes is recorded. A helper meant to see no personal
 data can't be handed a lead's task; the crew (slice 4) has to give such helpers code-built input.

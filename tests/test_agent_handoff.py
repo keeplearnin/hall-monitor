@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from hall_monitor.agents.base import ToolAccess, run_agent
 from hall_monitor.delegation import DelegationError, GrantBook
 from hall_monitor.governance.audit import AuditLog
-from hall_monitor.handoff import HANDOFF_TOOL, Delegated, make_hand_off
+from hall_monitor.handoff import HANDOFF_TOOL, Delegated, HandOff
 from hall_monitor.kill_switch import add_stop
 from hall_monitor.registry import AgentManifest, Registry, RegistryError
 from hall_monitor.tools.gateway import ToolGateway
@@ -159,7 +159,7 @@ def test_an_agent_is_offered_its_grant_s_tools_and_a_handoff_to_declared_helpers
 ):
     root = book.issue("lead", budget_usd=0.01)
     client = _client(("final", "done"))
-    hand_off = make_hand_off(
+    hand_off = HandOff(
         book,
         root,
         run_helper=lambda grant, content: None,
@@ -275,7 +275,7 @@ def _lead_with_helper(registry, gateway, book, helper_steps, lead_steps, allot=0
         )
         return run
 
-    hand_off = make_hand_off(
+    hand_off = HandOff(
         book, root, run_helper=run_helper, allotments={"researcher": allot, "analyst": allot}
     )
     lead = _client(*lead_steps)
@@ -464,9 +464,7 @@ def test_a_case_s_spending_reaches_the_lead_s_grant_and_stops_it(registry, gatew
             carries=frozenset(grant.data_classes),
         )
 
-    hand_off = make_hand_off(
-        book, root, run_helper=run_helper, allotments={"researcher": STEP_USD * 0.5}
-    )
+    hand_off = HandOff(book, root, run_helper=run_helper, allotments={"researcher": STEP_USD * 0.5})
     lead = _client(
         ("tool", HANDOFF_TOOL, {"helper": "researcher", "task": "rules?"}),
         ("tool", "policy_lookup", POLICY),
@@ -496,7 +494,7 @@ def test_a_helper_without_a_code_set_allotment_is_refused_before_any_model_call(
 ):
     root = book.issue("lead", budget_usd=0.01)
     calls = []
-    hand_off = make_hand_off(book, root, run_helper=lambda g, c: calls.append(g), allotments={})
+    hand_off = HandOff(book, root, run_helper=lambda g, c: calls.append(g), allotments={})
     result = hand_off({"helper": "researcher", "task": "rules?"})
     assert "Refused" in result["error"]
     assert calls == []
@@ -569,7 +567,7 @@ def test_a_refused_handoff_marks_the_run_incomplete(registry, gateway, book):
 def test_a_handoff_runner_for_another_grant_is_refused(registry, book):
     root = book.issue("lead", budget_usd=0.01)
     child = book.delegate(root, "researcher", budget_usd=0.001)
-    lead_runner = make_hand_off(book, root, run_helper=lambda g, c: None, allotments={})
+    lead_runner = HandOff(book, root, run_helper=lambda g, c: None, allotments={})
     with pytest.raises(ValueError):
         Delegated(book, child, lead_runner)
     other = GrantBook(registry, "cfpb-2002")
@@ -609,3 +607,130 @@ def test_a_lead_must_keep_some_budget_for_itself(book):
     with pytest.raises(DelegationError, match="allotment"):
         book.delegate(root, "analyst", budget_usd=0.4)
     book.check(root)
+
+
+# Code review of the merge with main (HM-34 and HM-35 together).
+
+
+def test_a_call_that_can_t_be_priced_mid_run_uses_up_the_grant(
+    registry, gateway, book, audit, monkeypatch
+):
+    """Prices can vanish mid-run (an unapproved edit to budgets.yaml). The call already made is
+    billed but can't be priced: it used to go uncharged; now it uses up the grant, so the run
+    stops and the case's spending can't read lower than what was spent."""
+    from hall_monitor.gateway import cost
+
+    root = book.issue("lead", budget_usd=0.01)
+    client = _client(("tool", "policy_lookup", POLICY), ("tool", "policy_lookup", POLICY))
+    real_parse = client.messages.parse
+
+    def parse(**kwargs):
+        response = real_parse(**kwargs)
+        if len(client.messages.calls) == 2:  # the second call's price vanishes after it was made
+            monkeypatch.delitem(cost.PRICES_PER_MTOK, "claude-haiku-5-5")
+        return response
+
+    client.messages.parse = parse
+    with pytest.raises(DelegationError, match="cost") as caught:
+        _run("lead", client, registry, gateway, Delegated(book, root))
+    assert caught.value.partial_call.api_calls == 2
+    assert book.spent(root) >= root.budget_usd - 1e-9
+    [entry] = _events(audit, "grant_budget_reached")
+    assert entry["payload"]["grant"] == root.grant_id
+
+
+def test_a_crew_agent_with_unapproved_budgets_is_refused_before_any_call(
+    registry, gateway, book, tmp_path, monkeypatch
+):
+    """With registry/budgets.yaml edited and not approved, no model has a price (HM-34), so a
+    crew agent can't run under a grant at all."""
+    import shutil
+
+    import yaml
+
+    from hall_monitor.gateway import cost
+    from hall_monitor.gateway.cost import UnpricedModelError
+    from tests.fakes import TEST_REGISTRY_DIR
+
+    copy = tmp_path / "registry"
+    shutil.copytree(TEST_REGISTRY_DIR, copy)
+    budgets = yaml.safe_load((copy / "budgets.yaml").read_text())
+    budgets["workflows"]["complaints"]["daily_usd"] = 9.0
+    (copy / "budgets.yaml").write_text(yaml.safe_dump(budgets))
+    monkeypatch.setattr(cost, "_REGISTRY_DIR", copy)
+    monkeypatch.setattr(cost, "_SOURCE", None)
+    monkeypatch.setattr(cost, "PRICES_PER_MTOK", dict(cost.PRICES_PER_MTOK))
+    root = book.issue("lead", budget_usd=0.01)
+    client = _client(("final", "done"))
+    with pytest.raises(UnpricedModelError):
+        _run("lead", client, registry, gateway, Delegated(book, root))
+    assert client.messages.calls == []
+
+
+def test_a_bool_is_not_an_allotment(registry, book):
+    from hall_monitor.handoff import HandOff
+
+    root = book.issue("lead", budget_usd=5.0)  # room for 1.0, so only the type can refuse it
+    ran = []
+    runner = HandOff(
+        book, root, run_helper=lambda g, c: ran.append(g), allotments={"researcher": True}
+    )
+    assert "Refused" in runner({"helper": "researcher", "task": "look it up"})["error"]
+    assert ran == []
+    with pytest.raises(DelegationError, match="non-negative amount"):
+        book.delegate(root, "researcher", budget_usd=True)
+
+
+def test_a_case_s_cost_is_summed_with_one_price_refresh(monkeypatch):
+    from hall_monitor.gateway import cost
+    from hall_monitor.models import AgentCall
+
+    call = AgentCall(
+        agent_id="intake",
+        agent_version="0",
+        model="claude-haiku-5-5",
+        manifest_digest="x",
+        prompt_version="x",
+        prompt_template_sha256="x",
+        system_prompt_sha256="x",
+        input_sha256="x",
+        request_ids=[],
+        stop_reason="end_turn",
+        api_calls=1,
+        model_tier="standard",
+        input_tokens=1000,
+        cache_creation_input_tokens=0,
+        cache_read_input_tokens=0,
+        output_tokens=200,
+        seconds=0.0,
+    )
+    seen = []
+    real = cost._source
+    monkeypatch.setattr(cost, "_source", lambda: seen.append(1) or real())
+    assert cost.total_cost([call] * 20) == pytest.approx(20 * cost.call_cost(call))
+    seen.clear()
+    cost.total_cost([call] * 20)
+    assert len(seen) == 1
+
+
+def test_a_crew_agent_without_its_tool_gateway_is_refused_before_any_call(registry, book):
+    """Governance review of the merge: a lead with no ToolAccess had its tool calls refused
+    with no record. A crew agent now needs its gateway, which records every call."""
+    root = book.issue("lead", budget_usd=0.01)
+    runner = HandOff(book, root, run_helper=lambda g, c: None, allotments={"researcher": 0.001})
+    client = _client(("tool", "policy_lookup", POLICY), ("final", "x"))
+    with pytest.raises(ValueError, match="tool gateway"):
+        run_agent(
+            "lead",
+            registry=registry,
+            client=client,
+            system="test",
+            content="the case",
+            output_format=Answer,
+            prompt_version="t-1",
+            claim_id="cfpb-1001",
+            tools=None,
+            delegated=Delegated(book, root, runner),
+            carries=frozenset(),
+        )
+    assert client.messages.calls == []

@@ -38,7 +38,7 @@ from hall_monitor.agents.recommendation import run_recommendation
 from hall_monitor.agents.risk_fraud import run_risk_fraud
 from hall_monitor.amounts import source_text
 from hall_monitor.budgets import CaseBudget, SpendRefused
-from hall_monitor.gateway.cost import UnpricedModelError, call_cost
+from hall_monitor.gateway.cost import UnpricedModelError, total_cost
 from hall_monitor.gateway.injection import SIGNALS, detect_instructions
 from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.governance.routing import route_claim, route_stopped
@@ -135,7 +135,7 @@ class _Run:
 
 
 def _cost(run: _Run) -> float:
-    return round(sum(call_cost(c) for c in run.calls), 6)
+    return round(total_cost(run.calls), 6)
 
 
 def _known_cost(run: _Run) -> float | None:

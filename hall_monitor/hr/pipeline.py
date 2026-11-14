@@ -32,7 +32,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from hall_monitor import tracing
 from hall_monitor.agents.base import AgentRefusedError, default_client
 from hall_monitor.budgets import SpendRefused
-from hall_monitor.gateway.cost import UnpricedModelError, call_cost
+from hall_monitor.gateway.cost import UnpricedModelError, total_cost
 from hall_monitor.gateway.injection import detect_in_texts
 from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.governance.audit import AuditLog
@@ -227,7 +227,7 @@ def _explanation_problem(explanation: LeaveExplanation, assessment: Assessment) 
 
 def _cost(calls: list[AgentCall]) -> tuple[float, str | None]:
     try:
-        return round(sum(call_cost(c) for c in calls), 6), None
+        return round(total_cost(calls), 6), None
     except UnpricedModelError as exc:
         return 0.0, f"cost unknown: {exc}"
 
