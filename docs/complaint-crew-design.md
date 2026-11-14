@@ -1,7 +1,8 @@
 # Design: a complaint investigation crew, with passes that only narrow
 
-- **Status:** Proposed (Hari, 2026-11-11: "lets start with 1"). Written before the code, on the
-  branch, so the reasoning is recorded. Where the build differs, the ADRs and the controls
+- **Status:** In progress: slices 1 and 2 built (HM-29, HM-35); slices 3 to 5 not started.
+  Proposed by Hari, 2026-11-11 ("lets start with 1"). Written before the code, on the branch, so
+  the reasoning is recorded. Where the build differs, the ADRs and the controls
   register win and this page is updated in the same pull request.
 - **Controls:** HM-29 (delegation narrows, slice 1), HM-35 (agents act within their grant,
   slice 2). Later slices take the next numbers as they land.
@@ -81,12 +82,14 @@ data, not instructions.
 
 ## Slices
 
-1. **Delegation in code (HM-29).** `hall_monitor/delegation.py` (grants and the grant book), the
+1. **Delegation in code (HM-29). Done.** `hall_monitor/delegation.py` (grants and the grant book), the
    `may_delegate_to` manifest field, the gateway's grant check, two audit events, this design and
    ADR 0025. No new agents, no model calls. Test-first.
-2. **Agents act within their grant (HM-35).** The one agent call path (`run_agent`) runs a crew
-   agent only under a grant: every round checks the grant's chain, every model call is charged
-   to its allotment and a run over it stops, and its tools are the grant's. A lead is offered a
+2. **Agents act within their grant (HM-35). Done.** The one agent call path (`run_agent`) runs a
+   crew agent only under a grant and with its tool gateway, so every tool call is recorded: every
+   round checks the grant's chain, every model call is charged to its allotment and a run over it
+   stops (a call that can't be priced uses the grant up), and its tools are the grant's. The
+   grant and a claim's case budget are held through one budget-guard interface. A lead is offered a
    `hand_off` tool (`hall_monitor/handoff.py`) that starts a helper's governed run under a child
    grant, with an allotment set by code, and returns its answer as data. ADR 0031. Still no crew
    agents and no model calls: tested with scripted clients.

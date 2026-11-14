@@ -101,7 +101,7 @@
 <body>
 <main class="sheet">
   <header>
-    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · updated 13 November 2026 · claims, HR leave and a complaint desk</span></div>
+    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · architecture · updated 14 November 2026 · claims, HR leave and a complaint desk</span></div>
     <h1>Governance sits in the call path, the tool gateway, the router and the record, not inside the model</h1>
     <p class="lede">Five agents triage a claim, and a supervisor agent chooses which runs next from codes and amounts only, never the claim text; code refuses steps whose inputs aren't ready, holds a budget per claim and decides the route (ADR 0028). Every model call goes through one function that checks the agent's approved hall pass, calls the model the pass names, runs any tool calls through a gateway that enforces the pass's allow-list, validates typed output and records what ran. A critic checks the work and sends errors back. Routing to a human is a plain code rule that checks facts, not the agents' labels; claims routed to a person wait at an approval gate, and every step goes into a hash-chained audit log. The same core (registry and approvals, <code>run_agent()</code>, the tool gateway, the kill switch, the audit log, supervisors bounded by code, and approved budgets and spending caps) also runs an HR leave workflow and a complaint desk on public CFPB data; the diagram shows the claims path. Python 3.12, Claude Haiku 5.5 and Sonnet 5.5, Pydantic, fastmcp, LangGraph, SQLite, Langfuse.</p>
   </header>
@@ -269,6 +269,7 @@
           <li><b>A record that shows tampering.</b><span>Hash-chained and append-only. Copy the chain head elsewhere: that's what catches a full rewrite.</span></li>
           <li><b>Cheaper models only when measured.</b><span>Economy routing is approved per manifest but off until evaluated. The critic never economises.</span></li>
           <li><b>Spend is approved and capped.</b><span>registry/budgets.yaml holds each workflow's case budget, daily and monthly caps and the price table, approved by digest like a hall pass. Each live case reserves its budget in a ledger (var/spend.sqlite, BEGIN IMMEDIATE) before any model call; over a cap, unapproved budgets or an unreachable ledger send it to a person. The budget is checked again before every model request, tool rounds included (ADR 0030).</span></li>
+          <li><b>Handing work on only narrows.</b><span>A crew agent runs only under a grant from its case's book: a helper's grant is inside its lead's and its own hall pass, its allotment is set by code, every model call is charged to it and a run over it stops; a call that can't be priced uses the grant up (a call that errors after billing isn't charged, an HM-35 gap). run_agent holds a claim's case budget and a crew grant through one budget-guard interface (ADR 0025, ADR 0031). No crew agents exist yet.</span></li>
           <li><b>The complaint desk sends nothing.</b><span>One allow-listed egress path for the desk, a read-only tool catalogue and drafts with no delivery fields; a static CI check fails on an ordinary sending capability; a deliberately hidden one needs review. Claims and HR call the model through the SDK's own client (ADR 0021).</span></li>
         </ul>
       </div>
@@ -298,7 +299,7 @@
               <tr><td>Read-only control panel</td><td class="where">panel/</td><td><span class="chip built">built</span></td><td>HM-20</td></tr>
               <tr><td>HR leave: rules in code, agents inside the shared controls, signed sign-off, request form</td><td class="where">hr/</td><td><span class="chip part">partial</span></td><td>HM-21 to 24</td></tr>
               <tr><td>Complaint desk: no reply or send, CFPB ingestion, triage routed in code, evals, form (not run live; form proposed)</td><td class="where">egress.py, no_send.py, complaints/</td><td><span class="chip part">partial</span></td><td>HM-25 to 28, 33</td></tr>
-              <tr><td>Delegated passes that only narrow</td><td class="where">delegation.py</td><td><span class="chip built">built</span></td><td>HM-29</td></tr>
+              <tr><td>Delegated passes that only narrow; crew agents held to their grant (each call charged, over the allotment stops, hand_off to declared helpers only; no crew agents yet)</td><td class="where">delegation.py, handoff.py, agents/base.py</td><td><span class="chip built">built</span></td><td>HM-29, 35</td></tr>
               <tr><td>Red-team arena; failure drills; kill-switch drill</td><td class="where">redteam/, drills.py, evals/stop_timing.py</td><td><span class="chip part">partial</span></td><td>HM-19, 30, 31</td></tr>
               <tr><td>Approved budgets, prices and daily and monthly spending caps</td><td class="where">budgets.py, spend.py, registry/budgets.yaml</td><td><span class="chip built">built</span></td><td>HM-34</td></tr>
             </tbody>
