@@ -28,7 +28,7 @@ from hall_monitor.data import (
 )
 from hall_monitor.evals import scoring
 from hall_monitor.evals.meta import git
-from hall_monitor.gateway.cost import call_cost
+from hall_monitor.gateway.cost import total_cost
 from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
 from hall_monitor.models import AgentCall, ClaimSubmission, TriageResult
 from hall_monitor.pipeline import MAX_REVISIONS, triage
@@ -170,7 +170,7 @@ def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths
         ]
         for agent_id in dict.fromkeys(c.agent_id for c in calls):
             mine = [c for c in calls if c.agent_id == agent_id]
-            cost = sum(call_cost(c) for c in mine) / n_runs
+            cost = total_cost(mine) / n_runs
             cached = sum(c.cache_read_input_tokens for c in mine)
             total_in = cached + sum(c.input_tokens + c.cache_creation_input_tokens for c in mine)
             models = ", ".join(sorted({c.model for c in mine}))

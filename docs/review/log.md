@@ -1139,3 +1139,46 @@ ran the full suite. 6 findings, none High, all fixed by rewording; the controls 
 | "Call record with tokens and cost": the record holds tokens; cost is computed from them | Low | Reworded |
 | "Specialists: every complaint": every complaint goes to a person, specialists only for flagged ones | Low | Reworded |
 | The gateway box implied `cfpb_complaint_search` is allow-listed per agent (it serves the desk's ingest only), and "draft kept" omitted that a draft failing the check is dropped | Low | Both reworded |
+
+## Review 31 (agent-loop): agents act within their grant (HM-35)
+
+**Reviewer:** the governance-reviewer agent, before the pull request, with offline scripted
+probes. It confirmed no path gives a crew agent a model call, tool or helper without a valid
+grant, the lead can't raise a helper's budget or reach, and existing agents keep their path.
+3 findings confirmed and 2 plausible; all fixed, test-first, or stated as a gap.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A parent's budget counted what it allotted, not what helpers spent: a helper's overshoot never reached the lead, and a helper missing from the allotments still made one paid call (a case reached 150% of its root budget and finished normally) | High | A helper code gave no allotment is refused before any call; a grant with nothing left makes no further call; spending past a helper's allotment is charged up to its parent, so the root's spending is the case's; the docs now say a case overshoots by at most one call per grant in its tree |
+| A second handoff to the same helper produced the identical grant, overwriting it and charging the parent's allotment twice | Medium | Grants carry their issue order, so each handoff is a fresh grant with its own spending |
+| A helper's failure became a tool result and the lead finished normally, with the helper's call (versions, cost) lost to the caller | Medium | Every handoff's outcome and call is kept on the runner (`outcomes`, `complete`) so the crew pipeline can mark the case incomplete |
+| Plausible: nothing tied a handoff runner to the grant it runs under | Low | `Delegated` refuses a runner for another grant or book |
+| Plausible: a call the SDK bills and then raises on isn't charged | Low | Stated in HM-35's gaps and ADR 0031 |
+
+**Re-review of the fixes** (governance-reviewer, after the merge of `main`): the cascade
+arithmetic, the overshoot bound, fresh grants, kept outcomes and the merge all checked out.
+1 Medium and 1 Low, both fixed test-first:
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A lead pushed over its allotment by a helper's overshoot, or landing exactly on it, stopped without `grant_budget_reached` in the log | Medium | The event is logged once per grant whenever a grant is stopped for its allotment, from `spend` or `check` |
+| A lead could allot its whole budget to helpers and then couldn't make the call that reads their answers, so every such case stopped | Low | A grant can't hand on all of its allotment; the delegation test's 0.6 + 0.4 now uses 0.39 |
+
+## Review 32 (agent-loop): the grant work brought up to date with main (HM-35)
+
+**Reviewers:** a code review (`/code-review`, high) and the governance-reviewer agent, on the
+renumbered and merged branch, offline, with probes. The renumbering (ADR 0031, HM-35, Review 31)
+and the merge resolution held. 11 findings across both, none High, all fixed test-first or
+stated.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A crew agent with no `ToolAccess` had its tool calls refused with no record anywhere | Medium | A crew agent needs its tool gateway, which records every call (`test_a_crew_agent_without_its_tool_gateway_is_refused_before_any_call`) |
+| A call made after the prices went away mid-run (an unapproved `budgets.yaml`) was billed but never charged to its grant | Low | It uses up the grant, logs `grant_budget_reached` and stops the run (`GrantBook.exhaust`, `test_a_call_that_can_t_be_priced_mid_run_uses_up_the_grant`) |
+| `run_agent` held two budget mechanisms in its tool loop, each checking and charging its own way | Low (design) | One `BudgetGuard` interface: the grant (`Delegated`) and the claims case budget (`_CaseBudget`) |
+| A bool was accepted as an allotment (and as a charge): `True` meant 1.0 USD | Low | Refused (`test_a_bool_is_not_an_allotment`) |
+| The price refresh checked two files on every cost, and the pipelines summed every call before each request | Low (efficiency) | `total_cost` refreshes once per sum (`test_a_case_s_cost_is_summed_with_one_price_refresh`) |
+| No test of a crew agent against unapproved budgets | Low (coverage) | `test_a_crew_agent_with_unapproved_budgets_is_refused_before_any_call` |
+| HM-29 still named "slice 3" and said spending wasn't checked; the design's controls line missed HM-35 | Low | Updated |
+| Plausible: inside a workflow with a case budget, the lead's between-round cost check doesn't see helpers' spending until the step returns | Low | Stated in HM-35's gaps (slice 4) |
+| Duplicated gateway branches, usage read twice per response, `act` rebuilt every round, a pass-through `make_hand_off` | Low (cleanup) | Merged into one path; `act` defined once; `make_hand_off` removed |

@@ -7,14 +7,16 @@ import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple, Protocol
 
 import anthropic
 from pydantic import BaseModel
 
 from hall_monitor import tracing
+from hall_monitor.gateway.cost import require_price
+from hall_monitor.handoff import HANDOFF_TOOL, Delegated, handoff_definition
 from hall_monitor.models import AgentCall, ClaimSubmission, PolicyRecord, ToolCall
-from hall_monitor.registry import ALL_DATA_CLASSES, DataClass, Registry
+from hall_monitor.registry import ALL_DATA_CLASSES, DataClass, Registry, RegistryError
 
 if TYPE_CHECKING:
     from hall_monitor.tools.gateway import ToolGateway
@@ -61,6 +63,37 @@ class ToolAccess:
     check_budget: Callable[[AgentCall], None] | None = None
 
 
+class Usage(NamedTuple):
+    """One model call's token counts, as the API reports them."""
+
+    input_tokens: int
+    output_tokens: int
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
+
+
+class BudgetGuard(Protocol):
+    """A budget run_agent holds an agent to inside its tool loop: checked before every later
+    round with the rounds already sent, and told each call's usage after it is made. The
+    claims case budget (ToolAccess.check_budget, review 27) and a crew agent's grant (HM-35)
+    both go through this one interface."""
+
+    def before_round(self, sent: AgentCall) -> None: ...
+
+    def after_call(self, model: str, usage: Usage) -> None: ...
+
+
+@dataclass(frozen=True)
+class _CaseBudget:
+    check: Callable[[AgentCall], None]
+
+    def before_round(self, sent: AgentCall) -> None:
+        self.check(sent)
+
+    def after_call(self, model: str, usage: Usage) -> None:
+        pass  # the case's record charges the call once the agent returns
+
+
 @dataclass(frozen=True)
 class AgentRun[T: BaseModel]:
     output: T
@@ -85,6 +118,7 @@ def run_agent[T: BaseModel](
     economy: bool = False,
     prompt_template: str | None = None,
     carries: frozenset[DataClass] = ALL_DATA_CLASSES,
+    delegated: Delegated | None = None,
 ) -> AgentRun[T]:
     """Call the model named on the agent's hall pass and return validated, typed output.
 
@@ -105,14 +139,57 @@ def run_agent[T: BaseModel](
     The plain hash of the input (input_sha256) never goes to a trace: an input with few possible
     values, such as the recommendation agent's summary, could be confirmed by guessing. It stays
     on the returned call, for the caller to log as a keyed hash.
+
+    delegated (HM-35): an agent that can delegate or be delegated to runs only under a grant
+    from its case's book, and is refused before any model call without one. Every round checks
+    the grant (its whole chain against the registry); every model call is charged to it, and a
+    run over its allotment stops. Its tools are the grant's, plus ``hand_off`` to the helpers
+    its hall pass names when a handoff runner is given.
     """
+    if delegated is None and registry.in_crew(agent_id):
+        raise RegistryError(f"agent {agent_id!r} is in a crew and needs a grant from its case")
+    if delegated is not None and delegated.grant.holder != agent_id:
+        raise RegistryError(f"that grant is held by another agent, not {agent_id!r}")
+    if delegated is not None and tools is None:
+        # Its tool calls go through the gateway, which checks them against the grant and records
+        # every one, refused or allowed; without it a refused call would leave no record.
+        raise ValueError(f"agent {agent_id!r} runs under a grant and needs its tool gateway")
     template_sha256 = _sha256(prompt_template if prompt_template is not None else system)
     manifest = registry.require(agent_id, prompt_sha256=template_sha256)
     registry.check_data(agent_id, carries)
     use_economy = economy and manifest.economy_model is not None
     model = manifest.economy_model if use_economy else manifest.model
     started = time.perf_counter()
-    definitions = tools.gateway.definitions(agent_id) if tools else []
+    hand_off = delegated.hand_off if delegated is not None else None
+    grants = delegated.book if delegated is not None else None
+    grant = delegated.grant if delegated is not None else None
+    if delegated is not None:
+        require_price(model)  # spending can't be charged to a grant without a price
+        delegated.book.check(delegated.grant, carries=carries)
+    definitions = tools.gateway.definitions(agent_id, grants=grants, grant=grant) if tools else []
+    if hand_off is not None and manifest.may_delegate_to:
+        definitions = [*definitions, handoff_definition(manifest.may_delegate_to)]
+    guards: list[BudgetGuard] = []
+    if delegated is not None:
+        guards.append(delegated)
+    if tools is not None and tools.check_budget is not None:
+        guards.append(_CaseBudget(tools.check_budget))
+
+    def act(block) -> dict:
+        if block.name == HANDOFF_TOOL and hand_off is not None:
+            return hand_off(dict(block.input))
+        if tools is None:
+            return {"error": f"Refused: {agent_id} has no tools"}
+        return tools.gateway.call(
+            agent_id,
+            block.name,
+            dict(block.input),
+            tools.log,
+            tools.scope_policy,
+            grants=grants,
+            grant=grant,
+        )
+
     messages: list[dict] = [{"role": "user", "content": content}]
     request_ids: list[str] = []
     input_tokens = output_tokens = api_calls = cache_writes = cache_reads = 0
@@ -146,8 +223,8 @@ def run_agent[T: BaseModel](
                 # Checked again before each later round, so a stop made mid-claim halts the agent
                 # here; a refused tool call alone would go back to the model as an error.
                 registry.require(agent_id, prompt_sha256=template_sha256)
-                if tools is not None and tools.check_budget is not None:
-                    tools.check_budget(record(None))
+                for guard in guards:
+                    guard.before_round(record(None))
             response = client.messages.parse(
                 model=model,
                 max_tokens=16000,
@@ -156,25 +233,26 @@ def run_agent[T: BaseModel](
                 output_format=output_format,
                 **({"tools": definitions} if definitions else {}),
             )
+            usage = Usage(
+                response.usage.input_tokens,
+                response.usage.output_tokens,
+                getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+                getattr(response.usage, "cache_read_input_tokens", 0) or 0,
+            )
             api_calls += 1
-            input_tokens += response.usage.input_tokens
-            output_tokens += response.usage.output_tokens
-            cache_writes += getattr(response.usage, "cache_creation_input_tokens", 0) or 0
-            cache_reads += getattr(response.usage, "cache_read_input_tokens", 0) or 0
+            input_tokens += usage.input_tokens
+            output_tokens += usage.output_tokens
+            cache_writes += usage.cache_creation_input_tokens
+            cache_reads += usage.cache_read_input_tokens
             if request_id := getattr(response, "_request_id", None):
                 request_ids.append(request_id)
-            if response.stop_reason != "tool_use" or tools is None:
+            for guard in guards:
+                guard.after_call(model, usage)
+            if response.stop_reason != "tool_use" or (tools is None and hand_off is None):
                 break
+
             results = [
-                {
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": json.dumps(
-                        tools.gateway.call(
-                            agent_id, block.name, dict(block.input), tools.log, tools.scope_policy
-                        )
-                    ),
-                }
+                {"type": "tool_result", "tool_use_id": block.id, "content": json.dumps(act(block))}
                 for block in response.content
                 if block.type == "tool_use"
             ]

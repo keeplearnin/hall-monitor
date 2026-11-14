@@ -905,7 +905,10 @@ def page_workflows(c):
 # ---------------------------------------------------------------------------------------------
 
 GROUPS = [
-    ("Who may run, and on what", ["HM-01", "HM-02", "HM-03", "HM-10", "HM-11", "HM-19", "HM-29"]),
+    (
+        "Who may run, and on what",
+        ["HM-01", "HM-02", "HM-03", "HM-10", "HM-11", "HM-19", "HM-29", "HM-35"],
+    ),
     ("Decisions stay with people", ["HM-04", "HM-05", "HM-07", "HM-08", "HM-21", "HM-23", "HM-27"]),
     ("Agents choose steps, code holds bounds", ["HM-32", "HM-34", "HM-16"]),
     ("Records and evidence", ["HM-06", "HM-13", "HM-20"]),

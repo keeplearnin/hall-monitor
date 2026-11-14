@@ -37,6 +37,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0028](0028-agent-picks-the-steps-code-holds-the-boundaries.md) | The agent picks the steps; code holds the boundaries | HM-32 |
 | [0029](0029-complaint-submission-form.md) | Typed-in complaints reach the desk through a separate form, not the panel | HM-33 |
 | [0030](0030-cost-governance-budgets-and-caps.md) | Cost governance: approved budgets and spending caps | HM-34 |
+| [0031](0031-agents-act-within-their-grant.md) | Agents act within their grant: spend is charged, and handoffs are a tool that starts a governed run | HM-35 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".
