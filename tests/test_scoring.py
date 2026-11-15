@@ -392,6 +392,17 @@ def test_parts_of_dates_and_times_are_not_amounts(amount, text):
         (450.0, "Fee (ca) $450.00", True),
         (450.0, "$450.00 co-pay", True),
         (450.0, "$450.00 AR", True),
+        # Accounting negatives are refunds, like a minus sign (review finding 8).
+        (200.0, "Refund ($200.00)", False),
+        (200.0, "Refund ( $200.00 )", False),
+        (200.0, "Refund (USD 200.00)", False),
+        (200.0, "Refund (200.00 USD)", False),
+        (150.0, "$150.00 CR", False),
+        (150.0, "150.00 USD CR", False),
+        (150.0, "$150.00 cr", False),
+        (200.0, "Hotel (2 nights) $200.00", True),
+        (200.0, "Hotel $200.00 (2 nights)", True),
+        (150.0, "$150.00 CRUISE", True),
     ],
 )
 def test_the_routing_trace_only_counts_dollar_amounts(amount, text, found):
