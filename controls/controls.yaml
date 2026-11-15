@@ -2063,6 +2063,71 @@ controls:
       cost check between the lead's rounds counts the lead's own calls, not its helpers' until
       the step returns; the grant tree still bounds them (slice 4 to join the two).
 
+  - id: HM-36
+    name: Partner claim rules in code (partner claims example)
+    what: >-
+      The fourth worked example, partner rebate and marketing-fund (MDF/co-op) reimbursement
+      claims at a fictional hardware maker, starts with its rules in code and no model
+      (hall_monitor/partners/rules.py). Every claim goes to a person: the route is compliance
+      review, hold, review or expedited sign-off, and nothing in the package pays, approves or
+      changes a payee. Program terms are data (data/synthetic/partners/program.yaml). Each
+      outcome is a fixed reason code with a fixed text: a partner not on the approved list or
+      hospitality with public-sector attendees (compliance review); no matching pre-approval,
+      an activity started before approval, a claim after the 45-day window, an ineligible
+      activity, an invoice issued by the partner itself, a duplicate (3 or more of invoice
+      number, issuer, total, start and end matching an earlier or another claim, whoever the
+      partner), a payee account other than the partner's approved one, text in the documents
+      aimed at the AI (the repo's injection detector), or a partner on accounts-receivable hold
+      (hold); missing evidence for the activity type, excluded costs, merchandise over $75 a
+      unit (from the line's amount and units, not its stated price) or with no unit count, a
+      line more than 10% over its benchmark, competitor content (30% rate), more than the
+      pre-approved amount or than what earlier claims have left of it, more than the invoice
+      total, invoice lines that don't add up, impossible dates, or three or more claims from one
+      partner and agency within one 7-day span each within 5% under the same approval threshold
+      (review). Duplicates ignore case, punctuation, leading zeros and legal suffixes. What may
+      be reimbursed is computed in exact decimals, capped at the claim, the invoice total and
+      the pre-approval, and reported with the amount held. The least senior role that may decide
+      is the higher of the approval ladder for the amount claimed and any role a reason demands;
+      a compliance reason goes to a compliance officer. python -m hall_monitor.partners scores
+      the rules against hand-written answer keys for 47 claims, with boundary cases on both
+      sides of every numeric rule.
+    status: partial
+    code:
+      - hall_monitor/partners/rules.py::assess
+      - hall_monitor/partners/rules.py::ClaimBook
+      - hall_monitor/partners/__main__.py::main
+    tests:
+      - tests/test_partner_rules.py::test_each_claim_matches_its_answer_key
+      - tests/test_partner_rules.py::test_every_reason_appears_in_an_answer_key
+      - tests/test_partner_rules.py::test_every_route_sends_the_claim_to_a_person
+      - tests/test_partner_rules.py::test_each_boundary_flags_only_the_outside_case
+      - tests/test_partner_rules.py::test_exactly_ten_percent_over_benchmark_is_not_flagged_even_in_floating_point
+      - tests/test_partner_rules.py::test_text_aimed_at_the_ai_in_a_document_holds_the_claim
+      - tests/test_partner_rules.py::test_a_duplicate_is_found_across_partners_too
+      - tests/test_partner_rules.py::test_compliance_outranks_red_and_red_outranks_yellow
+      - tests/test_partner_rules.py::test_the_role_is_the_higher_of_the_ladder_and_the_reason
+    evidence: []
+    nist: [GOVERN 1.4, MAP 3.5, MANAGE 1.3]
+    finos:
+      risks: [RI-22, RI-24]
+      mitigations: [MI-18]
+    gaps: >-
+      Rules only (slice 1): no agent reads the documents yet, so the claim arrives as typed
+      fields; whether proof is genuine (recycled screenshots, edited invoices) and whether a
+      vague invoice line hides ineligible cost need the judgment agent of slice 2. No pipeline,
+      audit events, spend check, panel page or evals yet. The approval ladder ($5,000 /
+      $25,000) and the caps are assumptions: no vendor publishes its thresholds. The answer
+      keys and the program terms were written by one person, and the claims are fictional. The
+      proposal stage (lead time before an activity) and the "more proof requested" cure period
+      are not modelled. Accounting classification (expense or contra-revenue) stays with
+      accounting staff and isn't attempted. Split detection and pre-approval use look only at the
+      claims being assessed, not at paid history, which holds no claim amounts or submission
+      dates. One bad reference (an unknown partner or pre-approval) stops the whole book from
+      loading rather than sending that one claim to a person; the pipeline (slice 3) should
+      route it instead. Duplicate matching normalises names but can still miss a determined
+      variation (a different issuer name). retention_months is informational: no rule reads it.
+      No audit events are written yet, so decisions aren't logged (slice 3).
+
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 
 

@@ -1,0 +1,33 @@
+# MDF / co-op program terms for Tarnwick Devices, a fictional hardware maker (HM-36).
+# Public anchors are noted; anything without one is an assumption. Money is a string so it is
+# read as an exact decimal.
+vendor: Tarnwick Devices
+eligible_activity_types: [digital_ads, email, event, print_ad, trade_show, webinar]
+# Evidence required per activity type (Cisco MVF and Microsoft co-op publish lists like these).
+required_evidence:
+  digital_ads: [invoice, screenshots, lead_report]
+  email: [invoice, creative, send_report]
+  event: [invoice, agenda, attendee_list]
+  print_ad: [invoice, tear_sheet]
+  trade_show: [invoice, sponsorship_agreement, booth_photo]
+  webinar: [invoice, recording_link, attendee_list]
+claim_window_days: 45            # Microsoft FY24: within 45 days of the activity ending
+reimbursement_rate: "1.00"       # vendor-only content
+competitor_reimbursement_rate: "0.30"  # Microsoft FY24: at most 30% with competitor products
+merchandise_cap_per_unit_usd: "75.00"  # Cisco MVF
+excluded_categories: [alcohol, travel, gift_card]  # Cisco MVF
+rate_variance: "0.10"            # more than 10% over benchmark: hold the excess (Level6 guidance)
+duplicate_fields_to_match: 3     # of invoice number, issuer, total, start, end (Level6 guidance)
+split:                           # claims split to stay under an approval threshold
+  window_days: 7
+  band: "0.95"                   # within 5% under a threshold
+  min_claims: 3
+# Assumption: no vendor publishes its approval thresholds (modelled on Siebel PRM approver limits).
+approval_ladder:
+  - role: partner_marketing_manager
+    up_to_usd: "5000.00"
+  - role: regional_marketing_lead
+    up_to_usd: "25000.00"
+  - role: finance_controller
+    up_to_usd: null
+retention_months: 24             # informational: no rule reads it (Microsoft FY24; HP Amplify asks for 2 years)

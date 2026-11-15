@@ -1,0 +1,56 @@
+# Hand-written answer keys for the claims in claims.yaml, worked out from program.yaml and the
+# rule table in docs/partner-claims-design.md, not from the code. Changes are logged with the
+# reason in README.md.
+#
+# tier: green | yellow | red | compliance
+# route: expedited_sign_off | review | hold | compliance_review (a person decides every claim)
+# decided_by: the least senior role that may decide
+# reimbursable_usd: what may be reimbursed; held_usd: claimed minus that
+answers:
+  C-101: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "3800.00", held_usd: "0.00"}
+  C-102: {tier: yellow, route: review, decided_by: regional_marketing_lead, reasons: [rate_over_benchmark], reimbursable_usd: "16486.00", held_usd: "2014.00"}
+  C-103: {tier: red, route: hold, decided_by: regional_marketing_lead, reasons: [duplicate_claim], reimbursable_usd: "9200.00", held_usd: "0.00"}
+  C-104: {tier: yellow, route: review, decided_by: regional_marketing_lead, reasons: [competitor_content], reimbursable_usd: "1800.00", held_usd: "4200.00"}
+  C-105: {tier: red, route: hold, decided_by: finance_controller, reasons: [activity_before_approval], reimbursable_usd: "27000.00", held_usd: "0.00"}
+  C-106A: {tier: yellow, route: review, decided_by: regional_marketing_lead, reasons: [split_under_threshold], reimbursable_usd: "4950.00", held_usd: "0.00"}
+  C-106B: {tier: yellow, route: review, decided_by: regional_marketing_lead, reasons: [split_under_threshold], reimbursable_usd: "4900.00", held_usd: "0.00"}
+  C-106C: {tier: yellow, route: review, decided_by: regional_marketing_lead, reasons: [split_under_threshold], reimbursable_usd: "4975.00", held_usd: "0.00"}
+  C-107: {tier: compliance, route: compliance_review, decided_by: compliance_officer, reasons: [public_sector_hospitality], reimbursable_usd: "12000.00", held_usd: "0.00"}
+  C-108: {tier: red, route: hold, decided_by: finance_controller, reasons: [payee_not_on_master, text_addresses_ai], reimbursable_usd: "7400.00", held_usd: "0.00"}
+  B-01: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "2000.00", held_usd: "0.00"}
+  B-02: {tier: red, route: hold, decided_by: partner_marketing_manager, reasons: [claim_late], reimbursable_usd: "1900.00", held_usd: "0.00"}
+  B-03: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "1500.00", held_usd: "0.00"}
+  B-04: {tier: yellow, route: review, decided_by: partner_marketing_manager, reasons: [merchandise_over_cap], reimbursable_usd: "1500.00", held_usd: "20.00"}
+  B-05: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "2200.00", held_usd: "0.00"}
+  B-06: {tier: yellow, route: review, decided_by: partner_marketing_manager, reasons: [rate_over_benchmark], reimbursable_usd: "2000.00", held_usd: "201.00"}
+  B-07: {tier: green, route: expedited_sign_off, decided_by: regional_marketing_lead, reasons: [], reimbursable_usd: "9200.00", held_usd: "0.00"}
+  B-08: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "5000.00", held_usd: "0.00"}
+  B-09: {tier: green, route: expedited_sign_off, decided_by: regional_marketing_lead, reasons: [], reimbursable_usd: "5000.01", held_usd: "0.00"}
+  B-10A: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "4800.00", held_usd: "0.00"}
+  B-10B: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "4850.00", held_usd: "0.00"}
+  B-11: {tier: red, route: hold, decided_by: partner_marketing_manager, reasons: [no_preapproval], reimbursable_usd: "1200.00", held_usd: "0.00"}
+  B-12: {tier: red, route: hold, decided_by: partner_marketing_manager, reasons: [activity_ineligible], reimbursable_usd: "800.00", held_usd: "0.00"}
+  B-13: {tier: yellow, route: review, decided_by: partner_marketing_manager, reasons: [excluded_cost, missing_evidence], reimbursable_usd: "2400.00", held_usd: "600.00"}
+  B-14: {tier: red, route: hold, decided_by: partner_marketing_manager, reasons: [invoice_from_partner], reimbursable_usd: "1500.00", held_usd: "0.00"}
+  B-15: {tier: compliance, route: compliance_review, decided_by: compliance_officer, reasons: [partner_not_approved], reimbursable_usd: "1000.00", held_usd: "0.00"}
+  B-16: {tier: red, route: hold, decided_by: partner_marketing_manager, reasons: [partner_on_ar_hold], reimbursable_usd: "1200.00", held_usd: "0.00"}
+  B-17: {tier: yellow, route: review, decided_by: partner_marketing_manager, reasons: [over_preapproval], reimbursable_usd: "3000.00", held_usd: "500.00"}
+  B-18: {tier: yellow, route: review, decided_by: partner_marketing_manager, reasons: [claimed_over_invoice], reimbursable_usd: "1500.00", held_usd: "300.00"}
+  B-19: {tier: green, route: expedited_sign_off, decided_by: regional_marketing_lead, reasons: [], reimbursable_usd: "25000.00", held_usd: "0.00"}
+  B-20: {tier: green, route: expedited_sign_off, decided_by: finance_controller, reasons: [], reimbursable_usd: "25000.01", held_usd: "0.00"}
+  B-21A: {tier: yellow, route: review, decided_by: regional_marketing_lead, reasons: [split_under_threshold], reimbursable_usd: "4800.00", held_usd: "0.00"}
+  B-21B: {tier: yellow, route: review, decided_by: regional_marketing_lead, reasons: [split_under_threshold], reimbursable_usd: "4850.00", held_usd: "0.00"}
+  B-21C: {tier: yellow, route: review, decided_by: regional_marketing_lead, reasons: [split_under_threshold], reimbursable_usd: "4900.00", held_usd: "0.00"}
+  B-22A: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "4800.00", held_usd: "0.00"}
+  B-22B: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "4850.00", held_usd: "0.00"}
+  B-22C: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "4900.00", held_usd: "0.00"}
+  B-23A: {tier: yellow, route: review, decided_by: regional_marketing_lead, reasons: [split_under_threshold], reimbursable_usd: "4750.00", held_usd: "0.00"}
+  B-23B: {tier: yellow, route: review, decided_by: regional_marketing_lead, reasons: [split_under_threshold], reimbursable_usd: "4800.00", held_usd: "0.00"}
+  B-23C: {tier: yellow, route: review, decided_by: regional_marketing_lead, reasons: [split_under_threshold], reimbursable_usd: "4900.00", held_usd: "0.00"}
+  B-24A: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "4749.99", held_usd: "0.00"}
+  B-24B: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "4800.00", held_usd: "0.00"}
+  B-24C: {tier: green, route: expedited_sign_off, decided_by: partner_marketing_manager, reasons: [], reimbursable_usd: "4900.00", held_usd: "0.00"}
+  B-25: {tier: yellow, route: review, decided_by: partner_marketing_manager, reasons: [preapproval_used_up], reimbursable_usd: "800.00", held_usd: "200.00"}
+  B-26: {tier: yellow, route: review, decided_by: partner_marketing_manager, reasons: [lines_dont_match_invoice], reimbursable_usd: "2000.00", held_usd: "500.00"}
+  B-27: {tier: yellow, route: review, decided_by: partner_marketing_manager, reasons: [merchandise_units_missing], reimbursable_usd: "900.00", held_usd: "0.00"}
+  B-28: {tier: yellow, route: review, decided_by: partner_marketing_manager, reasons: [dates_inconsistent], reimbursable_usd: "900.00", held_usd: "0.00"}

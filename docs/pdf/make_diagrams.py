@@ -938,7 +938,7 @@ GROUPS = [
         "Testing, attacks, failures, fairness",
         ["HM-09", "HM-14", "HM-15", "HM-30", "HM-31", "HM-12", "HM-17", "HM-18"],
     ),
-    ("Workflow-specific", ["HM-22", "HM-24", "HM-25", "HM-26", "HM-28", "HM-33"]),
+    ("Workflow-specific", ["HM-22", "HM-24", "HM-25", "HM-26", "HM-28", "HM-33", "HM-36"]),
 ]
 
 
