@@ -30,3 +30,10 @@ workflows:
     case: {max_steps: 8, max_cost_usd: 0.02, max_seconds: 120}
     daily_usd: 1.00
     monthly_usd: 10.00
+  # Partner co-op claims (HM-37): one intake call and one proof review per case. No live run
+  # has been published for these agents, so the case budget is an estimate, not a measurement.
+  partners:
+    owner: own-601
+    case: {max_steps: 2, max_cost_usd: 0.05, max_seconds: 120}
+    daily_usd: 1.00
+    monthly_usd: 10.00

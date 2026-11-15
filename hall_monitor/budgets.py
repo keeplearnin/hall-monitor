@@ -26,8 +26,8 @@ from hall_monitor.registry import (
     load_owners,
 )
 
-Workflow = Literal["claims", "complaints", "leave"]
-WORKFLOWS: tuple[Workflow, ...] = ("claims", "complaints", "leave")
+Workflow = Literal["claims", "complaints", "leave", "partners"]
+WORKFLOWS: tuple[Workflow, ...] = ("claims", "complaints", "leave", "partners")
 
 
 class SpendRefused(Exception):

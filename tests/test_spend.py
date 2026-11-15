@@ -52,7 +52,7 @@ def _approve(registry_dir):
 
 def test_the_shipped_budgets_are_approved():
     budgets = approved_budgets()
-    assert set(budgets.workflows) == {"claims", "complaints", "leave"}
+    assert set(budgets.workflows) == {"claims", "complaints", "leave", "partners"}
 
 
 def test_an_unreviewed_change_to_the_budgets_is_refused(registry_dir):
