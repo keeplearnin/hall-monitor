@@ -384,6 +384,7 @@ def test_model_written_text_in_the_log_never_reaches_a_page(tmp_path):
         "incident date is outside the coverage period",
         "no claim text to check the claimed amounts against",
         "claimed amounts not in the claim documents in USD: 1.00, 2,023.00",
+        "claimed amounts not in the claim documents marked USD (they name CAD, EUR): 45.00",
         "claimed items (450.00) don't add up to the 540.00 claimed",
         "recommended request information",
         "nothing covered (a denial)",

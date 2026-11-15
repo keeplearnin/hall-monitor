@@ -13,6 +13,8 @@ _SP = r"[^\S\n]"
 # most one space before the figure.
 _USD_BEFORE = rf"(?:(?<![A-Za-z])\$|\bUS\$|\bUSD){_SP}?"
 _USD_AFTER = rf"{_SP}?USD\b"
+# Only USD or US$: used when the documents name another currency, where a bare "$" may be it.
+_USD_ONLY_BEFORE = rf"(?:\bUS\$|\bUSD){_SP}?"
 # Not part of a date (2026-08-14, 14/08/2026), a time (21:45) or a reference (BA2026, #2026).
 _NOT_BEFORE = r"(?<![\w,.:/#-])"
 _NOT_AFTER = r"(?!\d|[.,]\d|[-/:]\d)"
@@ -38,7 +40,7 @@ _CLOSE_PAREN = re.compile(rf"^{_SP}*\)")
 _CREDIT_AFTER = re.compile(rf"^{_SP}*\)?{_SP}*(?i:cr)\b")
 
 
-def _pattern(amount: float, usd: bool) -> re.Pattern[str]:
+def _pattern(amount: float, usd: bool, strict: bool = False) -> re.Pattern[str]:
     forms = {f"{amount:,.2f}", f"{amount:.2f}"}
     if float(amount).is_integer():
         forms |= {f"{int(amount):,}", f"{int(amount)}"}
@@ -46,14 +48,14 @@ def _pattern(amount: float, usd: bool) -> re.Pattern[str]:
     if not usd:
         return re.compile(rf"{_NOT_BEFORE}(?P<a>{figure}){_NOT_AFTER}")
     return re.compile(
-        rf"(?P<m>{_USD_BEFORE})(?P<a>{figure}){_NOT_AFTER}"
+        rf"(?P<m>{_USD_ONLY_BEFORE if strict else _USD_BEFORE})(?P<a>{figure}){_NOT_AFTER}"
         rf"|{_NOT_BEFORE}(?P<b>{figure}){_NOT_AFTER}(?={_USD_AFTER})"
     )
 
 
-def _spans(amount: float, text: str, usd: bool) -> list[tuple[int, int]]:
+def _spans(amount: float, text: str, usd: bool, strict: bool = False) -> list[tuple[int, int]]:
     spans = []
-    for m in _pattern(amount, usd).finditer(text):
+    for m in _pattern(amount, usd, strict).finditer(text):
         group = "a" if m.group("a") is not None else "b"
         start, end = m.span(group)
         if usd:
@@ -75,7 +77,7 @@ def _spans(amount: float, text: str, usd: bool) -> list[tuple[int, int]]:
     return spans
 
 
-def amount_in(amount: float, text: str, *, usd: bool = False) -> bool:
+def amount_in(amount: float, text: str, *, usd: bool = False, strict: bool = False) -> bool:
     """The amount appears as a whole number in the text, with or without cents for a whole
     amount ($1,000 or 1,000.00), but never as part of another: 100 doesn't match inside 1,100,
     1,000 doesn't match 1,000.50, and 2026 doesn't match a date, a time or a reference
@@ -85,21 +87,100 @@ def amount_in(amount: float, text: str, *, usd: bool = False) -> bool:
     doesn't. An unrelated capitalised
     three-letter word beside the figure ($45.00 ATM fee) doesn't count either; that claim goes to
     a person. The other-currency list is in _OTHER_CODES; see HM-04's gaps for what it misses."""
-    return bool(_spans(amount, text, usd))
+    return bool(_spans(amount, text, usd, strict))
 
 
-def untraced(amounts: list[float], text: str, *, usd: bool = False) -> list[float]:
+def untraced(
+    amounts: list[float], text: str, *, usd: bool = False, strict: bool = False
+) -> list[float]:
     """The amounts that don't each have their own place in the text. Every amount uses up the
     occurrence it matched, so an item listed twice needs to appear twice."""
     used: set[tuple[int, int]] = set()
     missing = []
     for amount in amounts:
-        span = next((s for s in _spans(amount, text, usd) if s not in used), None)
+        span = next((s for s in _spans(amount, text, usd, strict) if s not in used), None)
         if span is None:
             missing.append(amount)
         else:
             used.add(span)
     return missing
+
+
+# A currency named anywhere in the documents, not only beside a figure: a header saying "all
+# amounts in CAD", a prefixed dollar (C$120), a symbol (€, £, ¥, ₹) or a currency's name. When
+# the documents name one, a bare "$" may be that currency, so the routing rule then counts only
+# figures marked USD or US$ (strict); "Total: USD 38.50 (converted from JPY)" still traces.
+# Codes are a fixed list of common currencies, upper case only,
+# leaving out codes that are also English words (ALL, TOP, CUP, TRY); names count in any case.
+_NAMED_CURRENCIES: dict[str, str] = {
+    **{
+        code: code
+        for code in (
+            "EUR GBP CAD AUD NZD JPY CNY RMB CHF HKD SGD MXN INR BRL ZAR SEK NOK DKK KRW THB PHP "
+            "IDR MYR TWD AED SAR ILS PLN CZK HUF ARS CLP COP PEN"
+        ).split()
+    },
+    "RMB": "CNY",
+}
+_CURRENCY_CODES = re.compile(r"(?<![A-Za-z])(" + "|".join(_NAMED_CURRENCIES) + r")(?![A-Za-z])")
+_CURRENCY_SIGNS = {
+    "€": "EUR",
+    "£": "GBP",
+    "¥": "JPY",
+    "₹": "INR",
+    "₩": "KRW",
+    "₱": "PHP",
+    "₪": "ILS",
+}
+_PREFIXED_DOLLARS = re.compile(r"(?<![A-Za-z])(C|CA|A|AU|NZ|HK|S|NT|MX|R)\$")
+_PREFIX_CODES = {
+    "C": "CAD",
+    "CA": "CAD",
+    "A": "AUD",
+    "AU": "AUD",
+    "NZ": "NZD",
+    "HK": "HKD",
+    "S": "SGD",
+    "NT": "TWD",
+    "MX": "MXN",
+    "R": "BRL",
+}
+_CURRENCY_NAMES = [
+    (re.compile(rf"(?i)\b{name}\b"), code)
+    for name, code in (
+        (r"euros?", "EUR"),
+        (r"pounds?\s+sterling|sterling|british\s+pounds?", "GBP"),
+        (r"canadian\s+dollars?|loonies?", "CAD"),
+        (r"australian\s+dollars?", "AUD"),
+        (r"new\s+zealand\s+dollars?", "NZD"),
+        (r"hong\s+kong\s+dollars?", "HKD"),
+        (r"singapore\s+dollars?", "SGD"),
+        (r"mexican\s+pesos?|pesos?", "MXN"),
+        (r"(?:japanese\s+)?yen", "JPY"),
+        (r"yuan|renminbi", "CNY"),
+        (r"swiss\s+francs?|francs?", "CHF"),
+        (r"rupees?", "INR"),
+        (r"reais|real\s+brasileiro", "BRL"),
+        (r"rand", "ZAR"),
+        (r"kron(?:a|or|e|er)", "SEK"),
+        (r"won", "KRW"),
+        (r"baht", "THB"),
+        (r"dirhams?", "AED"),
+        (r"zloty", "PLN"),
+        (r"shekels?", "ILS"),
+    )
+]
+
+
+def other_currencies(text: str) -> list[str]:
+    """Every currency other than the US dollar the text names anywhere, as codes, sorted. "won"
+    and "rand" are names too, so a document using them as words goes to a person; that errs
+    towards review."""
+    found = {_NAMED_CURRENCIES[m.group(1)] for m in _CURRENCY_CODES.finditer(text)}
+    found |= {code for sign, code in _CURRENCY_SIGNS.items() if sign in text}
+    found |= {_PREFIX_CODES[m.group(1)] for m in _PREFIXED_DOLLARS.finditer(text)}
+    found |= {code for pattern, code in _CURRENCY_NAMES if pattern.search(text)}
+    return sorted(found)
 
 
 def source_text(claim: ClaimSubmission) -> str:

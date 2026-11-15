@@ -264,6 +264,8 @@ _REASONS = (
     r"incident date is outside the coverage period",
     r"no claim text to check the claimed amounts against",
     rf"claimed amounts not in the claim documents in USD: {_N}(?:, {_N})*",
+    rf"claimed amounts not in the claim documents marked USD \(they name [A-Z]{{3}}"
+    rf"(?:, [A-Z]{{3}})*\): {_N}(?:, {_N})*",
     rf"claimed items \({_N}\) don't add up to the {_N} claimed",
     r"recommended [a-z ]+",
     r"nothing covered \(a denial\)",
@@ -329,6 +331,7 @@ def reason_kind(reason: str) -> str:
     for prefix, kind in (
         ("fraud flags:", "fraud flags"),
         ("claimed amounts not in the claim documents in USD", None),
+        ("claimed amounts not in the claim documents marked USD", None),
         ("claimed items (", "claimed items don't add up to the total claimed"),
         ("claim text addresses the AI", None),
         ("pipeline stopped: agent refused or returned no usable output", None),
