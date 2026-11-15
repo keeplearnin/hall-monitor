@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DOC = ROOT / "docs" / "model-cards.md"
 RESULTS = ROOT / "evals" / "results"
 
+PARTNER_CLAIMS = "Partner claims (synthetic marketing-fund reimbursements; channel finance)"
 WORKFLOWS = {
     "claims_supervisor": "Claims triage (synthetic travel insurance)",
     "intake": "Claims triage (synthetic travel insurance)",
@@ -34,6 +35,8 @@ WORKFLOWS = {
     "leave_supervisor": "HR leave (synthetic FMLA requests; employment, EU AI Act Annex III)",
     "leave_intake": "HR leave (synthetic FMLA requests; employment, EU AI Act Annex III)",
     "leave_explainer": "HR leave (synthetic FMLA requests; employment, EU AI Act Annex III)",
+    "partner_claim_intake": PARTNER_CLAIMS,
+    "partner_proof_reviewer": PARTNER_CLAIMS,
 }
 
 # What each agent may do alone, and what code forces to a person regardless of its answer.
@@ -78,6 +81,18 @@ LIMITS = {
         "acknowledgement.",
         "Never sends anything (HM-25); can raise urgency and add reasons, never lower or remove "
         "them; the draft is kept only if it promises nothing and holds no contact path.",
+    ),
+    "partner_claim_intake": (
+        "Extracts the invoice number, issuer, lines, total and activity dates from redacted "
+        "documents; is never given the portal's partner, payee or amount claimed.",
+        "Code checks every value against the documents and the rules decide the amount, tier "
+        "and role (HM-36, HM-37); if it fails, nothing is reimbursable and a person reads it.",
+    ),
+    "partner_proof_reviewer": (
+        "Raises concerns about the proof from a closed list of five, with a confidence; no "
+        "free-text field.",
+        "Each concern only adds review: it can't remove a rule finding or lower the tier or "
+        "role, and a failed or unsure review sends the claim to a person (HM-37).",
     ),
     "leave_supervisor": (
         "Chooses intake, one re-check before the rules, the rules, the note, finish or "

@@ -1,4 +1,4 @@
-# Synthetic partner claims (HM-36)
+# Synthetic partner claims (HM-36, HM-37)
 
 Fictional marketing development fund (MDF) and co-op reimbursement claims at Tarnwick Devices, a
 fictional hardware maker. Every vendor, partner, agency, invoice and amount here is made up.
@@ -14,6 +14,8 @@ rest, including the approval ladder, are assumptions. See the
 | `history.yaml` | Claims already paid, checked for duplicates |
 | `claims.yaml` | 47 claims: the demo cases (`C-*`) and boundary cases (`B-*`) |
 | `answers.yaml` | Hand-written answer keys: tier, route, the least senior role, reasons, what may be reimbursed and what is held |
+| `documents.yaml` | The invoice and evidence text for 11 claims, as a partner would upload them (HM-37); C-108's invoice carries text aimed at the AI |
+| `review_answers.yaml` | Hand-written answer keys for the proof reviewer: the concerns a careful person would raise from each claim's documents |
 
 `python -m hall_monitor.partners` runs the rules on every claim and compares the result with the
 answer keys.

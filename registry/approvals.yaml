@@ -46,6 +46,16 @@ agents:
     prompt_sha256: 46adce86d355d41898532dd86b623767dae54d5f782dda7d8e4e1bb4624f5368
     prompt_version: leave-supervisor-v1
     version: 0.1.0
+  partner_claim_intake:
+    manifest_digest: 6b67d5cef590b0cb411c97132fc37441c1e42bec46e08c0feb1ac56b91d318fe
+    prompt_sha256: 368e3a53392cdc00c779e5b2df3e1507f0d5a2e3d96641fdca9dc9df3167ea92
+    prompt_version: partner-claim-intake-v1
+    version: 0.1.0
+  partner_proof_reviewer:
+    manifest_digest: 0fa3c1861354bd301e0435c69eabaec831d53fef8823af7588bcd740055352e6
+    prompt_sha256: ede3490d97340f80fe87417540abdfcf20145171d9349ec601eb4f0ed969a355
+    prompt_version: partner-proof-reviewer-v1
+    version: 0.1.0
   recommendation:
     manifest_digest: fba8c83994227c720dc8ff829cbfae4bb80d2c0fca55cd3d260e39bcb70d8911
     prompt_sha256: b854d7a2b948e1b08083514787424f2d341b748e998acaf858a5a54a9caf0b84

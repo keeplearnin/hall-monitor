@@ -1,0 +1,10 @@
+id: partner_claim_intake
+name: Partner claim intake
+version: 0.1.0
+owner: own-601
+purpose: Extract the invoice, its lines and the activity dates from a partner's marketing-fund claim documents. Code checks every value against the documents; it never decides, pays or routes.
+risk_tier: high
+status: active
+model: claude-haiku-5-5
+allowed_tools: []
+data_classes: [financial]

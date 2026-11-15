@@ -1,0 +1,10 @@
+id: partner_proof_reviewer
+name: Partner proof reviewer
+version: 0.1.0
+owner: own-601
+purpose: Raise concerns about a marketing-fund claim's proof from a closed list (recycled, edited, vague, mismatched, low brand content). Each concern only adds review; code keeps every rule finding and the route.
+risk_tier: high
+status: active
+model: claude-sonnet-5-5
+allowed_tools: []
+data_classes: [financial]

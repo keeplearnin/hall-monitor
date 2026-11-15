@@ -1,9 +1,10 @@
 # Design: partner rebate and marketing-fund claims
 
-- **Status:** Proposed. Slice 1 (the rules in code) is being built; agents and the pipeline come
-  later. Written before the code, on the branch, so the reasoning is recorded. Where the build
+- **Status:** Proposed. Slice 1 (the rules in code) and slice 2 (the agents, scripted only) are
+  built; the pipeline, evals and the panel come later. Written before the code, on the branch, so the reasoning is recorded. Where the build
   differs, the ADRs and the controls register win and this page is updated in the same PR.
-- **Controls:** HM-36 (claim rules in code, slice 1). Later slices take the next numbers.
+- **Controls:** HM-36 (claim rules in code, slice 1), HM-37 (the agents read and flag, slice 2).
+  Later slices take the next numbers.
 - **Decision record:** [ADR 0032](adr/0032-partner-claims-rules-decide.md).
 
 ## Why this example
@@ -39,7 +40,12 @@ is labelled as an assumption.
 | Pay | ERP, outside this system | Only after a person's approval, and only to the payee on the partner's approved record |
 
 **The agent never pays, approves or changes a payee.** In slice 1 there is no agent at all: the
-claim arrives as typed fields, as an extraction agent will produce them in slice 2.
+claim arrives as typed fields. In slice 2 ([ADR 0033](adr/0033-partner-claim-agents-read-and-flag.md))
+an intake agent extracts the invoice and dates from the documents and code checks every value
+against their text; the portal's fields (partner, payee, amount claimed) never come from an
+agent. A proof reviewer raises concerns from a closed list, each of which only adds review. The
+judgment row above is narrower than first planned: the reviewer returns concern codes and a
+confidence, not cited evidence or program clauses.
 
 ## The rules (slice 1)
 
