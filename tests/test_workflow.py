@@ -709,3 +709,20 @@ def test_cli_refuses_an_impossible_payout_without_a_traceback(db, monkeypatch, c
     )
     assert code != 0
     assert "payout" in capsys.readouterr().err
+
+
+def test_a_decision_is_rejected_while_the_adjusters_file_isnt_approved(db, monkeypatch):
+    """Review finding 10: the adjusters file is approved by digest; an unapproved one can't
+    authorise a decision, and the claim stays with a person."""
+    from hall_monitor import workflow as wf
+    from hall_monitor.governance.approval import AdjustersNotApproved
+
+    _submit(db, "claim_004")
+
+    def refuse(*_a, **_k):
+        raise AdjustersNotApproved("adjusters not approved: adjusters.yaml is not the approved")
+
+    monkeypatch.setattr(wf, "approved_adjusters", refuse)
+    status = _decide(db, "claim_004", **DENY)
+    assert status["state"] == "waiting_for_adjuster"
+    assert "adjusters not approved" in status["previous_decision_rejected"]

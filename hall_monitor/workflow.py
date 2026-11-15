@@ -26,12 +26,12 @@ from pydantic import ValidationError
 from hall_monitor.governance.approval import (
     AdjusterDecision,
     DecisionRejected,
+    approved_adjusters,
     audit_payload,
     build_evidence_pack,
     evidence_sha256,
     final_auto,
     final_from_adjuster,
-    load_adjusters,
     validate_decision,
 )
 from hall_monitor.governance.audit import (
@@ -73,8 +73,6 @@ def build_graph(
     model_routing: bool = False,
     spend: SpendLedger | None = None,
 ) -> StateGraph:
-    adjusters = load_adjusters()
-
     def run_triage(state: ClaimState) -> ClaimState:
         claim = ClaimSubmission.model_validate(state["claim"])
         result = triage(
@@ -140,7 +138,10 @@ def build_graph(
             }
         )
         claim_id = state["claim"]["claim_id"]
+        adjusters: dict = {}
         try:
+            # Read at each decision, so a change to the file counts only once it is approved.
+            adjusters = approved_adjusters()
             try:
                 result = TriageResult.model_validate(state["result"])
             except ValidationError:  # edited until it no longer parses
