@@ -98,6 +98,20 @@ def route_claim(
     return RoutingDecision(route=Route.ADJUSTER if reasons else Route.AUTO, reasons=reasons)
 
 
+DUPLICATE_DOCUMENTS = (
+    "duplicate_documents: the same documents were filed with an earlier claim on this policy"
+)
+
+
+def route_duplicate_documents(routing: RoutingDecision) -> RoutingDecision:
+    """A claim whose documents match an earlier claim's on the same policy (the audit log's
+    keyed hash of them, governance/audit.py) goes to a person, whatever the agents found: the
+    same receipts filed under a new claim ID mustn't be paid automatically twice."""
+    if DUPLICATE_DOCUMENTS in routing.reasons:
+        return routing
+    return RoutingDecision(route=Route.ADJUSTER, reasons=[*routing.reasons, DUPLICATE_DOCUMENTS])
+
+
 def route_stopped(reason: str) -> RoutingDecision:
     """A claim the pipeline couldn't finish always goes to a person."""
     return RoutingDecision(route=Route.ADJUSTER, reasons=[f"pipeline stopped: {reason}"])

@@ -726,3 +726,77 @@ def test_a_decision_is_rejected_while_the_adjusters_file_isnt_approved(db, monke
     status = _decide(db, "claim_004", **DENY)
     assert status["state"] == "waiting_for_adjuster"
     assert "adjusters not approved" in status["previous_decision_rejected"]
+
+
+# --- Review finding 7: the same receipts filed again under a new claim ID ---------------------
+
+DUPLICATE_REASON = (
+    "duplicate_documents: the same documents were filed with an earlier claim on this policy"
+)
+
+
+def _refiled(claim_id, new_id, change=lambda text: text):
+    claim = CLAIMS[claim_id]
+    attachments = [a.model_copy(update={"text": change(a.text)}) for a in claim.attachments]
+    return claim.model_copy(update={"claim_id": new_id, "attachments": attachments})
+
+
+def _submit_as(path, truth_id, claim):
+    with _open(path, truth_id) as workflow:
+        return workflow.submit(claim)
+
+
+def _triage_entry(workflow, claim_id):
+    entries = workflow.audit.entries(claim_id)
+    return next(e for e in entries if e["event"] == "triage_result")["payload"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [lambda t: t, lambda t: "  " + t.upper().replace(" ", "\n ") + "\n"],
+    ids=["same", "case-and-spacing"],
+)
+def test_the_same_receipts_under_a_new_claim_id_go_to_an_adjuster(db, change):
+    """A small clean claim was auto-paid; filed again under a new ID it must not be paid again
+    automatically, whatever the risk agent says."""
+    assert _submit(db, "claim_001")["state"] == "decided"
+    status = _submit_as(db, "claim_001", _refiled("claim_001", "claim_001b", change))
+    assert status["state"] == "waiting_for_adjuster"
+    assert DUPLICATE_REASON in status["routing_reasons"]
+    with _open(db) as workflow:
+        logged, first = _triage_entry(workflow, "claim_001b"), _triage_entry(workflow, "claim_001")
+    assert logged["route"] == "adjuster" and DUPLICATE_REASON in logged["routing_reasons"]
+    # A keyed hash only: no document text, no policy number.
+    assert logged["documents_hmac"] == first["documents_hmac"]
+    assert len(logged["documents_hmac"]) == 64
+    assert "WTP-" not in str(logged) and "WTP-" not in str(first)
+
+
+def test_different_receipts_on_the_same_policy_are_not_flagged(db):
+    _submit(db, "claim_001")
+    other = _refiled("claim_001", "claim_001c", lambda t: t + "\nSecond page.")
+    status = _submit_as(db, "claim_001", other)
+    assert status["state"] == "decided" and status["final"]["decided_by"] == "auto"
+
+
+def test_a_claim_is_not_a_duplicate_of_its_own_earlier_run(tmp_path):
+    """A restarted triage logs a second result for the same claim ID: not a resubmission."""
+    from hall_monitor.governance.audit import AuditLog, TriageRecorder
+
+    log = AuditLog(tmp_path / "audit.sqlite")
+    claim = CLAIMS["claim_001"]
+    result = triage(
+        claim,
+        registry=REGISTRY,
+        gateway=GATEWAY,
+        wording=WORDING,
+        client=fake_client(outputs_from_truth(load_ground_truth("claim_001"))),
+        on_event=TriageRecorder(log, claim.claim_id),
+    )
+    recorder = TriageRecorder(log, claim.claim_id)
+    recorder("claim_submitted", {"claim": claim, "redactions": {}, "injection_signals": []})
+    assert not recorder.documents_seen(result.extraction.policy_number)
+    other = TriageRecorder(log, "claim_001b")
+    other("claim_submitted", {"claim": claim, "redactions": {}, "injection_signals": []})
+    assert other.documents_seen(result.extraction.policy_number)
+    log.close()

@@ -75,6 +75,7 @@ def build_graph(
 ) -> StateGraph:
     def run_triage(state: ClaimState) -> ClaimState:
         claim = ClaimSubmission.model_validate(state["claim"])
+        recorder = TriageRecorder(audit, claim.claim_id)
         result = triage(
             claim,
             registry=registry,
@@ -83,8 +84,10 @@ def build_graph(
             client=client,
             critic=critic,
             model_routing=model_routing,
-            on_event=TriageRecorder(audit, claim.claim_id),
+            on_event=recorder,
             spend=spend,
+            # The same receipts under a new claim ID go to a person (review finding 7).
+            documents_seen=recorder.documents_seen,
         )
         pack = build_evidence_pack(result, claim)
         digest = audit.put_evidence(pack)

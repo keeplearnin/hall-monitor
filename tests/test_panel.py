@@ -399,6 +399,7 @@ def test_model_written_text_in_the_log_never_reaches_a_page(tmp_path):
         "pipeline stopped: hall pass refused: agent 'risk_fraud' is stopped (stop-0001 by own-302)",
         "pipeline stopped: no policy record found for the policy number on the claim",
         "pipeline stopped: unexpected KeyError",
+        "duplicate_documents: the same documents were filed with an earlier claim on this policy",
     ],
 )
 def test_every_reason_the_code_writes_is_shown(reason):
@@ -539,7 +540,11 @@ def test_every_reason_the_code_generates_is_shown(tmp_path, demo_data):
     here instead of being withheld unnoticed."""
     from hall_monitor.gateway.cost import UnpricedModelError, call_cost
     from hall_monitor.gateway.injection import SIGNALS
-    from hall_monitor.governance.routing import route_claim, route_stopped
+    from hall_monitor.governance.routing import (
+        route_claim,
+        route_duplicate_documents,
+        route_stopped,
+    )
     from hall_monitor.models import (
         AgentCall,
         CoverageAssessment,
@@ -616,6 +621,7 @@ def test_every_reason_the_code_generates_is_shown(tmp_path, demo_data):
         claim_text="no amounts here",
     ).reasons
     reasons += route_claim(extraction, coverage, risk, recommendation).reasons
+    reasons += route_duplicate_documents(route_stopped("unexpected KeyError")).reasons
     assert len(reasons) > 15
     assert [r for r in reasons if views.shown_reason(r) != r] == []
 

@@ -321,6 +321,16 @@ class AuditLog:
         return json.loads(row[0]).get("result_sha256") if row else None
 
     @_locked
+    def documents_recorded(self, documents_hmac: str, except_claim: str) -> bool:
+        """Whether a triage result for any claim but except_claim recorded these documents."""
+        row = self._db.execute(
+            "SELECT 1 FROM audit_log WHERE event = 'triage_result' AND claim_id != ?"
+            " AND json_extract(payload, '$.documents_hmac') = ? LIMIT 1",
+            (except_claim, documents_hmac),
+        ).fetchone()
+        return row is not None
+
+    @_locked
     def head(self) -> ChainHead | None:
         row = self._db.execute(
             "SELECT seq, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"
@@ -451,14 +461,33 @@ class TriageRecorder:
 
     def __init__(self, log: AuditLog, claim_id: str):
         self.log, self.claim_id = log, claim_id
+        self._attachments: list[str] = []
+
+    def documents_hmac(self, policy_number: str) -> str | None:
+        """A keyed hash of the policy number and the claim's documents, normalised (case,
+        spacing and their order don't count), or None if the claim sent no documents. Keyed, so
+        the log holds neither the documents nor the policy number, nor a hash a guess could
+        confirm."""
+        documents = sorted(" ".join(t.split()).casefold() for t in self._attachments)
+        if not any(documents):
+            return None
+        policy = " ".join(policy_number.split()).upper()
+        return self.log.keyed_hash(canonical({"policy": policy, "documents": documents}))
+
+    def documents_seen(self, policy_number: str) -> bool:
+        """Whether another claim ID's triage result recorded the same documents_hmac: the
+        same documents filed again on the same policy (a restarted triage of this claim doesn't
+        count). Triage results only, so a claim counts once its triage has finished."""
+        digest = self.documents_hmac(policy_number)
+        return digest is not None and self.log.documents_recorded(digest, self.claim_id)
 
     def __call__(self, event: str, item) -> None:
         actor, payload = getattr(self, f"_{event}")(item)
         self.log.append(self.claim_id, event, actor, payload)
 
-    @staticmethod
-    def _claim_submitted(item: dict) -> tuple[str, dict]:
+    def _claim_submitted(self, item: dict) -> tuple[str, dict]:
         claim = item["claim"]
+        self._attachments = [a.text for a in claim.attachments]
         return f"channel:{claim.channel}", {
             "claim_sha256": sha256(claim.model_dump_json()),
             "submitted_at": claim.submitted_at.isoformat(),
@@ -510,9 +539,12 @@ class TriageRecorder:
     def _code_correction(correction: str) -> tuple[str, dict]:
         return "pipeline", {"correction": correction}
 
-    @staticmethod
-    def _triage_result(result) -> tuple[str, dict]:
+    def _triage_result(self, result) -> tuple[str, dict]:
+        extraction = result.extraction
         return "pipeline", {
+            "documents_hmac": self.documents_hmac(extraction.policy_number)
+            if extraction is not None
+            else None,
             "result_sha256": sha256(result.model_dump_json()),
             "route": result.routing.route.value,
             "routing_reasons": result.routing.reasons,
