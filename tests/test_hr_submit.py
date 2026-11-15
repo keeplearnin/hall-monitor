@@ -283,3 +283,25 @@ def test_the_cli_needs_a_mode_and_a_loopback_host(tmp_path, monkeypatch):
     monkeypatch.setattr(submit, "DEMO_DIR", tmp_path / "no-demo")
     with pytest.raises(SystemExit, match="panel demo"):
         submit.main(["--demo"])
+
+
+# --- Review 25 fixes ----------------------------------------------------------------------------
+
+
+def test_a_non_ascii_token_is_refused_not_a_server_error(tmp_path):
+    client = _app(tmp_path)
+    response = client.post(
+        "/submit", data={"token": "é", "message_id": "lr_001"}, headers=SAME_ORIGIN
+    )
+    assert response.status_code == 403
+    assert _entries(tmp_path) == []
+
+
+@pytest.mark.parametrize("cap", ["0", "-1", "51", "1000000"])
+def test_the_cli_refuses_a_request_cap_outside_1_to_50(cap, monkeypatch):
+    def no_client():
+        raise AssertionError("the cap must be checked before a client is made")
+
+    monkeypatch.setattr(submit, "default_client", no_client)
+    with pytest.raises(SystemExit):
+        submit.main(["--live", "--max-requests", cap])
