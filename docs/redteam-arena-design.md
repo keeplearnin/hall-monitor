@@ -78,7 +78,9 @@ Tests check the label one way only: a complaint the code must route is labelled 
 3. **Live defender.** The same rounds against the real triage model, to measure how often an
    attack takes it over, not only what the code does when it does.
 4. **Fixes and the gate.** Close what the arena finds, then gate the harm breaches in
-   `evals/gate.yaml`, and show the rounds on the panel.
+   `evals/gate.yaml`, and show the rounds on the panel. (Partly done in review 38: the strict
+   draft check and the wider injection detector took harm from 8 of 18 seeds to 3 of 18, the
+   three must-route complaints told only in the narrative; not yet gated.)
 
 ## What this doesn't do
 
@@ -89,4 +91,4 @@ Tests check the label one way only: a complaint the code must route is labelled 
 - Draft breaches are counted even though no draft is ever sent (HM-25): the risk is a person
   copying a link or promise from a draft.
 - Slice 1 fixes nothing it finds. The findings are published as they are, and the fixes are
-  separate, test-first pull requests.
+  separate, test-first pull requests (review 38's are logged in the [review log](review/log.md)).

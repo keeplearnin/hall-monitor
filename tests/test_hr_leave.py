@@ -484,8 +484,7 @@ def test_any_flag_on_a_clean_request_sends_it_to_hr_review(request_, where, chan
     assert route.decided_by in {role, "hr_director"}
 
 
-# Name kept while controls/controls.yaml (HM-21/HM-23) cites it; it predates the role rename.
-def test_only_hr_managers_and_directors_may_deny_or_extend():
+def test_a_local_manager_never_decides_a_flagged_request():
     """Only the plain light path (no reason at all) is a local manager's; every reason names an
     HR business partner or, for the cases the design gives a director, an HR director."""
     directors = {

@@ -85,8 +85,7 @@ def test_the_role_the_rules_name_is_enforced(log):
     )
 
 
-# Name kept while controls/controls.yaml (HM-21/HM-23) cites it; it predates the role rename.
-def test_only_a_manager_or_above_may_deny_even_on_a_specialist_case(log):
+def test_only_an_hr_business_partner_or_above_may_deny_even_on_the_light_path(log):
     with pytest.raises(DecisionRefused, match="HR business partner or above"):
         _decide(log, "lr_001", "hrs-101", "deny", reason=REASON)
 
@@ -281,8 +280,7 @@ def test_the_review_cli_lists_shows_and_decides(log, capsys):
     assert review_cli.main([*db, "show", "lr_999"]) == 1
 
 
-# Name kept while controls/controls.yaml (HM-21/HM-23) cites it; it predates the role rename.
-def test_extending_needs_a_director_even_on_a_specialist_s_case(log):
+def test_extending_needs_a_director_even_on_the_light_path(log):
     with pytest.raises(DecisionRefused, match="extending leave past the entitlement needs"):
         _decide(log, "lr_013", "hrs-201", "extend", weeks=2, reason=REASON)
 

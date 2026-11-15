@@ -88,7 +88,11 @@ places:
 `never_sent: Literal[True]` and no field that could hold an address, a recipient or a channel.
 It is stored in the evidence store by its hash; the audit log records the hash and `never_sent`.
 There is no code that reads a draft for delivery, and the static check is a tripwire for
-adding one.
+adding one. A draft is kept only if a strict pattern check, read as written and decoded, finds
+no promise of an outcome, contact or deadline and no way to reach anyone: no link, domain or
+spelled-out link, email address, handle, phone or vanity number, address, extension or person
+to ask for, and no run of three or more digits (review 38). It is a pattern list, not a review
+of tone or accuracy.
 
 **What still leaves the machine, stated plainly.** Model calls go to the Claude API (a `POST`
 carrying the redacted structured fields), and traces go to Langfuse when its keys are set
@@ -150,7 +154,7 @@ complaint -> redact, scan for text aimed at the AI           (code)
 | `servicemember` | tagged Servicemember |
 | `untimely` | CFPB shows the company response as untimely |
 | `text_addresses_ai` | any injection signal in any field the agent is sent |
-| `agent_failed` | the agent refused, failed, was stopped or isn't approved, or its answer didn't validate |
+| `agent_failed` | the agent refused, failed, was stopped or isn't approved, or its answer didn't validate; on the agentic path, a triage agent stopped after it answered has its answers discarded (no draft, high urgency; review 38) |
 | `agent_uncertain` | the agent's confidence is low, or it chose `unclear` (changed while building: medium confidence goes to the standard queue) |
 | `agent_disagrees_with_code` | the agent's urgency is lower than the code's floor |
 | `agent_raised_concern` | the agent raised a concern the code's rule didn't find |
@@ -160,7 +164,7 @@ complaint -> redact, scan for text aimed at the AI           (code)
 | `triage_skipped` | the desk supervisor finished before any triage ran |
 | `supervisor_failed` | the desk supervisor failed, was stopped, ran out of budget or kept choosing steps code refused (the triage agent may have answered) |
 | `spend_refused` | the desk's spending cap was reached, its budgets aren't approved or the spend ledger couldn't be reached: refused before any model call, so no agent read it (HM-34, [ADR 0030](adr/0030-cost-governance-budgets-and-caps.md)) |
-| `record_changed` | CFPB's stored version changed after the complaint was routed (a new tag, an untimely response, a narrative): an additive `complaint_rerouted` entry sends it to specialist review with the new version's reasons, no agent call (review 25) |
+| `record_changed` | CFPB's stored version changed after the complaint was routed (a new tag, an untimely response, a narrative): an additive `complaint_rerouted` entry sends it to specialist review with every earlier reason and the new version's, never at a lower urgency, no agent call (review 25). Ingest's cursor only moves forward, so a later change is met only by a manual pull from an earlier date (`--since`) |
 
 The label patterns are checked against every label in the pinned snapshot by a hand-written
 table in the tests, not by the patterns themselves (review 16 found two common labels missed).

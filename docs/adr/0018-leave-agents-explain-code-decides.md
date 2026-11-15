@@ -8,7 +8,9 @@
 The leave rules came first ([ADR 0017](0017-leave-rules-in-code.md)), so the agents could be
 added against rules that already decide eligibility, entitlement and who must decide. Two jobs
 need a model: reading an employee's message, which is free text with a name and a health
-condition, and explaining the result to the leave specialist in plain words. The design asked
+condition, and explaining the result in plain words to the person who decides (since
+[ADR 0034](0034-leave-roles-follow-the-branch.md), the local manager on the light path or HR for
+anything flagged; the first version addressed a leave specialist). The design asked
 that no agent ever sees a diagnosis it doesn't need and that none can approve or deny leave.
 
 ## Decision
@@ -46,10 +48,10 @@ that no agent ever sees a diagnosis it doesn't need and that none can approve or
 
 - **One agent that reads the message and recommends a decision.** Rejected: the recommendation
   would be an argument with the rules, and its reasons couldn't be tested.
-- **Let intake return a free-text summary for the specialist.** Rejected: it would carry the
-  condition into every later step; the specialist reads the message itself.
+- **Let intake return a free-text summary for the person deciding.** Rejected: it would carry the
+  condition into every later step; the person deciding reads the message itself.
 - **Skip the explanation agent.** Possible, since the checks carry their rules and facts; kept
-  because the specialist reads a sentence faster than a JSON check, and it costs a cheap call.
+  because the person deciding reads a sentence faster than a JSON check, and it costs a cheap call.
   It is advisory, so it can be dropped without changing any control.
 
 ## Consequences

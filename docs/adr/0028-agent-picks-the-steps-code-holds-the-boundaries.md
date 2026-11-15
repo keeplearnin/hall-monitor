@@ -110,9 +110,11 @@ Every request is still for a person to sign, and code still names the route and 
   reasons and role. A request routed before the rules ran (a finish or hand-off before them, a
   refusal loop, a failure) gets `assessment_skipped`, whose role is HR director: without the
   rules nobody knows which role they would name. The offline eval found that without this, 9 of
-  28 requests would have gone to a leave specialist where the rules name an HR manager or
-  director. The fixed path still gives a leave specialist a request whose intake failed, as
-  before.
+  28 requests would have gone to the least senior role (then a leave specialist) where the rules
+  name a more senior one. The fixed path gives a request whose intake failed to an HR business
+  partner (`pipeline_stopped`); since [ADR 0034](0034-leave-roles-follow-the-branch.md) no
+  reason names the local manager, so that request no longer goes to the least senior role, but
+  only the agentic path escalates a request the rules never ran on to a director.
 - **The note stays advisory.** Finishing without it keeps the route and says why; a failed note
   is recorded, never a stop.
 - **Refusals, budgets (8 steps, 0.02 USD, 120 s, an unpriced cost) and the kill switch** send

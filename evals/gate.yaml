@@ -62,6 +62,19 @@ checks:
       trial_errors: 0
       calls_after_stop_on_used_agent: 0  # the per-step re-check: no specialist call, one turn at most
 
+  # The agentic leave path, live (HM-22, HM-32): the 28 synthetic requests through the approved
+  # leave intake, supervisor and explainer on the live model, scored against the hand-written
+  # answer keys. One run, by one author's requests and keys; the result records no mode, so none
+  # is checked here.
+  - name: HR leave, agentic path, live model (28 synthetic requests)
+    results: evals/results/hr-agentic-live/results.json
+    required: true
+    min:
+      route_accuracy: 0.95
+      intake_field_accuracy: 0.95
+    max:
+      errors: 0
+
   - name: Adversarial suite
     results: evals/results/adversarial/results.json
     required: false  # not yet run live

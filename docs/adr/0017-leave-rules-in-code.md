@@ -22,7 +22,7 @@ not collect.
   (a missing hours week, coverage year, distance or employer record, an unclear reason, an
   adult child whose condition a person must check, earlier caregiver leave for a servicemember
   the records don't name), with the facts it used. A missing fact is never filled in with zero
-  or "far": that would show an HR manager a reason to find someone ineligible that the records
+  or "far": that would show an HR business partner a reason to find someone ineligible that the records
   don't support. It goes to a person, as a failed claim does
   ([ADR 0007](0007-failures-stop-the-claim.md)), and the routing rule routes on each check's
   answer, so a check that didn't pass reaches a person whatever its reason code.
@@ -31,10 +31,13 @@ not collect.
   of one (825.205(b)); service counts every week on the payroll (825.110(b)(3)).
 - **Code decides who decides.** The routing rule sends every failure, unknown and flag to HR
   review and names the least senior role that may decide it, from the sign-off table in the
-  design for HR review (a Claude Doc outside this repo; the roles for six flags are this code's
-  choice). Even a clean request is only a draft for a leave specialist to sign: the design asked
-  HR whether any approval may skip a person, and until they answer, none does. The sign-off
-  ([ADR 0019](0019-signed-hr-sign-off.md)) enforces the role.
+  design for HR review (a Claude Doc outside this repo) for the director's cases; the roles are
+  those a branch company already has, the employee's local manager, an HR business partner and
+  an HR director, and sending every flag to an HR business partner is this code's choice
+  ([ADR 0034](0034-leave-roles-follow-the-branch.md), which replaced the first version's leave
+  specialist and HR manager). Even a clean request is only a draft for the local manager to sign:
+  the design asked HR whether any approval may skip a person, and until they answer, none does.
+  The sign-off ([ADR 0019](0019-signed-hr-sign-off.md)) enforces the role.
 - **Answer keys on the boundaries.** 28 synthetic requests sit on the edges (hired on a
   Saturday against the next day, 1,250 against 1,249 hours, 50 against 49 employees, a site at
   exactly 75 miles, a leave that partly falls outside the rolling year), each worked out by
@@ -67,13 +70,14 @@ not collect.
 - Some FMLA details are simplified (HM-21 gaps): the rolling year is measured once at the
   leave's start, holidays don't move the notice deadline, and an integrated employer isn't
   modelled.
-- Nothing here is in the audit log or the panel's case pages yet: those arrive with the agents
-  and the approval gate.
+- When this slice landed nothing was in the audit log or the panel's case pages; those came
+  with the agents ([ADR 0018](0018-leave-agents-explain-code-decides.md)), the signed sign-off
+  ([ADR 0019](0019-signed-hr-sign-off.md)) and the panel's HR pages.
 
 ## Evidence
 
 `tests/test_hr_leave.py`: every request matches its answer key, every routing reason appears in
 an answer key, the rules are tested on their boundaries, a missing fact is never a failure,
-flags on a clean request send it to HR review, and only HR managers and directors may deny or
-extend. A first review found 18 problems, all fixed or logged as gaps, and a review of those
+flags on a clean request send it to HR review, and a local manager never decides a flagged
+request (`test_a_local_manager_never_decides_a_flagged_request`). A first review found 18 problems, all fixed or logged as gaps, and a review of those
 fixes 10 more, all fixed (docs/review/log.md, Review 8).

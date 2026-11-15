@@ -45,7 +45,13 @@ an intake agent extracts the invoice and dates from the documents and code check
 against their text; the portal's fields (partner, payee, amount claimed) never come from an
 agent. A proof reviewer raises concerns from a closed list, each of which only adds review. The
 judgment row above is narrower than first planned: the reviewer returns concern codes and a
-confidence, not cited evidence or program clauses.
+confidence, not cited evidence or program clauses. Since review 38, a unit count, the activity
+dates and the issuer are checked where they are written (units on the line and times the
+stated price, the date pair written together, the invoice header, not the Bill-to party), a stop
+made while a claim is prepared discards the agents' answers (`agent_stopped`), and each claim
+is held to a `partners` budget and caps (`spend_refused`, `budget_exhausted`; estimates, since
+no live run has measured the agents). The line categories and the competitor-content and
+public-sector flags are still taken from the agent unchecked.
 
 ## The rules (slice 1)
 
@@ -118,7 +124,8 @@ and one cent under.
    the rules against the answer keys. No model.
 2. **Agents:** an extraction agent and a judgment agent through `run_agent()`, with hall passes,
    approvals and model cards; documents fenced as untrusted.
-3. **The pipeline:** redaction and injection checks first, the spend check, a supervisor within
+3. **The pipeline:** redaction and injection checks first, the spend check (already in
+   preparation since review 38), a supervisor within
    code's bounds, every failure to a person, audit events.
 4. **Evals and the gate**, including the agentic comparison.
 5. **The panel page.**
