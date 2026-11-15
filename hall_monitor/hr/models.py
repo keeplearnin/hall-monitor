@@ -303,8 +303,8 @@ class CheckNote(BaseModel):
 
 class LeaveExplanation(BaseModel):
     """The explanation agent's note for the person who decides the request: advisory text only.
-    The code's result decides; nothing here changes it. A list of notes, not a map: the API's structured
-    output can't express a map with free keys."""
+    The code's result decides; nothing here changes it. A list of notes, not a map: the API's
+    structured output can't express a map with free keys."""
 
     model_config = ConfigDict(extra="forbid")
 
