@@ -294,14 +294,18 @@
     "request_id": "lr_020",
     "eligible": true,
     "failed_checks": [],
-    "unknown_checks": [],
+    "unknown_checks": [
+      "reason"
+    ],
     "remaining_weeks": 26.0,
     "requested_weeks": 18.0,
-    "route": "specialist_sign_off",
+    "route": "hr_review",
     "decided_by": "leave_specialist",
-    "reasons": [],
+    "reasons": [
+      "military_status_unverified"
+    ],
     "notice_due": "2026-11-06",
-    "why": "Military caregiver: 26 weeks; notice on a Friday."
+    "why": "Military caregiver: 26 weeks; notice on a Friday. The records carry no covered servicemember status, so a person checks it."
   },
   {
     "request_id": "lr_021",
@@ -385,17 +389,19 @@
     "eligible": true,
     "failed_checks": [],
     "unknown_checks": [
-      "entitlement"
+      "entitlement",
+      "reason"
     ],
     "remaining_weeks": null,
     "requested_weeks": 4.0,
     "route": "hr_review",
     "decided_by": "leave_specialist",
     "reasons": [
-      "caregiver_history"
+      "caregiver_history",
+      "military_status_unverified"
     ],
     "notice_due": "2026-11-09",
-    "why": "Earlier caregiver leave in a period that has ended: a person checks whether this is the same servicemember and injury."
+    "why": "Earlier caregiver leave in a period that has ended: a person checks whether this is the same servicemember and injury, and the servicemember's covered status."
   },
   {
     "request_id": "lr_027",
