@@ -257,46 +257,80 @@ def _ladder_role(amount: Decimal, program: Program) -> Role:
     return Role[program.approval_ladder[-1].role.upper()]
 
 
+def _approval_for(
+    partner_id: str, preapproval_id: str | None, activity_type: str, book: ClaimBook
+) -> PreApproval | None:
+    if preapproval_id is None:
+        return None
+    approval = book.preapproval(preapproval_id)
+    if approval.partner_id != partner_id or approval.activity_type != activity_type:
+        return None
+    return approval
+
+
+def portal_reasons(
+    *,
+    partner_id: str,
+    preapproval_id: str | None,
+    activity_type: str,
+    evidence: list[str],
+    payee_account: str,
+    document_text: list[str],
+    book: ClaimBook,
+) -> set[str]:
+    """The findings that need nothing read off the invoice: the partner, the pre-approval, the
+    activity and its evidence, the payee, and text aimed at the AI in the raw documents. assess
+    uses them for every claim; the agent pipeline uses them alone when nobody could read the
+    documents, so a failed read never hides them (review 37)."""
+    program = book.program
+    partner = book.partner(partner_id)
+    reasons: set[str] = set()
+    if partner.status != "approved":
+        reasons.add("partner_not_approved")
+    if _approval_for(partner_id, preapproval_id, activity_type, book) is None:
+        reasons.add("no_preapproval")
+    if activity_type not in program.eligible_activity_types:
+        reasons.add("activity_ineligible")
+    elif not set(program.required_evidence.get(activity_type, [])) <= set(evidence):
+        reasons.add("missing_evidence")
+    if payee_account != partner.payee_account:
+        reasons.add("payee_not_on_master")
+    if detect_in_texts(document_text):
+        reasons.add("text_addresses_ai")
+    if partner.ar_hold:
+        reasons.add("partner_on_ar_hold")
+    return reasons
+
+
 def assess(claim: Claim, book: ClaimBook) -> Assessment:
     program = book.program
     partner = book.partner(claim.partner_id)
-    reasons: set[str] = set()
-
-    if partner.status != "approved":
-        reasons.add("partner_not_approved")
+    reasons = portal_reasons(
+        partner_id=claim.partner_id,
+        preapproval_id=claim.preapproval_id,
+        activity_type=claim.activity_type,
+        evidence=claim.evidence,
+        payee_account=claim.payee_account,
+        document_text=claim.document_text,
+        book=book,
+    )
     if claim.public_sector_attendees and any(
         line.category == "hospitality" for line in claim.invoice.lines
     ):
         reasons.add("public_sector_hospitality")
 
-    approval = None
-    if claim.preapproval_id is not None:
-        approval = book.preapproval(claim.preapproval_id)
-        if approval.partner_id != claim.partner_id or approval.activity_type != claim.activity_type:
-            approval = None
-    if approval is None:
-        reasons.add("no_preapproval")
-    elif claim.activity_start < approval.approved_on:
+    approval = _approval_for(claim.partner_id, claim.preapproval_id, claim.activity_type, book)
+    if approval is not None and claim.activity_start < approval.approved_on:
         reasons.add("activity_before_approval")
 
     if claim.activity_end < claim.activity_start or claim.submitted_on < claim.activity_end:
         reasons.add("dates_inconsistent")
     if (claim.submitted_on - claim.activity_end).days > program.claim_window_days:
         reasons.add("claim_late")
-    if claim.activity_type not in program.eligible_activity_types:
-        reasons.add("activity_ineligible")
-    elif not set(program.required_evidence.get(claim.activity_type, [])) <= set(claim.evidence):
-        reasons.add("missing_evidence")
     if _same(claim.invoice.issuer, partner.name):
         reasons.add("invoice_from_partner")
     if _is_duplicate(claim, book):
         reasons.add("duplicate_claim")
-    if claim.payee_account != partner.payee_account:
-        reasons.add("payee_not_on_master")
-    if detect_in_texts(claim.document_text):
-        reasons.add("text_addresses_ai")
-    if partner.ar_hold:
-        reasons.add("partner_on_ar_hold")
     if _is_split(claim, book):
         reasons.add("split_under_threshold")
 
@@ -343,12 +377,7 @@ def assess(claim: Claim, book: ClaimBook) -> Assessment:
             reimbursable = max(approval.approved_usd - used, Decimal("0"))
     reimbursable = reimbursable.quantize(CENT, rounding=ROUND_HALF_UP)
 
-    tier = max((REASONS[r][1] for r in reasons), key=_TIER_ORDER.__getitem__, default=Tier.GREEN)
-    if tier is Tier.COMPLIANCE:
-        role = Role.COMPLIANCE_OFFICER
-    else:
-        # The amount at stake: whoever releases a held part needs authority for the whole claim.
-        role = max([_ladder_role(claim.claimed_usd, program), *(REASONS[r][2] for r in reasons)])
+    tier, role = route_of(reasons, claim.claimed_usd, program)
     return Assessment(
         claim_id=claim.id,
         tier=tier,
@@ -358,6 +387,19 @@ def assess(claim: Claim, book: ClaimBook) -> Assessment:
         reimbursable_usd=reimbursable,
         held_usd=(claim.claimed_usd - reimbursable).quantize(CENT, rounding=ROUND_HALF_UP),
     )
+
+
+def route_of(
+    reasons: set[str], claimed_usd: Decimal, program: Program, extra: dict | None = None
+) -> tuple[Tier, Role]:
+    """The tier and least senior role for a set of reasons. extra holds reasons from outside the
+    rules (the agents' fixed findings), with the same (text, tier, role) shape."""
+    table = {**REASONS, **(extra or {})}
+    tier = max((table[r][1] for r in reasons), key=_TIER_ORDER.__getitem__, default=Tier.GREEN)
+    if tier is Tier.COMPLIANCE:
+        return tier, Role.COMPLIANCE_OFFICER
+    # The amount at stake: whoever releases a held part needs authority for the whole claim.
+    return tier, max([_ladder_role(claimed_usd, program), *(table[r][2] for r in reasons)])
 
 
 def assess_all(book: ClaimBook) -> dict[str, Assessment]:

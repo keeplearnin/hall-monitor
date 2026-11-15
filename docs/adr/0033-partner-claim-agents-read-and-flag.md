@@ -16,13 +16,19 @@ come from the partner who wants to be paid, so they are untrusted: one synthetic
 
 - **The portal's fields stay the portal's.** Partner, pre-approval, activity type, amount
   claimed, payee and upload categories come from the submission, never from a document or an
-  agent. Neither agent sees the partner, the pre-approval, the payee or the amount claimed.
+  agent. Neither agent is given the partner, the pre-approval, the payee or the amount claimed,
+  though the documents themselves may name the partner (an invoice's bill-to line).
 - **The intake agent extracts; code checks it.** `partner_claim_intake` (Haiku, no tools,
   financial data only) reads the redacted documents, fenced and escaped, and returns the invoice
   number, issuer, lines, total and activity dates. Code then checks every number, name and date
   against the documents' own text (`check_extraction`). A value that isn't there adds
   `extraction_unsupported` and sends the claim to review; nothing extracted, or a failed call,
-  gives `extraction_failed` with nothing reimbursable. No value is invented to keep going.
+  gives `extraction_failed` with nothing reimbursable. No value is invented to keep going, and
+  every rule finding that needs no invoice (`portal_reasons`: partner status and hold,
+  pre-approval, activity and evidence, the payee, text aimed at the AI) is kept, so a document
+  crafted to make the agent fail can't lower the route. The checks look for each value where it
+  belongs: the invoice number as a whole token, the issuer as a whole part of a line, the total
+  on the total line, a line's amount and unit count together on one line.
 - **Text aimed at the AI is found by code in the raw documents,** by the repo's injection
   detector inside the slice-1 rules, not by asking an agent whether it was attacked.
 - **The proof reviewer can only add review.** `partner_proof_reviewer` (Sonnet, no tools,
@@ -52,12 +58,12 @@ come from the partner who wants to be paid, so they are untrusted: one synthetic
 - The agents are tested only with scripted fake clients: 11 documented claims, with
   hand-written answer keys for the reviewer (`data/synthetic/partners/review_answers.yaml`).
   No live run has measured either agent yet; that is slice 4.
-- `check_extraction` checks that each value appears in the text, not that it is in the right
-  place: an agent that swaps the total and a line amount that both appear on the invoice would
-  pass the check. The rules' "lines don't add up" check catches some of these, not all.
-- The intake agent decides the line categories, and the benchmarks and exclusions follow the
-  category. A miscategorised line (alcohol called "hospitality") is a real risk the prompt
-  addresses but code can't fully check; it is measured in slice 4.
-- Redaction removes contact details and card numbers before an agent sees the documents; it is
-  pattern-based and can miss formats it doesn't know.
+- Three things the intake agent returns are trusted, not checked: each line's category (the
+  benchmarks and exclusions follow it) and the competitor-content and public-sector flags. A
+  dropped flag puts a claim on the wrong route (C-107 would be green, not compliance review),
+  though a person still signs. Slice 4 measures how often.
+- The checks assume an invoice laid out in lines with a total line; other layouts go to review.
+- Redaction removes contact details, card numbers and IBANs before an agent sees the documents.
+  It is pattern-based and doesn't remove people's names; the synthetic attendee lists hold
+  counts only.
 - No pipeline, audit events or panel page yet (slices 3 and 5).

@@ -2134,13 +2134,21 @@ controls:
       digest, approved prompt hash, data class financial only, kill switch, budgets, typed
       output, no tools). The portal's fields (partner, pre-approval, activity type, amount
       claimed, payee, upload categories) never come from a document or an agent, and neither
-      agent sees the partner, pre-approval, payee or amount claimed. The documents are redacted,
+      agent is given them (the documents themselves may name the partner, as an invoice's
+      bill-to line does). The documents are redacted,
       fenced and escaped before either agent reads them. partner_claim_intake extracts the
-      invoice number, issuer, lines, total and activity dates; code checks every extracted
-      number, name and date against the documents' own text and adds extraction_unsupported
-      (review) for any value that isn't there. A failed intake call or nothing extracted gives
-      extraction_failed: review, nothing reimbursable, the whole claim held, and the reviewer
-      not asked. Text aimed at the AI is found by code in the raw documents (HM-36), not by an
+      invoice number, issuer, lines with unit counts, total and activity dates; code checks
+      every extracted number, name and date against the documents' own text and adds
+      extraction_unsupported (review) for any value that isn't there: the invoice number as a
+      whole token, the issuer as a whole part of a line, the total on the total line, each line
+      amount with its unit count on one other line, never digits from an identifier or a date.
+      A failed intake call or nothing extracted gives extraction_failed: review, nothing
+      reimbursable, the whole claim held, the reviewer not asked, and every rule finding that
+      needs no invoice kept (partner status and hold, pre-approval, activity and evidence, the
+      payee, text aimed at the AI), so a document that makes the agent fail can't lower the
+      route. Non-finite amounts are refused by the output type, and only the agent-call
+      failures (a refusal, a stop or refused hall pass, an API error, invalid output) count as
+      agent failures; any other exception is raised as our own bug. Text aimed at the AI is found by code in the raw documents (HM-36), not by an
       agent. partner_proof_reviewer returns concerns from a closed list of five (recycled
       proof, edited document, vague invoice line, evidence mismatch, low brand content) and a
       confidence, with no free-text field; each concern maps to a fixed reason, tier and least
@@ -2160,7 +2168,7 @@ controls:
       - tests/test_partner_agents.py::test_both_agents_have_hall_passes_with_no_tools_and_financial_data_only
       - tests/test_partner_agents.py::test_a_stopped_intake_agent_makes_no_call_and_the_claim_goes_to_a_person
       - tests/test_partner_agents.py::test_documents_are_redacted_and_fenced_before_the_intake_agent_sees_them
-      - tests/test_partner_agents.py::test_the_agents_never_see_the_partner_payee_or_amount_claimed
+      - tests/test_partner_agents.py::test_the_agents_never_get_the_portal_s_partner_payee_or_pre_approval
       - tests/test_partner_agents.py::test_an_extracted_value_not_in_the_documents_is_caught
       - tests/test_partner_agents.py::test_an_invented_amount_sends_the_claim_to_review_whatever_the_rules_say
       - tests/test_partner_agents.py::test_the_portal_fields_stay_the_portal_s
@@ -2170,6 +2178,12 @@ controls:
       - tests/test_partner_agents.py::test_a_clean_review_doesn_t_clear_a_rule_finding
       - tests/test_partner_agents.py::test_a_failed_extraction_reimburses_nothing_and_goes_to_a_person
       - tests/test_partner_agents.py::test_a_failed_review_goes_to_a_person_and_keeps_the_rules_findings
+      - tests/test_partner_agents.py::test_a_failed_extraction_keeps_the_portal_rule_findings
+      - tests/test_partner_agents.py::test_a_truncated_invoice_number_or_issuer_is_caught
+      - tests/test_partner_agents.py::test_inflated_units_are_caught
+      - tests/test_partner_agents.py::test_digits_from_the_invoice_number_or_a_date_are_not_an_amount
+      - tests/test_partner_agents.py::test_the_total_must_be_the_invoice_s_total_line
+      - tests/test_partner_agents.py::test_our_own_bug_is_not_passed_off_as_an_agent_failure
     evidence: []
     nist: [MAP 3.5, MEASURE 2.7, MANAGE 1.3]
     finos:
@@ -2177,11 +2191,17 @@ controls:
       mitigations: [MI-03, MI-18]
     gaps: >-
       Scripted agents only: no live run has measured either agent, so there are no accuracy
-      numbers yet (slice 4). The extraction check confirms each value appears in the documents,
-      not that it is in the right place: a total swapped with a line amount that is also on the
-      invoice passes it (the rules' lines-don't-add-up check catches some such swaps). The
-      intake agent chooses each line's category, and the benchmarks and exclusions follow it; a
-      miscategorised line is not caught by code. Redaction is pattern-based. The reviewer's
+      numbers yet (slice 4). Three things the intake agent returns are trusted, not checked
+      against the text: each line's category (the benchmarks and exclusions follow it), and
+      the two yes-or-no flags, competitor content and public-sector attendees. A dropped flag
+      changes money or routing: C-104 without competitor content would be green at $6,000
+      instead of $1,800, and C-107 without public-sector attendees green instead of compliance
+      review. Either way a person still signs, but on the wrong route; slice 4 measures how
+      often it happens. The checks assume an invoice laid out in lines with a total line; an
+      issuer run into other text, or a total on a line not saying "total", goes to review.
+      Redaction is pattern-based: it removes emails, phone numbers, cards, IBANs and similar
+      identifiers, not people's names, so a real attendee list naming its guests would reach
+      agents declared financial-only (the synthetic lists hold counts only). The reviewer's
       answer keys cover 11 claims and were written by one person. No pipeline, audit events or
       panel page yet (slices 3 and 5).
 

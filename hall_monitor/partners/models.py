@@ -154,6 +154,7 @@ class Submission(_Strict):
 
 
 class ExtractedLine(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)  # an infinite amount is refused
     category: LineCategory
     description: str = Field(max_length=200)
     amount_usd: float
@@ -162,6 +163,8 @@ class ExtractedLine(BaseModel):
 
 class ClaimExtraction(BaseModel):
     """What the intake agent reads off the documents. Code checks every value against them."""
+
+    model_config = ConfigDict(allow_inf_nan=False)  # an infinite amount is refused
 
     invoice_number: str | None
     invoice_issuer: str | None

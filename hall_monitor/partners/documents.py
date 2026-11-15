@@ -128,42 +128,78 @@ def extraction_of(claim: Claim) -> ClaimExtraction:
     )
 
 
+CENT = Decimal("0.01")
+
+
 def _money(value: float) -> Decimal:
-    return Decimal(str(value)).quantize(Decimal("0.01"))
+    return Decimal(str(value)).quantize(CENT)
 
 
-_AMOUNT = re.compile(r"(?<![\d.])\d{1,3}(?:,\d{3})+(?:\.\d{2})?|(?<![\d.,])\d+(?:\.\d{2})?")
+# An amount stands on its own: not part of an invoice number (INV-5520), a date (2026-09-01) or a
+# word. With or without thousands separators, cents or a currency next to it.
+_AMOUNT = re.compile(r"(?<![\w.,-])(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?(?![\w-]|[.,]\d)")
+# Where an invoice line splits into parts: a dash, a colon or a run of spaces.
+_SEGMENT_BREAK = re.compile(r"\s*(?:—|–|:|\s{2,})\s*")
 
 
 def _amounts_in(text: str) -> set[Decimal]:
-    """Every amount written in the text, with or without thousands separators or a currency."""
-    found = set()
-    for match in re.finditer(
-        r"(?<![\d.])\d{1,3}(?:,\d{3})+(?:\.\d{2})?|(?<![\d.,])\d+(?:\.\d{2})?", text
-    ):
-        found.add(Decimal(match.group(0).replace(",", "")).quantize(Decimal("0.01")))
-    return found
+    return {Decimal(m.group(0).replace(",", "")).quantize(CENT) for m in _AMOUNT.finditer(text)}
+
+
+def _token_in(token: str, text: str) -> bool:
+    """The whole token, not a fragment of a longer one: INV-773 isn't in INV-7731."""
+    pattern = r"(?<![\w-])" + re.escape(token.casefold()) + r"(?![\w-])"
+    return re.search(pattern, text.casefold()) is not None
+
+
+def _segments(text: str) -> set[str]:
+    return {
+        part.strip(" .,;").casefold()
+        for line in text.splitlines()
+        for part in _SEGMENT_BREAK.split(line)
+        if part.strip(" .,;")
+    }
 
 
 def check_extraction(extraction: ClaimExtraction, documents: Documents) -> list[str]:
     """Problems with what the intake agent extracted, found by checking it against the
-    documents' own text. Empty when every value is there."""
-    problems = []
+    documents' own text. Empty when every value is there, where it should be:
+
+    - the invoice number as a whole token, and the issuer as a whole part of a line, so a
+      fragment can't stand in for either (a shortened number would slip past the duplicate
+      rule);
+    - the total on the invoice's total line, and each line's amount, and its unit count if it
+      has one, together on one other line, never digits from an identifier or a date;
+    - each activity date written in ISO form somewhere in the documents.
+    """
     invoice = documents.invoice
     all_text = "\n".join([invoice, *(item.text for item in documents.evidence)])
     number, issuer = extraction.invoice_number, extraction.invoice_issuer
     if not number or extraction.invoice_total_usd is None or not extraction.lines:
         return ["nothing_extracted"]
-    if number.casefold() not in invoice.casefold():
+    problems = []
+    if len(number) < 3 or not _token_in(number, invoice):
         problems.append("number_not_in_invoice")
-    if not issuer or issuer.casefold() not in invoice.casefold():
+    if not issuer or issuer.strip(" .,;").casefold() not in _segments(invoice):
         problems.append("issuer_not_in_invoice")
-    amounts = _amounts_in(invoice)
-    wanted = [extraction.invoice_total_usd, *(line.amount_usd for line in extraction.lines)]
-    if any(_money(value) not in amounts for value in wanted):
+
+    lines = [line for line in invoice.splitlines() if line.strip()]
+    totals = [_amounts_in(line) for line in lines if "total" in line.casefold()]
+    items = [_amounts_in(line) for line in lines if "total" not in line.casefold()]
+    amount_ok = any(_money(extraction.invoice_total_usd) in found for found in totals)
+    units_ok = True
+    for line in extraction.lines:
+        holding = [found for found in items if _money(line.amount_usd) in found]
+        amount_ok = amount_ok and bool(holding)
+        if line.units is not None and not any(Decimal(line.units) in found for found in holding):
+            units_ok = False
+    if not amount_ok:
         problems.append("amount_not_in_invoice")
+    if not units_ok:
+        problems.append("units_not_in_invoice")
+
     for day in (extraction.activity_start, extraction.activity_end):
-        if day is None or day.isoformat() not in all_text:
+        if day is None or not _token_in(day.isoformat(), all_text):
             problems.append("date_not_in_documents")
             break
     return problems

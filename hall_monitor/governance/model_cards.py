@@ -84,7 +84,7 @@ LIMITS = {
     ),
     "partner_claim_intake": (
         "Extracts the invoice number, issuer, lines, total and activity dates from redacted "
-        "documents; never sees the partner, payee or amount claimed.",
+        "documents; is never given the portal's partner, payee or amount claimed.",
         "Code checks every value against the documents and the rules decide the amount, tier "
         "and role (HM-36, HM-37); if it fails, nothing is reimbursable and a person reads it.",
     ),

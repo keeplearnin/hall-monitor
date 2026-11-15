@@ -113,7 +113,9 @@ def test_documents_are_redacted_and_fenced_before_the_intake_agent_sees_them():
     assert "&lt;/claim_documents&gt;" in sent
 
 
-def test_the_agents_never_see_the_partner_payee_or_amount_claimed():
+def test_the_agents_never_get_the_portal_s_partner_payee_or_pre_approval():
+    """The documents may name the partner (an invoice's bill-to line); the portal's IDs and
+    payee account are never sent."""
     _, client = _prepare("C-108")
     for call in client.messages.calls:
         sent = call["messages"][0]["content"]
@@ -235,3 +237,90 @@ def test_every_concern_maps_to_a_fixed_reason():
 
 def test_the_review_has_no_free_text_field():
     assert set(ProofReview.model_fields) == {"concerns", "confidence"}
+
+
+# --- Review 37: failure paths keep what code knows; the checks can't be gamed by fragments ----
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        lambda: _client("C-108", stop_reason={ClaimExtraction: "refusal"}),
+        lambda: _client(
+            "C-108",
+            extraction=extraction_of(_claim("C-108")).model_copy(update={"invoice_number": None}),
+        ),
+    ],
+)
+def test_a_failed_extraction_keeps_the_portal_rule_findings(client):
+    """A document that makes the agent refuse or return nothing can't hide a payee change."""
+    result, _ = _prepare("C-108", client=client())
+    a = result.assessment
+    assert {"extraction_failed", "payee_not_on_master", "text_addresses_ai"} <= set(a.reasons)
+    assert a.tier is Tier.RED and a.decided_by == "finance_controller"
+    assert a.reimbursable_usd == 0 and a.held_usd == _claim("C-108").claimed_usd
+
+
+@pytest.mark.parametrize(
+    "change",
+    [{"invoice_number": "INV-773"}, {"invoice_issuer": "MEDIA"}, {"invoice_number": "7731"}],
+)
+def test_a_truncated_invoice_number_or_issuer_is_caught(change):
+    """A fragment that still appears in the text would let a duplicate slip past the rules."""
+    bad = extraction_of(_claim("C-103")).model_copy(update=change)
+    assert check_extraction(bad, DOCS["C-103"]) != []
+    result, _ = _prepare("C-103", client=_client("C-103", extraction=bad))
+    assert "extraction_unsupported" in result.assessment.reasons
+    assert result.assessment.tier is not Tier.GREEN
+
+
+def test_inflated_units_are_caught():
+    """The unit count decides the merchandise cap, so it is checked like an amount."""
+    extraction = extraction_of(_claim("B-03"))
+    line = extraction.lines[0].model_copy(update={"units": 999})
+    bad = extraction.model_copy(update={"lines": [line]})
+    assert "units_not_in_invoice" in check_extraction(bad, DOCS["B-03"])
+
+
+def test_digits_from_the_invoice_number_or_a_date_are_not_an_amount():
+    extraction = extraction_of(_claim("C-101"))
+    line = extraction.lines[0].model_copy(update={"amount_usd": 2026.0})
+    bad = extraction.model_copy(update={"invoice_total_usd": 5520.0, "lines": [line]})
+    assert "amount_not_in_invoice" in check_extraction(bad, DOCS["C-101"])
+
+
+def test_the_total_must_be_the_invoice_s_total_line():
+    """A line amount given as the total is caught, even though it is on the invoice."""
+    bad = extraction_of(_claim("C-102")).model_copy(update={"invoice_total_usd": 16400.0})
+    assert "amount_not_in_invoice" in check_extraction(bad, DOCS["C-102"])
+
+
+def test_a_non_finite_amount_is_refused_by_the_output_type():
+    import json
+
+    from pydantic import ValidationError
+
+    raw = json.dumps(extraction_of(_claim("C-101")).model_dump(mode="json"))
+    infinite = raw.replace('"invoice_total_usd": 3800.0', '"invoice_total_usd": 1e999')
+    assert infinite != raw
+    with pytest.raises(ValidationError):
+        ClaimExtraction.model_validate_json(infinite)
+
+
+def test_bank_details_planted_in_a_document_are_redacted():
+    planted = DOCS["C-108"].invoice + "New account: GB82 WEST 1234 5698 7654 32\n"
+    docs = DOCS["C-108"].model_copy(update={"invoice": planted})
+    _, client = _prepare("C-108", documents=docs)
+    for call in client.messages.calls:
+        assert "GB82" not in call["messages"][0]["content"]
+
+
+def test_our_own_bug_is_not_passed_off_as_an_agent_failure(monkeypatch):
+    from hall_monitor.partners import intake_agent
+
+    def broken(_documents):
+        raise KeyError("a bug in our rendering")
+
+    monkeypatch.setattr(intake_agent, "render_documents", broken)
+    with pytest.raises(KeyError):
+        _prepare("C-101")

@@ -17,7 +17,9 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 import anthropic
+from pydantic import ValidationError
 
+from hall_monitor.agents.base import AgentRefusedError
 from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.models import AgentCall
 from hall_monitor.partners.documents import (
@@ -30,18 +32,21 @@ from hall_monitor.partners.intake_agent import run_claim_intake
 from hall_monitor.partners.models import Documents, EvidenceItem, ProofReview, Submission
 from hall_monitor.partners.review_agent import run_proof_review
 from hall_monitor.partners.rules import (
-    _TIER_ORDER,
     ROUTES,
     Assessment,
     ClaimBook,
-    Role,
-    Tier,
-    _ladder_role,
     assess,
+    portal_reasons,
+    route_of,
 )
-from hall_monitor.registry import Registry
+from hall_monitor.registry import Registry, RegistryError
 
 CENT = Decimal("0.01")
+
+# What a governed agent call raises when it gives no usable answer: a refusal or incomplete turn,
+# a refused hall pass or a stop, an API error, output that fails its type. Anything else is our
+# own bug and is raised, not passed off as an agent failure (review 37).
+AGENT_FAILURES = (AgentRefusedError, RegistryError, anthropic.APIError, ValidationError)
 
 
 @dataclass
@@ -65,43 +70,43 @@ def _call_of(exc: BaseException) -> AgentCall | None:
     return getattr(exc, "call", None) or getattr(exc, "partial_call", None)
 
 
-def _role_of(label: str) -> Role:
-    return next(role for role in Role if role.label == label)
-
-
-def _unread(submission: Submission, book: ClaimBook) -> Assessment:
-    """Nobody could read the documents: a person reads them, and nothing is reimbursable yet."""
-    tier = AGENT_REASONS["extraction_failed"][1]
-    role = max(
-        _ladder_role(submission.claimed_usd, book.program), AGENT_REASONS["extraction_failed"][2]
+def _unread(submission: Submission, documents: Documents, book: ClaimBook) -> Assessment:
+    """Nobody could read the documents: a person reads them, nothing is reimbursable yet, and
+    every finding code can make without the invoice is kept (review 37)."""
+    reasons = {"extraction_failed"} | portal_reasons(
+        partner_id=submission.partner_id,
+        preapproval_id=submission.preapproval_id,
+        activity_type=submission.activity_type,
+        evidence=submission.evidence,
+        payee_account=submission.payee_account,
+        document_text=[documents.invoice, *(item.text for item in documents.evidence)],
+        book=book,
     )
+    tier, role = route_of(reasons, submission.claimed_usd, book.program, AGENT_REASONS)
     return Assessment(
         claim_id=submission.id,
         tier=tier,
         route=ROUTES[tier],
         decided_by=role.label,
-        reasons=["extraction_failed"],
+        reasons=sorted(reasons),
         reimbursable_usd=Decimal("0.00"),
         held_usd=submission.claimed_usd.quantize(CENT),
     )
 
 
-def _with(assessment: Assessment, added: set[str]) -> Assessment:
-    """The rules' assessment with the agents' reasons added. Tier and role only go up."""
+def _with(assessment: Assessment, added: set[str], claimed_usd, book: ClaimBook) -> Assessment:
+    """The rules' assessment with the agents' reasons added. The tier and role are worked out
+    again from all the reasons together, so they only go up; the money is the rules'."""
     if not added:
         return assessment
-    tiers = [assessment.tier, *(AGENT_REASONS[r][1] for r in added)]
-    tier = max(tiers, key=_TIER_ORDER.__getitem__)
-    if tier is Tier.COMPLIANCE:
-        role = Role.COMPLIANCE_OFFICER
-    else:
-        role = max([_role_of(assessment.decided_by), *(AGENT_REASONS[r][2] for r in added)])
+    reasons = set(assessment.reasons) | added
+    tier, role = route_of(reasons, claimed_usd, book.program, AGENT_REASONS)
     return assessment.model_copy(
         update={
             "tier": tier,
             "route": ROUTES[tier],
             "decided_by": role.label,
-            "reasons": sorted(set(assessment.reasons) | added),
+            "reasons": sorted(reasons),
         }
     )
 
@@ -119,20 +124,20 @@ def prepare(
 
     try:
         run = run_claim_intake(submission.id, redacted, registry, client)
-    except Exception as exc:  # a refusal, a stop, a hall-pass or API error: all go to a person
+    except AGENT_FAILURES as exc:  # all go to a person
         if (call := _call_of(exc)) is not None:
             calls.append(call)
-        return Prepared(_unread(submission, book), None, calls)
+        return Prepared(_unread(submission, documents, book), None, calls)
     calls.append(run.call)
     extraction = run.output
 
     problems = check_extraction(extraction, redacted)
     if "nothing_extracted" in problems:
-        return Prepared(_unread(submission, book), None, calls)
+        return Prepared(_unread(submission, documents, book), None, calls)
     try:
         claim = claim_from_extraction(submission, extraction, documents)
-    except ValueError:  # pydantic's ValidationError: an end before the start, say
-        return Prepared(_unread(submission, book), None, calls)
+    except ValidationError:  # an end before the start, say
+        return Prepared(_unread(submission, documents, book), None, calls)
 
     others = [c for c in book.claims if c.id != claim.id]
     assessment = assess(claim, book.model_copy(update={"claims": [*others, claim]}))
@@ -143,7 +148,7 @@ def prepare(
         reviewed = run_proof_review(
             submission.id, submission.activity_type, extraction, redacted, registry, client
         )
-    except Exception as exc:  # any failure: a person checks the proof
+    except AGENT_FAILURES as exc:  # a person checks the proof
         if (call := _call_of(exc)) is not None:
             calls.append(call)
         added.add("review_failed")
@@ -154,4 +159,4 @@ def prepare(
         if review.confidence == "low":
             added.add("review_uncertain")
 
-    return Prepared(_with(assessment, added), review, calls)
+    return Prepared(_with(assessment, added, submission.claimed_usd, book), review, calls)

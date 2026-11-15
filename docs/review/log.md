@@ -1253,4 +1253,17 @@ held throughout. All fixed test-first or stated as gaps.
 
 ## Review 37 (partner-claims-agents): slice 2 of the partner claims example (HM-37)
 
-**Reviewer:** pending (the governance-reviewer agent runs before the PR opens).
+**Reviewer:** the governance-reviewer agent, on the branch's changes, offline, with a probe
+script against the scripted fake client. 8 findings, 3 High; "the reviewer only adds review"
+and "portal fields never come from an agent" held. All fixed test-first or stated as gaps.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A failed extraction kept only `extraction_failed`, dropping every rule finding that needs no invoice: C-108 with a refusal went from red / finance controller (payee, text aimed at the AI) to yellow | High | The rules' document-free checks are now `portal_reasons`, run on every failed read; C-108 stays red with both findings (`test_a_failed_extraction_keeps_the_portal_rule_findings`) |
+| The invoice number and issuer checks passed on any fragment: `INV-773` and `MEDIA` cleared C-103's duplicate, green at $9,200 | High | The number must be a whole token and the issuer a whole part of a line (`test_a_truncated_invoice_number_or_issuer_is_caught`) |
+| Unit counts and the competitor and public-sector flags were trusted, though the docs said every number was checked: 999 units disabled the merchandise cap | High | Units are checked on the same line as the amount (`test_inflated_units_are_caught`); the two flags and line categories are stated as trusted in HM-37's gaps, README and ADR 0033, with the C-104 and C-107 effects |
+| An infinite amount (`1e999` parses as JSON) crashed `prepare` | Medium | The extraction types refuse non-finite floats (`test_a_non_finite_amount_is_refused_by_the_output_type`) |
+| Any number counted as an amount, digits from the invoice number or a date included, and the total could be any amount on the invoice | Medium | Amounts must stand alone, the total must be on the total line (`test_digits_from_the_invoice_number_or_a_date_are_not_an_amount`, `test_the_total_must_be_the_invoice_s_total_line`); the duplicate regex is gone |
+| Plausible: redaction doesn't remove names, so a real attendee list would reach agents declared financial-only | Medium | Stated in HM-37's gaps and ADR 0033; the synthetic lists hold counts only |
+| "Neither agent sees the partner" was overstated: invoices name the partner in a bill-to line | Low | Reworded to "is never given the portal's fields"; a planted IBAN is shown redacted (`test_bank_details_planted_in_a_document_are_redacted`) |
+| `except Exception` passed our own bugs off as agent failures | Low | Only agent-call failures are caught; anything else is raised (`test_our_own_bug_is_not_passed_off_as_an_agent_failure`) |
