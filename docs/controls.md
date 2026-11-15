@@ -666,6 +666,7 @@ Two agents read a partner claim's documents inside the shared controls (hall pas
 | `complaint_quarantined` | [HM-26](#hm-26) |
 | `complaint_received` | [HM-27](#hm-27), [HM-09](#hm-09), [HM-10](#hm-10) |
 | `complaint_routed` | [HM-27](#hm-27), [HM-16](#hm-16) |
+| `complaint_rerouted` | [HM-27](#hm-27), [HM-16](#hm-16) |
 | `batch_budget_reached` | [HM-31](#hm-31) |
 | `supervisor_step` | [HM-32](#hm-32) |
 
