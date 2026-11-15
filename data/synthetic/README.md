@@ -14,6 +14,9 @@ hospitals, airlines and receipts are fictional. No real customer, policy or clai
   logged in the file's own change log.
 - `hr/`: the second worked example, leave-of-absence requests at a fictional employer, with
   their own answer keys ([`hr/README.md`](hr/README.md)).
+- `partners/`: the fourth worked example, marketing-fund reimbursement claims at a fictional
+  hardware maker, with their own answer keys and change log
+  ([`partners/README.md`](partners/README.md)).
 - `ground_truth/`: the expected intake extraction, coverage decision, risk flags, next step and
   route for each claim, with the reasoning written out.
 

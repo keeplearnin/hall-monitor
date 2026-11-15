@@ -1225,3 +1225,28 @@ checked out, and nothing in it is unfit for a public repo. 9 findings, none High
 | The panel also needs `_SHOWN_FIELDS`, a `NAV` entry and a route | Low | Added |
 | "ADR 0029 was marked Proposed until confirmed" implied it was confirmed | Low | Reworded: still Proposed |
 | Plausible: review numbers collide too, and the README's evidence breakdown is hand-kept | Low | Both noted |
+
+## Review 36 (partner-claims-rules): slice 1 of the partner claims example (HM-36)
+
+**Reviewer:** the governance-reviewer agent, on the design doc, ADR 0032, the synthetic data, the
+rules and their tests, offline, with probe scripts. It recomputed all 29 answer keys by hand from
+the claims and program terms and agreed with every one. 17 findings, 1 High; "nothing pays"
+held throughout. All fixed test-first or stated as gaps.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| A pre-approval was never used up: two claims on one $4,000 approval were each fully reimbursable and green | High | Earlier claims on the same approval reduce what is left, with `preapproval_used_up` (`test_a_preapproval_is_used_up_by_earlier_claims_on_it`, B-25) |
+| Reimbursable could exceed the invoice total; lines weren't checked against it | Medium | Capped at the total; `lines_dont_match_invoice` (B-26) |
+| A claim with no lines, or lines short of the claim, was green with money held and no reason | Medium | The lines check flags it; a test asserts nothing is held without a reason |
+| The merchandise cap trusted the stated unit price, and skipped lines with no units | Medium | Worked out from amount and units; `merchandise_units_missing` (B-27) |
+| Duplicates were evaded by punctuation, leading zeros or a legal suffix | Medium | Invoice numbers and company names normalised; four adversarial tests |
+| Split detection depended on which claim was asked about (days 0, 7, 14 flagged only the middle) | Medium | Measured across the group: three within one 7-day span |
+| The deciding role followed the reimbursable amount, so a held part could be released outside authority | Medium | The ladder now uses the amount claimed; C-104's answer key changed and is logged |
+| "Boundary cases on both sides of every numeric rule" was overstated | Medium | Added: $25,000 / $25,000.01, a 7- and an 8-day span, $4,750.00 / $4,749.99 (B-19 to B-24) |
+| "A PC and print maker" with HP Fast Lane as "the model" read as one company's process | Medium | The vendor is a fictional hardware maker; Fast Lane is cited as one public example; fictional names changed to avoid clashes |
+| The "cannot move money" test could pass finding no files; the reimbursable + held test was a tautology | Low | The path resolves from the test file and asserts files; amounts are checked to the cent |
+| No date sanity checks | Low | `dates_inconsistent` (B-28) |
+| The self-invoice check missed a legal suffix | Low | Same company-name normalisation |
+| The duplicate wording didn't match the code | Low | Design and reason text aligned |
+| Split detection and pre-approval use ignore paid history; one bad reference stops the book | Low | Stated in HM-36's gaps |
+| Docs drift (the data index, the business summary, an unused term, MI-21 mapped with no audit events yet) | Low | Fixed; MI-21 dropped until slice 3 |

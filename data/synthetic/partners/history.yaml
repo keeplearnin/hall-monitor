@@ -1,0 +1,8 @@
+# Claims already paid, which new claims are checked against for duplicates.
+history:
+  - id: H-901
+    partner_id: P-02
+    status: paid
+    invoice: {number: INV-7731, issuer: Lumenvale Media, total_usd: "9200.00"}
+    activity_start: 2026-07-06
+    activity_end: 2026-07-31

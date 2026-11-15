@@ -1,0 +1,28 @@
+# Fictional channel partners of Tarnwick Devices. payee_account is the approved bank record a
+# payment may go to; any other account on a claim is refused.
+partners:
+  - id: P-01
+    name: Quillfeather IT
+    status: approved
+    ar_hold: false
+    payee_account: ACCT-1001
+  - id: P-02
+    name: Fernhill Systems
+    status: approved
+    ar_hold: false
+    payee_account: ACCT-1002
+  - id: P-03
+    name: Larkspur Digital
+    status: approved
+    ar_hold: false
+    payee_account: ACCT-1003
+  - id: P-04
+    name: Wrenfield Office Supply
+    status: approved
+    ar_hold: true
+    payee_account: ACCT-1004
+  - id: P-05
+    name: Thistledown Networks
+    status: suspended
+    ar_hold: false
+    payee_account: ACCT-1005

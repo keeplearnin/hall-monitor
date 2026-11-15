@@ -1,7 +1,8 @@
 # hall-monitor: business summary
 
-*Updated 14 November 2026: three worked examples, AI that chooses its own steps, and approved
-spending limits. Plain English.*
+*Updated 15 November 2026: three worked examples and a fourth started (partner marketing-fund
+claims, rules only so far), AI that chooses its own steps, and approved spending limits. Plain
+English.*
 
 ## The problem
 
