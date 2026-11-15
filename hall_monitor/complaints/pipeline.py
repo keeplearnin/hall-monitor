@@ -73,6 +73,8 @@ from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 
 ROUTED = "complaint_routed"
 RECEIVED = "complaint_received"
+# Additive: a later version of a routed complaint (review 25). The first route is never edited.
+REROUTED = "complaint_rerouted"
 
 # A draft is for a person to adapt, not a commitment, and is never sent. The check is strict on
 # purpose (review 25): one that promises money, an outcome, contact or a deadline, or carries any
@@ -106,7 +108,10 @@ _DRAFT_PROBLEMS: dict[str, re.Pattern[str]] = {
     ),
     "has_a_link": re.compile(
         # https://, www., or any domain-shaped token with any top-level domain.
-        r"https?://|www\.|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,24}\b",
+        r"https?://|www\.|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,24}\b"
+        # Spelled out: "example dot com", "colon slash slash". A draft has no reason to say
+        # "dot" between two words.
+        r"|\bcolon\s+slash\s+slash\b|\b[a-z0-9-]+\s+dot\s+[a-z]{2,24}\b",
         re.I,
     ),
     "has_an_email_address": re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b"),
@@ -223,25 +228,7 @@ def triage_complaint(
     scope = scope_id(complaint.complaint_id)
     if audit is not None and audit.has(scope, RECEIVED):
         raise AlreadyTriaged(f"the audit log shows {scope} was already triaged")
-    counts: Counter[str] = Counter()
-    narrative = redact_text(complaint.narrative, counts) if complaint.narrative else None
-    public = (
-        redact_text(complaint.company_public_response, counts)
-        if complaint.company_public_response
-        else None
-    )
-    redactions = {k: v for k, v in sorted(counts.items()) if v}
-    # Every field the agent is sent is scanned, fixed-list labels included.
-    labels = [
-        complaint.product,
-        complaint.sub_product,
-        complaint.issue,
-        complaint.sub_issue,
-        complaint.submitted_via,
-    ]
-    raw = [t for t in [*labels, complaint.narrative, complaint.company_public_response] if t]
-    redacted = [t for t in [narrative, public] if t]
-    signals = sorted(set(detect_in_texts(raw)) | set(detect_in_texts(redacted)))
+    narrative, public, redactions, signals = _scan(complaint)
     if audit is not None:
         # Written once, inside the log's write lock, before the model is called: a second worker
         # on the same complaint stops here, with no model call and nothing else written.
@@ -287,6 +274,86 @@ def triage_complaint(
             except Exception:
                 pass
         raise
+
+
+def _scan(complaint: Complaint) -> tuple[str | None, str | None, dict[str, int], list[str]]:
+    """The redacted free text, the redaction counts and the injection signals. Every field the
+    agent is sent is scanned, fixed-list labels included, raw and redacted."""
+    counts: Counter[str] = Counter()
+    narrative = redact_text(complaint.narrative, counts) if complaint.narrative else None
+    public = (
+        redact_text(complaint.company_public_response, counts)
+        if complaint.company_public_response
+        else None
+    )
+    redactions = {k: v for k, v in sorted(counts.items()) if v}
+    labels = [
+        complaint.product,
+        complaint.sub_product,
+        complaint.issue,
+        complaint.sub_issue,
+        complaint.submitted_via,
+    ]
+    raw = [t for t in [*labels, complaint.narrative, complaint.company_public_response] if t]
+    redacted = [t for t in [narrative, public] if t]
+    signals = sorted(set(detect_in_texts(raw)) | set(detect_in_texts(redacted)))
+    return narrative, public, redactions, signals
+
+
+def reroute_changed(complaint: Complaint, audit: AuditLog) -> ComplaintRoute | None:
+    """Re-route a routed complaint whose stored version changed (review 25): CFPB can add a
+    Servicemember tag, mark the response untimely or publish a narrative after the desk routed
+    it. None if it isn't routed yet or this version is the one last routed.
+
+    The first route is never edited: an additive complaint_rerouted entry sends it to specialist
+    review as record_changed, with the new version's code reasons and every reason an earlier
+    route gave, at the higher of the earlier urgency and the new floor. No agent is called: the
+    triage answered about another version, and a person reads this one. Hashes and codes only."""
+    scope = scope_id(complaint.complaint_id)
+    entries = audit.entries(scope)
+    received = [e["payload"] for e in entries if e["event"] == RECEIVED]
+    routes = [e["payload"] for e in entries if e["event"] in (ROUTED, REROUTED)]
+    if not received or not routes:
+        return None
+    rerouted = [e["payload"] for e in entries if e["event"] == REROUTED]
+    seen = (rerouted[-1] if rerouted else received[0]).get("content_sha256")
+    digest = complaint.content_sha256()
+    if not isinstance(seen, str) or seen == digest:
+        # Unchanged, or a received entry with no hash to compare (a killed run's): that one
+        # was routed to specialist review as triage_interrupted.
+        return None
+    _, _, redactions, signals = _scan(complaint)
+    new = code_reasons_for(complaint, signals)
+    before = {r for p in routes for r in p.get("reasons") or [] if r in REASONS}
+    reasons = sorted(before | new | {"record_changed"})
+    floor = urgency_floor(new)
+    known = {u.value for u in Urgency}
+    urgencies = [floor] + [Urgency(p["urgency"]) for p in routes if p.get("urgency") in known]
+    route = ComplaintRoute(
+        queue="specialist_review",
+        reasons=reasons,
+        explained=[REASONS[r] for r in reasons],
+        urgency_floor=floor,
+        urgency=max(urgencies, key=lambda u: u.rank),
+    )
+    audit.append(
+        scope,
+        "complaint_rerouted",  # REROUTED, written out so the register test can read it
+        "pipeline",
+        {
+            "complaint_id": complaint.complaint_id,
+            "content_sha256": digest,
+            "previous_content_sha256": seen,
+            "queue": route.queue,
+            "reasons": route.reasons,
+            "new_code_reasons": sorted(new),
+            "urgency_floor": route.urgency_floor.value,
+            "urgency": route.urgency.value,
+            "identifiers_redacted": redactions,
+            "injection_signals": signals,
+        },
+    )
+    return route
 
 
 def _prepare(
