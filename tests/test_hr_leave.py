@@ -286,7 +286,11 @@ def test_a_request_for_an_employee_with_no_record_goes_to_a_person():
             None,
             "reason_unclear",
         ),
-        ({"reason": "military_caregiver", "family_relationship": "next_of_kin"}, True, None),
+        (
+            {"reason": "military_caregiver", "family_relationship": "next_of_kin"},
+            None,
+            "military_status_unverified",
+        ),
         (
             {"reason": "qualifying_exigency", "family_relationship": "next_of_kin"},
             False,
@@ -709,3 +713,28 @@ def test_an_unknown_leave_year_method_can_t_be_decided():
         update={"leave_year": _employer().leave_year.model_copy(update={"method": "lunar"})}
     )
     assert entitlement(_request(), _employee(), employer) == (12, None)
+
+
+# --- Review 25 fixes ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"reason": "military_caregiver", "family_relationship": "next_of_kin"},
+        {"reason": "military_caregiver", "family_relationship": "spouse"},
+        {"reason": "qualifying_exigency", "family_relationship": "spouse"},
+        {"reason": "qualifying_exigency", "family_relationship": "child"},
+    ],
+)
+def test_military_leave_without_a_verified_military_status_goes_to_a_person(fields):
+    """Qualifying exigency needs a family member on covered active duty (825.126), caregiver
+    leave a covered servicemember (825.127). The records carry neither status, so the rule
+    can't pass the reason: it is unknown, and the request goes to HR review, not the light
+    path."""
+    request = _request(**fields)
+    check = check_reason(request)
+    assert (check.passed, check.code) == (None, "military_status_unverified")
+    route = route_leave(assess(request, _employee(), COMPANY), request, _employee(), COMPANY)
+    assert route.route == "hr_review"
+    assert "military_status_unverified" in route.reasons

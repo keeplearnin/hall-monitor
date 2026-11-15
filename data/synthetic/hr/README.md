@@ -60,13 +60,13 @@ three methods the regulations allow.
 | lr_017 | HR manager: bonding window | Bonding leave starting inside the 12 months after the birth and ending after them |
 | lr_018 | HR manager | A parent-in-law isn't a covered family member |
 | lr_019 | Leave specialist | Reason unclear |
-| lr_020 | Specialist sign-off | Military caregiver: 26 weeks, 18 asked; notice on a Friday |
+| lr_020 | Leave specialist | Military caregiver: 26 weeks, 18 asked; notice on a Friday; a person checks the servicemember's covered status |
 | lr_021 | HR manager: short service | Service before a break of almost 11 years isn't counted: 27 weeks |
 | lr_022 | Specialist sign-off | Service before a 4-year break counts: 136 weeks |
 | lr_023 | Leave specialist | No hours ledger: hours can't be checked |
 | lr_024 | Specialist sign-off | Works from home; the worksite is the office they're assigned to |
 | lr_025 | Leave specialist | Care for an adult child: a person checks the disability condition |
-| lr_026 | Leave specialist | Earlier caregiver leave in a period that has ended: a person checks whether it was for the same servicemember and injury |
+| lr_026 | Leave specialist | Earlier caregiver leave in a period that has ended: a person checks whether it was for the same servicemember and injury, and the covered status |
 | lr_027 | Leave specialist: state law | Works at an Ohio office but lives in New York |
 | lr_028 | Leave specialist | Birth bonding leave starting before the expected birth |
 
@@ -88,4 +88,6 @@ The design asked HR nine questions; until they answer, the rules take these posi
 
 ## Changes to answer keys
 
-None yet.
+| Date | Request | Change | Why |
+|---|---|---|---|
+| 2026-11-15 | lr_020, lr_026 | `reason` becomes unknown and `military_status_unverified` is added; lr_020 moves from specialist sign-off to HR review (leave specialist) | Review 25: military caregiver leave needs a covered servicemember (29 CFR 825.127) and qualifying exigency a family member on covered active duty (825.126). The records carry neither status, so the rule can't pass the reason; a person checks it. The old keys passed on the relationship alone. |

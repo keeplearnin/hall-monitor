@@ -265,12 +265,18 @@ def _reason(request: LeaveRequest) -> tuple[bool | None, str | None]:
         )
     if relation is None or relation is Relationship.OTHER:
         return None, "reason_unclear"
+    # Military leave also needs the family member's status: covered active duty for a
+    # qualifying exigency (825.126), a covered servicemember for caregiver leave (825.127). The
+    # records carry no verified status, so a covered relationship is as far as code can go: a
+    # person checks the status (review 25).
     if reason is LeaveReason.MILITARY_CAREGIVER:
-        return (
-            (True, None) if relation in COVERED_CAREGIVER else (False, "family_member_not_covered")
-        )
+        if relation not in COVERED_CAREGIVER:
+            return False, "family_member_not_covered"
+        return None, "military_status_unverified"
     if relation not in COVERED_CARE:
         return False, "family_member_not_covered"
+    if reason is LeaveReason.QUALIFYING_EXIGENCY:
+        return None, "military_status_unverified"
     if reason is LeaveReason.CARE_FOR_FAMILY_MEMBER and relation is Relationship.CHILD:
         # A child of 18 or over counts only if unable to care for themselves because of a
         # disability (825.122(d)); a person checks that.

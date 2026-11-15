@@ -160,6 +160,7 @@ complaint -> redact, scan for text aimed at the AI           (code)
 | `triage_skipped` | the desk supervisor finished before any triage ran |
 | `supervisor_failed` | the desk supervisor failed, was stopped, ran out of budget or kept choosing steps code refused (the triage agent may have answered) |
 | `spend_refused` | the desk's spending cap was reached, its budgets aren't approved or the spend ledger couldn't be reached: refused before any model call, so no agent read it (HM-34, [ADR 0030](adr/0030-cost-governance-budgets-and-caps.md)) |
+| `record_changed` | CFPB's stored version changed after the complaint was routed (a new tag, an untimely response, a narrative): an additive `complaint_rerouted` entry sends it to specialist review with the new version's reasons, no agent call (review 25) |
 
 The label patterns are checked against every label in the pinned snapshot by a hand-written
 table in the tests, not by the patterns themselves (review 16 found two common labels missed).

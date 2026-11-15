@@ -109,6 +109,11 @@ REASONS: dict[str, tuple[str, Role]] = {
         "code refused",
         Role.LEAVE_SPECIALIST,
     ),
+    "military_status_unverified": (
+        "military leave: a person checks the family member's covered active duty or covered "
+        "servicemember status, which the records don't carry",
+        Role.LEAVE_SPECIALIST,
+    ),
     "caregiver_history": (
         "earlier military caregiver leave: a person checks whether it was for the same "
         "servicemember and injury",

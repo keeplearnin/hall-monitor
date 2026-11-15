@@ -449,10 +449,12 @@ def test_a_complaint_claimed_by_a_killed_run_goes_to_a_person_on_the_next_run(tm
     [
         ("Our team will resolve this for you.", True),
         ("Text us at 555 0199.", True),
-        ("We will contact you once our review is complete.", False),
+        # Promising contact is a commitment, and any run of digits could be a number to call:
+        # both refused since review 25 (the agent is never given the complaint ID).
+        ("We will contact you once our review is complete.", True),
         ("We will carefully review your complaint.", False),
-        ("We'll get back to you after a person has reviewed it.", False),
-        ("Your reference is complaint 28750001.", False),
+        ("We'll get back to you after a person has reviewed it.", True),
+        ("Your reference is complaint 28750001.", True),
         ("We will review your complaint and be in touch.", False),
     ],
 )
@@ -466,3 +468,83 @@ def test_the_design_lists_exactly_the_routing_reasons():
     design = (ROOT / "docs" / "complaint-desk-design.md").read_text()
     table = set(__import__("re").findall(r"^\| `([a-z_]+)` \|", design, __import__("re").M))
     assert table == set(REASONS)
+
+
+# --- Review 25 fixes ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        "Please write to us at 100 Main Street, Springfield, IL 62701.",
+        "See help.examplebank.ai or examplebank.app for updates.",
+        "Message us at @ExampleBankHelp.",
+        "Please call 1-800-FLOWERS or 18005550199.",
+        "You will receive a full credit.",
+        "We are going to reverse the charge and send you a check.",
+        "Rest assured, you will get your money back.",
+        "Ask for Sarah in collections, extension 4471.",
+        "We will respond by Friday.",
+        "Someone will contact you within two business days.",
+        # Encoded the way an attacker would hide them.
+        "See help&#46;examplebank&#46;ai.",
+        "You w\u200bill rec\u200beive a full credit.",
+        "Visit examplebank\uff0eapp today.",
+        # Spelled out (the red-team arena's round 7).
+        "Follow your case at https colon slash slash example dot com slash case.",
+        "Write to help at example dot com with any questions.",
+    ],
+)
+def test_a_draft_with_a_way_to_reach_someone_or_a_commitment_is_refused(draft):
+    assert draft_problems(draft), draft
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        "Thank you for your complaint about the late fee. We have received it, and a member of "
+        "our complaint team will review what happened.",
+        "Thank you. A person will review your complaint.",
+        "Thank you for your complaint. A member of our team will review it.",
+    ],
+)
+def test_a_neutral_internal_draft_still_passes(draft):
+    assert draft_problems(draft) == []
+
+
+def test_a_changed_version_of_a_routed_complaint_is_re_routed_without_editing_the_log(tmp_path):
+    """CFPB can add a Servicemember tag or mark the response untimely after the desk routed the
+    complaint. The first route stands (the log is append-only); a re-route entry adds the new
+    version's reasons and record_changed, at the higher urgency, with no model call."""
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    v1 = complaint()
+    assert complaint_run.run([v1], audit, _client(), REGISTRY)["standard_queue"] == 1
+    (first,) = [e for e in audit.entries() if e["event"] == "complaint_routed"]
+    v2 = complaint(tags=(Tag.SERVICEMEMBER,), timely=False)
+    client = _client()
+    summary = complaint_run.run([v2], audit, client, REGISTRY)
+    assert client.messages.calls == []
+    assert (summary["skipped"], summary["rerouted"], summary["triaged"]) == (0, 1, 0)
+    assert summary["specialist_review"] == 1
+    entries = audit.entries()
+    assert [e for e in entries if e["event"] == "complaint_routed"] == [first]
+    (rerouted,) = [e["payload"] for e in entries if e["event"] == "complaint_rerouted"]
+    assert rerouted["queue"] == "specialist_review" and rerouted["urgency"] == "high"
+    assert {"servicemember", "untimely", "record_changed"} <= set(rerouted["reasons"])
+    assert rerouted["content_sha256"] == v2.content_sha256()
+    assert rerouted["previous_content_sha256"] == v1.content_sha256()
+    # The same version again is a repeat; another change is re-routed again.
+    assert complaint_run.run([v2], audit, _client(), REGISTRY)["skipped"] == 1
+    v3 = v2.model_copy(update={"company_response": "Closed with monetary relief"})
+    assert complaint_run.run([v3], audit, _client(), REGISTRY)["rerouted"] == 1
+
+
+def test_a_re_route_never_lowers_the_first_route(tmp_path):
+    """A version that drops a reason (CFPB removes a tag) still goes to specialist review with
+    the first route's reasons and urgency kept."""
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    complaint_run.run([complaint(issue="Fraud or scam")], audit, _client(), REGISTRY)
+    complaint_run.run([complaint()], audit, _client(), REGISTRY)
+    (rerouted,) = [e["payload"] for e in audit.entries() if e["event"] == "complaint_rerouted"]
+    assert "fraud" in rerouted["reasons"] and rerouted["urgency"] == "high"
+    assert "record_changed" in rerouted["reasons"]
