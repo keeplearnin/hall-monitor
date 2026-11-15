@@ -61,9 +61,9 @@ def _decide(log, request_id, staff_id, outcome, **kw):
 # --- Who may decide what ---------------------------------------------------------------------
 
 
-def test_a_specialist_signs_off_a_clean_request(log):
+def test_a_local_manager_signs_off_a_clean_request(log):
     final = _decide(log, "lr_001", "hrs-101", "approve", weeks=4)
-    assert final["outcome"] == "approve" and final["role"] == "leave_specialist"
+    assert final["outcome"] == "approve" and final["role"] == "local_manager"
     assert status(log, "lr_001")["state"] == "decided"
 
 
@@ -74,8 +74,8 @@ def test_a_request_is_decided_once(log):
 
 
 def test_the_role_the_rules_name_is_enforced(log):
-    # lr_002: short service, an HR manager's case; lr_012: retaliation risk, a director's.
-    with pytest.raises(DecisionRefused, match="needs a hr_manager or above"):
+    # lr_002: short service, an HR business partner's case; lr_012: retaliation risk, a director's.
+    with pytest.raises(DecisionRefused, match="needs a hr_business_partner or above"):
         _decide(log, "lr_002", "hrs-101", "deny", reason=REASON)
     with pytest.raises(DecisionRefused, match="needs a hr_director or above"):
         _decide(log, "lr_012", "hrs-201", "approve", weeks=4, reason=REASON)
@@ -85,9 +85,10 @@ def test_the_role_the_rules_name_is_enforced(log):
     )
 
 
+# Name kept while controls/controls.yaml (HM-21/HM-23) cites it; it predates the role rename.
 def test_only_a_manager_or_above_may_deny_even_on_a_specialist_case(log):
-    with pytest.raises(DecisionRefused, match="HR manager or above"):
-        _decide(log, "lr_013", "hrs-101", "deny", reason=REASON)
+    with pytest.raises(DecisionRefused, match="HR business partner or above"):
+        _decide(log, "lr_001", "hrs-101", "deny", reason=REASON)
 
 
 def test_fmla_leave_is_approved_only_for_an_eligible_employee_with_a_qualifying_reason(log):
@@ -118,7 +119,7 @@ def test_only_a_director_may_extend_past_the_entitlement(log):
     [
         ("lr_002", "hrs-201", "deny", 0),
         ("lr_009", "hrs-301", "extend", 1),
-        ("lr_013", "hrs-101", "approve", 4),
+        ("lr_013", "hrs-201", "approve", 4),
     ],
     ids=["deny", "extend", "approve a request sent to HR review"],
 )
@@ -280,6 +281,7 @@ def test_the_review_cli_lists_shows_and_decides(log, capsys):
     assert review_cli.main([*db, "show", "lr_999"]) == 1
 
 
+# Name kept while controls/controls.yaml (HM-21/HM-23) cites it; it predates the role rename.
 def test_extending_needs_a_director_even_on_a_specialist_s_case(log):
     with pytest.raises(DecisionRefused, match="extending leave past the entitlement needs"):
         _decide(log, "lr_013", "hrs-201", "extend", weeks=2, reason=REASON)
@@ -348,7 +350,7 @@ def test_requests_reach_the_sign_off_through_the_run_command(tmp_path):
 
     db = tmp_path / "audit.sqlite"
     prepared = hr_run.run(["lr_001", "lr_009"], db, client=_client())
-    assert [p["route"] for p in prepared] == ["specialist_sign_off", "hr_review"]
+    assert [p["route"] for p in prepared] == ["manager_sign_off", "hr_review"]
     audit = AuditLog(db)
     assert status(audit, "lr_009")["state"] == "waiting for HR"
     with pytest.raises(SystemExit):
@@ -368,7 +370,7 @@ def test_a_losing_preparation_doesn_t_change_what_hr_sees(log, monkeypatch):
             audit=log,
         )
     after = status(log, "lr_001")
-    assert after["route"] == before["route"] == "specialist_sign_off" and after["reasons"] == []
+    assert after["route"] == before["route"] == "manager_sign_off" and after["reasons"] == []
 
 
 def test_a_losing_decision_leaves_nothing_in_the_store_and_its_refusal_is_logged(log, monkeypatch):
@@ -453,7 +455,7 @@ def test_the_pack_holds_the_redacted_message_for_the_specialist(log):
 def test_status_doesn_t_need_the_prepared_entry(log, monkeypatch):
     entries = [e for e in log.entries("lr_001") if e["event"] != "leave_prepared"]
     monkeypatch.setattr(log, "entries", lambda request_id=None: entries)
-    assert status(log, "lr_001")["route"] == "specialist_sign_off"
+    assert status(log, "lr_001")["route"] == "manager_sign_off"
 
 
 def test_the_cli_refuses_bad_input_without_a_traceback(log, capsys, tmp_path):
@@ -483,7 +485,7 @@ def test_the_cli_refuses_bad_input_without_a_traceback(log, capsys, tmp_path):
     "body",
     [
         "staff:\n  - {id: x, name: X, role: boss, public_key: k}\n",
-        "staff:\n  - {id: x, name: X, role: hr_manager, public_key: k}\n"
+        "staff:\n  - {id: x, name: X, role: hr_business_partner, public_key: k}\n"
         "  - {id: x, name: Y, role: hr_director, public_key: k}\n",
     ],
     ids=["unknown role", "duplicate id"],
@@ -498,16 +500,16 @@ def test_a_bad_staff_file_is_refused_naming_the_entry(tmp_path, body):
 # --- Re-review of review 10 ------------------------------------------------------------------
 
 
-def test_a_partial_approval_needs_a_manager_even_with_a_reason(log):
-    with pytest.raises(DecisionRefused, match="needs an HR manager or above"):
+def test_a_partial_approval_needs_an_hr_business_partner_even_with_a_reason(log):
+    with pytest.raises(DecisionRefused, match="needs an HR business partner or above"):
         _decide(log, "lr_001", "hrs-101", "approve", weeks=2, reason=REASON)
 
 
 def test_approving_intermittent_leave_for_less_than_is_left_is_a_partial_denial(log):
-    # lr_011: intermittent, 12 weeks left, a leave specialist's case.
-    with pytest.raises(DecisionRefused, match="needs an HR manager or above"):
-        _decide(log, "lr_011", "hrs-101", "approve", weeks=0.01, reason=REASON)
-    assert _decide(log, "lr_011", "hrs-101", "approve", weeks=12, reason=REASON)["weeks"] == 12
+    # lr_011: intermittent, 12 weeks left, an HR business partner's case.
+    with pytest.raises(DecisionRefused, match="a partial denial needs a reason"):
+        _decide(log, "lr_011", "hrs-201", "approve", weeks=0.01, reason="ok")
+    assert _decide(log, "lr_011", "hrs-201", "approve", weeks=12, reason=REASON)["weeks"] == 12
 
 
 def test_a_logged_decision_always_has_its_signed_record(log, monkeypatch):
@@ -551,7 +553,7 @@ def test_a_preparation_that_stopped_before_the_rules_can_be_prepared_again(tmp_p
     prepare(MESSAGES["lr_001"], client=refusing, **args)
     assert status(audit, "lr_001")["state"] == "stopped before the rules ran; can be prepared again"
     prepare(MESSAGES["lr_001"], client=_client(), **args)
-    assert status(audit, "lr_001")["route"] == "specialist_sign_off"
+    assert status(audit, "lr_001")["route"] == "manager_sign_off"
     del LeaveExplanation, _explanation
 
 
@@ -605,7 +607,8 @@ def test_the_run_command_skips_requests_already_prepared_and_goes_on(tmp_path):
 @pytest.mark.parametrize(
     "body",
     [
-        "staff:\n  - {id: x, name: X, role: hr_manager, public_key: k, email: pat@example.com}\n",
+        "staff:\n  - {id: x, name: X, role: hr_business_partner, public_key: k,"
+        " email: pat@example.com}\n",
         "staff: [unclosed\n",
         "people: []\n",
     ],
@@ -695,7 +698,7 @@ def test_intermittent_bonding_leave_past_its_year_isn_t_approved_here():
     pack = {
         "route": {
             "route": "hr_review",
-            "decided_by": "hr_manager",
+            "decided_by": "hr_business_partner",
             "reasons": ["bonding_window", "intermittent"],
         },
         "assessment": {
@@ -742,3 +745,130 @@ def test_the_chain_check_reports_a_changed_or_missing_signed_leave_decision(log)
     reader.close()
     assert any(changed[:12] in p for p in result.problems)
     assert result.decision_records_erased == ["lr_002"]
+
+
+# --- Roles as a branch company works: local manager, HR business partner, HR director --------
+
+
+def test_a_local_manager_may_not_decide_a_flagged_request(log):
+    # lr_011: intermittent; lr_013: a possible accommodation; lr_019: reason unclear.
+    for request_id in ("lr_011", "lr_013", "lr_019"):
+        assert status(log, request_id)["decided_by"] == "hr_business_partner"
+        with pytest.raises(
+            DecisionRefused,
+            match="needs a hr_business_partner or above; hrs-101 is a local_manager",
+        ):
+            _decide(log, request_id, "hrs-101", "approve", weeks=4, reason=REASON)
+    assert _decide(log, "lr_013", "hrs-201", "approve", weeks=4, reason=REASON)["role"] == (
+        "hr_business_partner"
+    )
+
+
+def test_the_local_manager_may_still_ask_for_information_on_any_request(log):
+    asked = _decide(log, "lr_011", "hrs-101", "request_information")
+    assert asked["role"] == "local_manager"
+    assert status(log, "lr_011")["state"] == "waiting for HR"
+
+
+ATTESTATION = "Checked the DD-214 and orders: covered servicemember status confirmed."
+
+
+def test_military_leave_can_be_approved_by_an_hr_business_partner_attesting_the_status(log):
+    # lr_020: military caregiver, 18 of 26 weeks; the records carry no covered status.
+    assert status(log, "lr_020")["reasons"] == ["military_status_unverified"]
+    final = _decide(log, "lr_020", "hrs-201", "approve", weeks=18, reason=ATTESTATION)
+    assert final["outcome"] == "approve" and final["role"] == "hr_business_partner"
+
+
+def test_military_leave_without_the_attestation_is_refused(log):
+    with pytest.raises(DecisionRefused, match="military leave .* needs a reason of at least 20"):
+        _decide(log, "lr_020", "hrs-201", "approve", weeks=18, reason="ok")
+    assert status(log, "lr_020")["state"] == "waiting for HR"
+
+
+def test_a_local_manager_may_not_approve_military_leave(log):
+    with pytest.raises(DecisionRefused, match="needs a hr_business_partner or above"):
+        _decide(log, "lr_020", "hrs-101", "approve", weeks=18, reason=ATTESTATION)
+
+
+def _military_pack(decided_by="hr_business_partner", **reason_check):
+    checks = [
+        {"id": c, "passed": True}
+        for c in ("employer", "service", "hours", "worksite", "entitlement")
+    ]
+    checks.append(
+        {"id": "reason", "passed": None, "code": "military_status_unverified"} | reason_check
+    )
+    return {
+        "route": {
+            "route": "hr_review",
+            "decided_by": decided_by,
+            "reasons": ["military_status_unverified"],
+        },
+        "assessment": {
+            "remaining_weeks": 26.0,
+            "requested_weeks": 18.0,
+            "qualifying_weeks": 18.0,
+            "checks": checks,
+        },
+    }
+
+
+def _validate(pack, staff_id, outcome="approve", weeks=18, reason=ATTESTATION):
+    from hall_monitor.hr.signoff import validate
+
+    decision = LeaveDecision(
+        staff_id=staff_id, outcome=outcome, weeks=weeks, reason=reason, evidence_sha256="e"
+    ).signed("lr_m", demo_private_key(staff_id))
+    return validate(decision, "lr_m", "e", pack, STAFF)
+
+
+def test_the_military_exception_is_for_an_hr_business_partner_even_if_the_route_says_less():
+    # A pack whose route named a local manager still can't let one approve unverified status.
+    with pytest.raises(DecisionRefused, match="military leave .* HR business partner or above"):
+        _validate(_military_pack("local_manager"), "hrs-101")
+    assert _validate(_military_pack("local_manager"), "hrs-201").id == "hrs-201"
+
+
+@pytest.mark.parametrize(
+    "reason_check",
+    [{"code": "reason_unclear"}, {"code": "facts_missing"}, {"code": None}],
+    ids=["reason unclear", "facts missing", "no code"],
+)
+def test_other_unknown_reasons_still_can_t_be_approved(reason_check):
+    with pytest.raises(DecisionRefused, match="eligible employee with a qualifying reason"):
+        _validate(_military_pack(**reason_check), "hrs-301")
+
+
+def test_the_military_exception_needs_the_rest_of_eligibility():
+    pack = _military_pack()
+    pack["assessment"]["checks"][1]["passed"] = None  # service unknown
+    with pytest.raises(DecisionRefused, match="eligible employee with a qualifying reason"):
+        _validate(pack, "hrs-301")
+
+
+def test_the_military_exception_doesn_t_extend_leave():
+    pack = _military_pack(decided_by="hr_director")
+    pack["assessment"]["requested_weeks"] = 30.0
+    with pytest.raises(DecisionRefused, match="eligible employee with a qualifying reason"):
+        _validate(pack, "hrs-301", outcome="extend", weeks=30)
+
+
+def test_a_reason_for_unclear_leave_is_still_refused_with_an_attestation(log):
+    with pytest.raises(DecisionRefused, match="eligible employee with a qualifying reason"):
+        _decide(log, "lr_019", "hrs-201", "approve", weeks=4, reason=ATTESTATION)
+
+
+@pytest.mark.parametrize(
+    ("field", "old"),
+    [
+        ("decided_by", "leave_specialist"),
+        ("decided_by", "hr_manager"),
+        ("route", "specialist_sign_off"),
+    ],
+)
+def test_an_old_role_or_route_in_an_evidence_pack_is_refused_cleanly(field, old):
+    pack = _military_pack()
+    pack["route"][field] = old
+    with pytest.raises(DecisionRefused, match="isn't one the rules know"):
+        _validate(pack, "hrs-301")

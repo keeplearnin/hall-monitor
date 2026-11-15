@@ -22,7 +22,7 @@ from hall_monitor.hr.eligibility import (
     years_after,
 )
 from hall_monitor.hr.models import Employee, Employer, LeaveRequest
-from hall_monitor.hr.routing import REASONS, route_leave
+from hall_monitor.hr.routing import REASONS, Role, route_leave
 
 COMPANY, EMPLOYEES, REQUESTS, ANSWERS = (
     load_company(),
@@ -411,7 +411,7 @@ def test_earlier_caregiver_leave_in_an_ended_period_can_t_be_decided(first_day, 
 @pytest.mark.parametrize(
     ("end", "intermittent", "taken_until", "route"),
     [
-        (date(2026, 12, 13), False, None, "specialist_sign_off"),  # 2 asked, 2 left
+        (date(2026, 12, 13), False, None, "manager_sign_off"),  # 2 asked, 2 left
         (date(2026, 12, 14), False, None, "hr_review"),  # one workday more
         (date(2027, 5, 30), True, date(2026, 8, 21), "hr_review"),  # none left
         (date(2027, 5, 30), True, date(2026, 8, 14), "hr_review"),  # intermittent anyway
@@ -456,15 +456,15 @@ def test_29_february_becomes_28_february():
 # --- Nothing but a person decides anything but the light path --------------------------------
 
 
-CLEAN = [r for r in REQUESTS if ANSWERS[r.id].route == "specialist_sign_off"]
+CLEAN = [r for r in REQUESTS if ANSWERS[r.id].route == "manager_sign_off"]
 FLAGS = [
     ("employee", {"pending_adverse_action": True}, "retaliation_risk", "hr_director"),
-    ("employee", {"key_employee": True}, "key_employee", "leave_specialist"),
-    ("employee", {"worksite_id": "ws-fre"}, "state_law", "leave_specialist"),
-    ("employee", {"hours_ledger": None}, "facts_missing", "leave_specialist"),
-    ("request", {"intermittent": True}, "intermittent", "leave_specialist"),
-    ("request", {"possible_accommodation": True}, "possible_accommodation", "leave_specialist"),
-    ("request", {"reason": "unclear"}, "reason_unclear", "leave_specialist"),
+    ("employee", {"key_employee": True}, "key_employee", "hr_business_partner"),
+    ("employee", {"worksite_id": "ws-fre"}, "state_law", "hr_business_partner"),
+    ("employee", {"hours_ledger": None}, "facts_missing", "hr_business_partner"),
+    ("request", {"intermittent": True}, "intermittent", "hr_business_partner"),
+    ("request", {"possible_accommodation": True}, "possible_accommodation", "hr_business_partner"),
+    ("request", {"reason": "unclear"}, "reason_unclear", "hr_business_partner"),
     ("request", {"end": date(2027, 3, 21)}, "past_entitlement", "hr_director"),
 ]
 
@@ -484,14 +484,11 @@ def test_any_flag_on_a_clean_request_sends_it_to_hr_review(request_, where, chan
     assert route.decided_by in {role, "hr_director"}
 
 
+# Name kept while controls/controls.yaml (HM-21/HM-23) cites it; it predates the role rename.
 def test_only_hr_managers_and_directors_may_deny_or_extend():
-    may_deny_or_extend = {
-        "employer_not_covered",
-        "short_service",
-        "low_hours",
-        "small_worksite",
-        "family_member_not_covered",
-        "bonding_window",
+    """Only the plain light path (no reason at all) is a local manager's; every reason names an
+    HR business partner or, for the cases the design gives a director, an HR director."""
+    directors = {
         "past_entitlement",
         "retaliation_risk",
         # The agentic path routed the request before the rules ran: the most senior role
@@ -501,7 +498,19 @@ def test_only_hr_managers_and_directors_may_deny_or_extend():
         "spend_refused",
     }
     for code, (_, role) in REASONS.items():
-        assert (role.label != "leave_specialist") is (code in may_deny_or_extend), code
+        expected = Role.HR_DIRECTOR if code in directors else Role.HR_BUSINESS_PARTNER
+        assert role is expected, code
+
+
+def test_the_light_path_is_the_local_manager_s():
+    for request_ in CLEAN:
+        employee = EMPLOYEES[request_.employee_id]
+        route = route_leave(assess(request_, employee, COMPANY), request_, employee, COMPANY)
+        assert (route.route, route.decided_by, route.reasons) == (
+            "manager_sign_off",
+            "local_manager",
+            [],
+        )
 
 
 # --- What the records hold -------------------------------------------------------------------

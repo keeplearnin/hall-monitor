@@ -39,10 +39,11 @@ SIGNALS: dict[str, re.Pattern[str]] = {
     ),
     "role_play": re.compile(
         r"\byou are (?:now )?(?:a|an|the) "
-        r"(?:ai|assistant|model|claims (?:agent|adjuster|handler)|hr (?:director|manager)|"
-        r"leave specialist)\b"
+        r"(?:ai|assistant|model|claims (?:agent|adjuster|handler)|"
+        r"hr (?:director|manager|business partner)|leave specialist|local manager)\b"
         r"|\bact as (?:a|an|the) (?:claims )?(?:adjuster|approver|supervisor)\b"
-        r"|\bact as (?:a|an|the) (?:hr (?:director|manager)|leave specialist)\b",
+        r"|\bact as (?:a|an|the) (?:hr (?:director|manager|business partner)|leave specialist|"
+        r"local manager)\b",
         re.IGNORECASE,
     ),
     "fake_markup": re.compile(
@@ -58,7 +59,7 @@ SIGNALS: dict[str, re.Pattern[str]] = {
     "claims_prior_approval": re.compile(
         r"\b(?:pre-?approved|already approved|approval (?:has been )?granted)\b[^.\n]{0,40}"
         r"\b(?:by|from)\b[^.\n]{0,20}\b(?:adjuster|claims (?:team|manager|department)|"
-        r"supervisor|underwriter|insurer|hr (?:manager|director|team|department)|"
+        r"supervisor|underwriter|insurer|hr (?:manager|director|team|department|business partner)|"
         r"leave specialist)\b",
         re.IGNORECASE,
     ),
@@ -66,7 +67,7 @@ SIGNALS: dict[str, re.Pattern[str]] = {
         r"\b(?:do not|don't|no need to|without)\b[^.\n]{0,30}\b"
         r"(?:send|route|escalate|refer|forward|involve|review)\b[^.\n]{0,30}\b"
         r"(?:human|person|adjuster|manual review|reviewer|leave specialist|specialist review|"
-        r"specialists?)\b"
+        r"specialists?|hr business partner)\b"
         r"|\b(?:keep|leave|put|route|send|move|place)\b[^.\n]{0,30}\bstandard queue\b",
         re.IGNORECASE,
     ),

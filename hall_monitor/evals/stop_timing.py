@@ -159,7 +159,7 @@ def _case(workflow: str, registry: Registry, latency: float):
             registry=registry,
             client=SimpleNamespace(messages=messages),
         )
-        return result.route.route == "specialist_sign_off", result.stopped_reason
+        return result.route.route == "manager_sign_off", result.stopped_reason
 
     return run, messages
 

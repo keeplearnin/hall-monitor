@@ -13,7 +13,7 @@ import sys
 from hall_monitor.hr.data import load_answers, load_company, load_employees, load_requests
 from hall_monitor.hr.eligibility import assess
 from hall_monitor.hr.models import LeaveAnswer
-from hall_monitor.hr.routing import route_leave
+from hall_monitor.hr.routing import REASONS, route_leave
 
 
 def decide(request, employees, company) -> dict:
@@ -25,7 +25,7 @@ def decide(request, employees, company) -> dict:
             "assessment": None,
             "route": {
                 "route": "hr_review",
-                "decided_by": "leave_specialist",
+                "decided_by": REASONS["facts_missing"][1].label,
                 "reasons": ["facts_missing"],
                 "explained": ["no employee record for this request"],
             },

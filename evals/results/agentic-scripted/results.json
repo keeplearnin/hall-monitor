@@ -1,8 +1,8 @@
 {
   "meta": {
-    "run_at": "2026-11-12 04:39 UTC",
-    "git_commit": "2037930855142843f4aeaad8079d49b429fcaa5d",
-    "git_dirty": false,
+    "run_at": "2026-11-15 23:12 UTC",
+    "git_commit": "5499b0b6731f2e7353b97c00f7394bd56b741540",
+    "git_dirty": true,
     "mode": "scripted-answer-key",
     "claims": 36,
     "complaints": 500,
@@ -516,15 +516,15 @@
   "leave": {
     "requests": 28,
     "fixed_routes": {
-      "specialist_sign_off": 8,
-      "hr_review": 20
+      "manager_sign_off": 7,
+      "hr_review": 21
     },
     "policies": {
       "old_order": {
         "requests": 28,
         "routes": {
-          "hr_review": 20,
-          "specialist_sign_off": 8
+          "hr_review": 21,
+          "manager_sign_off": 7
         },
         "agreement": 1.0,
         "less_review": 0,
@@ -575,8 +575,8 @@
       "skip_note": {
         "requests": 28,
         "routes": {
-          "hr_review": 20,
-          "specialist_sign_off": 8
+          "hr_review": 21,
+          "manager_sign_off": 7
         },
         "agreement": 1.0,
         "less_review": 0,
@@ -628,8 +628,8 @@
       "recheck_agrees": {
         "requests": 28,
         "routes": {
-          "hr_review": 20,
-          "specialist_sign_off": 8
+          "hr_review": 21,
+          "manager_sign_off": 7
         },
         "agreement": 1.0,
         "less_review": 0,
@@ -653,8 +653,8 @@
       "noisy_1": {
         "requests": 28,
         "routes": {
-          "hr_review": 23,
-          "specialist_sign_off": 5
+          "hr_review": 24,
+          "manager_sign_off": 4
         },
         "agreement": 0.5357,
         "less_review": 0,
@@ -670,7 +670,7 @@
         "requests": 28,
         "routes": {
           "hr_review": 24,
-          "specialist_sign_off": 4
+          "manager_sign_off": 4
         },
         "agreement": 0.5,
         "less_review": 0,
@@ -685,8 +685,8 @@
       "noisy_3": {
         "requests": 28,
         "routes": {
-          "hr_review": 25,
-          "specialist_sign_off": 3
+          "hr_review": 26,
+          "manager_sign_off": 2
         },
         "agreement": 0.5714,
         "less_review": 0,

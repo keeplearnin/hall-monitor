@@ -6,11 +6,17 @@ A decision counts only if the staff member is registered (registry/hr_staff.yaml
 with their key over the request, every decision field and that evidence hash
 (governance/signing.py), and code finds it within their role:
 
-- their role is at least the one the routing rule named for the request;
+- their role is at least the one the routing rule named for the request (a local manager for
+  the light path, an HR business partner or HR director for HR review: hr/routing.py); a route
+  or role the rules don't know, as a log written before the roles were renamed may hold, is
+  refused;
 - approving FMLA leave needs an eligible employee, a qualifying reason, and no more weeks than
   are left or qualify; approving fewer than were asked is a partial denial, so it needs an HR
-  manager or above and a reason;
-- denying needs an HR manager or above, and a reason;
+  business partner or above and a reason;
+- military leave (qualifying exigency, military caregiver) whose only open question is the
+  family member's covered status, which the records don't carry, may be approved by an HR
+  business partner or above with a reason: their attestation that the status was checked;
+- denying needs an HR business partner or above, and a reason;
 - extending needs an HR director, a reason, an eligible employee with a qualifying reason, and
   a request past the entitlement, for no more weeks than were asked;
 - approving a request the rule sent to HR review needs a reason;
@@ -45,7 +51,7 @@ from hall_monitor.governance.audit import (
     EvidenceChanged,
     canonical,
 )
-from hall_monitor.hr.routing import Role
+from hall_monitor.hr.routing import ROUTES, Role, role_named
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, HR_STAFF_FILENAME
 
 MIN_REASON_LENGTH = 20
@@ -62,7 +68,10 @@ class StaffMember(BaseModel):
 
     @property
     def rank(self) -> Role:
-        return Role[self.role.upper()]
+        role = role_named(self.role)
+        if role is None:  # load_staff refuses such an entry; a hand-built one is refused here
+            raise DecisionRefused(f"{self.id}: its role isn't one the rules know")
+        return role
 
 
 def load_staff(path: Path = DEFAULT_REGISTRY_DIR / HR_STAFF_FILENAME) -> dict[str, StaffMember]:
@@ -191,6 +200,15 @@ def _check(pack: dict) -> dict[str, bool | None]:
     return {c["id"]: c["passed"] for c in checks}
 
 
+def _code(pack: dict, check_id: str) -> str | None:
+    checks = (pack.get("assessment") or {}).get("checks") or []
+    return next((c.get("code") for c in checks if c["id"] == check_id), None)
+
+
+# Military leave whose covered status the records don't carry (hr/eligibility.py _reason).
+MILITARY_UNVERIFIED = "military_status_unverified"
+
+
 def validate(
     decision: LeaveDecision,
     request_id: str,
@@ -213,7 +231,11 @@ def validate(
             raise DecisionRefused("asking for more information can't carry weeks")
         return member  # not a decision: the request keeps waiting
     route = pack["route"]
-    needed = Role[route["decided_by"].upper()]
+    needed = role_named(route.get("decided_by"))
+    if needed is None or route.get("route") not in ROUTES:
+        raise DecisionRefused(
+            "the route recorded for this request isn't one the rules know; it needs preparing again"
+        )
     if member.rank < needed:
         raise DecisionRefused(
             f"this request needs a {needed.label} or above; {member.id} is a {member.role}"
@@ -225,6 +247,13 @@ def validate(
     qualifying = assessment.get("qualifying_weeks", requested)
     person = [checks.get(c) for c in ("employer", "service", "hours", "worksite")]
     eligible = all(p is True for p in person) and checks.get("reason") is True
+    # Military leave: the reason check is open only because the records don't carry the
+    # covered status. A senior person may close it by attesting they checked it.
+    military_unverified = (
+        all(p is True for p in person)
+        and checks.get("reason") is None
+        and _code(pack, "reason") == MILITARY_UNVERIFIED
+    )
 
     def needs_reason(what: str) -> None:
         if len(reason) < MIN_REASON_LENGTH:
@@ -232,12 +261,16 @@ def validate(
                 f"{what} needs a reason of at least {MIN_REASON_LENGTH} characters"
             )
 
-    def needs_manager(what: str) -> None:
-        if member.rank < Role.HR_MANAGER:
-            raise DecisionRefused(f"{what} needs an HR manager or above")
+    def needs_hr_business_partner(what: str) -> None:
+        if member.rank < Role.HR_BUSINESS_PARTNER:
+            raise DecisionRefused(f"{what} needs an HR business partner or above")
 
     if outcome is Outcome.APPROVE:
-        if not eligible:
+        if military_unverified:
+            what = "approving military leave before the records show its covered status"
+            needs_hr_business_partner(what)
+            needs_reason(what)  # the attestation that the status was checked
+        elif not eligible:
             raise DecisionRefused(
                 "FMLA leave can be approved only for an eligible employee with a qualifying "
                 "reason; a person decides anything else outside this step"
@@ -257,12 +290,12 @@ def validate(
         # rest: a partial denial.
         asked = requested if requested is not None else remaining
         if weeks < asked - 1e-9:
-            needs_manager("approving fewer weeks than asked is a partial denial: it")
+            needs_hr_business_partner("approving fewer weeks than asked is a partial denial: it")
             needs_reason("a partial denial")
-        if route["route"] != "specialist_sign_off":
+        if route["route"] != "manager_sign_off":
             needs_reason("approving a request sent to HR review")
     elif outcome is Outcome.DENY:
-        needs_manager("denying leave")
+        needs_hr_business_partner("denying leave")
         needs_reason("denying leave")
         if weeks:
             raise DecisionRefused("a denial can't carry weeks")

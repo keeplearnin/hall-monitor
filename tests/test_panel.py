@@ -745,13 +745,14 @@ def test_the_hr_overview_tells_the_demo_s_leave_story(demo_data, src):
     m = next(w for w in views.overview(src)["workflows"] if w["id"] == "hr_leave")["metrics"]
     outcomes = list(built["leave_outcomes"].values())
     assert m["requests"] == m["prepared"] == built["leave_requests"] == 28
-    # lr_020's approval is refused since review 25: its military status isn't verified, so the
-    # reason check is unknown and FMLA approval belongs outside the sign-off step.
-    assert m["decided"] == outcomes.count("approve") + outcomes.count("deny") == 8
-    assert m["approved"] == 6 and m["denied"] == 2
-    assert m["information_requested"] == 1 and m["refused_decisions"] == 2
-    assert m["waiting_for_hr"] == len(built["leave_waiting"]) == 20
-    assert m["specialist_sign_off"] == 7 and m["hr_review"] == 21
+    # lr_020 (military caregiver) is approved by an HR business partner attesting the covered
+    # status; the one refused decision is the local manager's attempt to deny lr_006.
+    assert m["decided"] == outcomes.count("approve") + outcomes.count("deny") == 9
+    assert m["approved"] == 7 and m["denied"] == 2
+    assert m["information_requested"] == 1 and m["refused_decisions"] == 1
+    assert [r for r, o in built["leave_outcomes"].items() if o == "refused"] == ["lr_006"]
+    assert m["waiting_for_hr"] == len(built["leave_waiting"]) == 19
+    assert m["manager_sign_off"] == 7 and m["hr_review"] == 21
     assert [r["request_id"] for r in views.leave_queue(src)] == sorted(built["leave_waiting"])
 
 
@@ -851,7 +852,7 @@ def test_hr_fields_the_code_doesn_t_write_are_withheld(tmp_path):
         "pipeline",
         {
             "route": "hr_review",
-            "decided_by": "hr_manager",
+            "decided_by": "hr_business_partner",
             "reasons": ["short_service", "Jane Doe"],
             "stopped_reason": "Jane Doe asked",
             "explanation_problem": "Jane Doe",
@@ -968,7 +969,11 @@ def _refusal_messages(tmp_path, demo_data) -> list[str]:
     from hall_monitor.hr.signoff import LeaveDecision, validate
 
     pack = {
-        "route": {"route": "hr_review", "decided_by": "hr_manager", "reasons": ["bonding_window"]},
+        "route": {
+            "route": "hr_review",
+            "decided_by": "hr_business_partner",
+            "reasons": ["bonding_window"],
+        },
         "assessment": {
             "remaining_weeks": 12.0,
             "requested_weeks": None,
@@ -995,6 +1000,40 @@ def _refusal_messages(tmp_path, demo_data) -> list[str]:
         ).signed("lr_z", demo_private_key("hrs-301"))
         try:
             validate(decision, "lr_z", "e", which, staff)
+        except signoff.DecisionRefused as exc:
+            messages.append(str(exc))
+    # Military leave whose covered status is unverified: without the attestation, and (on a pack
+    # whose route named less) by a local manager.
+    attempt("lr_020", "hrs-201", "approve", 18, "x")
+    military = {
+        "route": {
+            "route": "hr_review",
+            "decided_by": "local_manager",
+            "reasons": ["military_status_unverified"],
+        },
+        "assessment": {
+            "remaining_weeks": 26.0,
+            "requested_weeks": 18.0,
+            "checks": [
+                *(
+                    {"id": c, "passed": True}
+                    for c in ("employer", "service", "hours", "worksite", "entitlement")
+                ),
+                {"id": "reason", "passed": None, "code": "military_status_unverified"},
+            ],
+        },
+    }
+    # A log written before the roles were renamed: an old role in the pack, or in a staff entry.
+    old_pack = military | {"route": military["route"] | {"decided_by": "leave_specialist"}}
+    old_staff = staff | {
+        "hrs-101": staff["hrs-101"].model_copy(update={"role": "leave_specialist"})
+    }
+    for which, who in ((military, staff), (old_pack, staff), (military, old_staff)):
+        decision = LeaveDecision(
+            staff_id="hrs-101", outcome="approve", weeks=18, reason=why, evidence_sha256="e"
+        ).signed("lr_z", demo_private_key("hrs-101"))
+        try:
+            validate(decision, "lr_z", "e", which, who)
         except signoff.DecisionRefused as exc:
             messages.append(str(exc))
     log.close()
@@ -1192,7 +1231,7 @@ def test_a_refusal_naming_a_rule_is_shown_only_as_refused_by_a_leave_rule():
         "leave_decision_refused",
         {
             "refused_because": (
-                "this request needs a hr_director or above; hrs-101 is a leave_specialist"
+                "this request needs a hr_director or above; hrs-101 is a local_manager"
             )
         },
     )["refused_because"]

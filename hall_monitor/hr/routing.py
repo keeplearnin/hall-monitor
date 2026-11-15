@@ -1,15 +1,23 @@
 """Who decides a leave request: a code rule, not a model.
 
-Only one kind of request goes to the light path: an eligible employee, a clear qualifying
-reason, within the remaining entitlement, with no flag raised. Even that is a draft for a leave
-specialist to sign, never an approval without a person (the design's question 1, answered
-conservatively until HR says otherwise). Everything else goes to HR review, and the rule names
-the least senior role that may decide it. From the sign-off table in the design for HR review
-(a Claude Doc, not in this repo): a leave specialist may approve within the entitlement or ask
-for more; denying or finding an employee ineligible needs an HR manager or above; extending
-past the entitlement or deciding a case with a retaliation risk needs an HR director. The roles
-for the other flags are this module's choice. The sign-off (hr/signoff.py) enforces the role:
-a decision by anyone less senior is refused.
+The roles follow how a branch company already works:
+
+- local_manager: the employee's local (branch) manager. Prepares every request with the
+  employee and may approve only the plain light-path case;
+- hr_business_partner: the senior HR role. Denies, decides partial approvals, and decides every
+  request the rule sends to HR review;
+- hr_director: extends leave past the entitlement and decides a case with a retaliation risk.
+
+Only one kind of request goes to the light path (route manager_sign_off): an eligible employee,
+a clear qualifying reason, within the remaining entitlement, with no flag raised. Even that is a
+draft for the local manager to sign, never an approval without a person (the design's question
+1, answered conservatively until HR says otherwise). Everything else goes to HR review, and the
+rule names the least senior role that may decide it: an HR business partner for every flag
+(a local manager never decides a flagged request), an HR director for leave past the
+entitlement, a retaliation risk, or a request the rules never ran on. The sign-off table in
+the design for HR review (a Claude Doc, not in this repo) set the director's cases; the rest is
+this module's choice. The sign-off (hr/signoff.py) enforces the role: a decision by anyone less
+senior is refused.
 """
 
 from __future__ import annotations
@@ -23,8 +31,11 @@ from hall_monitor.hr.models import Company, Employee, LeaveReason, LeaveRequest,
 
 
 class Role(IntEnum):
-    LEAVE_SPECIALIST = 1
-    HR_MANAGER = 2
+    """Ordered by seniority. Logs written before the roles were renamed may name
+    leave_specialist or hr_manager: those aren't roles here, and sign-off refuses them."""
+
+    LOCAL_MANAGER = 1
+    HR_BUSINESS_PARTNER = 2
     HR_DIRECTOR = 3
 
     @property
@@ -38,59 +49,63 @@ class Role(IntEnum):
 STATE_LEAVE_LAW_STATES = frozenset("CA CO CT DC DE HI MA MD ME MN NJ NY OR RI VT WA".split())
 
 # Every reason the rule gives: what it means, and the least senior role that may decide it.
+# No reason names a local manager: they decide only a request with no reason at all.
 REASONS: dict[str, tuple[str, Role]] = {
-    "employer_not_covered": ("the employer isn't covered by FMLA", Role.HR_MANAGER),
-    "short_service": ("under 12 months of service", Role.HR_MANAGER),
-    "low_hours": ("under 1,250 hours in the last 12 months", Role.HR_MANAGER),
-    "small_worksite": ("under 50 employees within 75 miles", Role.HR_MANAGER),
-    "facts_missing": ("a record the rules need is missing", Role.LEAVE_SPECIALIST),
-    "reason_unclear": ("the reason for leave isn't clear", Role.LEAVE_SPECIALIST),
+    "employer_not_covered": ("the employer isn't covered by FMLA", Role.HR_BUSINESS_PARTNER),
+    "short_service": ("under 12 months of service", Role.HR_BUSINESS_PARTNER),
+    "low_hours": ("under 1,250 hours in the last 12 months", Role.HR_BUSINESS_PARTNER),
+    "small_worksite": ("under 50 employees within 75 miles", Role.HR_BUSINESS_PARTNER),
+    "facts_missing": ("a record the rules need is missing", Role.HR_BUSINESS_PARTNER),
+    "reason_unclear": ("the reason for leave isn't clear", Role.HR_BUSINESS_PARTNER),
     "adult_child": (
         "care for an adult child: a person checks whether they can care for themselves",
-        Role.LEAVE_SPECIALIST,
+        Role.HR_BUSINESS_PARTNER,
     ),
-    "family_member_not_covered": ("the family member isn't one FMLA covers", Role.HR_MANAGER),
+    "family_member_not_covered": (
+        "the family member isn't one FMLA covers",
+        Role.HR_BUSINESS_PARTNER,
+    ),
     "bonding_window": (
         "bonding leave must end within 12 months of the birth or placement",
-        Role.HR_MANAGER,
+        Role.HR_BUSINESS_PARTNER,
     ),
     "past_entitlement": ("more leave than the entitlement left", Role.HR_DIRECTOR),
-    "intermittent": ("intermittent or reduced-schedule leave", Role.LEAVE_SPECIALIST),
+    "intermittent": ("intermittent or reduced-schedule leave", Role.HR_BUSINESS_PARTNER),
     "retaliation_risk": (
         "discipline, a complaint or a termination is pending (retaliation risk)",
         Role.HR_DIRECTOR,
     ),
     "possible_accommodation": (
         "a possible disability or pregnancy accommodation (ADA or PWFA interactive process)",
-        Role.LEAVE_SPECIALIST,
+        Role.HR_BUSINESS_PARTNER,
     ),
-    "state_law": ("a state leave law may apply", Role.LEAVE_SPECIALIST),
-    "key_employee": ("a key employee: reinstatement may be refused", Role.LEAVE_SPECIALIST),
+    "state_law": ("a state leave law may apply", Role.HR_BUSINESS_PARTNER),
+    "key_employee": ("a key employee: reinstatement may be refused", Role.HR_BUSINESS_PARTNER),
     "spouses_same_employer": (
         "the employee's spouse works here too, so leave for this reason may be shared",
-        Role.LEAVE_SPECIALIST,
+        Role.HR_BUSINESS_PARTNER,
     ),
     "before_birth": (
         "birth bonding leave starting before the birth: a person decides whether it is "
         "prenatal care, a health condition or bonding",
-        Role.LEAVE_SPECIALIST,
+        Role.HR_BUSINESS_PARTNER,
     ),
     "text_addresses_ai": (
         "the request contains text aimed at the AI (possible prompt injection)",
-        Role.LEAVE_SPECIALIST,
+        Role.HR_BUSINESS_PARTNER,
     ),
     "pipeline_stopped": (
         "the request couldn't be prepared (an agent failed, was stopped or isn't approved)",
-        Role.LEAVE_SPECIALIST,
+        Role.HR_BUSINESS_PARTNER,
     ),
     # The leave supervisor's (ADR 0028): each only adds review.
     "intake_disagreed": (
         "two independent intakes of the request disagreed; the rules ran on the first",
-        Role.LEAVE_SPECIALIST,
+        Role.HR_BUSINESS_PARTNER,
     ),
     "supervisor_handed_off": (
         "the leave supervisor handed the request to HR review",
-        Role.LEAVE_SPECIALIST,
+        Role.HR_BUSINESS_PARTNER,
     ),
     # Without the rules nobody knows which role they would name, so the most senior decides
     # (found by the offline eval, ADR 0028).
@@ -107,17 +122,17 @@ REASONS: dict[str, tuple[str, Role]] = {
     "supervisor_failed": (
         "the leave supervisor failed, was stopped, ran out of budget or kept choosing steps "
         "code refused",
-        Role.LEAVE_SPECIALIST,
+        Role.HR_BUSINESS_PARTNER,
     ),
     "military_status_unverified": (
         "military leave: a person checks the family member's covered active duty or covered "
         "servicemember status, which the records don't carry",
-        Role.LEAVE_SPECIALIST,
+        Role.HR_BUSINESS_PARTNER,
     ),
     "caregiver_history": (
         "earlier military caregiver leave: a person checks whether it was for the same "
         "servicemember and injury",
-        Role.LEAVE_SPECIALIST,
+        Role.HR_BUSINESS_PARTNER,
     ),
 }
 
@@ -136,10 +151,20 @@ PIPELINE_REASONS = frozenset(
 )
 
 
+# The two routes, and the role labels, sign-off accepts; anything else (a value from a log
+# written before the roles were renamed, say) is refused, never guessed at.
+ROUTES = ("manager_sign_off", "hr_review")
+
+
+def role_named(label: object) -> Role | None:
+    """The role a label names, or None for one the rules don't know (an old or bad value)."""
+    return next((r for r in Role if r.label == label), None)
+
+
 class LeaveRoute(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    route: str  # "specialist_sign_off" or "hr_review"
+    route: str  # one of ROUTES
     decided_by: str  # the least senior role that may decide
     reasons: list[str]  # codes from REASONS, sorted
     explained: list[str]
@@ -180,9 +205,9 @@ def route_leave(
     ):
         codes.add("spouses_same_employer")
     reasons = sorted(codes)
-    role = max((REASONS[c][1] for c in reasons), default=Role.LEAVE_SPECIALIST)
+    role = max((REASONS[c][1] for c in reasons), default=Role.LOCAL_MANAGER)
     return LeaveRoute(
-        route="hr_review" if reasons else "specialist_sign_off",
+        route="hr_review" if reasons else "manager_sign_off",
         decided_by=role.label,
         reasons=reasons,
         explained=[REASONS[c][0] for c in reasons],

@@ -3,7 +3,7 @@
     message -> redact identifiers, look for text aimed at the AI
             -> intake agent: dates and categories (no condition)
             -> code: eligibility, entitlement, who decides (hr/eligibility.py, hr/routing.py)
-            -> explanation agent: a note for the specialist, advisory only
+            -> explanation agent: a note for HR, advisory only
 
 The route and the role come from code. The intake agent's answer is what the rules run on, so
 a wrong extraction changes the result (the eval measures that); the explanation agent can't
@@ -192,8 +192,8 @@ class _Recorder:
 
 
 def _person(reasons: list[str]) -> LeaveRoute:
-    """HR review by a leave specialist or above, for a request the rules couldn't finish."""
-    role = max((REASONS[r][1] for r in reasons), default=Role.LEAVE_SPECIALIST)
+    """HR review by an HR business partner or above, for a request the rules couldn't finish."""
+    role = max((REASONS[r][1] for r in reasons), default=Role.HR_BUSINESS_PARTNER)
     return LeaveRoute(
         route="hr_review",
         decided_by=role.label,
@@ -207,7 +207,7 @@ def _with(route: LeaveRoute, extra: list[str]) -> LeaveRoute:
     reasons = sorted(set(route.reasons) | set(extra))
     role = max(
         [Role[route.decided_by.upper()], *(REASONS[r][1] for r in extra)],
-        default=Role.LEAVE_SPECIALIST,
+        default=Role.LOCAL_MANAGER,
     )
     return LeaveRoute(
         route="hr_review" if reasons else route.route,
