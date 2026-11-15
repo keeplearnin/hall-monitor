@@ -131,7 +131,7 @@ Every model call goes through one function that checks the agent's approved hall
 - [`docs/architecture.html`](docs/architecture.html), for engineering managers and architects
 - [`docs/executive-brief.html`](docs/executive-brief.html), for business leaders
 - [`docs/business-summary.md`](docs/business-summary.md), a business summary in plain English
-- [`docs/pdf/`](docs/pdf/README.md), PDFs to share: architecture and functionality diagrams (four pages, the controls page read from the register) and the executive briefing
+- [`docs/pdf/`](docs/pdf/README.md), files to share: architecture and functionality diagrams (a four-page PDF, the controls page read from the register) and the executive briefing as a PDF and an editable Word document
 - [`docs/board-brief.md`](docs/board-brief.md), one page for a board or risk committee: the risks, the evidence, what isn't proven and the decisions a pilot would need
 - [`docs/readiness-checklist.md`](docs/readiness-checklist.md), what a CIO and a Chief AI Officer would check, each item pass, partial or gap with its proof, and the top gaps
 - [`docs/model-cards.md`](docs/model-cards.md), the AI use inventory and a model card per agent, generated from the registry and the published results
