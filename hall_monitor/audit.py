@@ -80,6 +80,7 @@ def _run(args: argparse.Namespace, log: AuditLog, parser: argparse.ArgumentParse
                 else None,
                 "problems": result.problems,
                 "evidence_erased": result.evidence_erased,
+                "decision_records_erased": result.decision_records_erased,
             },
             indent=2,
         )
