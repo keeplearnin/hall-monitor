@@ -31,6 +31,11 @@ _SEP = rf"(?:{_SP}|[:()\[\].,=]){{0,4}}"  # spaces and punctuation between a cod
 _CODE = rf"(?:(?!USD\b)[A-Z]{{3}}|(?i:{_OTHER_CODES}))\b"
 _OTHER_BEFORE = re.compile(rf"(?:\b{_CODE}{_SEP}|[€£¥]{_SEP}|[-\u2212\u2013\u2014])$")
 _OTHER_AFTER = re.compile(rf"^{_SEP}(?:(?i:in){_SP}+{_SEP})?(?:{_CODE}|[€£¥])")
+# Accounting negatives, refunds like the minus sign: the marked figure in parentheses, ($200.00)
+# or (USD 200.00), or followed by CR ($150.00 CR).
+_OPEN_PAREN = re.compile(rf"\({_SP}*$")
+_CLOSE_PAREN = re.compile(rf"^{_SP}*\)")
+_CREDIT_AFTER = re.compile(rf"^{_SP}*\)?{_SP}*(?i:cr)\b")
 
 
 def _pattern(amount: float, usd: bool) -> re.Pattern[str]:
@@ -58,6 +63,14 @@ def _spans(amount: float, text: str, usd: bool) -> list[tuple[int, int]]:
                 continue
             if _OTHER_AFTER.search(text[after : after + 24]):
                 continue
+            if group == "b":  # past the USD after the figure
+                after += re.match(_USD_AFTER, text[after:]).end()
+            tail = text[after : after + 24]
+            if _CREDIT_AFTER.search(tail) or (
+                _OPEN_PAREN.search(text[max(0, marked_from - 24) : marked_from])
+                and _CLOSE_PAREN.search(tail)
+            ):
+                continue
         spans.append((start, end))
     return spans
 
@@ -68,7 +81,8 @@ def amount_in(amount: float, text: str, *, usd: bool = False) -> bool:
     1,000 doesn't match 1,000.50, and 2026 doesn't match a date, a time or a reference
     (2026-08-14, BA2026). With usd, only a figure the text marks as US dollars counts ($, US$ or
     USD next to it, on the same line) and nothing names another currency beside it: a bare
-    number, EUR 450, CAD $450, Cdn. $450, $450 in CAD or -$20 doesn't. An unrelated capitalised
+    number, EUR 450, CAD $450, Cdn. $450, $450 in CAD or a refund (-$20, ($20.00), $20.00 CR)
+    doesn't. An unrelated capitalised
     three-letter word beside the figure ($45.00 ATM fee) doesn't count either; that claim goes to
     a person. The other-currency list is in _OTHER_CODES; see HM-04's gaps for what it misses."""
     return bool(_spans(amount, text, usd))

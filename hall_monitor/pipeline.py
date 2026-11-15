@@ -41,7 +41,11 @@ from hall_monitor.budgets import CaseBudget, SpendRefused
 from hall_monitor.gateway.cost import UnpricedModelError, total_cost
 from hall_monitor.gateway.injection import SIGNALS, detect_instructions
 from hall_monitor.gateway.redaction import redact_claim
-from hall_monitor.governance.routing import route_claim, route_stopped
+from hall_monitor.governance.routing import (
+    route_claim,
+    route_duplicate_documents,
+    route_stopped,
+)
 from hall_monitor.models import (
     AgentCall,
     ClaimSubmission,
@@ -202,6 +206,7 @@ def triage(
     limits: Limits | None = None,
     clock: Callable[[], float] | None = None,
     spend: SpendLedger | None = None,
+    documents_seen: Callable[[str], bool] | None = None,
 ) -> TriageResult:
     """model_routing=False (the default) runs every agent on its main model.
 
@@ -223,6 +228,10 @@ def triage(
     "triage_result" last. The workflow writes each to the audit log at once. If recording
     fails, the claim doesn't proceed: a failure mid-run stops it for a person, and a failure
     at either end raises.
+
+    documents_seen, if given (the workflow passes TriageRecorder.documents_seen), says whether
+    the claim's documents were already filed with another claim on the policy the result names;
+    if so the claim goes to a person (routing.route_duplicate_documents).
     """
     if agentic:
         from hall_monitor.agentic import Limits as _Limits
@@ -252,6 +261,12 @@ def triage(
     result = _triage_with_stop(
         claim, registry, wording, gateway, client, critic, model_routing, on_event, body, spend
     )
+    if (
+        documents_seen is not None
+        and result.extraction is not None
+        and documents_seen(result.extraction.policy_number)
+    ):
+        result = result.model_copy(update={"routing": route_duplicate_documents(result.routing)})
     if on_event is not None:
         on_event("triage_result", result)
     return result

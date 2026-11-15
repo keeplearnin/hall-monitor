@@ -31,6 +31,7 @@ from hall_monitor.agents import (
 from hall_monitor.budgets import load_budgets
 from hall_monitor.complaints import supervisor as complaint_supervisor
 from hall_monitor.complaints import triage_agent
+from hall_monitor.governance.approval import adjusters_digest, load_adjusters
 from hall_monitor.hr import leave_explainer, leave_intake
 from hall_monitor.hr import supervisor as leave_supervisor
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
@@ -117,6 +118,8 @@ if __name__ == "__main__":
             "agents": current_approvals(resume=_resume(args.resume) if args.resume else None),
             # The spending limits and prices (HM-34): approved by digest, like a hall pass.
             "budgets": {"digest": load_budgets().digest()},
+            # Who may decide claims and their authority limits: approved by digest too.
+            "adjusters": {"digest": adjusters_digest(load_adjusters())},
         },
         sort_keys=True,
     )

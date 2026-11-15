@@ -713,3 +713,32 @@ def test_intermittent_bonding_leave_past_its_year_isn_t_approved_here():
     ).signed("lr_z", demo_private_key("hrs-201"))
     with pytest.raises(DecisionRefused, match="intermittent bonding leave"):
         validate(decision, "lr_z", "e", pack, STAFF)
+
+
+# --- Review finding 20: the signed decision record is checked by verify -----------------------
+
+
+def _record_digest(log, request_id):
+    logged = next(e for e in log.entries(request_id) if e["event"] == "leave_decision")["payload"]
+    rows = log._db.execute("SELECT sha256 FROM evidence").fetchall()
+    return next(row[0] for row in rows if log.keyed_hash(row[0]) == logged["decision_hmac"])
+
+
+def test_the_chain_check_reports_a_changed_or_missing_signed_leave_decision(log):
+    _decide(log, "lr_001", "hrs-101", "approve", weeks=4)
+    _decide(log, "lr_002", "hrs-201", "deny", reason=REASON)
+    assert log.verify().ok and log.verify().decision_records_erased == []
+    changed, erased = _record_digest(log, "lr_001"), _record_digest(log, "lr_002")
+    db = sqlite3.connect(log.path)
+    db.execute("DROP TRIGGER evidence_no_update")
+    db.execute(
+        "UPDATE evidence SET body = replace(body, '4.0', '12.0') WHERE sha256 = ?", (changed,)
+    )
+    db.execute("DELETE FROM evidence WHERE sha256 = ?", (erased,))
+    db.commit()
+    db.close()
+    reader = AuditLog(log.path, read_only=True)
+    result = reader.verify()
+    reader.close()
+    assert any(changed[:12] in p for p in result.problems)
+    assert result.decision_records_erased == ["lr_002"]

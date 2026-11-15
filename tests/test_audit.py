@@ -415,3 +415,22 @@ def test_the_cli_reports_an_unparseable_entry_as_tampering(tmp_path, capsys):
     db.execute("UPDATE audit_log SET payload = 'not json'")
     db.close()
     assert audit_cli.main(["--db", str(path), "show", "claim_001"]) == 3
+
+
+@pytest.mark.parametrize("read_only", [False, True], ids=["normal-open", "read-only"])
+def test_a_same_named_trigger_that_does_nothing_is_reported(log, read_only):
+    """Review finding 19: verify checked only the triggers' names, so a no-op trigger with the
+    right name passed (and a normal open's CREATE ... IF NOT EXISTS leaves it in place)."""
+    db = _raw(log)
+    db.execute("CREATE TRIGGER audit_log_no_update BEFORE UPDATE ON audit_log BEGIN SELECT 1; END")
+    db.execute("UPDATE audit_log SET actor = 'x' WHERE seq = 1")  # the no-op lets this through
+    db.close()
+    reader = AuditLog(log.path, read_only=read_only)
+    problems = reader.verify().problems
+    reader.close()
+    assert any("trigger audit_log_no_update isn't the expected one" in p for p in problems)
+    assert any("trigger audit_log_no_delete is missing" in p for p in problems) is read_only
+
+
+def test_the_shipped_triggers_pass_the_check(log):
+    assert log.verify().ok

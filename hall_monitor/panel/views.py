@@ -277,6 +277,7 @@ _REASONS = (
     rf"pipeline stopped: {_STOP}",
     r"supervisor handed the claim to a person \([a-z_]+\)",
     r"required steps missing or out of date: [a-z_ ]+(?:, [a-z_ ]+)*",
+    r"duplicate_documents: the same documents were filed with an earlier claim on this policy",
 )
 _REJECTIONS = (
     r"the decision names an adjuster who isn't registered",

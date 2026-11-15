@@ -144,3 +144,53 @@ def test_paying_a_risky_claim_with_no_flags_needs_a_senior_adjuster():
     result = result.model_copy(update={"risk": risky})
     with pytest.raises(DecisionRejected, match="senior adjuster"):
         _decide(result, "adj-101", NextStep.PAY, 100.0)
+
+
+# --- Review finding 10: the adjusters file -----------------------------------------------------
+
+_ADJ = (
+    "  - {{id: {id}, name: N, role: R, authority_limit_usd: {limit}, may_pay_flagged: false, "
+    "public_key: k}}\n"
+)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        _ADJ.format(id="adj-1", limit=5000) + _ADJ.format(id="adj-1", limit=25000),
+        _ADJ.format(id="adj-1", limit=".nan"),
+        _ADJ.format(id="adj-1", limit=".inf"),
+        _ADJ.format(id="adj-1", limit=-1),
+        _ADJ.format(id="adj-1", limit=0),
+    ],
+    ids=["duplicate id", "nan limit", "inf limit", "negative limit", "zero limit"],
+)
+def test_a_bad_adjusters_file_is_refused(tmp_path, body):
+    """A later duplicate could raise someone's authority, and a NaN limit lets any payout pass
+    (every comparison with NaN is false)."""
+    bad = tmp_path / "adjusters.yaml"
+    bad.write_text("adjusters:\n" + body)
+    with pytest.raises(ValueError, match="adj-1|adjusters.yaml"):
+        load_adjusters(bad)
+
+
+def test_the_shipped_adjusters_are_approved():
+    from hall_monitor.governance.approval import approved_adjusters
+
+    assert approved_adjusters() == ADJUSTERS
+
+
+def test_a_changed_adjusters_file_is_not_approved(tmp_path):
+    import shutil
+
+    from hall_monitor.governance.approval import AdjustersNotApproved, approved_adjusters
+    from hall_monitor.registry import ADJUSTERS_FILENAME, APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR
+
+    shutil.copy(DEFAULT_REGISTRY_DIR / APPROVALS_FILENAME, tmp_path / APPROVALS_FILENAME)
+    text = (DEFAULT_REGISTRY_DIR / ADJUSTERS_FILENAME).read_text()
+    (tmp_path / ADJUSTERS_FILENAME).write_text(text.replace("5000", "50000"))
+    with pytest.raises(AdjustersNotApproved, match="not the approved version"):
+        approved_adjusters(tmp_path)
+    (tmp_path / ADJUSTERS_FILENAME).write_text("adjusters: [")
+    with pytest.raises(AdjustersNotApproved, match="can't be read"):
+        approved_adjusters(tmp_path)

@@ -39,17 +39,29 @@ CREATE TABLE IF NOT EXISTS audit_log (
     prev_hash TEXT NOT NULL,
     entry_hash TEXT NOT NULL UNIQUE
 );
-CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log
-BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
-CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON audit_log
-BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
 CREATE TABLE IF NOT EXISTS evidence (
     sha256 TEXT PRIMARY KEY,
     body TEXT NOT NULL
 );
-CREATE TRIGGER IF NOT EXISTS evidence_no_update BEFORE UPDATE ON evidence
-BEGIN SELECT RAISE(ABORT, 'evidence is content-addressed and never changes'); END;
 """
+# The triggers, as sqlite_master keeps them (without IF NOT EXISTS): verify compares the stored
+# SQL with these, so a same-named trigger that does something else is reported.
+_TRIGGER_SQL = {
+    "audit_log_no_update": "CREATE TRIGGER audit_log_no_update BEFORE UPDATE ON audit_log\n"
+    "BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END",
+    "audit_log_no_delete": "CREATE TRIGGER audit_log_no_delete BEFORE DELETE ON audit_log\n"
+    "BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END",
+    "evidence_no_update": "CREATE TRIGGER evidence_no_update BEFORE UPDATE ON evidence\n"
+    "BEGIN SELECT RAISE(ABORT, 'evidence is content-addressed and never changes'); END",
+}
+_SCHEMA += "".join(
+    sql.replace("CREATE TRIGGER ", "CREATE TRIGGER IF NOT EXISTS ", 1) + ";\n"
+    for sql in _TRIGGER_SQL.values()
+)
+
+
+def _normal_sql(sql: str) -> str:
+    return " ".join(sql.split()).rstrip(";").strip()
 
 
 def canonical(payload: dict) -> str:
@@ -93,6 +105,9 @@ class Verification:
     # Evidence packs the log refers to that are no longer stored (erased, for example under a
     # data-protection request). Not tampering: their hashes are still in the chain.
     evidence_erased: list[str] = field(default_factory=list)
+    # Requests whose signed HR decision record (RECORD_EVENTS) is no longer stored: erased or
+    # deleted. The log keeps only its keyed hash, so verify can't tell which; it lists them here.
+    decision_records_erased: list[str] = field(default_factory=list)
 
 
 class AlreadyRecorded(RuntimeError):
@@ -109,10 +124,13 @@ def evidence_body(pack: dict) -> str:
     return json.dumps(pack, sort_keys=True)
 
 
-TRIGGERS = ("audit_log_no_update", "audit_log_no_delete", "evidence_no_update")
+TRIGGERS = tuple(_TRIGGER_SQL)
 # Entries that point at stored evidence: a claim's pack, a leave request's (hr/signoff.py), and
 # a never-sent draft (complaints/drafts.py).
 EVIDENCE_EVENTS = ("evidence_pack", "leave_evidence", "draft_stored")
+# Entries that point at a stored signed record by a keyed hash of its SHA-256 (decision_hmac):
+# an HR leave decision (hr/signoff.decide). verify finds the record by that hash.
+RECORD_EVENTS = ("leave_decision",)
 
 
 def _evidence_ref(payload: str) -> str | None:
@@ -303,6 +321,16 @@ class AuditLog:
         return json.loads(row[0]).get("result_sha256") if row else None
 
     @_locked
+    def documents_recorded(self, documents_hmac: str, except_claim: str) -> bool:
+        """Whether a triage result for any claim but except_claim recorded these documents."""
+        row = self._db.execute(
+            "SELECT 1 FROM audit_log WHERE event = 'triage_result' AND claim_id != ?"
+            " AND json_extract(payload, '$.documents_hmac') = ? LIMIT 1",
+            (except_claim, documents_hmac),
+        ).fetchone()
+        return row is not None
+
+    @_locked
     def head(self) -> ChainHead | None:
         row = self._db.execute(
             "SELECT seq, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"
@@ -350,15 +378,19 @@ class AuditLog:
                 f"the anchored head (entry {expect.seq}, {expect.entry_hash[:12]}) is not in the "
                 "chain: it was rewritten or truncated"
             )
-        present = {
-            name
-            for (name,) in self._db.execute("SELECT name FROM sqlite_master WHERE type = 'trigger'")
-        }
-        problems += [
-            f"trigger {name} is missing: entries could have been changed in place"
-            for name in TRIGGERS
-            if name not in present
-        ]
+        present = dict(
+            self._db.execute("SELECT name, sql FROM sqlite_master WHERE type = 'trigger'")
+        )
+        for name, expected in _TRIGGER_SQL.items():
+            if name not in present:
+                problems.append(
+                    f"trigger {name} is missing: entries could have been changed in place"
+                )
+            elif _normal_sql(present[name] or "") != _normal_sql(expected):
+                problems.append(
+                    f"trigger {name} isn't the expected one: entries could have been changed "
+                    "in place"
+                )
         erased = []
         for seq, _, _, event, _, payload, _, _ in rows:
             if event not in EVIDENCE_EVENTS:
@@ -374,6 +406,7 @@ class AuditLog:
                 problems.append(f"entry {seq}: {exc}")
             except ValueError:  # stored under its hash, but not a readable pack
                 problems.append(f"entry {seq}: evidence pack {digest[:12]} can't be read")
+        records_erased = self._check_records(rows, problems)
         head = ChainHead(rows[-1][0], rows[-1][7]) if rows else None
         return Verification(
             ok=not problems,
@@ -381,7 +414,40 @@ class AuditLog:
             head=head,
             problems=problems,
             evidence_erased=erased,
+            decision_records_erased=records_erased,
         )
+
+    def _check_records(self, rows: list, problems: list[str]) -> list[str]:
+        """Signed records the log refers to by keyed hash: each must still be stored unchanged.
+        Returns the IDs whose record is no longer stored; adds changed ones to problems."""
+        entries = [(r[0], r[2], r[5]) for r in rows if r[3] in RECORD_EVENTS]
+        if not entries:
+            return []
+        if self._key is None:
+            problems.append(f"no audit key to check signed decision records: set {KEY_ENV}")
+            return []
+        stored = {
+            self.keyed_hash(digest): digest
+            for (digest,) in self._db.execute("SELECT sha256 FROM evidence")
+        }
+        missing = []
+        for seq, claim_id, payload in entries:
+            try:
+                ref = json.loads(payload)["decision_hmac"]
+            except (ValueError, KeyError, TypeError):
+                ref = None
+            if not isinstance(ref, str):
+                problems.append(f"entry {seq}: signed decision entry is malformed")
+            elif ref not in stored:
+                missing.append(claim_id)
+            else:
+                try:
+                    self.get_evidence(stored[ref])
+                except EvidenceChanged as exc:
+                    problems.append(f"entry {seq}: signed decision record: {exc}")
+                except ValueError:
+                    problems.append(f"entry {seq}: signed decision record can't be read")
+        return missing
 
 
 class TriageRecorder:
@@ -395,14 +461,33 @@ class TriageRecorder:
 
     def __init__(self, log: AuditLog, claim_id: str):
         self.log, self.claim_id = log, claim_id
+        self._attachments: list[str] = []
+
+    def documents_hmac(self, policy_number: str) -> str | None:
+        """A keyed hash of the policy number and the claim's documents, normalised (case,
+        spacing and their order don't count), or None if the claim sent no documents. Keyed, so
+        the log holds neither the documents nor the policy number, nor a hash a guess could
+        confirm."""
+        documents = sorted(" ".join(t.split()).casefold() for t in self._attachments)
+        if not any(documents):
+            return None
+        policy = " ".join(policy_number.split()).upper()
+        return self.log.keyed_hash(canonical({"policy": policy, "documents": documents}))
+
+    def documents_seen(self, policy_number: str) -> bool:
+        """Whether another claim ID's triage result recorded the same documents_hmac: the
+        same documents filed again on the same policy (a restarted triage of this claim doesn't
+        count). Triage results only, so a claim counts once its triage has finished."""
+        digest = self.documents_hmac(policy_number)
+        return digest is not None and self.log.documents_recorded(digest, self.claim_id)
 
     def __call__(self, event: str, item) -> None:
         actor, payload = getattr(self, f"_{event}")(item)
         self.log.append(self.claim_id, event, actor, payload)
 
-    @staticmethod
-    def _claim_submitted(item: dict) -> tuple[str, dict]:
+    def _claim_submitted(self, item: dict) -> tuple[str, dict]:
         claim = item["claim"]
+        self._attachments = [a.text for a in claim.attachments]
         return f"channel:{claim.channel}", {
             "claim_sha256": sha256(claim.model_dump_json()),
             "submitted_at": claim.submitted_at.isoformat(),
@@ -454,9 +539,12 @@ class TriageRecorder:
     def _code_correction(correction: str) -> tuple[str, dict]:
         return "pipeline", {"correction": correction}
 
-    @staticmethod
-    def _triage_result(result) -> tuple[str, dict]:
+    def _triage_result(self, result) -> tuple[str, dict]:
+        extraction = result.extraction
         return "pipeline", {
+            "documents_hmac": self.documents_hmac(extraction.policy_number)
+            if extraction is not None
+            else None,
             "result_sha256": sha256(result.model_dump_json()),
             "route": result.routing.route.value,
             "routing_reasons": result.routing.reasons,
