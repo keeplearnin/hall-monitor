@@ -1194,3 +1194,16 @@ files. No false or overstated claims; 2 Low wording points and one register tidy
 | Plausible: "every model call is charged" leaves out a call that errors after billing (an HM-35 gap) | Low | The architecture page's decision says so |
 | The threat model's new residual missed two HM-35 gaps: a billed-then-raised call isn't charged, and a workflow's case budget sees helpers' spending only when the step returns | Low | Both added |
 | HM-35's tests list didn't name the two tests Review 32 added | Low | Added |
+
+## Review 34 (exec-brief-docx): the executive brief as a Word document
+
+**Reviewer:** the governance-reviewer agent, on the new builder (`docs/pdf/make_exec_docx.py`), the
+`.docx`, the figure and the README edits, offline, with markup-mutation probes. The document
+matched the page word for word. 4 findings, none High, all fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The parser stopped only when a whole list was empty: a chip with an extra attribute merged two questions, and a roadmap item, stat or note with other markup was silently dropped | Medium | Each list is read item by item from its container, any attributes allowed, and the build stops unless every item on the page was read (probed with each mutation) |
+| The README and docstring said the build "can't drift" while partial loss was possible, and didn't say the figure is a hand-refreshed snapshot | Medium | Reworded once the parser was fixed |
+| The image had no alt text | Low | The page's own SVG description is set as the image's description |
+| Bold inside answers and notes was lost, "HALL PASS" was typed into the script, and sections were placed by heading position | Low | Answers and notes keep their bold; the ticket is read from the page; each section takes the heading before its own list |
