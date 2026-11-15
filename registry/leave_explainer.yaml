@@ -1,8 +1,8 @@
 id: leave_explainer
 name: Leave explanation
-version: 0.1.0
+version: 0.2.0
 owner: own-401
-purpose: Explain the code's eligibility result and route to the leave specialist; advisory only.
+purpose: Explain the code's eligibility result and route to the person who decides the request; advisory only.
 risk_tier: medium
 status: active
 model: claude-haiku-5-5

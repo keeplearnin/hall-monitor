@@ -1,4 +1,4 @@
-"""Leave explanation agent: explain the code's result to the leave specialist.
+"""Leave explanation agent: explain the code's result to the person who decides the request.
 
 It reads the checks and the route the code produced, never the employee's message, and writes
 advisory text. The result it explains is the code's and stays the code's.
@@ -18,13 +18,14 @@ from hall_monitor.hr.routing import LeaveRoute
 from hall_monitor.registry import DataClass, Registry
 
 AGENT_ID = "leave_explainer"
-PROMPT_VERSION = "leave-explainer-v1"
+PROMPT_VERSION = "leave-explainer-v2"
 # The reason category (an own serious health condition, say) is health information.
 CARRIES = frozenset({DataClass.HEALTH})
 
 SYSTEM_PROMPT = """\
-You explain a leave-of-absence result to an HR leave specialist. Code checked the federal FMLA \
-rules and decided the route; you cannot change either, and the specialist decides the request.
+You explain a leave-of-absence result to the person who decides the request: the local manager \
+for a plain request, or HR for anything flagged. Code checked the federal FMLA rules and decided \
+the route; you cannot change either, and that person decides the request.
 
 The result is inside <leave_result> tags: each check with its rule, its answer (passed true, \
 false, or null when the records can't decide it) and the facts it used, then the route and \
@@ -36,7 +37,7 @@ answer is what it is, using only the facts given. Use exactly the check ids give
 - Never contradict the result: don't call a failed check met, a check that can't be decided \
 met or failed, or the employee eligible when the result says otherwise.
 - Don't guess facts that aren't given, and don't mention or guess any medical condition.
-- The summary says, in two or three sentences, what the specialist should look at first."""
+- The summary says, in two or three sentences, what the person deciding should look at first."""
 
 
 def render_result(assessment: Assessment, route: LeaveRoute) -> str:
