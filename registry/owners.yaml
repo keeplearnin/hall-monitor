@@ -14,3 +14,6 @@ owners:
   - id: own-501
     name: Morgan Adeyemi
     role: Complaint desk lead (simulated company)
+  - id: own-601
+    name: Dana Whitfield
+    role: Channel marketing operations lead (simulated vendor)

@@ -1,0 +1,15 @@
+# Hand-written answer keys for the proof reviewer (HM-37): the concerns a careful person would
+# raise from each claim's documents in documents.yaml. Written from the documents, not from any
+# model's output. Changes are logged in README.md.
+review_answers:
+  C-101: []
+  C-102: [vague_invoice_line]   # "Hospitality" with no detail, on a roadshow
+  C-103: []                      # the duplicate is the rules' finding, not the reviewer's
+  C-104: []                      # competitor content is extracted and capped by the rules
+  C-105: []
+  C-106A: []
+  C-107: []                      # public-sector hospitality is the rules' finding
+  C-108: []                      # text aimed at the AI and the payee are the rules' findings
+  B-01: [recycled_proof]         # a 2025 tear sheet for a 2026 activity
+  B-03: [evidence_mismatch]      # the attendee list says the event was cancelled
+  B-05: [edited_document]        # the invoice was edited after issue

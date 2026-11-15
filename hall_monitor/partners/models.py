@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 from decimal import Decimal
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -115,3 +116,74 @@ class Answer(_Strict):
     reasons: list[str]
     reimbursable_usd: Decimal
     held_usd: Decimal
+
+
+# --- Slice 2: what the agents read and return (HM-37) ----------------------------------------
+
+LineCategory = Literal[
+    "media", "venue", "hospitality", "merchandise", "agency_fee", "alcohol", "travel",
+    "gift_card", "other",
+]  # fmt: skip
+
+
+class EvidenceItem(_Strict):
+    type: str  # the upload category the partner chose in the portal
+    text: str  # text found in the evidence (untrusted)
+
+
+class Documents(_Strict):
+    """A claim's uploads: the invoice's text and the evidence (untrusted input)."""
+
+    invoice: str
+    evidence: list[EvidenceItem] = []
+
+
+class Submission(_Strict):
+    """What the partner portal holds for a claim, as structured fields: never from the
+    documents and never from an agent."""
+
+    id: str
+    partner_id: str
+    preapproval_id: str | None
+    activity_type: str
+    submitted_on: dt.date
+    claimed_usd: Decimal
+    payee_account: str
+    evidence: list[str]  # upload categories
+    benchmarks: dict[str, Decimal] = {}  # the vendor's rate card for this activity, by category
+
+
+class ExtractedLine(BaseModel):
+    category: LineCategory
+    description: str = Field(max_length=200)
+    amount_usd: float
+    units: int | None = None
+
+
+class ClaimExtraction(BaseModel):
+    """What the intake agent reads off the documents. Code checks every value against them."""
+
+    invoice_number: str | None
+    invoice_issuer: str | None
+    invoice_total_usd: float | None
+    lines: list[ExtractedLine]
+    activity_start: dt.date | None
+    activity_end: dt.date | None
+    competitor_content: bool
+    public_sector_attendees: bool
+
+
+class ProofConcern(StrEnum):
+    RECYCLED_PROOF = "recycled_proof"
+    EDITED_DOCUMENT = "edited_document"
+    VAGUE_INVOICE_LINE = "vague_invoice_line"
+    EVIDENCE_MISMATCH = "evidence_mismatch"
+    LOW_BRAND_CONTENT = "low_brand_content"
+
+
+class ProofReview(BaseModel):
+    """The proof reviewer's answer: concerns from a closed list and a confidence. No free text,
+    no route and no amount: it can only add review."""
+
+    concerns: list[ProofConcern]
+    confidence: Literal["high", "medium", "low"]

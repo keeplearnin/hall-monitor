@@ -1250,3 +1250,7 @@ held throughout. All fixed test-first or stated as gaps.
 | The duplicate wording didn't match the code | Low | Design and reason text aligned |
 | Split detection and pre-approval use ignore paid history; one bad reference stops the book | Low | Stated in HM-36's gaps |
 | Docs drift (the data index, the business summary, an unused term, MI-21 mapped with no audit events yet) | Low | Fixed; MI-21 dropped until slice 3 |
+
+## Review 37 (partner-claims-agents): slice 2 of the partner claims example (HM-37)
+
+**Reviewer:** pending (the governance-reviewer agent runs before the PR opens).

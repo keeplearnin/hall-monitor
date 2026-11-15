@@ -2112,9 +2112,8 @@ controls:
       risks: [RI-22, RI-24]
       mitigations: [MI-18]
     gaps: >-
-      Rules only (slice 1): no agent reads the documents yet, so the claim arrives as typed
-      fields; whether proof is genuine (recycled screenshots, edited invoices) and whether a
-      vague invoice line hides ineligible cost need the judgment agent of slice 2. No pipeline,
+      The rules assess typed fields; the agents that read the documents and judge the proof
+      are HM-37 (slice 2), and nothing runs them in a pipeline yet. No pipeline,
       audit events, spend check, panel page or evals yet. The approval ladder ($5,000 /
       $25,000) and the caps are assumptions: no vendor publishes its thresholds. The answer
       keys and the program terms were written by one person, and the claims are fictional. The
@@ -2127,6 +2126,64 @@ controls:
       route it instead. Duplicate matching normalises names but can still miss a determined
       variation (a different issuer name). retention_months is informational: no rule reads it.
       No audit events are written yet, so decisions aren't logged (slice 3).
+
+  - id: HM-37
+    name: Partner claim agents read and flag; code checks them (partner claims example)
+    what: >-
+      Two agents read a partner claim's documents inside the shared controls (hall pass by
+      digest, approved prompt hash, data class financial only, kill switch, budgets, typed
+      output, no tools). The portal's fields (partner, pre-approval, activity type, amount
+      claimed, payee, upload categories) never come from a document or an agent, and neither
+      agent sees the partner, pre-approval, payee or amount claimed. The documents are redacted,
+      fenced and escaped before either agent reads them. partner_claim_intake extracts the
+      invoice number, issuer, lines, total and activity dates; code checks every extracted
+      number, name and date against the documents' own text and adds extraction_unsupported
+      (review) for any value that isn't there. A failed intake call or nothing extracted gives
+      extraction_failed: review, nothing reimbursable, the whole claim held, and the reviewer
+      not asked. Text aimed at the AI is found by code in the raw documents (HM-36), not by an
+      agent. partner_proof_reviewer returns concerns from a closed list of five (recycled
+      proof, edited document, vague invoice line, evidence mismatch, low brand content) and a
+      confidence, with no free-text field; each concern maps to a fixed reason, tier and least
+      senior role, and the result is the rules' assessment with those reasons added. The tier
+      and role only go up and no rule finding is removed; an edited document needs the finance
+      controller. A failed review adds review_failed and a low-confidence one review_uncertain,
+      both review. Tested on 11 documented claims with scripted agents against hand-written
+      reviewer answer keys.
+    status: partial
+    code:
+      - hall_monitor/partners/prepare.py::prepare
+      - hall_monitor/partners/documents.py::check_extraction
+      - hall_monitor/partners/documents.py::claim_from_extraction
+      - hall_monitor/partners/intake_agent.py::run_claim_intake
+      - hall_monitor/partners/review_agent.py::run_proof_review
+    tests:
+      - tests/test_partner_agents.py::test_both_agents_have_hall_passes_with_no_tools_and_financial_data_only
+      - tests/test_partner_agents.py::test_a_stopped_intake_agent_makes_no_call_and_the_claim_goes_to_a_person
+      - tests/test_partner_agents.py::test_documents_are_redacted_and_fenced_before_the_intake_agent_sees_them
+      - tests/test_partner_agents.py::test_the_agents_never_see_the_partner_payee_or_amount_claimed
+      - tests/test_partner_agents.py::test_an_extracted_value_not_in_the_documents_is_caught
+      - tests/test_partner_agents.py::test_an_invented_amount_sends_the_claim_to_review_whatever_the_rules_say
+      - tests/test_partner_agents.py::test_the_portal_fields_stay_the_portal_s
+      - tests/test_partner_agents.py::test_text_aimed_at_the_ai_is_read_from_the_raw_documents_not_the_agent
+      - tests/test_partner_agents.py::test_each_documented_claim_gets_the_rules_answer_plus_the_review
+      - tests/test_partner_agents.py::test_the_reviewer_can_only_add_review
+      - tests/test_partner_agents.py::test_a_clean_review_doesn_t_clear_a_rule_finding
+      - tests/test_partner_agents.py::test_a_failed_extraction_reimburses_nothing_and_goes_to_a_person
+      - tests/test_partner_agents.py::test_a_failed_review_goes_to_a_person_and_keeps_the_rules_findings
+    evidence: []
+    nist: [MAP 3.5, MEASURE 2.7, MANAGE 1.3]
+    finos:
+      risks: [RI-01, RI-22, RI-24]
+      mitigations: [MI-03, MI-18]
+    gaps: >-
+      Scripted agents only: no live run has measured either agent, so there are no accuracy
+      numbers yet (slice 4). The extraction check confirms each value appears in the documents,
+      not that it is in the right place: a total swapped with a line amount that is also on the
+      invoice passes it (the rules' lines-don't-add-up check catches some such swaps). The
+      intake agent chooses each line's category, and the benchmarks and exclusions follow it; a
+      miscategorised line is not caught by code. Redaction is pattern-based. The reviewer's
+      answer keys cover 11 claims and were written by one person. No pipeline, audit events or
+      panel page yet (slices 3 and 5).
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 
