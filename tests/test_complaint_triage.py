@@ -449,10 +449,12 @@ def test_a_complaint_claimed_by_a_killed_run_goes_to_a_person_on_the_next_run(tm
     [
         ("Our team will resolve this for you.", True),
         ("Text us at 555 0199.", True),
-        ("We will contact you once our review is complete.", False),
+        # Promising contact is a commitment, and any run of digits could be a number to call:
+        # both refused since review 25 (the agent is never given the complaint ID).
+        ("We will contact you once our review is complete.", True),
         ("We will carefully review your complaint.", False),
-        ("We'll get back to you after a person has reviewed it.", False),
-        ("Your reference is complaint 28750001.", False),
+        ("We'll get back to you after a person has reviewed it.", True),
+        ("Your reference is complaint 28750001.", True),
         ("We will review your complaint and be in touch.", False),
     ],
 )
@@ -466,3 +468,42 @@ def test_the_design_lists_exactly_the_routing_reasons():
     design = (ROOT / "docs" / "complaint-desk-design.md").read_text()
     table = set(__import__("re").findall(r"^\| `([a-z_]+)` \|", design, __import__("re").M))
     assert table == set(REASONS)
+
+
+# --- Review 25 fixes ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        "Please write to us at 100 Main Street, Springfield, IL 62701.",
+        "See help.examplebank.ai or examplebank.app for updates.",
+        "Message us at @ExampleBankHelp.",
+        "Please call 1-800-FLOWERS or 18005550199.",
+        "You will receive a full credit.",
+        "We are going to reverse the charge and send you a check.",
+        "Rest assured, you will get your money back.",
+        "Ask for Sarah in collections, extension 4471.",
+        "We will respond by Friday.",
+        "Someone will contact you within two business days.",
+        # Encoded the way an attacker would hide them.
+        "See help&#46;examplebank&#46;ai.",
+        "You w\u200bill rec\u200beive a full credit.",
+        "Visit examplebank\uff0eapp today.",
+    ],
+)
+def test_a_draft_with_a_way_to_reach_someone_or_a_commitment_is_refused(draft):
+    assert draft_problems(draft), draft
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        "Thank you for your complaint about the late fee. We have received it, and a member of "
+        "our complaint team will review what happened.",
+        "Thank you. A person will review your complaint.",
+        "Thank you for your complaint. A member of our team will review it.",
+    ],
+)
+def test_a_neutral_internal_draft_still_passes(draft):
+    assert draft_problems(draft) == []

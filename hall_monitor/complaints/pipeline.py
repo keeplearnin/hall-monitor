@@ -10,8 +10,8 @@
 Every complaint ends with a person; the route says which queue and why. Any failure of the agent
 (a refusal, a stop, an unapproved prompt, an API error, an answer that doesn't validate) sends
 the complaint to specialist review with the reason agent_failed, and never invents an answer.
-A draft that promises an outcome or carries a link, email address or phone number is not kept;
-the log records why.
+A draft that promises an outcome, contact or a deadline, or carries any way to reach someone, is
+not kept; the log records why.
 
 Audit entries are scoped "cfpb-<complaint id>", so they can't collide with claims or leave
 requests. They carry IDs, hashes, codes and costs; never the summary or the draft's text.
@@ -64,7 +64,7 @@ from hall_monitor.complaints.triage_agent import (
     run_complaint_triage,
 )
 from hall_monitor.gateway.cost import UnpricedModelError, total_cost
-from hall_monitor.gateway.injection import detect_in_texts
+from hall_monitor.gateway.injection import decoded, detect_in_texts
 from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.governance.audit import AlreadyRecorded, AuditLog
 from hall_monitor.models import AgentCall, StepOutcome, StepRefusal
@@ -74,26 +74,59 @@ from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 ROUTED = "complaint_routed"
 RECEIVED = "complaint_received"
 
-# A draft is for a person to adapt, not a commitment: one that promises money or an outcome, or
-# carries a way to reach someone, is not kept.
+# A draft is for a person to adapt, not a commitment, and is never sent. The check is strict on
+# purpose (review 25): one that promises money, an outcome, contact or a deadline, or carries any
+# way to reach someone (a link or domain, an email address, a handle, a phone number, an address,
+# an extension, a person to ask for) is not kept. Any run of three or more digits is refused: it
+# could be a phone number, an address or an extension, and the agent is never given a reference.
+_NUMBER_WORDS = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|a few|few|several)"
+_WEEKDAYS = r"(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
 _DRAFT_PROBLEMS: dict[str, re.Pattern[str]] = {
     "promises_an_outcome": re.compile(
         r"\b(?:refund|reimburs|compensat|guarantee"
         r"|(?:will|'ll) (?:\w+ )?(?:refund|credit|waive|remove|delete|reverse|correct|fix|resolve|"
         r"pay|close|cancel|forgive|update your|adjust)"
         r"|will be (?:credited|waived|removed|refunded|reversed|corrected|deleted|closed|paid|"
-        r"fixed|resolved|cancelled|canceled|forgiven|adjusted)"
+        r"fixed|resolved|cancelled|canceled|forgiven|adjusted|contacted|called|sent)"
         r"|has been (?:resolved|refunded|credited|waived|corrected|fixed)"
-        r"|within \d+ (?:business |working )?(?:days?|hours?|weeks?))",
+        # will / shall / going to + an outcome or contact, up to two words between.
+        r"|(?:will|shall|'ll|going to|are to|is to)\s+(?:\w+\s+){0,2}?"
+        r"(?:receive|get|refund|reverse|credit|respond|reply|contact|call|phone|email|e-mail|"
+        r"text|write|send|mail|reach|return|reimburse|issue|restore|make (?:this|it) right|"
+        r"put (?:the|your) money back)\b"
+        r"|money back|full credit"
+        # Deadlines.
+        rf"|within (?:the next )?{_NUMBER_WORDS}\s+(?:business |working |calendar )?"
+        r"(?:days?|hours?|weeks?|months?)"
+        rf"|\b(?:by|before|until) (?:next |this |the end of |end of )?"
+        rf"(?:{_WEEKDAYS}|tomorrow|today|tonight|end of (?:the )?(?:day|week|month)|"
+        r"close of business)"
+        r"|\b(?:in|over) the (?:next|coming) (?:few )?(?:days?|hours?|weeks?))",
         re.I,
     ),
     "has_a_link": re.compile(
-        r"https?://|www\.|\b[a-z0-9-]+\.(?:com|org|net|gov|io|co|us|uk|info|biz)\b", re.I
+        # https://, www., or any domain-shaped token with any top-level domain.
+        r"https?://|www\.|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,24}\b",
+        re.I,
     ),
     "has_an_email_address": re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b"),
-    # Digits in groups, as phone numbers are written; one unbroken run (a reference) isn't one.
+    "has_a_handle": re.compile(r"(?<![\w.])@[A-Za-z0-9_]{2,}"),
+    # Digits in groups, as phone numbers are written; any longer run is caught below.
     "has_a_phone_number": re.compile(
         r"(?:\+\d{1,3}[\s.-]?)?\(?\b\d{2,4}\)?(?:[\s.-]\d{3,4}){2}\b|\b\d{3}[\s.-]\d{4}\b"
+        r"|\b1[\s.-]?8[0-9]{2}[\s.-]?[A-Z]{4,}"  # vanity numbers: 1-800-FLOWERS
+    ),
+    "has_a_digit_run": re.compile(r"\d(?:[\s().-]?\d){2,}"),
+    "has_an_address": re.compile(
+        r"\b\d+\s+(?:\w+\s+){1,3}(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr|"
+        r"way|court|ct|place|pl|plaza|square|suite|ste|floor|fl)\b"
+        r"|\bp\.?\s?o\.?\s+box\b|\b(?:write|mail) (?:to )?us\b|\bsuite \d",
+        re.I,
+    ),
+    "names_someone_to_reach": re.compile(
+        r"\bext(?:ension|\.)?\s*#?\s*\d|\bask for\b|\b(?:speak|talk) (?:to|with) \w+ in\b"
+        r"|\b(?:dial|call|phone|text|ring) (?:us|me|our|them)\b",
+        re.I,
     ),
 }
 
@@ -148,7 +181,14 @@ def scope_id(complaint_id: str) -> str:
 
 
 def draft_problems(text: str) -> list[str]:
-    return sorted(name for name, pattern in _DRAFT_PROBLEMS.items() if pattern.search(text))
+    """The checks the draft fails, searched as written and as a reader would see it (entities,
+    full-width forms, look-alike letters and invisible characters undone)."""
+    seen = decoded(text)
+    return sorted(
+        name
+        for name, pattern in _DRAFT_PROBLEMS.items()
+        if pattern.search(text) or pattern.search(seen)
+    )
 
 
 def _cost(calls: list[AgentCall]) -> tuple[float, str | None]:
@@ -321,9 +361,14 @@ def _prepare(
             keep(run.call)
             triages.append(run.output)
 
+    discard = False
+
     def failed_in(exc: BaseException) -> str:
         """Which part failed: on the agentic path, anything but the triage call itself is the
-        supervisor's loop (review 23), so the reason doesn't blame the triage agent."""
+        supervisor's loop (review 23), so the reason doesn't blame the triage agent. A stop on
+        the triage agent after it answered marks its answers for discarding (review 25)."""
+        nonlocal discard
+        discard = discard or getattr(exc, "triage_stopped", False) is True
         if not agentic or getattr(exc, "desk_stage", None) == "triage":
             return "agent_failed"
         return "supervisor_failed"
@@ -349,6 +394,13 @@ def _prepare(
         stopped, failure = f"unexpected {type(exc).__name__}", failed_in(exc)
     if failure == "supervisor_failed":
         stopped = f"desk supervisor: {stopped}"
+    triage_runs = len(triages)
+    if discard and triages:
+        # The triage agent was stopped after it answered: a stop says its output can't be
+        # trusted, so no answer of it routes the complaint or leaves a draft. With no triage the
+        # agentic route is specialist review at high urgency (HR's _end does the same).
+        triages.clear()
+        stopped = f"{stopped}; the stopped triage agent's answer was discarded"
     triage = triages[0] if triages else None
     if failure is not None:
         pipeline_reasons.add(failure)
@@ -391,7 +443,7 @@ def _prepare(
         stopped_reason=stopped,
         cost_usd=cost,
         mode="agentic" if agentic else "fixed",
-        triage_runs=len(triages),
+        triage_runs=triage_runs,
         supervisor_steps=steps,
     )
     if audit is not None:
@@ -420,7 +472,8 @@ def _prepare(
                 ),
                 "scripted": scripted,
                 "mode": "agentic" if agentic else "fixed",
-                "triage_runs": len(triages),
+                "triage_runs": triage_runs,
+                "triage_discarded": discard and triage_runs > 0,
                 "supervisor_path": [step.action.value for step in steps],
             },
             once=True,
@@ -510,6 +563,8 @@ def _supervise(
             except Exception as exc:
                 if agent_id != SUPERVISOR:
                     exc.desk_stage = "triage"  # type: ignore[attr-defined]
+                    # It answered before the stop: the caller discards its answers.
+                    exc.triage_stopped = True  # type: ignore[attr-defined]
                 raise
 
     def spend() -> None:

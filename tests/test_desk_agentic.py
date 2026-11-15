@@ -435,9 +435,10 @@ def test_an_interrupted_run_before_triage_goes_at_high_urgency(tmp_path):
     assert routed["payload"]["urgency"] == "high"
 
 
-def test_a_triage_that_answered_then_was_stopped_is_shown_as_answered(registry_dir, tmp_path):
+def test_a_triage_that_answered_then_was_stopped_is_shown_as_discarded(registry_dir, tmp_path):
     """Final re-review note: a stop at finish made it agent_failed, and the page said "no
-    answer" beside a kept draft."""
+    answer" beside a kept draft. Since review 25 the stopped agent's answer is discarded, draft
+    included, so the page says "no answer" and shows no draft: the two agree."""
     from hall_monitor.panel import desk, views
 
     registry = Registry.from_dir(registry_dir)
@@ -453,7 +454,7 @@ def test_a_triage_that_answered_then_was_stopped_is_shown_as_answered(registry_d
     audit.close()
     page = desk.complaint_desk(views.Sources(audit_db=tmp_path / "audit.sqlite"))
     (shown,) = [c for c in page["complaints"] if c["state"] == "routed"]
-    assert shown["draft_kept"] and shown["source"] != "no answer"
+    assert not shown["draft_kept"] and shown["source"] == "no answer"
 
 
 def test_a_stop_on_the_triage_agent_after_it_answered_halts_at_the_next_step(registry_dir):
@@ -485,3 +486,43 @@ def test_a_stop_during_the_triage_call_means_no_further_supervisor_turn(registry
     result, client = _run(triage=triage, registry=registry)
     assert len(client.messages.supervisor_calls) == 1
     assert "agent_failed" in result.route.reasons
+
+
+# --- Review 25 fixes ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("when", ["at_finish", "before_recheck"])
+def test_a_triage_agent_stopped_after_it_answered_has_its_answer_discarded(
+    registry_dir, tmp_path, when
+):
+    """A stop is a judgement that the agent's output can't be trusted: its triage is not used
+    for routing and its draft is not kept; the complaint goes to specialist review at high
+    urgency, as if no agent had read it (HR's _end does the same for the leave agents)."""
+    registry = Registry.from_dir(registry_dir)
+    turns = []
+
+    def answer_(request):
+        turns.append(1)
+        view = view_from_content(request["messages"][0]["content"])
+        if when == "before_recheck" and view.triages:
+            _stop(registry_dir, "complaint_triage")
+            return _d(A.RECHECK_TRIAGE)
+        decision = scripted_desk_answer(request)
+        if decision.action is A.FINISH:
+            _stop(registry_dir, "complaint_triage")
+        return decision
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    low = answer(urgency=Urgency.LOW)
+    result, _ = _run(answer_, registry=registry, audit=audit, triage=low)
+    entries = audit.entries()
+    audit.close()
+    assert result.triage is None and result.draft_sha256 is None
+    assert result.route.queue == "specialist_review"
+    assert result.route.urgency is Urgency.HIGH
+    assert "agent_failed" in result.route.reasons
+    assert "discarded" in result.stopped_reason
+    assert "draft_stored" not in [e["event"] for e in entries]
+    (routed,) = [e["payload"] for e in entries if e["event"] == "complaint_routed"]
+    assert routed["category"] is None and routed["draft_sha256"] is None
+    assert routed["urgency"] == "high"
