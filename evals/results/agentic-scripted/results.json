@@ -1,8 +1,8 @@
 {
   "meta": {
-    "run_at": "2026-11-15 23:12 UTC",
-    "git_commit": "5499b0b6731f2e7353b97c00f7394bd56b741540",
-    "git_dirty": true,
+    "run_at": "2026-11-15 23:49 UTC",
+    "git_commit": "fcf7455b5d7a9b6f77e572c3eefb2600d3017bb2",
+    "git_dirty": false,
     "mode": "scripted-answer-key",
     "claims": 36,
     "complaints": 500,
@@ -58,11 +58,11 @@
       },
       {
         "agent_id": "leave_explainer",
-        "agent_version": "0.1.0",
+        "agent_version": "0.2.0",
         "model": "claude-haiku-5-5",
-        "manifest_digest": "a1df1e0caf66cb954771e4c48374321eb881874fbd4a58cfd8f559ef93b6696b",
-        "prompt_version": "leave-explainer-v1",
-        "prompt_template_sha256": "b7679df66c06f0449fac0c47cbb1760faaf8a2d0881a3aeaa95d932be2ea1b39"
+        "manifest_digest": "8f6b57741d2fe2d5c406fec61bc2eaf5b5cd32cb657b99f293a1a1a321f14c5b",
+        "prompt_version": "leave-explainer-v2",
+        "prompt_template_sha256": "6e75b9a1a7a2913a1ee8c7549196a0da2341c5519a9111d5405492f5196464a5"
       },
       {
         "agent_id": "leave_intake",

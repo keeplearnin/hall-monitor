@@ -663,9 +663,8 @@ controls:
     gaps: >-
       The gate checks published results; it doesn't run live evals itself (that costs money and
       needs an API key), so a stale result is only a warning until a fresh baseline exists.
-      Until then the gate doesn't block a regression: today the claims baseline, the seeded
-      critic eval and the scripted agentic comparison (which records leave explainer 0.1.0)
-      are flagged stale. A failing check fails CI but doesn't block a
+      Until then the gate doesn't block a regression: today the claims baseline and the seeded
+      critic eval are flagged stale. A failing check fails CI but doesn't block a
       merge: main has no branch protection yet. Metrics other than unsafe routes are read
       from the summary each run wrote. The live-eval workflow runs only from main, but that guard
       is in the workflow file, which a branch can edit in its own copy: the API key must be a
@@ -696,11 +695,7 @@ controls:
       risks: [RI-19]
       mitigations: [MI-06]
     gaps: >-
-      Data quality is documented, not monitored; there is no drift detection. The live leave
-      run (evals/results/hr-agentic-live) was published as results.json only, with no report
-      or findings note beside it: its limits (one run, 28 short requests and keys by one
-      author) are stated in HM-22, HM-32 and the README, not in the result folder, and the
-      model cards' link to its report.md doesn't resolve yet.
+      Data quality is documented, not monitored; there is no drift detection.
 
   - id: HM-19
     name: Kill switch

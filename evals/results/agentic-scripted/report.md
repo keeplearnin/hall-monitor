@@ -1,6 +1,6 @@
 # Agentic path against the fixed path (offline, scripted)
 
-Run 2026-11-15 23:12 UTC at 5499b0b6731f, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
+Run 2026-11-15 23:49 UTC at fcf7455b5d7a, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
 
 Fixed path: routes {'auto': 16, 'adjuster': 20}, 5.0 specialist calls and 0.0124 USD per claim (fake token counts).
 
