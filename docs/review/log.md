@@ -1207,3 +1207,21 @@ matched the page word for word. 4 findings, none High, all fixed.
 | The README and docstring said the build "can't drift" while partial loss was possible, and didn't say the figure is a hand-refreshed snapshot | Medium | Reworded once the parser was fixed |
 | The image had no alt text | Low | The page's own SVG description is set as the image's description |
 | Bold inside answers and notes was lost, "HALL PASS" was typed into the script, and sections were placed by heading position | Low | Answers and notes keep their bold; the ticket is read from the page; each section takes the heading before its own list |
+
+## Review 35 (worked-example-skill): a skill for adding a worked example
+
+**Reviewer:** the governance-reviewer agent, on `.claude/skills/new-worked-example/SKILL.md`,
+offline, against the code and tests. Every path, symbol, command, ADR number and PR reference
+checked out, and nothing in it is unfit for a public repo. 9 findings, none High, all fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| Missing: a new agent must be in `notices` or `readers_of_nothing_untrusted`, with an `UNTRUSTED_<X>_NOTICE` in its prompt if it reads untrusted text (`tests/test_registry.py`) | Medium | Added |
+| Missing: `EXPECTED_AGENTS` in `tests/test_registry.py` | Medium | Added |
+| A new workflow needs the `WORKFLOWS` tuple and `test_the_shipped_budgets_are_approved`, not only the `Workflow` Literal; the budget owner and model price must exist | Medium | Added |
+| The ADR rules `tests/test_docs.py` and `tests/test_controls.py` enforce (status line, no gaps, a cited control with real code and tests) weren't stated, so an ADR "before code" can't pass alone | Medium | Stated; design doc, ADR and control land together in slice 1 |
+| `AGENT_MODULES` is built from per-workflow tuples | Low | Reworded |
+| The model-cards command was missing from the steps and the checks | Low | Added |
+| The panel also needs `_SHOWN_FIELDS`, a `NAV` entry and a route | Low | Added |
+| "ADR 0029 was marked Proposed until confirmed" implied it was confirmed | Low | Reworded: still Proposed |
+| Plausible: review numbers collide too, and the README's evidence breakdown is hand-kept | Low | Both noted |
