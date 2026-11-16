@@ -14,6 +14,18 @@ PAGES = [
     DOCS / "adr" / "README.md",
     DOCS / "board-brief.md",
     *(DOCS / "review").glob("*.md"),
+    *sorted((DOCS / "examples").glob("*.md")),
+    ROOT / "README.md",
+]
+EXAMPLE_HEADINGS = [
+    "Why this domain",
+    "What the agents do",
+    "What code decides",
+    "Who decides",
+    "Data",
+    "Results",
+    "Run it",
+    "Where it lives",
 ]
 CONTROL_IDS = {c["id"] for c in load_register()["controls"]}
 
@@ -31,7 +43,7 @@ def _headings(page: Path) -> set[str]:
     }
 
 
-@pytest.mark.parametrize("page", PAGES, ids=lambda p: str(p.relative_to(DOCS)))
+@pytest.mark.parametrize("page", PAGES, ids=lambda p: str(p.relative_to(ROOT)))
 def test_relative_links_resolve(page):
     for target in _local_links(page):
         path, _, anchor = target.partition("#")
@@ -68,8 +80,18 @@ def test_adr_0001_lists_every_routing_check():
         "incident date",
         "claim documents",
         "add up",
+        "already filed",
     ):
         assert fact in adr, fact
+    # What the code no longer does (review 39, finding 1).
+    assert "named only in a header still counts as USD" not in adr
+    assert "traces as $20" not in adr
+
+
+@pytest.mark.parametrize("page", sorted((DOCS / "examples").glob("*.md")), ids=lambda p: p.name)
+def test_every_example_page_has_the_same_headings(page):
+    headings = re.findall(r"^## (.+)$", page.read_text(), re.M)
+    assert headings == EXAMPLE_HEADINGS
 
 
 def test_the_readme_counts_the_controls_in_the_register():
