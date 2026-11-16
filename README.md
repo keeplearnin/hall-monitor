@@ -3,7 +3,7 @@
 [![CI](https://github.com/keeplearnin/hall-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/keeplearnin/hall-monitor/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-Governance patterns for agentic AI in regulated financial services. Worked example: insurance claims triage.
+Governance patterns for agentic AI in regulated financial services. Worked examples: insurance claims triage, then leave of absence, a complaint desk and partner marketing-fund claims.
 
 Every agent needs a hall pass. hall-monitor checks it, watches where the agent goes, writes everything down, and calls a grown-up when it matters.
 
@@ -21,91 +21,28 @@ Those answers usually live in policy documents. hall-monitor puts them in code:
 - **Every change is checked in CI**: tests, lint, the approvals check and the eval gate run on every PR, and CI fails a prompt or model change that has no new approval (the agent is also refused at run time until it has one). A failing check doesn't block a merge yet: that needs branch protection, which isn't on. *The gate doesn't yet block regressions: the published claims results were scored on earlier agent versions, so it warns about stale results rather than failing until a fresh baseline is published. The one live result on the currently approved agents, the leave path's, is a required check.*
 - **Every control maps to a framework** (NIST AI RMF and the FINOS AI Governance Framework), so risk, compliance and audit teams can evaluate it without reading the code. See [`docs/controls.md`](docs/controls.md).
 
-The governance layer is the product. Claims triage is the proof that it works on a real-shaped regulated workflow.
+The governance layer is the product. The worked examples are the proof that it works on real-shaped regulated workflows.
 
-## The worked example: insurance claims triage
+## Worked examples
 
-When a customer files a claim, someone has to read it, check it against the policy, spot anything suspicious, and decide what happens next: pay it, ask for more information, investigate, or deny it. Claims are high-volume and time-sensitive, they carry personal and sometimes medical information, and a wrong denial harms a real customer. That makes triage a good test of whether governed agents can speed up the work without taking unacceptable risk.
+Four regulated-shaped workflows run on the same controls. Each has one page with the same headings: why the domain, what the agents do, what code decides, who decides, the data, results, how to run it and where the code lives.
 
-The synthetic claims in this repo cover trip cancellation, lost or delayed baggage, and emergency medical expenses abroad.
+| Example | What it shows | How far it's built | Live results |
+|---|---|---|---|
+| [Insurance claims triage](docs/examples/claims.md) | Five agents and a supervisor prepare a claim; code routes denials, large payouts, fraud flags and any failure to an adjuster, who signs the decision | Most complete: agentic path, approval gate, signed decisions, panel; adversarial and fairness results not yet published | Older agent versions only |
+| [Leave of absence (FMLA)](docs/examples/leave.md) | Eligibility and entitlement rules in code; agents extract and explain; a signed sign-off checked against the role the rules name | Rules, agents, sign-off, panel cases, submission form | One run on the approved agents: 28 of 28 routed as the answer keys say |
+| [Complaint desk on CFPB data](docs/examples/complaints.md) | Real public complaints; every one goes to a person; the system never replies to or sends anything to anyone | Ingestion, triage, evals, panel page, submission form | None: scripted runs only |
+| [Partner rebate and marketing-fund claims](docs/examples/partners.md) | Proof checking where abuse hides: duplicates, split claims, changed payees; rules decide, agents read and flag | Rules and agents; no pipeline, evals or panel page yet | None: scripted agents only |
 
-The agents:
+Some work runs on these examples without being one: the complaint investigation crew and the red-team arena use the complaint desk; the failure drills use the claims workflow; the agentic path (ADR 0028) runs in claims, leave and the complaint desk, and cost governance (ADR 0030) holds the live entry points' spending. They are listed in the [Roadmap](#roadmap).
 
-| Agent | What it does |
-|---|---|
-| **Intake** | Extract structured fields from the claim submission: claimant, policy number, incident date and type, amounts claimed, supporting documents. |
-| **Coverage check** | Compare the claim with the policy wording and the policy record (fetched with `policy_lookup`) and work out what the policy pays, including exclusions, limits, deductibles and depreciation. |
-| **Critic** | Check intake, coverage and risk against the claim documents and the policy, and send work back for correction (up to twice). |
-| **Risk and fraud flags** | Flag inconsistencies, such as dates that don't line up, duplicate receipts, claims filed soon after a policy started, or earlier similar claims (fetched with `claims_history`), and assign a risk level. |
-| **Recommendation** | Propose a next step with its reasons, from a structured summary only: no names, claim text or medical details. |
-| **Claims supervisor** | Choose which of the agents above runs next, whether to send work back after the critic, and when to finish or hand off, from codes and amounts only: it never reads the claim, a tool result or another agent's reasoning, and it can't route a claim ([ADR 0028](docs/adr/0028-agent-picks-the-steps-code-holds-the-boundaries.md)). |
-
-The agent picks the steps; code holds the boundaries. Code refuses a step whose inputs aren't ready or that would repeat on unchanged inputs, stops the claim for a person when its budget of steps, cost or time runs out or the supervisor keeps choosing refused steps, and checks the kill switch before every step. Finishing is a request: a claim can go through automatically only if every required step ran on the latest inputs. The fixed order is kept for comparison (`agentic=False`).
-
-The agents never deny a claim or approve a large payout on their own. A routing rule written in code sends denials, payouts above $2,500, fraud flags, critic changes to a decision field (or critic disagreement left unresolved), possible prompt injection and any failure (including any unexpected error) to a human adjuster, who decides at an approval gate. It also checks the claim against the policy record in code: a claimant who isn't the insured, an incident outside the coverage period, or a claim not in USD goes to a person, as does a claimed item or total that doesn't appear in the claim documents as a dollar figure (only USD or US$ counts when the documents name another currency, by a code or sign anywhere or by name next to a figure or in a header such as "all amounts in CAD"; a refund in parentheses at the end of its line or on a line saying refund, credit or return doesn't count, though prices listed in brackets in a narrative do), items that don't add up to the total, or documents already filed under another claim ID on the same policy (matched on a keyed hash of the attachments and the policy numbers in the claim as sent, so a claim whose first triage stopped is caught too). Tests bend each agent's answer in 23 ways a model could get it wrong, on every claim the answer key routes automatically, and check each one still reaches a person; the errors code can't see (a missed fraud signal, an overpayment within the amount claimed) are listed as known limits.
-
-Agents get supporting records only through governed MCP tools (`policy_lookup`, `claims_history`). Every call goes through a gateway that checks the agent's allow-list and records the call. The policy wording is reference text and is still passed in directly.
+To add a fifth, the `new-worked-example` skill in `.claude/skills/` sets out the order the first four were built in.
 
 All data in this repository is synthetic, except one folder: the complaint desk's pinned snapshot in [`data/cfpb/`](data/cfpb/README.md) holds 500 real complaints from CFPB's public database, minimised (no company name, ZIP prefix only). No real customer, policy or claims data from any company is used.
 
-## The second example: leave of absence (rules, agents, signed sign-off and one live run)
-
-The same pattern on an HR workflow: an employee asks for leave, and someone has to decide whether federal FMLA rules make them eligible and how much leave is left. A wrong denial harms an employee, and the request touches health information an AI must not collect. The rules came first, as code with no model (`python -m hall_monitor.hr`):
-
-- **Eligibility:** whether the employer is covered, and whether the employee has 52 weeks on the payroll, 1,250 hours in the last 12 months, and 50 employees within 75 miles.
-- **Reason and entitlement:** whether the reason qualifies, and whether the leave fits in the weeks left, counted in workdays, under each of the four leave-year methods.
-- **Nothing guessed:** a fact the records don't hold is "can't decide", never a failure.
-- **Routing:** a code rule sends every check that didn't pass and every flag to HR review, and names the least senior of the three roles a branch company already has that may decide. The employee's **local manager** prepares every request with them and signs off only a plain request with nothing flagged (`manager_sign_off`), still as a draft for them to sign; an **HR business partner** decides every flagged request, every denial and every partial approval; an **HR director** extends leave past the entitlement and decides a case with a retaliation risk.
-
-Then two agents, through the same registry, approvals, kill switch, data-class check and audit log as the claims agents:
-
-| Agent | What it does |
-|---|---|
-| **Leave intake** | Reads the employee's message (identifiers redacted, fenced as untrusted) and returns the dates, a reason category and yes-or-no facts. Its answer has no free-text field, so a diagnosis has nowhere to go. |
-| **Leave explanation** | Reads only the code's result, never the message or the employee and request IDs, and writes a note for the person who decides: the local manager on the light path, HR for anything flagged. Advisory: it can't change the route or the role, and a note that doesn't cover exactly the code's checks is dropped. |
-
-The rules run on what intake extracts, so a wrong extraction changes the result; an eval measures that. Text aimed at the AI sends the request to a person whatever the agents say, and any failure of intake or the rules stops it and sends it to a person (a failed explanation only leaves the note out). Each step goes to the audit log as IDs, keyed hashes, codes and costs.
-
-28 synthetic requests sit on the boundaries, each with an employee's message and hand-worked answer keys ([`data/synthetic/hr/`](data/synthetic/hr/README.md)). The rules are our reading of the regulations, not reviewed by HR or a lawyer; state laws aren't modelled. One live run of the agentic leave path has been made on the approved agents: all 28 requests routed as their answer keys say, all 28 extractions exact, no errors, 2.6 cents in all (see [Results](#results)). It is one run of short messages written by the person who wrote their answer keys, so accuracy on real employees' messages is still unmeasured. The whole path, told once for a CIO or an HR head: [`docs/leave-path.md`](docs/leave-path.md).
-
-Then a person decides (`python -m hall_monitor.hr.run` prepares requests into the audit log with the live model; `python -m hall_monitor.hr.review` lists and decides them). A decision counts only if it is signed with the staff member's key over the evidence pack the audit log recorded, and code finds it within their role: at least the role the rule named; approving FMLA leave only for an eligible employee within the weeks left, asked and qualifying; approving fewer weeks than asked, or denying, only by an HR business partner or above; military leave whose family member's covered status the records don't carry only by an HR business partner, with a written attestation that they checked it; extending only by a director, past the entitlement; a reason for any partial or full denial, extension or approval against the route. A local manager never decides a flagged request. Asking for more information leaves the request waiting. One decision per request. The log keeps no reason and no signature, only keyed hashes; the signed decision sits in the erasable evidence store. The control panel shows each leave request's state, route, outcome and audit trace, never its reasons, the role it needs, its checks or weeks (together they could tell what it is about), and counts reasons only across requests.
-
-Requests can also be added from a small form, a separate app so the panel stays read-only (`python -m hall_monitor.hr.submit --demo` or `--live`). It feeds the same pipeline and decides nothing; the submitter sees only the request's ID and state. Demo mode offers the synthetic messages with the scripted model and calls no API; live mode takes free text, calls the Claude API for each submission and stops at a per-run cap. It serves this machine only, and takes a submission only from its own page, so another site can't post one through the browser; with no sign-in, anyone on this machine can still submit.
-
-## The third example: a complaint desk on live CFPB data (built; the model not yet run live)
-
-A simulated company complaint desk that triages complaints from the public [CFPB Consumer Complaint Database](https://www.consumerfinance.gov/data-research/consumer-complaints/) (free, keyless, read-only, updated daily), so the same controls face real input nobody wrote for them. It prepares each complaint for a person; it is not a CFPB system, it doesn't represent any company in the data, and nothing in it is a finding about a company. The design is in [`docs/complaint-desk-design.md`](docs/complaint-desk-design.md); it ships in slices, and this section says what each one has built.
-
-**Hard rule: the system never replies to, contacts or sends anything to anyone.** It is a check in code, built first (HM-25, [ADR 0021](docs/adr/0021-no-reply-no-send.md)):
-
-- **One outbound data path.** `hall_monitor/egress.py` is the only module allowed an HTTP client, and a client can be made only with its two shipped policies. Its transport refuses, before anything leaves, any request that isn't a `GET` over https to `www.consumerfinance.gov` under the complaint API path (another host, port, scheme or path, credentials in the URL, a path that normalises elsewhere), never follows a redirect, and logs each refusal to the audit log (method, host, a hash of the URL, never a body). The desk's model client is guarded the same way to `POST` on the Claude API's messages endpoint (that path exactly).
-- **No send-capable tool.** Every tool is in one read-only catalogue (`hall_monitor/no_send.py`). A manifest that lists a tool outside it, or one whose name reads as sending in any naming style, is refused at run time by the registry and refused for approval; the tool gateway takes only a plain in-process MCP server (not a URL or a proxy), refuses to start on one exposing such a tool, and refuses to call one.
-- **Drafts are kept, never sent.** A draft acknowledgement has no field for an address, recipient or channel, `never_sent` can only be true, and it is stored by its hash with a log entry saying `never_sent` and delivery `none`; verifying the log checks the stored draft wasn't changed.
-- **CI fails if anyone adds a sending capability.** `python -m hall_monitor.no_send check` reads every module's syntax tree and the dependencies, and fails on mail, messaging and raw network libraries and calls, HTTP clients outside `egress.py` or its internals imported elsewhere, HTTP write calls (named methods, or a method other than GET given to `request`, `stream` or `build_request`), fastmcp clients or proxies outside the gateway, dynamic imports, shell commands and sending packages. It is a tripwire for the honest mistake: code built to evade it (a method name in a variable, say) can, so review is still the control for that.
-
-What still leaves the machine: model calls to the Claude API, and metadata-only traces to Langfuse when its keys are set (Langfuse's client isn't behind the egress guard). Neither reaches a consumer, a company or CFPB.
-
-**Ingestion** (HM-26, [ADR 0022](docs/adr/0022-cfpb-ingestion-and-snapshots.md)): `python -m hall_monitor.complaints.ingest pull` reads complaints about the simulated company's products (a consumer lender and bank, so not credit reporting) through one read-only MCP tool behind the tool gateway, which only the pipeline may call. Pulls go oldest first and resume after a stored cursor, stop at the desk's capacity and say whether they caught up; `--every 6h` repeats them. Requests are spaced and retried with backoff; records are minimised at the door (no company name, ZIP prefix only), validated strictly, kept by complaint ID (a repeat skipped, a change a new version) or quarantined with field names and error types only. Every pull is snapshotted to disk with a manifest of hashes and replays offline; the pinned snapshot ([`data/cfpb/`](data/cfpb/README.md), 500 real complaints received on 1 October 2026) is what evals and demos run on. Tested against a fake CFPB, plus the one live pull that made the snapshot.
-
-**Triage** (HM-27, [ADR 0023](docs/adr/0023-complaint-triage-routed-in-code.md)): every complaint goes to a person; nothing is resolved automatically. Code reads CFPB's labels and sends to specialist review, at high urgency, anything naming fraud, a scam or a transaction the consumer didn't authorise or make, identity theft (an account, loan, debt or inquiry that isn't theirs), foreclosure or a mortgage the consumer is struggling to pay, or discrimination, and anything tagged Older American or Servicemember, whatever the agent says. A complaint triage agent (Haiku, no tools) reads the labels and redacted free text as untrusted, without the complaint ID, state or ZIP prefix, and writes a summary, category, urgency, concerns and a draft acknowledgement. It can only add: a concern or a higher urgency. Its low confidence, an unclear category, an urgency below the code's floor, an untimely company response, text aimed at the AI and any agent failure also go to specialist review; a failure never invents an answer. A draft that fails a strict pattern check, read as written and decoded (a refund, credit, waiver, guarantee, commitment or deadline; a link, domain or spelled-out link, email, handle, phone or vanity number, address, extension or person to ask for; any run of three or more digits) is dropped; the rest are kept, never sent. A routed complaint whose stored record later changes in a way a person must see (CFPB adds a tag, marks the response untimely, or publishes a narrative where there was none) is re-routed to specialist review with an added log entry, once per version, never lowered; a routine status change (In progress to Closed with explanation) keeps its route and is counted as changed, not re-routed. The change is fetched only by a manual pull from an earlier date. `python -m hall_monitor.complaints.run --demo` triages the pinned snapshot offline with a scripted stand-in; `--live --limit N` calls the API (well under a cent a complaint). Not yet run live.
-
-**Evals** (HM-28, [ADR 0024](docs/adr/0024-complaint-evals-on-a-pinned-snapshot.md)): `python -m hall_monitor.complaints.evals` scores the desk by code on the pinned snapshot, against a hand-written answer key of CFPB labels ([`data/cfpb/label_reasons.yaml`](data/cfpb/label_reasons.yaml)), never against the routing patterns. On the scripted run (a stand-in agent with fixed rules, so it measures the desk's code, not the model): all 197 complaints the key and tags say need specialist review got it, at high urgency, with their reasons; all 20 untimely ones too; 0 errors; 0 drafts with a delivery path. A counterfactual check (gated) confirms the state and ZIP prefix change neither the code's reasons nor the text the agent is sent; it can't flip by construction and calls no model, so it shows location doesn't reach the decision, not that the model is unbiased. Specialist and high-urgency rates by ZIP region and tag are reported, not gated. As partial ground truth, 16 of the 31 complaints the company closed with monetary relief (52%) were flagged, against 111 of the 289 closed with an explanation (38%); with the stand-in agent, those rates depend on its rules too. The CI gate checks these on every pull request. The live model hasn't been evaluated. The control panel's **Complaint desk** page shows the queue, why each complaint went where it did, cost per complaint, pulls, and the no-send control's status (the static check now, egress refusals logged, drafts not marked never sent).
-
-**Adding a complaint by hand** (HM-33, [ADR 0029](docs/adr/0029-complaint-submission-form.md), proposed): a small form, a separate app so the panel stays read-only (`python -m hall_monitor.complaints.submit --demo` or `--live`), takes CFPB's structured fields (a product from CFPB's list, an issue, sub-issue, the two tags) and an optional narrative, gives the complaint a synthetic `syn-` ID that can't be a CFPB one, and runs it through the desk's own agentic pipeline, so it shows on the panel's Complaint desk page. The submitter sees only its ID and state. Demo mode uses the scripted stand-in and calls no API; live mode calls the Claude API through the desk's guarded client and stops at a per-run cap. The protections are the leave form's. Routing reads the labels, not the narrative; the log never holds the typed-in text, though a kept draft may quote it; live mode is tested only with a fake client.
-
-**A finding that changed the design:** as checked on 2026-11-11, CFPB's API and bulk download no longer publish consumer narratives, so the desk triages on the structured fields (product, issue, sub-issue, tags, state, ZIP prefix, how it was submitted), keeps the narrative optional in case it returns, and tests the injection and redaction paths with a labelled synthetic set.
-
-## The fourth example: partner rebate and marketing-fund claims (rules and agents built; no pipeline yet)
-
-A fictional hardware maker reimburses its channel partners for approved marketing activity (marketing development funds and co-op): the partner runs a campaign, an event or a trade show and claims with proof. Checking that proof is still manual at every vendor, and it is where abuse hides: duplicate or inflated invoices, backdated activity, claims split to stay under an approval limit, payments redirected to new bank details. The design is in [`docs/partner-claims-design.md`](docs/partner-claims-design.md) ([ADR 0032](docs/adr/0032-partner-claims-rules-decide.md), HM-36).
-
-**Slice 1, the rules in code (no model):** `hall_monitor/partners/rules.py` routes every claim to a person, as compliance review, hold, review or expedited sign-off, with a fixed reason for each finding and what may be reimbursed in exact decimals. It checks the pre-approval, what earlier claims have used of it, and its dates, the 45-day claim window, eligible activities and the evidence each needs, a third-party invoice whose lines add up, excluded costs, a $75 merchandise cap, rates more than 10% over benchmark (the excess is held), competitor content (30% rate), duplicates across partners (ignoring punctuation and legal suffixes), split claims just under an approval limit, the payee against the partner's approved account, partner status and holds, hospitality for public-sector guests, and text in the documents aimed at the AI. The least senior role that may decide follows a dollar ladder on the amount claimed ($5,000 / $25,000, an assumption: no vendor publishes its thresholds) or what a finding demands. Nothing in it can pay or change a payee. `python -m hall_monitor.partners` scores the rules against hand-written answer keys for 47 fictional claims, with boundary cases on both sides of every numeric rule ([`data/synthetic/partners/`](data/synthetic/partners/README.md)). 
-
-**Slice 2, the agents ([ADR 0033](docs/adr/0033-partner-claim-agents-read-and-flag.md), HM-37):** an intake agent (Haiku) reads the claim's redacted documents and extracts the invoice and activity dates; code checks every extracted number, name and date against the documents' own text (a unit count written as units, the activity dates as the pair written together, the issuer from the invoice header rather than the Bill-to party), and a value that isn't there sends the claim to review. A stop made while a claim is prepared discards the agents' answers, and each claim is held to an approved partners budget and daily and monthly caps (an estimate: the agents haven't run live). A proof reviewer (Sonnet) raises concerns from a closed list (recycled proof, an edited document, a vague invoice line, evidence that doesn't match, low brand content); each only adds review, so a clean review never clears a rule finding. The partner, pre-approval, payee and amount claimed stay the portal's: neither agent is given them, though the documents may name the partner. If the intake agent fails, nothing is reimbursable and every finding that needs no invoice (the payee, the partner, text aimed at the AI) is kept. The line categories and the competitor and public-sector flags are taken from the agent unchecked, a stated gap. Tested on 11 documented claims with scripted agents and hand-written reviewer answer keys; no live run yet. The pipeline, evals and a panel page are the next slices.
-
 ## Architecture
 
-How a claim moves through the system today (after milestone 11 and Phase B so far):
+How a claim moves through the claims example on the fixed order of steps (`agentic=False`), after milestone 11 and Phase B; by default the claims supervisor picks the steps within the same boundaries:
 
 ```mermaid
 flowchart LR
@@ -204,7 +141,7 @@ Numbers are published as each milestone lands, from runs anyone can reproduce wi
 
 What it can't show: it is one run, so run-to-run variation is unmeasured; the 28 requests are short and plainly worded, and the same person wrote them and their answer keys, so it says nothing about real employees' messages; no decision was signed, so the sign-off isn't exercised. The CI gate requires route and intake accuracy of at least 95% and no errors on it.
 
-**Claims and complaints.** The claims and complaint desk agents have no live run on their current versions; the numbers below describe older versions. *Every row below was scored on the fixed order of steps with earlier agent versions; the default path is now agentic (HM-32), and it has been compared with the fixed order only offline, with scripted supervisors ([agentic-scripted](evals/results/agentic-scripted/report.md)). Its live accuracy and cost are not yet measured.*
+**Claims and complaints.** The claims agents have no live run on their current versions; the numbers below describe older claims agents. The complaint desk's agent has never run live, so it has no numbers here. *Every row below was scored on the fixed order of steps with earlier agent versions; the default path is now agentic (HM-32), and it has been compared with the fixed order only offline, with scripted supervisors ([agentic-scripted](evals/results/agentic-scripted/report.md)). Its live accuracy and cost are not yet measured.*
 
 | Milestone | Extraction accuracy | Coverage-reasoning accuracy | Hallucination rate | Cost per claim | Human override rate |
 |---|---|---|---|---|---|
@@ -258,7 +195,7 @@ In use today: Python 3.12, uv, Claude Haiku 5.5 and Sonnet 5.5 through the Anthr
 
 ## Quickstart
 
-`run` triages a claim with the claims supervisor choosing which of the five agents run, in what order (code checks each step and decides the route), then decides it automatically or leaves it waiting for an adjuster. The eval commands call the Claude API and cost the amounts shown.
+`run` triages a claim with the claims supervisor choosing which of the five agents run, in what order (code checks each step and decides the route), then decides it automatically or leaves it waiting for an adjuster. It calls the Claude API; nothing else below does.
 
 ```bash
 git clone https://github.com/keeplearnin/hall-monitor.git
@@ -266,29 +203,15 @@ cd hall-monitor
 uv sync
 cp .env.example .env   # add ANTHROPIC_API_KEY and Langfuse keys
 uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
-uv run python -m hall_monitor.review list                  # claims waiting for an adjuster
-uv run python -m hall_monitor.review show claim_004        # evidence pack and its hash
 uv run python -m hall_monitor.audit verify                 # check the audit chain
-uv run python -m hall_monitor.evals.baseline --trials 3 --out evals/results/my-baseline  # 36 claims x 3, about $4 on the fixed order; the agentic default adds about six Haiku supervisor calls per claim (--fixed for the old order)
-uv run python -m hall_monitor.evals.agentic_compare        # agentic vs fixed with scripted supervisors; no API calls
-uv run python -m hall_monitor.evals.critic_seeded         # critic vs planted errors, about $2
-uv run python -m hall_monitor.evals.adversarial            # attack suite, about $1
-uv run python -m hall_monitor.evals.fairness               # name-swap fairness, about $10
-uv run python -m hall_monitor.evals.override evals/results/hardened-critic  # no API calls
 uv run pytest                                              # offline tests; no API calls
 uv run python -m hall_monitor.evals.gate                   # check published results; no API calls
 uv run python -m hall_monitor.panel serve                  # control panel at http://127.0.0.1:8765
 uv run python -m hall_monitor.panel demo                   # demo data offline, scripted model; no API calls
 uv run python -m hall_monitor.panel serve --demo           # the panel over the demo data
-uv run python -m hall_monitor.hr                           # leave rules on 28 synthetic requests; no API calls
-uv run python -m hall_monitor.hr.evals --out evals/results/hr-intake  # leave agents, 28 requests, under $0.10
-uv run python -m hall_monitor.hr.run --all                 # prepare the 28 requests into the audit log, under $0.10
-uv run python -m hall_monitor.hr.review list              # leave requests waiting for HR; no API calls
-uv run python -m hall_monitor.hr.submit --demo             # form at http://127.0.0.1:8766: add a synthetic request; no API calls
-uv run python -m hall_monitor.hr.submit --live             # the form with free text; about $0.003 a submission, 20 per run
-uv run python -m hall_monitor.complaints.submit --demo     # form at http://127.0.0.1:8767: add a synthetic complaint to the desk; no API calls
-uv run python -m hall_monitor.complaints.submit --live     # calls the Claude API: well under a cent a complaint (desk budget $0.02), 5 per run
 ```
+
+Each example's page lists its own commands, with what the live ones cost: [claims](docs/examples/claims.md#run-it), [leave](docs/examples/leave.md#run-it), [complaints](docs/examples/complaints.md#run-it), [partners](docs/examples/partners.md#run-it).
 
 ## Repository layout
 
@@ -304,6 +227,8 @@ hall-monitor/
 │   ├── panel/               # Read-only control panel: views, pages, app, snapshot, demo data
 │   ├── hr/                  # Leave example: rules in code, agents, signed sign-off, submission form
 │   ├── complaints/          # Complaint desk on CFPB data: CFPB tool, ingestion, store, snapshots, triage agent, routing, never-sent drafts, submission form
+│   ├── partners/            # Partner marketing-fund claims: rules in code, intake agent, proof reviewer
+│   ├── redteam/             # Red-team arena against the complaint desk
 │   ├── egress.py            # The one outbound HTTP path, guarded: CFPB GET and the model API only
 │   ├── no_send.py           # Read-only tool catalogue and the CI check for sending capabilities
 │   ├── pipeline.py          # Claim triage
@@ -318,11 +243,14 @@ hall-monitor/
 │   ├── claims/              # 36 claim submissions
 │   ├── ground_truth/        # Expected extraction, coverage, risk, next step and route
 │   ├── claims_history.json  # Earlier claims, served by claims_history
-│   └── adversarial/         # Attack cases
+│   ├── adversarial/         # Attack cases
+│   ├── hr/                  # Leave requests, employees and answer keys
+│   ├── partners/            # Partner claims, documents and answer keys
+│   └── redteam/             # Synthetic complaints for the red-team arena
 ├── data/cfpb/snapshots/     # Pinned CFPB complaint snapshots (real, public, minimised; not synthetic)
 ├── controls/                # Controls register and the verified framework identifiers
 ├── evals/                   # gate.yaml thresholds; results/ holds published runs with findings
-├── docs/                    # controls.md (generated), one-pagers, board brief, ADRs, review package, devlog
+├── docs/                    # examples/ (one page per worked example), controls.md (generated), one-pagers, board brief, ADRs, review package, devlog
 ├── tests/                   # Offline tests; the Claude client is faked
 ├── var/                     # Runtime state: workflow checkpoints and audit log (git-ignored)
 └── .github/workflows/       # CI on every PR; a manual live-eval workflow

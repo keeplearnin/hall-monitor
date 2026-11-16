@@ -22,7 +22,8 @@ uv run python -m hall_monitor.approvals            # re-approve manifests/prompt
 - A change to a prompt or manifest needs a version bump (`PROMPT_VERSION` and the manifest
   version) and a new approval; the approvals test fails without the new approval, but no test
   checks the version bump, so review it.
-- Keep docs current in the same PR: README (controls table, roadmap), `controls/controls.yaml`
+- Keep docs current in the same PR: README (examples table, controls table, roadmap), the
+  example's page in `docs/examples/`, `controls/controls.yaml`
   (then regenerate `docs/controls.md`), the ADRs in `docs/adr/`, `docs/review/log.md` for review
   findings, and the one-pagers in `docs/` when what they say changes. Tests check register and
   doc references.

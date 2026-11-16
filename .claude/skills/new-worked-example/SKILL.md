@@ -9,12 +9,15 @@ A worked example is a domain where AI agents prepare work and the repo's control
 passes, routing in code, people deciding, the audit log, budgets, the kill switch. The existing
 ones are the templates; copy their shape, not their code:
 
-| Example | Package | Design | Notes |
-|---|---|---|---|
-| Insurance claims | `hall_monitor/` (pipeline.py, agentic.py, agents/) | README sections | The first; most mature |
-| HR leave (FMLA) | `hall_monitor/hr/` | ADRs 0017–0020 | Rules first, then agents, sign-off, form |
-| Complaint desk | `hall_monitor/complaints/` | `docs/complaint-desk-design.md` | Public data, never sends anything |
-| Complaint crew | `hall_monitor/delegation.py`, `handoff.py` | `docs/complaint-crew-design.md` | Built in slices; agents not yet built |
+| Example | Package | Page | Design | Notes |
+|---|---|---|---|---|
+| Insurance claims | `hall_monitor/` (pipeline.py, agentic.py, agents/) | `docs/examples/claims.md` | ADRs 0001–0016 | The first; most mature |
+| HR leave (FMLA) | `hall_monitor/hr/` | `docs/examples/leave.md` | ADRs 0017–0020, 0034 | Rules first, then agents, sign-off, form |
+| Complaint desk | `hall_monitor/complaints/` | `docs/examples/complaints.md` | `docs/complaint-desk-design.md` | Public data, never sends anything |
+| Partner claims | `hall_monitor/partners/` | `docs/examples/partners.md` | `docs/partner-claims-design.md` | Rules and agents; pipeline next |
+
+The complaint crew (`delegation.py`, `handoff.py`), the red-team arena and the failure drills are
+built on these examples, not examples of their own.
 
 `CLAUDE.md` is binding throughout. This skill only orders the work.
 
@@ -175,7 +178,10 @@ Only with the user's approval of the stated cost. Publish the result even if it 
 - `controls/controls.yaml`: a new control (what, status, code, tests, evidence, nist, finos,
   gaps), IDs checked against `controls/frameworks.yaml`; then
   `uv run python -m hall_monitor.governance.controls` to regenerate `docs/controls.md`.
-- `README.md`: the example's section, a controls table row, the framework-mapping count (a test
+- `docs/examples/<name>.md`: the example's page, with the same headings as the others (why the
+  domain, what the agents do, what code decides, who decides, data, results, run it, where it
+  lives), kept current slice by slice.
+- `README.md`: the example's row in the Worked examples table, a controls table row, the framework-mapping count (a test
   checks the total; the "N have none yet" breakdown is kept by hand), the roadmap item.
 - `docs/review/log.md`: the review and every finding's outcome.
 - When they change: `docs/readiness-checklist.md`, `docs/threat-model-agentic.md`,

@@ -71,7 +71,8 @@ finding; name the test that should exist.
 
 **4. Docs that claim more than the code.** Check every statement the change touches in
 `README.md`, `controls/controls.yaml` (and that `docs/controls.md` was regenerated), `docs/adr/`,
-`docs/business-summary.md`, `docs/board-brief.md` and the one-pagers in `docs/`. Overstated,
+`docs/business-summary.md`, `docs/board-brief.md`, the example pages in `docs/examples/` and the
+one-pagers in `docs/`. Overstated,
 false, or contradicting another doc: quote the claim and cite the code that contradicts it.
 
 **5. Cleanup, only when it matters.** Duplicated logic that must stay in sync, a helper that
