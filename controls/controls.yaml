@@ -503,6 +503,7 @@ controls:
       - tests/test_privacy_security.py::test_tax_ids_and_bank_details_are_redacted
       - tests/test_privacy_security.py::test_bank_and_tax_patterns_leave_ordinary_evidence_alone
       - tests/test_privacy_security.py::test_redaction_stays_fast_on_long_runs_of_space
+      - tests/test_workflow.py::test_known_limit_a_decided_claims_checkpoint_keeps_its_submission
     evidence: []
     nist: [MEASURE 2.10]
     finos:
@@ -522,6 +523,10 @@ controls:
       class, which their manifests allow, so in practice the input check constrains only the
       recommender.
       Pattern redaction misses unusual formats.
+      The claims workflow's checkpoint file (var/checkpoints.sqlite) keeps each claim as sent,
+      in plain JSON, with its triage result and evidence pack, for as long as the file exists:
+      nothing deletes a decided claim's thread, and erasure under a data-protection request
+      covers the evidence store, not this file (ADR 0006).
 
   - id: HM-11
     name: Telemetry without claim content
@@ -1993,6 +1998,7 @@ controls:
       - tests/test_desk_agentic.py::test_a_triage_agent_stopped_after_it_answered_has_its_answer_discarded
       - tests/test_desk_agentic.py::test_a_triage_that_answered_then_was_stopped_is_shown_as_discarded
       - tests/test_pipeline.py::test_correct_agent_outputs_give_the_expected_route
+      - tests/test_workflow.py::test_known_limit_a_restarted_triage_calls_every_agent_again
     evidence:
       - evals/results/agentic-scripted/results.json
       - evals/results/kill-switch-drill/results.json
@@ -2026,6 +2032,10 @@ controls:
       is written finishes (HM-19 gap). The supervisor's view is built by code, but the claim
       type and amounts in it come from the intake agent, which read the claim. The budget's
       numbers are set from the fixed path's published costs, not tuned on live supervisor runs.
+      The claims supervisor's whole run is one node of the claims workflow's LangGraph graph,
+      so nothing is saved between its steps: a triage that crashed is restarted from the start
+      (run --fresh), and every agent it had already run is called, and paid for, again
+      (ADR 0006).
 
   - id: HM-33
     name: Complaint submission form outside the read-only panel

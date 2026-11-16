@@ -88,6 +88,13 @@ def test_adr_0001_lists_every_routing_check():
     assert "traces as $20" not in adr
 
 
+def test_adr_0006_says_the_step_order_is_the_supervisors():
+    """ADR 0028 made the claims step order agentic; ADR 0006 must not still rest on fixed steps."""
+    adr = (DOCS / "adr" / "0006-plain-python-then-langgraph.md").read_text()
+    assert "0028-agent-picks-the-steps-code-holds-the-boundaries.md" in adr
+    assert "since the steps are fixed" not in adr
+
+
 @pytest.mark.parametrize("page", sorted((DOCS / "examples").glob("*.md")), ids=lambda p: p.name)
 def test_every_example_page_has_the_same_headings(page):
     headings = re.findall(r"^## (.+)$", page.read_text(), re.M)

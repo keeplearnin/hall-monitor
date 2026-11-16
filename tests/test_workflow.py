@@ -856,3 +856,41 @@ def test_refiling_a_claim_whose_first_triage_stopped_is_still_caught(db):
     status = _submit_as(db, "claim_001", _refiled("claim_001", "claim_001b"))
     assert status["state"] == "waiting_for_adjuster"
     assert DUPLICATE_REASON in status["routing_reasons"]
+
+
+def test_known_limit_a_decided_claims_checkpoint_keeps_its_submission(db):
+    """HM-10 gap: the checkpoint file holds the claim as sent, in plain JSON, after the claim is
+    decided; nothing deletes a decided claim's thread, and erasure covers the evidence store."""
+    assert _submit(db, "claim_001")["state"] == "decided"
+    with _open(db) as workflow:
+        saved = workflow.app.get_state(workflow._config("claim_001")).values
+    assert saved["claim"] == CLAIMS["claim_001"].model_dump(mode="json")
+
+
+def test_known_limit_a_restarted_triage_calls_every_agent_again(db, monkeypatch):
+    """HM-32 gap: the supervisor's whole run is one node of the claims workflow, so nothing is
+    saved between its steps; a triage that crashed is restarted from the start, and every agent
+    it had already run is called, and paid for, again."""
+    import hall_monitor.workflow as workflow_module
+
+    real = workflow_module.build_evidence_pack
+
+    def crash(*args):
+        raise RuntimeError("process died after the agents ran")
+
+    monkeypatch.setattr(workflow_module, "build_evidence_pack", crash)
+    with pytest.raises(RuntimeError):
+        _submit(db, "claim_001")
+    monkeypatch.setattr(workflow_module, "build_evidence_pack", real)
+
+    client = fake_client(outputs_from_truth(load_ground_truth("claim_001")))
+    with open_workflow(
+        db,
+        audit_db=db.with_name("audit.sqlite"),
+        registry=REGISTRY,
+        gateway=GATEWAY,
+        wording=WORDING,
+        client=client,
+    ) as workflow:
+        assert workflow.submit(CLAIMS["claim_001"], restart=True)["state"] == "decided"
+    assert client.messages.supervisor_calls and client.messages.calls
