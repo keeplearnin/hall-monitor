@@ -64,8 +64,8 @@ from hall_monitor.hr.supervisor import (
     _Rules,
     run_leave_supervisor,
 )
-from hall_monitor.models import AgentCall, StepOutcome, StepRefusal
 from hall_monitor.registry import Registry, RegistryError
+from hall_monitor.shared_models import AgentCall, StepOutcome, StepRefusal
 from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 
 

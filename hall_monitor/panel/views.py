@@ -33,7 +33,7 @@ from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog, ChainHead
 from hall_monitor.governance.controls import REGISTER, load_register
 from hall_monitor.hr.routing import REASONS as LEAVE_REASONS
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops
-from hall_monitor.models import AgentCall, SupervisorStep
+from hall_monitor.models import SupervisorStep
 from hall_monitor.registry import (
     APPROVALS_FILENAME,
     DEFAULT_REGISTRY_DIR,
@@ -45,6 +45,7 @@ from hall_monitor.registry import (
     load_approvals,
     load_owners,
 )
+from hall_monitor.shared_models import AgentCall
 from hall_monitor.tools.server import CLAIMS_HISTORY, POLICY_LOOKUP
 
 # The worked examples. Both write to the audit log; a leave request is told apart by its

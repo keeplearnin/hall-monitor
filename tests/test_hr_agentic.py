@@ -20,8 +20,9 @@ from hall_monitor.hr.supervisor import (
     view_from_content,
 )
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
-from hall_monitor.models import CriticReview, StepOutcome, StepRefusal
+from hall_monitor.models import CriticReview
 from hall_monitor.registry import Registry
+from hall_monitor.shared_models import StepOutcome, StepRefusal
 from tests.fakes import TEST_REGISTRY_DIR, fake_client
 from tests.test_hr_agents import ANSWERS, COMPANY, EMPLOYEES, MESSAGES, _explanation, _intake_for
 

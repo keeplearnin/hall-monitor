@@ -310,7 +310,9 @@ hall-monitor/
 │   ├── workflow.py          # LangGraph workflow with the approval gate
 │   ├── run.py, review.py, audit.py  # CLIs: submit a claim, review as an adjuster, verify the log
 │   ├── kill_switch.py       # Stop an agent; CI's append-only check of the stop list
-│   └── registry.py, approvals.py, models.py, tracing.py
+│   ├── models.py            # Claims types: submission, agent outputs, triage result, answer keys
+│   ├── shared_models.py     # Records every example shares: agent call, tool call, supervisor step outcome and refusal
+│   └── registry.py, approvals.py, tracing.py
 ├── data/synthetic/
 │   ├── policies/            # Policy wording and policy records
 │   ├── claims/              # 36 claim submissions

@@ -26,13 +26,13 @@ from hall_monitor.gateway.cost import call_cost
 from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.governance.routing import route_claim
 from hall_monitor.models import (
-    AgentCall,
     ClaimedItem,
     CoverageAssessment,
     Recommendation,
     RiskAssessment,
     TriageResult,
 )
+from hall_monitor.shared_models import AgentCall
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
 WORDING = load_policy_wording()

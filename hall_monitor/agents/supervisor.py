@@ -30,13 +30,12 @@ from hall_monitor.models import (
     ReviewedStage,
     RiskFlag,
     RiskLevel,
-    StepOutcome,
-    StepRefusal,
     SupervisorAction,
     SupervisorDecision,
     SupervisorReason,
 )
 from hall_monitor.registry import DataClass, Registry
+from hall_monitor.shared_models import StepOutcome, StepRefusal
 
 AGENT_ID = "claims_supervisor"
 PROMPT_VERSION = "claims-supervisor-v1"

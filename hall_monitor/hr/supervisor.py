@@ -26,8 +26,8 @@ from pydantic import BaseModel, ConfigDict
 from hall_monitor import tracing
 from hall_monitor.agents.base import AgentRun, render_json, run_agent
 from hall_monitor.hr.models import LeaveReason, Relationship
-from hall_monitor.models import StepOutcome, StepRefusal
 from hall_monitor.registry import DataClass, Registry
+from hall_monitor.shared_models import StepOutcome, StepRefusal
 
 AGENT_ID = "leave_supervisor"
 PROMPT_VERSION = "leave-supervisor-v1"

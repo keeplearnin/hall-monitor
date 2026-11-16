@@ -687,7 +687,7 @@ def live_prices(registry_dir, monkeypatch):
 
 
 def _call(model="claude-haiku-5-5"):
-    from hall_monitor.models import AgentCall
+    from hall_monitor.shared_models import AgentCall
 
     return AgentCall(
         agent_id="intake",

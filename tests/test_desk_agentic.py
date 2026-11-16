@@ -24,8 +24,9 @@ from hall_monitor.complaints.triage_agent import (
 )
 from hall_monitor.governance.audit import AuditLog
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
-from hall_monitor.models import CriticReview, StepOutcome, StepRefusal
+from hall_monitor.models import CriticReview
 from hall_monitor.registry import Registry
+from hall_monitor.shared_models import StepOutcome, StepRefusal
 from tests.fakes import TEST_REGISTRY_DIR, fake_client
 from tests.test_complaint_triage import answer, complaint
 

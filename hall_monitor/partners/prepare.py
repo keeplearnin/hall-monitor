@@ -33,7 +33,6 @@ from hall_monitor.agents.base import AgentRefusedError
 from hall_monitor.budgets import CaseBudget, SpendRefused
 from hall_monitor.gateway.cost import UnpricedModelError, total_cost
 from hall_monitor.gateway.redaction import redact_text
-from hall_monitor.models import AgentCall
 from hall_monitor.partners.documents import (
     AGENT_REASONS,
     CONCERN_REASONS,
@@ -52,6 +51,7 @@ from hall_monitor.partners.rules import (
     route_of,
 )
 from hall_monitor.registry import Registry, RegistryError
+from hall_monitor.shared_models import AgentCall
 from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 
 CENT = Decimal("0.01")

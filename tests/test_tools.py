@@ -8,8 +8,9 @@ from fastmcp import FastMCP
 
 from hall_monitor.agents import coverage_check
 from hall_monitor.agents.base import ToolAccess, run_agent
-from hall_monitor.models import CoverageFinding, ToolCall
+from hall_monitor.models import CoverageFinding
 from hall_monitor.registry import Registry
+from hall_monitor.shared_models import ToolCall
 from hall_monitor.tools.gateway import PIPELINE_ACTOR, ToolGateway
 from hall_monitor.tools.server import build_server
 from tests.fakes import TEST_REGISTRY_DIR

@@ -46,7 +46,6 @@ from hall_monitor.governance.routing import (
     route_stopped,
 )
 from hall_monitor.models import (
-    AgentCall,
     ClaimSubmission,
     CoverageAssessment,
     CriticReview,
@@ -58,11 +57,11 @@ from hall_monitor.models import (
     RevisionRecord,
     RiskAssessment,
     SupervisorStep,
-    ToolCall,
     TriageResult,
     policy_numbers_in,
 )
 from hall_monitor.registry import Registry, RegistryError
+from hall_monitor.shared_models import AgentCall, ToolCall
 from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 from hall_monitor.tools.gateway import ToolGateway
 

@@ -84,7 +84,9 @@ docs current, governance review logged. The order below is the one that worked.
 
 - `hall_monitor/<pkg>/routing.py` (or `rules.py`): the deterministic decisions, with a fixed
   reason template for every outcome. Every reason a person sees is a template, never model text.
-- `hall_monitor/<pkg>/models.py`: typed records (Pydantic, `extra="forbid"`).
+- `hall_monitor/<pkg>/models.py`: typed records (Pydantic, `extra="forbid"`). Take the records
+  every example shares (`AgentCall`, `ToolCall`, `StepOutcome`, `StepRefusal`) from
+  `hall_monitor/shared_models.py`, not from `hall_monitor/models.py`, which holds the claims types.
 - Tests on both sides of every boundary; a test that every routing reason appears in an answer
   key or is a pipeline reason (see `tests/test_hr_leave.py`).
 - A CLI that scores the rules against the answer keys (`python -m hall_monitor.hr` is the model).

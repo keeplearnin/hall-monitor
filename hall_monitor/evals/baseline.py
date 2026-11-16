@@ -30,9 +30,10 @@ from hall_monitor.evals import scoring
 from hall_monitor.evals.meta import git
 from hall_monitor.gateway.cost import total_cost
 from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
-from hall_monitor.models import AgentCall, ClaimSubmission, TriageResult
+from hall_monitor.models import ClaimSubmission, TriageResult
 from hall_monitor.pipeline import MAX_REVISIONS, triage
 from hall_monitor.registry import Registry
+from hall_monitor.shared_models import AgentCall
 from hall_monitor.tools.gateway import ToolGateway
 
 

@@ -16,8 +16,8 @@ from hall_monitor.complaints.models import Complaint, Tag
 from hall_monitor.complaints.store import ComplaintStore
 from hall_monitor.egress import CFPB_POLICY, CfpbClient, CfpbError, guarded_client
 from hall_monitor.governance.audit import AuditLog
-from hall_monitor.models import ToolCall
 from hall_monitor.registry import Registry
+from hall_monitor.shared_models import ToolCall
 from hall_monitor.tools.gateway import PIPELINE_ACTOR
 from tests.fakes import TEST_REGISTRY_DIR
 
