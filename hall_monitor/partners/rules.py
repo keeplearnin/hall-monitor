@@ -137,11 +137,12 @@ class ClaimBook(BaseModel):
             Role[step.role.upper()]  # every ladder role is a known role
         return self
 
-    def partner(self, partner_id: str) -> Partner:
-        return next(p for p in self.partners if p.id == partner_id)
+    def partner(self, partner_id: str) -> Partner | None:
+        """The partner, or None when it isn't in the book (a person looks: never a crash)."""
+        return next((p for p in self.partners if p.id == partner_id), None)
 
-    def preapproval(self, preapproval_id: str) -> PreApproval:
-        return next(a for a in self.preapprovals if a.id == preapproval_id)
+    def preapproval(self, preapproval_id: str) -> PreApproval | None:
+        return next((a for a in self.preapprovals if a.id == preapproval_id), None)
 
 
 class Assessment(BaseModel):
@@ -263,7 +264,11 @@ def _approval_for(
     if preapproval_id is None:
         return None
     approval = book.preapproval(preapproval_id)
-    if approval.partner_id != partner_id or approval.activity_type != activity_type:
+    if (
+        approval is None
+        or approval.partner_id != partner_id
+        or approval.activity_type != activity_type
+    ):
         return None
     return approval
 
@@ -285,7 +290,9 @@ def portal_reasons(
     program = book.program
     partner = book.partner(partner_id)
     reasons: set[str] = set()
-    if partner.status != "approved":
+    if partner is None:  # not in the book: nothing about it can be checked, so it all goes up
+        reasons |= {"partner_not_approved", "payee_not_on_master"}
+    elif partner.status != "approved":
         reasons.add("partner_not_approved")
     if _approval_for(partner_id, preapproval_id, activity_type, book) is None:
         reasons.add("no_preapproval")
@@ -293,11 +300,11 @@ def portal_reasons(
         reasons.add("activity_ineligible")
     elif not set(program.required_evidence.get(activity_type, [])) <= set(evidence):
         reasons.add("missing_evidence")
-    if payee_account != partner.payee_account:
+    if partner is not None and payee_account != partner.payee_account:
         reasons.add("payee_not_on_master")
     if detect_in_texts(document_text):
         reasons.add("text_addresses_ai")
-    if partner.ar_hold:
+    if partner is not None and partner.ar_hold:
         reasons.add("partner_on_ar_hold")
     return reasons
 
@@ -327,7 +334,7 @@ def assess(claim: Claim, book: ClaimBook) -> Assessment:
         reasons.add("dates_inconsistent")
     if (claim.submitted_on - claim.activity_end).days > program.claim_window_days:
         reasons.add("claim_late")
-    if _same(claim.invoice.issuer, partner.name):
+    if partner is not None and _same(claim.invoice.issuer, partner.name):
         reasons.add("invoice_from_partner")
     if _is_duplicate(claim, book):
         reasons.add("duplicate_claim")

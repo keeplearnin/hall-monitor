@@ -302,11 +302,13 @@ class CheckNote(BaseModel):
 
 
 class LeaveExplanation(BaseModel):
-    """The explanation agent's note for the leave specialist: advisory text only. The code's
-    result decides; nothing here changes it. A list of notes, not a map: the API's structured
-    output can't express a map with free keys."""
+    """The explanation agent's note for the person who decides the request: advisory text only.
+    The code's result decides; nothing here changes it. A list of notes, not a map: the API's
+    structured output can't express a map with free keys."""
 
     model_config = ConfigDict(extra="forbid")
 
     checks: list[CheckNote] = Field(description="One note for each check given, by its id.")
-    summary: str = Field(max_length=800, description="Two or three sentences for the specialist.")
+    summary: str = Field(
+        max_length=800, description="Two or three sentences for the person deciding."
+    )

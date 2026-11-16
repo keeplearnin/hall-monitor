@@ -26,13 +26,18 @@ two differences the claims gate taught.
   `registry/hr_staff.yaml`, must be at least the one the routing rule named. Approving FMLA leave
   needs an eligible employee, a qualifying reason, and weeks within what is left, was asked and
   qualifies; approving fewer weeks than asked (for intermittent leave, than are left) refuses
-  the rest, so it is a partial denial and needs an HR manager and a reason. Denying needs an HR
-  manager or above; extending needs a director, an eligible employee and a request past the
+  the rest, so it is a partial denial and needs an HR business partner and a reason. Denying
+  needs an HR business partner or above; military leave whose only open question is the family
+  member's covered status, which the records don't carry, may be approved by an HR business
+  partner or above with a written reason, their attestation that they checked it; extending
+  needs a director, an eligible employee and a request past the
   entitlement, granting more weeks in total than are left and no more than were asked;
   denying, extending, or approving a request the rule sent to HR review needs a written reason.
 - **Asking for more information isn't a decision.** Anyone registered may ask; it is signed,
-  stored and logged once, and the request keeps waiting, so a specialist can't close a case the
-  rule kept for a director.
+  stored and logged once, and the request keeps waiting, so a local manager can't close a case
+  the rule kept for HR or a director. (The roles were renamed in
+  [ADR 0034](0034-leave-roles-follow-the-branch.md); a route or role from a log written before
+  that is refused, never guessed at.)
 - **Record first, then the log.** The signed decision goes to the store before its log entry,
   so a logged decision always has its record; a decision that lost a race has its record
   removed and its refusal logged, naming the staff member only if they signed it.

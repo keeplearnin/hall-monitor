@@ -1,5 +1,7 @@
 """The eval's scoring rules: ground truth scores perfectly, and known errors are caught."""
 
+import re
+
 import pytest
 
 from hall_monitor.amounts import source_text
@@ -392,6 +394,17 @@ def test_parts_of_dates_and_times_are_not_amounts(amount, text):
         (450.0, "Fee (ca) $450.00", True),
         (450.0, "$450.00 co-pay", True),
         (450.0, "$450.00 AR", True),
+        # Accounting negatives are refunds, like a minus sign (review finding 8).
+        (200.0, "Refund ($200.00)", False),
+        (200.0, "Refund ( $200.00 )", False),
+        (200.0, "Refund (USD 200.00)", False),
+        (200.0, "Refund (200.00 USD)", False),
+        (150.0, "$150.00 CR", False),
+        (150.0, "150.00 USD CR", False),
+        (150.0, "$150.00 cr", False),
+        (200.0, "Hotel (2 nights) $200.00", True),
+        (200.0, "Hotel $200.00 (2 nights)", True),
+        (150.0, "$150.00 CRUISE", True),
     ],
 )
 def test_the_routing_trace_only_counts_dollar_amounts(amount, text, found):
@@ -399,3 +412,127 @@ def test_the_routing_trace_only_counts_dollar_amounts(amount, text, found):
     number (a year, a booking reference) or another currency's figure doesn't count."""
     assert amount_in(amount, text, usd=True) is found
     assert (untraced([amount], text, usd=True) == []) is found
+
+
+@pytest.mark.parametrize(
+    "text, named",
+    [
+        ("INVOICE\nAll amounts in CAD\nTaxi $45.00", ["CAD"]),
+        ("Hotel total $300.00 (prices shown in euros)", ["EUR"]),
+        ("Receipt — currency: GBP\nDinner $80.00", ["GBP"]),
+        ("Fare C$120.00", ["CAD"]),
+        ("Room ¥12,000", ["JPY"]),
+        ("Paid in Mexican pesos: $1,200.00", ["MXN"]),
+        ("Two amounts: EUR 40 and AUD 60", ["AUD", "EUR"]),
+    ],
+)
+def test_another_currency_named_anywhere_in_the_documents_is_found(text, named):
+    from hall_monitor.amounts import other_currencies
+
+    assert other_currencies(text) == named
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Taxi $45.00 ATM fee $3.00, VAT $9.00",
+        "ALL AMOUNTS IN US DOLLARS\nHotel $300.00",
+    ],
+)
+def test_ordinary_us_receipts_name_no_other_currency(text):
+    from hall_monitor.amounts import other_currencies
+
+    assert other_currencies(text) == []
+
+
+def test_a_claim_whose_documents_name_another_currency_goes_to_a_person():
+    auto = next(
+        cid for cid in sorted(CLAIMS) if result_from_truth(cid).routing.route.value == "auto"
+    )
+    truth = load_ground_truth(auto)
+    claim = redact_claim(CLAIMS[auto])[0]
+    routing = route_claim(
+        truth.extraction,
+        CoverageAssessment(**truth.coverage.model_dump()),
+        RiskAssessment(**truth.risk.model_dump(), reasoning=""),
+        Recommendation(next_step=truth.next_step, reasons=[]),
+        policy=load_policy_records().get(truth.extraction.policy_number),
+        # Every figure written with a bare "$", under a header naming another currency.
+        claim_text="All amounts in this claim are in CAD\n"
+        + re.sub(r"\bUSD\b\s?|\bUS\$", "$", source_text(claim)),
+    )
+    # The auto claims' receipts use a bare "$" (or name another currency already, marked USD);
+    # under a CAD header a bare "$" no longer counts.
+    assert routing.route.value != "auto"
+    assert any(
+        r.startswith("claimed amounts not in the claim documents marked USD (they name CAD)")
+        for r in routing.reasons
+    ), routing.reasons
+
+
+def test_figures_marked_usd_still_trace_when_another_currency_is_named():
+    from hall_monitor.amounts import untraced
+
+    text = "Total: USD 38.50 (card, converted from JPY)\nShirt US$214.00"
+    assert untraced([38.5, 214.0], text, usd=True, strict=True) == []
+    assert untraced([38.5], "Total: $38.50 (all amounts in CAD)", usd=True, strict=True) == [38.5]
+
+
+# --- Review 38b: parentheses and currency words in ordinary narrative ----------------------------
+
+
+@pytest.mark.parametrize(
+    ("amount", "text", "found"),
+    [
+        (480.0, "I bought a suit ($480.00), dress shoes ($220.00) and a tie.", True),
+        (220.0, "I bought a suit ($480.00), dress shoes ($220.00) and a tie.", True),
+        (480.0, "Replacement suit ($480.00)\r\nShoes $220.00", False),  # a ledger value alone
+        (480.0, "Suit ($480.00) refunded by the store", False),
+        (480.0, "Store credit: suit ($480.00), shoes", False),
+        (480.0, "Returned items: suit ($480.00), shoes", False),
+    ],
+)
+def test_an_item_listed_in_parentheses_in_the_narrative_still_traces(amount, text, found):
+    """A figure in parentheses is an accounting negative only when it stands alone at the end
+    of its line, or a refund, credit or return word is on the line: a narrative listing items
+    with their prices in brackets still traces."""
+    assert amount_in(amount, text, usd=True) is found
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The airline says my bag won't be found.\nReplacement jacket $120.00",
+        "Stayed two nights at the Sterling Hotel, Denver.\nRoom total $300.00",
+        "Euro rail pass, unused because of the injury\nPass price $300.00",
+        "Rand Hughes, the tour guide, confirmed the cancellation.\nTour fee $300.00",
+        "Item: BLUE PEN, pack of 2\nStationery total $300.00",
+    ],
+)
+def test_wont_and_hotel_names_dont_make_a_us_claim_strict(text):
+    """Words that are also currency names, or English words that are also currency codes, away
+    from any figure and not in a header phrase, don't make the documents name another
+    currency, so a bare "$" still counts as US dollars."""
+    from hall_monitor.amounts import other_currencies, untraced
+
+    assert other_currencies(text) == []
+    strict = bool(other_currencies(text))
+    amount = 120.0 if "jacket" in text else 300.0
+    assert untraced([amount], text, usd=True, strict=strict) == []
+
+
+@pytest.mark.parametrize(
+    ("text", "named"),
+    [
+        ("Paid 45,000 Korean won for the taxi", ["KRW"]),
+        ("Safari deposit in South African rand: $300.00", ["ZAR"]),
+        ("Taxi PEN 45.00", ["PEN"]),
+        ("Room 300 SAR", ["SAR"]),
+        ("Room 200 euros", ["EUR"]),
+        ("Currency: sterling\nRoom $300.00", ["GBP"]),
+    ],
+)
+def test_currency_names_next_to_a_figure_or_in_a_header_are_still_found(text, named):
+    from hall_monitor.amounts import other_currencies
+
+    assert other_currencies(text) == named

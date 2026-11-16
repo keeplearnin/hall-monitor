@@ -709,3 +709,150 @@ def test_cli_refuses_an_impossible_payout_without_a_traceback(db, monkeypatch, c
     )
     assert code != 0
     assert "payout" in capsys.readouterr().err
+
+
+def test_a_decision_is_rejected_while_the_adjusters_file_isnt_approved(db, monkeypatch):
+    """Review finding 10: the adjusters file is approved by digest; an unapproved one can't
+    authorise a decision, and the claim stays with a person."""
+    from hall_monitor import workflow as wf
+    from hall_monitor.governance.approval import AdjustersNotApproved
+
+    _submit(db, "claim_004")
+
+    def refuse(*_a, **_k):
+        raise AdjustersNotApproved("adjusters not approved: adjusters.yaml is not the approved")
+
+    monkeypatch.setattr(wf, "approved_adjusters", refuse)
+    status = _decide(db, "claim_004", **DENY)
+    assert status["state"] == "waiting_for_adjuster"
+    assert "adjusters not approved" in status["previous_decision_rejected"]
+
+
+# --- Review finding 7: the same receipts filed again under a new claim ID ---------------------
+
+DUPLICATE_REASON = (
+    "duplicate_documents: the same documents were filed with an earlier claim on this policy"
+)
+
+
+def _refiled(claim_id, new_id, change=lambda text: text):
+    claim = CLAIMS[claim_id]
+    attachments = [a.model_copy(update={"text": change(a.text)}) for a in claim.attachments]
+    return claim.model_copy(update={"claim_id": new_id, "attachments": attachments})
+
+
+def _submit_as(path, truth_id, claim):
+    with _open(path, truth_id) as workflow:
+        return workflow.submit(claim)
+
+
+def _triage_entry(workflow, claim_id):
+    entries = workflow.audit.entries(claim_id)
+    return next(e for e in entries if e["event"] == "triage_result")["payload"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [lambda t: t, lambda t: "  " + t.upper().replace(" ", "\n ") + "\n"],
+    ids=["same", "case-and-spacing"],
+)
+def test_the_same_receipts_under_a_new_claim_id_go_to_an_adjuster(db, change):
+    """A small clean claim was auto-paid; filed again under a new ID it must not be paid again
+    automatically, whatever the risk agent says."""
+    assert _submit(db, "claim_001")["state"] == "decided"
+    status = _submit_as(db, "claim_001", _refiled("claim_001", "claim_001b", change))
+    assert status["state"] == "waiting_for_adjuster"
+    assert DUPLICATE_REASON in status["routing_reasons"]
+    with _open(db) as workflow:
+        logged, first = _triage_entry(workflow, "claim_001b"), _triage_entry(workflow, "claim_001")
+    assert logged["route"] == "adjuster" and DUPLICATE_REASON in logged["routing_reasons"]
+    # A keyed hash only: no document text, no policy number.
+    assert logged["documents_hmac"] == first["documents_hmac"]
+    assert len(logged["documents_hmac"]) == 64
+    assert "WTP-" not in str(logged) and "WTP-" not in str(first)
+
+
+def test_different_receipts_on_the_same_policy_are_not_flagged(db):
+    _submit(db, "claim_001")
+    other = _refiled("claim_001", "claim_001c", lambda t: t + "\nSecond page.")
+    status = _submit_as(db, "claim_001", other)
+    assert status["state"] == "decided" and status["final"]["decided_by"] == "auto"
+
+
+def test_a_claim_is_not_a_duplicate_of_its_own_earlier_run(tmp_path):
+    """A restarted triage logs a second result for the same claim ID: not a resubmission."""
+    from hall_monitor.governance.audit import AuditLog, TriageRecorder
+
+    log = AuditLog(tmp_path / "audit.sqlite")
+    claim = CLAIMS["claim_001"]
+    result = triage(
+        claim,
+        registry=REGISTRY,
+        gateway=GATEWAY,
+        wording=WORDING,
+        client=fake_client(outputs_from_truth(load_ground_truth("claim_001"))),
+        on_event=TriageRecorder(log, claim.claim_id),
+    )
+    recorder = TriageRecorder(log, claim.claim_id)
+    recorder("claim_submitted", {"claim": claim, "redactions": {}, "injection_signals": []})
+    assert result.routing.route.value == "auto"
+    assert not recorder.documents_seen(claim)
+    other = TriageRecorder(log, "claim_001b")
+    other("claim_submitted", {"claim": claim, "redactions": {}, "injection_signals": []})
+    assert other.documents_seen(claim)
+    log.close()
+
+
+# --- Review 38b: the documents hash comes from the submitted claim, not the agent's output -----
+
+
+def _open_with(path, client):
+    return open_workflow(
+        path,
+        audit_db=path.with_name("audit.sqlite"),
+        registry=REGISTRY,
+        gateway=GATEWAY,
+        wording=WORDING,
+        client=client,
+    )
+
+
+def test_a_stopped_claim_with_no_policy_number_still_goes_to_an_adjuster(db):
+    """No policy number in the claim and none extracted: triage stops for a person, it doesn't
+    crash on hashing the documents."""
+    import re
+
+    claim = CLAIMS["claim_001"]
+    claim = claim.model_copy(
+        update={
+            "claim_id": "claim_001_nopolicy",
+            "narrative": re.sub(r",? policy WTP-ESS-100231", "", claim.narrative),
+        }
+    )
+    assert "WTP-" not in claim.model_dump_json()
+    truth = load_ground_truth("claim_001")
+    extraction = truth.extraction.model_copy(update={"policy_number": None})
+    client = fake_client(outputs_from_truth(truth) | {type(extraction): extraction})
+    with _open_with(db, client) as workflow:
+        status = workflow.submit(claim)
+        logged = _triage_entry(workflow, claim.claim_id)
+    assert status["state"] == "waiting_for_adjuster"
+    assert logged["route"] == "adjuster"
+    assert len(logged["documents_hmac"]) == 64
+
+
+def test_refiling_a_claim_whose_first_triage_stopped_is_still_caught(db):
+    """The first filing stopped before intake (the agent refused), so no extraction; the same
+    documents under a new claim ID are still matched against it."""
+    from hall_monitor.models import IntakeExtraction
+
+    truth = load_ground_truth("claim_001")
+    refusing = fake_client(outputs_from_truth(truth), stop_reason={IntakeExtraction: "refusal"})
+    with _open_with(db, refusing) as workflow:
+        first = workflow.submit(CLAIMS["claim_001"])
+        logged = _triage_entry(workflow, "claim_001")
+    assert first["state"] == "waiting_for_adjuster"
+    assert len(logged["documents_hmac"]) == 64
+    status = _submit_as(db, "claim_001", _refiled("claim_001", "claim_001b"))
+    assert status["state"] == "waiting_for_adjuster"
+    assert DUPLICATE_REASON in status["routing_reasons"]

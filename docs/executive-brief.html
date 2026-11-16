@@ -100,7 +100,7 @@
 <body>
 <main class="sheet">
   <header>
-    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · briefing for business leaders · updated 14 November 2026 · claims, HR leave and a complaint desk</span></div>
+    <div class="eyebrow"><span class="ticket">HALL PASS</span><span>hall-monitor · briefing for business leaders · updated 15 November 2026 · claims, HR leave and a complaint desk</span></div>
     <h1>AI that prepares insurance claims, with people making the calls that matter</h1>
     <p class="lede">hall-monitor shows how a regulated firm can use AI agents to speed up claims work <strong>and still answer the regulator's questions</strong>: what each AI was allowed to do, who approved it, what records it looked at, and who made the final decision. The rules live in software, not in a policy binder.</p>
   </header>
@@ -213,7 +213,8 @@
     <div class="col">
       <h2>What it shows so far</h2>
       <dl class="stats">
-        <div class="stat"><dt>0</dt><dd><b>Claims that needed a person went through automatically</b>, in 204 test runs</dd></div>
+        <div class="stat"><dt>0</dt><dd><b>Claims that needed a person went through automatically</b>, in 204 test runs (on earlier versions of the AI steps)</dd></div>
+        <div class="stat"><dt>28/28</dt><dd><b>Leave requests sent to the right person</b> in one live run on the current AI steps, 2.6¢ in all (fictional requests and answer keys by one author; <a href="leave-path.md">the leave path</a>)</dd></div>
         <div class="stat"><dt>84/84</dt><dd><b>Planted mistakes caught by the double-check</b>, with 1 false alarm in 34 clean claims</dd></div>
         <div class="stat"><dt>98%</dt><dd><b>Coverage decisions right</b>: amount, outcome and every deciding policy rule cited</dd></div>
         <div class="stat"><dt>0</dt><dd><b>Invented facts.</b> Every extracted value and cited policy rule traced back to a source</dd></div>
@@ -228,8 +229,8 @@
         <li><span class="q">Who approved it? <span class="chip built">Built</span></span><span class="a">Every permit names an owner, and each version and its core instructions need a committed approval to run (the policy wording, look-up descriptions and correction text aren't covered yet). Who may approve is set by repository controls, not yet enforced.</span></li>
         <li><span class="q">Who makes the big calls? <span class="chip built">Built</span></span><span class="a">Denials, large payouts, fraud, and a decision the checking AI changed or still disputes wait for an adjuster, within their authority limit.</span></li>
         <li><span class="q">What happens to personal data? <span class="chip built">Built</span></span><span class="a">ID numbers are removed from claim text before the AI sees it; no claim narrative goes into logs or traces.</span></li>
-        <li><span class="q">Is it accurate and fair? <span class="chip part">Partly</span></span><span class="a">Scored on 34 test claims, on earlier versions, misses published. Fairness and attack tests are built; their live results are next. An automated attacker got harm through in 8 of 18 attacks on the complaint desk (published, not yet fixed).</span></li>
-        <li><span class="q">Can an AI that picks its own steps skip work? <span class="chip part">Partly</span></span><span class="a">A supervisor AI now picks each next step in all three examples, but sees only codes, can't choose the outcome and is checked by software at every step. Offline, no claim went through automatically that the fixed order sent to a person, and no complaint or leave request got less review; it hasn't run live yet.</span></li>
+        <li><span class="q">Is it accurate and fair? <span class="chip part">Partly</span></span><span class="a">Scored on 34 test claims, on earlier versions, misses published. Fairness and attack tests are built; their live results are next. An automated attacker got harm through in 3 of 18 attacks on the complaint desk (8 of 18 before the fixes); the 3 left are complaints whose seriousness is only in the free text. Only the leave path has a live score on its current versions.</span></li>
+        <li><span class="q">Can an AI that picks its own steps skip work? <span class="chip part">Partly</span></span><span class="a">A supervisor AI now picks each next step in all three examples, but sees only codes, can't choose the outcome and is checked by software at every step. Offline, no claim went through automatically that the fixed order sent to a person, and no complaint or leave request got less review. Live, only the leave supervisor has run, once.</span></li>
         <li><span class="q">What stops AI costs running away? <span class="chip built">Built</span></span><span class="a">Approved budgets per case and caps per day and month for each kind of work, changed only by a recorded approval. A live case that would go over goes to a person with no AI call.</span></li>
         <li><span class="q">Can you prove it months later? <span class="chip built">Built</span></span><span class="a">A hash-chained record shows any change. Keep a copy of its latest hash elsewhere to catch a full rewrite.</span></li>
       </ul>
@@ -248,7 +249,7 @@
         <li class="done"><span class="m">11</span><span>Hardening: signed adjuster decisions, evidence checked before a decision, data limits enforced at run time</span></li>
         <li class="done"><span class="m">12</span><span>Phase B so far: tests of every AI step giving wrong answers, an owner's stop switch, more ID numbers removed (not yet scored live)</span></li>
         <li><span class="m">13</span><span>Test harness for vendor guardrails, gateways and observability; limits as policy code</span></li>
-        <li class="done"><span class="m">16-20</span><span>HR leave: eligibility rules in code, two AI steps, signed HR sign-off within the role the rules name, a request form (not run live)</span></li>
+        <li class="done"><span class="m">16-20</span><span>HR leave: eligibility rules in code, two AI steps, signed sign-off by the local manager, HR business partner or director the rules name, a request form, one live run (<a href="leave-path.md">the leave path</a>)</span></li>
         <li class="done"><span class="m">21</span><span>A complaint desk on real public CFPB complaints: built never to reply to anyone; code sets who handles each complaint at minimum (scripted runs only; the form is proposed)</span></li>
         <li><span class="m">22-24</span><span>Started: rules for AIs handing work to helpers (access only narrows, every call charged to a budget set by code; no team of AIs yet), an automated attacker, failure drills on many claims at once</span></li>
         <li class="done"><span class="m">25</span><span>A supervisor AI now picks the steps in all three examples; code checks every step, holds a budget per case and alone decides the outcome (tested offline only; the scores above are from the older fixed order)</span></li>

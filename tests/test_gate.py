@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 import yaml
 
 from hall_monitor.evals.gate import run_gate, unsafe_routes
@@ -39,6 +40,15 @@ def test_a_score_below_threshold_fails(tmp_path):
 def test_a_missing_metric_fails(tmp_path):
     ok, _ = run_gate(_setup(tmp_path, {}))
     assert not ok
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), True, "0.95", [1]])
+def test_a_metric_that_isnt_a_finite_number_fails(tmp_path, value):
+    """Review finding 11: NaN compares false both ways and True reads as 1, so both passed."""
+    extra = {"max": {"cost": 5}}
+    summary = {"score": value, "cost": value}
+    ok, [result] = run_gate(_setup(tmp_path, summary, extra=extra))
+    assert not ok and result.state == "fail" and len(result.failures) == 2
 
 
 def test_stale_results_are_flagged(tmp_path):

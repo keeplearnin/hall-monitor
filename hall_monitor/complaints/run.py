@@ -8,7 +8,9 @@
 Claude API (Haiku) for each complaint, through the desk's guarded model client (HM-25), up to
 --limit (at most 500), from the pinned snapshot or the desk's store (--from-store). At Haiku's
 price a complaint costs well under a cent; the run prints its total. A complaint already triaged
-is skipped. Nothing is sent to anyone: drafts are kept in the evidence store, never sent.
+is skipped, unless its stored version changed since it was routed: then an additive re-route
+entry sends it to specialist review as record_changed, with no model call (review 25). Nothing
+is sent to anyone: drafts are kept in the evidence store, never sent.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from hall_monitor.complaints.pipeline import (
     RECEIVED,
     ROUTED,
     AlreadyTriaged,
+    reroute_changed,
     route_unfinished,
     scope_id,
     triage_complaint,
@@ -51,10 +54,15 @@ def run(
     spend: SpendLedger | None = None,
 ) -> dict:
     """Triage each complaint not already in the log; a summary of what happened. A complaint a
-    killed run claimed but never routed goes to specialist review now (interrupted)."""
+    killed run claimed but never routed goes to specialist review now (interrupted); a routed
+    one whose new version adds a code reason, raises the urgency floor or adds a narrative is
+    re-routed to specialist review (rerouted); another change is counted, its earlier route
+    standing (changed_not_rerouted, also counted as skipped)."""
     summary = {
         "triaged": 0,
         "skipped": 0,
+        "rerouted": 0,
+        "changed_not_rerouted": 0,
         "interrupted": 0,
         "specialist_review": 0,
         "standard_queue": 0,
@@ -74,6 +82,10 @@ def run(
                     continue
                 except AlreadyRecorded:
                     pass
+            elif reroute_changed(complaint, audit, summary) is not None:
+                summary["rerouted"] += 1
+                summary["specialist_review"] += 1
+                continue
             summary["skipped"] += 1
             continue
         try:

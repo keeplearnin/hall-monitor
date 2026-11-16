@@ -1,0 +1,633 @@
+{
+  "summary": {
+    "requests": 28,
+    "intake_field_accuracy": 1.0,
+    "intake_exact": 28,
+    "route_accuracy": 1.0,
+    "explanations_kept": 28,
+    "explanation_failures": 0,
+    "errors": 0,
+    "cost_usd": 0.0258
+  },
+  "runs": [
+    {
+      "request_id": "lr_001",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.001365
+    },
+    {
+      "request_id": "lr_002",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.001093
+    },
+    {
+      "request_id": "lr_003",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000763
+    },
+    {
+      "request_id": "lr_004",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.00098
+    },
+    {
+      "request_id": "lr_005",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000748
+    },
+    {
+      "request_id": "lr_006",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.001044
+    },
+    {
+      "request_id": "lr_007",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000831
+    },
+    {
+      "request_id": "lr_008",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.001075
+    },
+    {
+      "request_id": "lr_009",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.001096
+    },
+    {
+      "request_id": "lr_010",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000753
+    },
+    {
+      "request_id": "lr_011",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000794
+    },
+    {
+      "request_id": "lr_012",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000994
+    },
+    {
+      "request_id": "lr_013",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000904
+    },
+    {
+      "request_id": "lr_014",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000753
+    },
+    {
+      "request_id": "lr_015",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000777
+    },
+    {
+      "request_id": "lr_016",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000931
+    },
+    {
+      "request_id": "lr_017",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000712
+    },
+    {
+      "request_id": "lr_018",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000914
+    },
+    {
+      "request_id": "lr_019",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.001059
+    },
+    {
+      "request_id": "lr_020",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000778
+    },
+    {
+      "request_id": "lr_021",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.001108
+    },
+    {
+      "request_id": "lr_022",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000856
+    },
+    {
+      "request_id": "lr_023",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000943
+    },
+    {
+      "request_id": "lr_024",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000791
+    },
+    {
+      "request_id": "lr_025",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.001022
+    },
+    {
+      "request_id": "lr_026",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.001143
+    },
+    {
+      "request_id": "lr_027",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.00081
+    },
+    {
+      "request_id": "lr_028",
+      "score": {
+        "error": null,
+        "fields": {
+          "start": true,
+          "end": true,
+          "intermittent": true,
+          "reason": true,
+          "family_relationship": true,
+          "family_member_under_18": true,
+          "incapable_of_self_care": true,
+          "event_date": true,
+          "possible_accommodation": true
+        },
+        "route_matches": true,
+        "explanation_kept": true
+      },
+      "explanation_problem": null,
+      "cost_usd": 0.000788
+    }
+  ],
+  "meta": {
+    "run_at": "2026-11-15 23:25 UTC",
+    "git_commit": "99399d15417a4304c635299a09e6c86ffc92155a",
+    "git_dirty": false,
+    "agents": [
+      {
+        "agent_id": "leave_explainer",
+        "agent_version": "0.2.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "8f6b57741d2fe2d5c406fec61bc2eaf5b5cd32cb657b99f293a1a1a321f14c5b",
+        "prompt_version": "leave-explainer-v2",
+        "prompt_template_sha256": "6e75b9a1a7a2913a1ee8c7549196a0da2341c5519a9111d5405492f5196464a5"
+      },
+      {
+        "agent_id": "leave_intake",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "ea29e9dedc0452d4d7658e9381223fbadee9dd436428ea4820b69eef84b9e07b",
+        "prompt_version": "leave-intake-v1",
+        "prompt_template_sha256": "461d668fa78c7d403046371f4e4471ebbdbe63151f447b165394a5e0e7d90962"
+      },
+      {
+        "agent_id": "leave_supervisor",
+        "agent_version": "0.1.0",
+        "model": "claude-haiku-5-5",
+        "manifest_digest": "26709c5c1dd138ec957d74b441717d92f57707583392931b8bef2f1d313c0e97",
+        "prompt_version": "leave-supervisor-v1",
+        "prompt_template_sha256": "46adce86d355d41898532dd86b623767dae54d5f782dda7d8e4e1bb4624f5368"
+      }
+    ]
+  }
+}

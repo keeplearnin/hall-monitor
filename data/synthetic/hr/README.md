@@ -41,44 +41,46 @@ three methods the regulations allow.
 
 | Request | Expected | Why it's here |
 |---|---|---|
-| lr_001 | Specialist sign-off | Clean baseline: 4 of 12 weeks |
-| lr_002 | HR manager: short service | Hired on a Sunday: 51 weeks on the payroll |
-| lr_003 | Specialist sign-off | Hired the Saturday before: that day's week counts, making 52 |
-| lr_004 | HR manager: low hours | 1,249 hours; 40-hour weeks just outside the 12 months |
-| lr_005 | Specialist sign-off | Exactly 1,250 hours; notice on a Thursday |
-| lr_006 | HR manager: small worksite | 49 employees within 75 miles |
-| lr_007 | Specialist sign-off | 50 within 75 miles, counting a site exactly 75 miles away |
-| lr_008 | HR manager | Employer not covered, and 30 within 75 miles (another employer's office nearby doesn't count) |
+| lr_001 | Local manager sign-off | Clean baseline: 4 of 12 weeks |
+| lr_002 | HR business partner: short service | Hired on a Sunday: 51 weeks on the payroll |
+| lr_003 | Local manager sign-off | Hired the Saturday before: that day's week counts, making 52 |
+| lr_004 | HR business partner: low hours | 1,249 hours; 40-hour weeks just outside the 12 months |
+| lr_005 | Local manager sign-off | Exactly 1,250 hours; notice on a Thursday |
+| lr_006 | HR business partner: small worksite | 49 employees within 75 miles |
+| lr_007 | Local manager sign-off | 50 within 75 miles, counting a site exactly 75 miles away |
+| lr_008 | HR business partner | Employer not covered, and 30 within 75 miles (another employer's office nearby doesn't count) |
 | lr_009 | HR director: past entitlement | 10 workweeks used, 3 asked, 2 left |
-| lr_010 | Specialist sign-off | Only 5 workdays of an older leave fall in the rolling year: 11 weeks left |
-| lr_011 | Leave specialist: intermittent | Intermittent leave always goes to a person |
+| lr_010 | Local manager sign-off | Only 5 workdays of an older leave fall in the rolling year: 11 weeks left |
+| lr_011 | HR business partner: intermittent | Intermittent leave always goes to a person |
 | lr_012 | HR director: retaliation risk | Pending discipline, complaint or termination |
-| lr_013 | Leave specialist | Possible ADA or PWFA accommodation |
-| lr_014 | Leave specialist: state law | California site |
-| lr_015 | Leave specialist | Key employee |
-| lr_016 | Leave specialist | Spouse works here too, so bonding leave may be shared |
-| lr_017 | HR manager: bonding window | Bonding leave starting inside the 12 months after the birth and ending after them |
-| lr_018 | HR manager | A parent-in-law isn't a covered family member |
-| lr_019 | Leave specialist | Reason unclear |
-| lr_020 | Specialist sign-off | Military caregiver: 26 weeks, 18 asked; notice on a Friday |
-| lr_021 | HR manager: short service | Service before a break of almost 11 years isn't counted: 27 weeks |
-| lr_022 | Specialist sign-off | Service before a 4-year break counts: 136 weeks |
-| lr_023 | Leave specialist | No hours ledger: hours can't be checked |
-| lr_024 | Specialist sign-off | Works from home; the worksite is the office they're assigned to |
-| lr_025 | Leave specialist | Care for an adult child: a person checks the disability condition |
-| lr_026 | Leave specialist | Earlier caregiver leave in a period that has ended: a person checks whether it was for the same servicemember and injury |
-| lr_027 | Leave specialist: state law | Works at an Ohio office but lives in New York |
-| lr_028 | Leave specialist | Birth bonding leave starting before the expected birth |
+| lr_013 | HR business partner | Possible ADA or PWFA accommodation |
+| lr_014 | HR business partner: state law | California site |
+| lr_015 | HR business partner | Key employee |
+| lr_016 | HR business partner | Spouse works here too, so bonding leave may be shared |
+| lr_017 | HR business partner: bonding window | Bonding leave starting inside the 12 months after the birth and ending after them |
+| lr_018 | HR business partner | A parent-in-law isn't a covered family member |
+| lr_019 | HR business partner | Reason unclear |
+| lr_020 | HR business partner | Military caregiver: 26 weeks, 18 asked; notice on a Friday; a person checks the servicemember's covered status |
+| lr_021 | HR business partner: short service | Service before a break of almost 11 years isn't counted: 27 weeks |
+| lr_022 | Local manager sign-off | Service before a 4-year break counts: 136 weeks |
+| lr_023 | HR business partner | No hours ledger: hours can't be checked |
+| lr_024 | Local manager sign-off | Works from home; the worksite is the office they're assigned to |
+| lr_025 | HR business partner | Care for an adult child: a person checks the disability condition |
+| lr_026 | HR business partner | Earlier caregiver leave in a period that has ended: a person checks whether it was for the same servicemember and injury, and the covered status |
+| lr_027 | HR business partner: state law | Works at an Ohio office but lives in New York |
+| lr_028 | HR business partner | Birth bonding leave starting before the expected birth |
 
 ## Assumptions to confirm with HR
 
 The design asked HR nine questions; until they answer, the rules take these positions:
 
-- **No approval without a person.** Even a clean request is a draft for a leave specialist to
-  sign (question 1).
-- **Sign-off limits** are the design's guess: a leave specialist approves within the entitlement
-  or asks for more, an HR manager denies or finds an employee ineligible, an HR director extends
-  past the entitlement or decides a case with a retaliation risk (question 2).
+- **No approval without a person.** Even a clean request is a draft for the employee's local
+  (branch) manager to sign (question 1).
+- **Sign-off limits** follow how a branch company already works: the local manager prepares
+  every request and approves only the plain light-path case (no reason raised); an HR business
+  partner denies, decides partial approvals and decides every request sent to HR review
+  (including military leave, after attesting that the covered status was checked); an HR
+  director extends past the entitlement or decides a case with a retaliation risk (question 2).
 - **Intermittent leave always goes to a person** (question 5).
 - **The employer doesn't count service before a break of 7 years or more**, unless the employee
   record says it must (military service or a written agreement).
@@ -88,4 +90,7 @@ The design asked HR nine questions; until they answer, the rules take these posi
 
 ## Changes to answer keys
 
-None yet.
+| Date | Request | Change | Why |
+|---|---|---|---|
+| 2026-11-15 | lr_020, lr_026 | `reason` becomes unknown and `military_status_unverified` is added; lr_020 moves from specialist sign-off to HR review (leave specialist) | Review 25: military caregiver leave needs a covered servicemember (29 CFR 825.127) and qualifying exigency a family member on covered active duty (825.126). The records carry neither status, so the rule can't pass the reason; a person checks it. The old keys passed on the relationship alone. |
+| 2026-11-15 | all 28 | Roles renamed to match a branch company: `route` `specialist_sign_off` → `manager_sign_off` and its `decided_by` `leave_specialist` → `local_manager` (7 light-path requests); `decided_by` `hr_manager` → `hr_business_partner` (7); `decided_by` `leave_specialist` → `hr_business_partner` for every request sent to HR review (12: lr_011, 013-016, 019, 020, 023, 025-028). No eligibility, check, weeks, reason code or route changes. | A local (branch) manager decides only the plain light path; the senior HR role (HR business partner) decides every flagged request, so every reason that named a leave specialist now names an HR business partner. HR directors are unchanged. |

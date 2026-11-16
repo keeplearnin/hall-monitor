@@ -13,10 +13,13 @@ what was routed to them, one overrides the AI, one decision is refused by the ru
 rest wait in the review queue.
 
 Then the 28 synthetic leave requests go through the leave agents and the rules (scripted the
-same way) into the same log, and HR signs some: a leave specialist signs off six clean requests
-and leaves two waiting, an HR manager denies two, an HR director approves two of the three weeks
-one employee asked for, a specialist asks for more information on the unclear one, and a
-specialist's attempt to deny is refused by the rules. The rest wait for HR.
+same way) into the same log, and HR signs some: the local (branch) manager signs off five of the
+seven clean requests and leaves two waiting, an HR business partner approves the military
+caregiver leave after attesting that the servicemember's covered status was checked and denies
+two, an HR director approves two of the three weeks one employee asked for, the local manager
+asks for more information on the unclear one, and the local manager's attempt to deny a request
+sent to HR review is refused by the rules: the one deliberately refused decision. The rest wait
+for HR.
 """
 
 from __future__ import annotations
@@ -113,7 +116,13 @@ class _ScriptedLeaveMessages:
 LEAVE_DECISIONS = (
     *((r, "hrs-101", "approve", 0, "") for r in ("lr_001", "lr_003", "lr_005", "lr_007")),
     ("lr_010", "hrs-101", "approve", 0, ""),
-    ("lr_020", "hrs-101", "approve", 0, ""),
+    (
+        "lr_020",
+        "hrs-201",
+        "approve",
+        0,
+        "Checked the servicemember's orders: covered servicemember status confirmed.",
+    ),
     ("lr_002", "hrs-201", "deny", 0, "Under 12 months of service when the leave starts."),
     ("lr_018", "hrs-201", "deny", 0, "A parent-in-law isn't a family member FMLA covers."),
     ("lr_009", "hrs-301", "approve", 2, "Two FMLA weeks left; the third goes to company policy."),

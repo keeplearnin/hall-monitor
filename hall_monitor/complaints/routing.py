@@ -45,6 +45,11 @@ REASONS: dict[str, str] = {
         "the desk supervisor failed, was stopped, ran out of budget or kept choosing steps code "
         "refused"
     ),
+    # Review 25: CFPB changed the record after the desk routed it; no agent read the new version.
+    "record_changed": (
+        "CFPB changed the record after it was routed; a person reviews the new version, which "
+        "no agent has read"
+    ),
     # Cost governance (HM-34): refused before any model call.
     "spend_refused": (
         "the desk's spending cap was reached, its budgets aren't approved or the spend ledger "
@@ -62,6 +67,7 @@ PIPELINE_REASONS = frozenset(
         "triage_skipped",
         "supervisor_failed",
         "spend_refused",
+        "record_changed",
     }
 )
 

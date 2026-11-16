@@ -66,6 +66,22 @@ AGENT_REASONS: dict[str, tuple[str, Tier, Role]] = {
         Tier.YELLOW,
         PMM,
     ),
+    "agent_stopped": (
+        "an agent was stopped while the claim was prepared; a person reads the documents",
+        Tier.YELLOW,
+        PMM,
+    ),
+    "spend_refused": (
+        "the partner claims spending cap was reached or the budgets aren't approved; "
+        "a person reads the documents",
+        Tier.YELLOW,
+        PMM,
+    ),
+    "budget_exhausted": (
+        "the claim's case budget ran out before every agent answered; a person finishes the check",
+        Tier.YELLOW,
+        PMM,
+    ),
 }
 
 CONCERN_REASONS: dict[str, str] = {
@@ -152,25 +168,101 @@ def _token_in(token: str, text: str) -> bool:
     return re.search(pattern, text.casefold()) is not None
 
 
-def _segments(text: str) -> set[str]:
+def _segments(lines: list[str]) -> set[str]:
     return {
         part.strip(" .,;").casefold()
-        for line in text.splitlines()
+        for line in lines
         for part in _SEGMENT_BREAK.split(line)
         if part.strip(" .,;")
     }
+
+
+# Where the invoice names the party it is addressed to, not the one that issued it: a two-word
+# label (Bill to, Ship to...), or Client or Customer as a label, followed by a colon or ending
+# the line, so an issuer named "Customer Events LLC" or "Client Solutions Inc" is still the
+# issuer (review 38b).
+_ADDRESSEE = re.compile(
+    r"\b(?:bill(?:ed)?\s+to|ship\s+to|sold\s+to|invoice\s+to)\b"
+    r"|\b(?:client|customer)\b(?=\s*(?::|$))",
+    re.IGNORECASE,
+)
+_ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+
+
+def _header(invoice: str) -> list[str]:
+    """The invoice's header: its lines before any addressee label (Bill to, Client, Ship
+    to...), date or amount. The issuer is named here; a party named after it is not the
+    issuer, whichever line it is on."""
+    header = []
+    for line in invoice.splitlines():
+        if not line.strip():
+            continue
+        cut = _ADDRESSEE.search(line)
+        if cut is not None:
+            if line[: cut.start()].strip():
+                header.append(line[: cut.start()])
+            break
+        if _ISO_DATE.search(line) or _amounts_in(line):
+            break
+        header.append(line)
+    return header
+
+
+# A unit count as the synthetic invoices write it: "20 units", "20 x", "20 @", "20 pcs".
+_COUNT = re.compile(r"(?<![\w.,-])(\d+)\s*(?:units?\b|pcs\b|pieces\b|x(?=\s)|×|@)", re.IGNORECASE)
+# The unit price stated right after the count: "20 units at 75.00", "20 x USD 75.00".
+_PRICE = r"\s*(?:USD|\$)?\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)(?![\w-]|[.,]\d)"
+_PRICE_AFTER_WORD = re.compile(r"^\s*(?:at|@|x|×)" + _PRICE, re.IGNORECASE)
+_PRICE_AFTER_SIGN = re.compile(r"^" + _PRICE, re.IGNORECASE)
+
+
+def _units_on(line: str, units: int, amount: Decimal) -> bool:
+    """The count is written as a count of units on this line, isn't one of the line's money
+    figures, and, where a unit price is stated, times it makes the line's amount."""
+    for match in _COUNT.finditer(line):
+        if int(match.group(1)) != units:
+            continue
+        rest = line[match.end() :]
+        signed = match.group(0)[-1] in "@×xX"  # "20 @ 75.00": the price follows directly
+        found = (_PRICE_AFTER_SIGN if signed else _PRICE_AFTER_WORD).match(rest)
+        if signed and found is None:
+            continue  # "20 x" with no price after it isn't a count
+        # The line's other money figures: not the count itself, nor the unit price stated after
+        # it, which may equal the count ("20 units at 20.00", review 38b).
+        if found is not None:
+            rest = rest[: found.start(1)] + " " + rest[found.end(1) :]
+        money = _amounts_in(line[: match.start()] + " " + rest)
+        if Decimal(units).quantize(CENT) in money:
+            return False
+        if found is not None:
+            price = Decimal(found.group(1).replace(",", "")).quantize(CENT)
+            if (units * price).quantize(CENT) != amount:
+                return False
+        return True
+    return False
+
+
+# The activity's dates as one pair: "2026-09-10 to 2026-09-13".
+_DATE_PAIR = re.compile(
+    r"(?<![\w-])(\d{4}-\d{2}-\d{2})\s*(?:to|through|until|–|—|-)\s*(\d{4}-\d{2}-\d{2})(?![\w-])",
+    re.IGNORECASE,
+)
 
 
 def check_extraction(extraction: ClaimExtraction, documents: Documents) -> list[str]:
     """Problems with what the intake agent extracted, found by checking it against the
     documents' own text. Empty when every value is there, where it should be:
 
-    - the invoice number as a whole token, and the issuer as a whole part of a line, so a
-      fragment can't stand in for either (a shortened number would slip past the duplicate
-      rule);
-    - the total on the invoice's total line, and each line's amount, and its unit count if it
-      has one, together on one other line, never digits from an identifier or a date;
-    - each activity date written in ISO form somewhere in the documents.
+    - the invoice number as a whole token, and the issuer as a whole part of a line of the
+      invoice's header (before any Bill to, Client or Ship to), so neither a fragment nor the
+      party billed can stand in (a shortened number would slip past the duplicate rule; the
+      billed partner as issuer would hide a self-invoice);
+    - the total on the invoice's total line, and each line's amount on one other line, never
+      digits from an identifier or a date;
+    - a line's unit count written as a count of units on that line ("20 units", "20 x"), not
+      one of its money figures, and times a stated unit price making the line's amount;
+    - the activity's start and end written together as one pair ("A to B") in the documents,
+      so a later start or an earlier end can't be picked from elsewhere.
     """
     invoice = documents.invoice
     all_text = "\n".join([invoice, *(item.text for item in documents.evidence)])
@@ -180,28 +272,31 @@ def check_extraction(extraction: ClaimExtraction, documents: Documents) -> list[
     problems = []
     if len(number) < 3 or not _token_in(number, invoice):
         problems.append("number_not_in_invoice")
-    if not issuer or issuer.strip(" .,;").casefold() not in _segments(invoice):
+    if not issuer or issuer.strip(" .,;").casefold() not in _segments(_header(invoice)):
         problems.append("issuer_not_in_invoice")
 
     lines = [line for line in invoice.splitlines() if line.strip()]
     totals = [_amounts_in(line) for line in lines if "total" in line.casefold()]
-    items = [_amounts_in(line) for line in lines if "total" not in line.casefold()]
+    items = [line for line in lines if "total" not in line.casefold()]
     amount_ok = any(_money(extraction.invoice_total_usd) in found for found in totals)
     units_ok = True
     for line in extraction.lines:
-        holding = [found for found in items if _money(line.amount_usd) in found]
+        amount = _money(line.amount_usd)
+        holding = [text for text in items if amount in _amounts_in(text)]
         amount_ok = amount_ok and bool(holding)
-        if line.units is not None and not any(Decimal(line.units) in found for found in holding):
+        if line.units is not None and not any(
+            _units_on(text, line.units, amount) for text in holding
+        ):
             units_ok = False
     if not amount_ok:
         problems.append("amount_not_in_invoice")
     if not units_ok:
         problems.append("units_not_in_invoice")
 
-    for day in (extraction.activity_start, extraction.activity_end):
-        if day is None or not _token_in(day.isoformat(), all_text):
-            problems.append("date_not_in_documents")
-            break
+    start, end = extraction.activity_start, extraction.activity_end
+    pairs = {(m.group(1), m.group(2)) for m in _DATE_PAIR.finditer(all_text)}
+    if start is None or end is None or (start.isoformat(), end.isoformat()) not in pairs:
+        problems.append("date_not_in_documents")
     return problems
 
 

@@ -10,6 +10,7 @@ registry/approvals.yaml; gate.yaml says whether that warns or fails.
 from __future__ import annotations
 
 import json
+import math
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -65,6 +66,12 @@ def stale_agents(data: dict, approvals: dict) -> list[str]:
     return stale
 
 
+def _number(value) -> bool:
+    """A metric counts only as a finite int or float: NaN compares false both ways, so it
+    would pass any threshold, and a boolean would read as 0 or 1. A missing metric fails."""
+    return isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
+
+
 def check(spec: dict, approvals: dict, stale_policy: str) -> CheckResult:
     path = ROOT / spec["results"]
     if not path.exists():
@@ -81,11 +88,11 @@ def check(spec: dict, approvals: dict, stale_policy: str) -> CheckResult:
         out.failures.append(f"mode = {out.meta.get('mode')} (needs {spec['mode']})")
     for key, floor in spec.get("min", {}).items():
         value = metrics.get(key)
-        if value is None or value < floor:
+        if not _number(value) or value < floor:
             out.failures.append(f"{key} = {value} (min {floor})")
     for key, ceiling in spec.get("max", {}).items():
         value = metrics.get(key)
-        if value is None or value > ceiling:
+        if not _number(value) or value > ceiling:
             out.failures.append(f"{key} = {value} (max {ceiling})")
 
     stale = stale_agents(data, approvals)

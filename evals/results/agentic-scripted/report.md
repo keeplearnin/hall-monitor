@@ -1,6 +1,6 @@
 # Agentic path against the fixed path (offline, scripted)
 
-Run 2026-11-12 04:39 UTC at 203793085514, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
+Run 2026-11-15 23:49 UTC at fcf7455b5d7a, 36 synthetic claims. Specialists answer from the answer key; the supervisor is a scripted policy. No model was called, so this measures code's bounds, not a live supervisor's judgement.
 
 Fixed path: routes {'auto': 16, 'adjuster': 20}, 5.0 specialist calls and 0.0124 USD per claim (fake token counts).
 
@@ -49,22 +49,22 @@ Fixed path: routes {'auto': 16, 'adjuster': 20}, 5.0 specialist calls and 0.0124
 
 ## HR leave
 
-28 synthetic leave requests, the agents answering from the answer key; fixed order routes {'specialist_sign_off': 8, 'hr_review': 20}. Every request is for a person to sign either way.
+28 synthetic leave requests, the agents answering from the answer key; fixed order routes {'manager_sign_off': 7, 'hr_review': 21}. Every request is for a person to sign either way.
 
 | Policy | Same route and role | Less review | Routes | Reasons added | Supervisor calls |
 |---|---|---|---|---|---|
-| old_order | 100% | 0 | {'hr_review': 20, 'specialist_sign_off': 8} | - | 4.0 |
+| old_order | 100% | 0 | {'hr_review': 21, 'manager_sign_off': 7} | - | 4.0 |
 | finish_at_once | 0% | 0 | {'hr_review': 28} | {'assessment_skipped': 28} | 1.0 |
 | hand_off | 0% | 0 | {'hr_review': 28} | {'assessment_skipped': 28, 'supervisor_handed_off': 28} | 1.0 |
 | finish_before_rules | 0% | 0 | {'hr_review': 28} | {'assessment_skipped': 28} | 2.0 |
-| skip_note | 100% | 0 | {'hr_review': 20, 'specialist_sign_off': 8} | - | 3.0 |
+| skip_note | 100% | 0 | {'hr_review': 21, 'manager_sign_off': 7} | - | 3.0 |
 | hand_off_at_end | 0% | 0 | {'hr_review': 28} | {'supervisor_handed_off': 28} | 4.0 |
 | repeat_intake | 0% | 0 | {'hr_review': 28} | {'assessment_skipped': 28, 'supervisor_failed': 28} | 4.0 |
 | fails_at_once | 0% | 0 | {'hr_review': 28} | {'assessment_skipped': 28, 'supervisor_failed': 28} | 1.0 |
-| recheck_agrees | 100% | 0 | {'hr_review': 20, 'specialist_sign_off': 8} | - | 5.0 |
+| recheck_agrees | 100% | 0 | {'hr_review': 21, 'manager_sign_off': 7} | - | 5.0 |
 | recheck_disagrees | 0% | 0 | {'hr_review': 28} | {'intake_disagreed': 28} | 5.0 |
-| noisy_1 | 54% | 0 | {'hr_review': 23, 'specialist_sign_off': 5} | {'assessment_skipped': 8, 'supervisor_failed': 2, 'supervisor_handed_off': 5} | 3.75 |
-| noisy_2 | 50% | 0 | {'hr_review': 24, 'specialist_sign_off': 4} | {'assessment_skipped': 6, 'supervisor_failed': 2, 'supervisor_handed_off': 9} | 4.0 |
-| noisy_3 | 57% | 0 | {'hr_review': 25, 'specialist_sign_off': 3} | {'assessment_skipped': 11, 'supervisor_handed_off': 7} | 3.32 |
+| noisy_1 | 54% | 0 | {'hr_review': 24, 'manager_sign_off': 4} | {'assessment_skipped': 8, 'supervisor_failed': 2, 'supervisor_handed_off': 5} | 3.75 |
+| noisy_2 | 50% | 0 | {'hr_review': 24, 'manager_sign_off': 4} | {'assessment_skipped': 6, 'supervisor_failed': 2, 'supervisor_handed_off': 9} | 4.0 |
+| noisy_3 | 57% | 0 | {'hr_review': 26, 'manager_sign_off': 2} | {'assessment_skipped': 11, 'supervisor_handed_off': 7} | 3.32 |
 
-- **Less review:** requests this policy gave less review than the fixed order (the specialist's light path instead of HR review, a less senior role, or, where the rules ran, one of their reasons dropped, or no evidence pack where the fixed order stored one). Must be 0. `recheck_disagrees` answers every re-check with the opposite intermittent answer.
+- **Less review:** requests this policy gave less review than the fixed order (the local manager's light path instead of HR review, a less senior role, or, where the rules ran, one of their reasons dropped, or no evidence pack where the fixed order stored one). Must be 0. `recheck_disagrees` answers every re-check with the opposite intermittent answer.

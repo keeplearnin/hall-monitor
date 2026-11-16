@@ -316,7 +316,7 @@ def _leave_card(w: dict) -> Safe:
     stats = [
         ("Requests", m["requests"], False),
         ("To HR review", f"{m['hr_review']} ({review})", False),
-        ("To specialist sign-off", m["specialist_sign_off"], False),
+        ("To local manager sign-off", m["manager_sign_off"], False),
         ("Waiting for HR", m["waiting_for_hr"], True),
         ("Approved", m["approved"], False),
         ("Denied", m["denied"], False),
@@ -333,8 +333,10 @@ def _leave_card(w: dict) -> Safe:
         badge(w["status"], "ok"),
         tag(
             "p",
-            "Every request is decided by a person: specialist sign-off is a draft a leave "
-            "specialist signs. The rules name the least senior role that may decide.",
+            "Every request is decided by a person: local manager sign-off is a draft the "
+            "employee's local manager signs; HR review goes to an HR business partner, or an HR "
+            "director for leave past the entitlement or a retaliation risk. The rules name the "
+            "least senior role that may decide.",
             class_="lead",
         ),
         _tiles(stats),

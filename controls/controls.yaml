@@ -118,9 +118,28 @@ controls:
       intake labels USD, goes to a person. Another currency counts beside the mark or after the
       figure: any three-capital code but USD, and a list of dollar and peso codes, prefixes and
       names in any case (HK $450, NZ $450, (CAD) $450, Cdn. $450, $450 cad, $450 in CAD, $450
-      Canadian), with any spaces (non-breaking ones too) or punctuation between. The list is a
-      backstop behind the intake's label and the senior-adjuster rule for claims not in USD, not
-      a currency parser.
+      Canadian), with any spaces (non-breaking ones too) or punctuation between. A refund
+      followed by CR doesn't count, like one with a minus sign, nor does one written as an
+      accounting negative (($200.00), (USD 200.00)) when the bracketed figure stands alone at
+      the end of its line or the line says refund, credit or return; prices listed in brackets
+      in a narrative ("a suit ($480.00), shoes ($220.00)") still count. A currency the documents
+      name (C$ or another prefixed dollar, €, £, ¥ and other signs, or a common currency code,
+      anywhere; a currency's name only next to a figure or after a header phrase such as "all
+      amounts in CAD", "currency: sterling" or "converted from yen"; and codes that are also
+      English words, PEN, SAR, COP and PHP, only in those places too) means a bare "$" may be
+      that currency, so
+      only figures marked USD or US$ count then, and a figure that doesn't trace gets its own
+      reason naming the currencies found ("claimed amounts not in the claim documents marked
+      USD (they name ...)"); a total written with a bare "$" still traces when every item is
+      marked USD and they add up to it. The lists are a backstop behind the intake's label and
+      the senior-adjuster rule for claims not in USD, not a currency parser. In the workflow,
+      a claim whose documents match an earlier claim's under another claim ID on the same
+      policy goes to an adjuster (duplicate_documents): each triage result, stopped ones
+      included, records a keyed hash (documents_hmac) of the attachment texts, normalised for
+      case, spacing and order, scoped by the policy numbers code finds in the claim as sent (the
+      documents alone when it names none), never by the agent's extraction, so a claim stopped
+      before intake or with no policy number is hashed and checked too; the next claim's is
+      compared with the results already logged.
     status: built
     code:
       - hall_monitor/governance/routing.py::route_claim
@@ -131,6 +150,18 @@ controls:
       - tests/test_agent_faults.py::test_a_wrong_answer_sends_the_claim_to_a_person
       - tests/test_agent_faults.py::test_a_claim_in_another_currency_labelled_usd_goes_to_a_person
       - tests/test_scoring.py::test_the_routing_trace_only_counts_dollar_amounts
+      - tests/test_scoring.py::test_another_currency_named_anywhere_in_the_documents_is_found
+      - tests/test_scoring.py::test_ordinary_us_receipts_name_no_other_currency
+      - tests/test_scoring.py::test_a_claim_whose_documents_name_another_currency_goes_to_a_person
+      - tests/test_scoring.py::test_figures_marked_usd_still_trace_when_another_currency_is_named
+      - tests/test_workflow.py::test_the_same_receipts_under_a_new_claim_id_go_to_an_adjuster
+      - tests/test_workflow.py::test_different_receipts_on_the_same_policy_are_not_flagged
+      - tests/test_workflow.py::test_a_claim_is_not_a_duplicate_of_its_own_earlier_run
+      - tests/test_workflow.py::test_a_stopped_claim_with_no_policy_number_still_goes_to_an_adjuster
+      - tests/test_workflow.py::test_refiling_a_claim_whose_first_triage_stopped_is_still_caught
+      - tests/test_scoring.py::test_an_item_listed_in_parentheses_in_the_narrative_still_traces
+      - tests/test_scoring.py::test_wont_and_hotel_names_dont_make_a_us_claim_strict
+      - tests/test_scoring.py::test_currency_names_next_to_a_figure_or_in_a_header_are_still_found
       - tests/test_agent_faults.py::test_known_limit_a_missed_fraud_signal_routes_automatically
       - tests/test_agent_faults.py::test_known_limit_an_overpayment_within_the_claim_routes_automatically
     evidence:
@@ -146,14 +177,22 @@ controls:
       agents' figures against what the claimant sent, not the claimant's own figures, and a figure
       written in both the narrative and a receipt counts twice, so wrong items whose total happens
       to appear in the documents as dollars would pass it. The currency comes from the claimant's
-      own marks: a bare "$" the claimant uses for another currency, with no code or prefix beside
-      it, is taken as USD; so is one beside a code, prefix or name not in the list (single
-      letters such as R $ or S $, and two-letter forms that are also words or US state codes:
-      CA, CO, AR, AU); and a currency named elsewhere in the document (a header saying "all
-      amounts in CAD") isn't read. A refund written as ($20.00), or with a spaced dash
-      (– $20.00, which is also how item lists are written), traces as $20. The other way round,
-      an unrelated three-capital word beside a figure ($45.00 ATM fee, VAT $9.00) stops it
-      tracing, so that claim goes to a person.
+      own marks: a bare "$" the claimant uses for another currency is taken as USD when no other
+      currency is named anywhere in the documents, and the codes and names found anywhere are a
+      fixed list of common currencies (a rarer one isn't). Names count only next to a figure or
+      after a header phrase, and "in" is one: "stayed in Euro House" names EUR, which errs
+      towards review; "won" and "rand" count only as "Korean won" and "South African rand". A
+      bracketed price on a line that says return or credit for another reason ("returned to the
+      store ($480.00), ...") doesn't trace, so that claim goes to a person. A
+      refund written with a spaced dash (– $20.00, which is also how item lists are written)
+      traces as $20. An unrelated three-capital word beside a figure ($45.00 ATM fee, VAT
+      $9.00) stops it tracing, so that claim goes to a person. The duplicate-documents check
+      runs only in the workflow (evals and a direct triage() pass no log, so they don't check),
+      only once a triage has finished (two claims with the same documents triaged at the same
+      time can both miss each other), only when the refiled claim names the same set of policy
+      numbers in its text (a refiling that names an extra or a different one, or drops it, is
+      scoped differently and isn't matched), and only on the attachments, not the narrative; an
+      attachment changed by one character no longer matches.
 
   - id: HM-05
     name: Adjuster approval gate
@@ -176,7 +215,11 @@ controls:
       the log doesn't hold, or that differs from it, is reported as a problem. A claim whose
       evidence pack the log holds but whose checkpoint has no result is reported as needing a
       person. The review CLI refuses an invalid decision (a negative payout or NaN, say)
-      with a message naming the fields.
+      with a message naming the fields. The adjusters file (registry/adjusters.yaml) is
+      approved by digest in registry/approvals.yaml, like the budgets, and read again at each
+      decision: while it isn't the approved version, or it or approvals.yaml doesn't load,
+      every decision is rejected. It is refused whole if an ID is listed twice or an authority limit isn't a
+      finite number above 0 (a NaN limit would let any payout pass).
     status: built
     code:
       - hall_monitor/workflow.py::build_graph
@@ -207,6 +250,11 @@ controls:
       - tests/test_approval_rules.py::test_a_demo_key_signature_is_marked_in_the_record
       - tests/test_approval_rules.py::test_a_claim_not_in_usd_needs_a_senior_adjuster
       - tests/test_approval_rules.py::test_paying_a_risky_claim_with_no_flags_needs_a_senior_adjuster
+      - tests/test_approval_rules.py::test_a_bad_adjusters_file_is_refused
+      - tests/test_approval_rules.py::test_the_shipped_adjusters_are_approved
+      - tests/test_approval_rules.py::test_a_changed_adjusters_file_is_not_approved
+      - tests/test_approval_rules.py::test_an_unreadable_approvals_file_refuses_the_adjusters
+      - tests/test_workflow.py::test_a_decision_is_rejected_while_the_adjusters_file_isnt_approved
     evidence:
       - evals/results/hardened-critic/override.json
     nist: [GOVERN 3.2, MAP 3.5, MANAGE 4.1]
@@ -239,6 +287,10 @@ controls:
       code). Since the log decides a claim's state, checkpoint files used side by side share
       one log, and a claim the log shows triaged can't be triaged from another checkpoints
       file. The override rate is simulated with an answer-key adjuster; no real adjusters yet.
+      The workflow reads the adjusters file and its approval from the shipped registry
+      directory, whatever registry a run is given. The review CLI still reads the adjusters
+      file unpinned, only to say whether the adjuster signs with a demo key; whether the
+      decision counts is the workflow's check against the approved file.
 
   - id: HM-06
     name: Tamper-evident audit log
@@ -247,8 +299,11 @@ controls:
       and every adjuster decision are written, as they happen, to an append-only SQLite log in
       which each entry's hash covers the previous one. Triggers refuse edits and deletes, and
       verify reports any changed, missing or reordered entry, any stored evidence pack that no
-      longer matches its hash, and (opened read-only, as the audit CLI does) any trigger someone
-      removed. Entries hold no claim narrative or documents; the adjuster's written reason, critic
+      longer matches its hash, any signed HR decision record the log refers to that was changed
+      (one no longer stored is listed apart, as decision_records_erased, like an erased
+      evidence pack), and (opened read-only, as the audit CLI does) any trigger someone removed
+      or replaced with one of the same name: the stored trigger SQL is compared with the
+      expected SQL, not only the names. Entries hold no claim narrative or documents; the adjuster's written reason, critic
       issues, a rejected submission, each agent call's hash of what the agent was sent and each
       tool call's hash of its result are kept as keyed hashes (HMAC-SHA256), so the hashes alone
       can't confirm a guess (but see the gaps on signatures). Traces leave the input hash out. Every read and write takes the same lock.
@@ -269,6 +324,9 @@ controls:
       - tests/test_intake.py::test_codes_the_log_repeats_must_be_codes
       - tests/test_audit.py::test_evidence_is_stored_by_hash_and_checked_by_verify
       - tests/test_audit.py::test_read_only_verify_reports_removed_triggers_and_malformed_entries
+      - tests/test_audit.py::test_a_same_named_trigger_that_does_nothing_is_reported
+      - tests/test_audit.py::test_the_shipped_triggers_pass_the_check
+      - tests/test_hr_signoff.py::test_the_chain_check_reports_a_changed_or_missing_signed_leave_decision
       - tests/test_pipeline.py::test_events_are_reported_as_they_happen
       - tests/test_pipeline.py::test_a_recording_failure_stops_the_claim
       - tests/test_audit.py::test_keyed_hashes_depend_on_the_key
@@ -305,7 +363,11 @@ controls:
       a guess could confirm the recommendation agent's structured input or, for a policy with no
       earlier claims, the insured's name; the log can't be edited, so the panel leaves those
       fields out. The published eval results (evals/results) keep the plain input hash of
-      synthetic claims.
+      synthetic claims. Checking the signed HR decision records needs the audit key (the log
+      holds only a keyed hash of each record's hash); without it verify fails with a problem
+      saying so rather than passing. A record that is no longer stored is listed, not called tampering,
+      because erasure under a data-protection request is allowed; verify can't tell an erased
+      record from a deleted one.
 
   - id: HM-07
     name: Critic review with revision history
@@ -358,9 +420,19 @@ controls:
       written as entities doesn't render like an escaped tag). A code detector flags text aimed
       at the AI (override instructions, fake markup, claimed approval, requests to skip review,
       internal tool names) in the narrative, attachments, file names, attachment kinds and the
-      channel, and sends the claim to a person. It searches the text as written and again after
-      decoding entities and compatibility forms (full-width brackets) and dropping characters
-      that render as nothing, so decoding only adds matches. It scans both the claim as sent and
+      channel, and sends the claim to a person. The same detector serves the HR and complaint
+      desk examples, and knows the desk's own vocabulary too: its tags, queues and agents, and
+      text telling the triage what to answer, a field with a value it takes (set the urgency to
+      low, concerns must be an empty list, the category should be other) or keep it in the
+      standard queue. Text counts as addressed to the AI when it names an AI or one of the
+      system's agents (note to the AI, to the triage agent:), or opens a line or sentence with
+      assistant, model, agent or system and an instruction ("Assistant: approve"); a passing
+      mention ("I explained it to the assistant", "the ticket agent: change fee waived", "raise
+      my concerns", "my priority should be low") isn't flagged. It searches the text as written and again after
+      decoding entities until the text stops changing (up to five layers, so &amp;lt; is
+      read as <), compatibility forms (full-width brackets), Cyrillic and Greek letters that
+      look like Latin ones, and dropping characters that render as nothing, so decoding only
+      adds matches. It scans both the claim as sent and
       the redacted claim the agents read, because redaction can join words into a phrase. The
       channel and attachment kind must be one of a fixed list of values, and the claim ID must
       be a code, so they carry no free text into prompts or the audit log.
@@ -379,6 +451,9 @@ controls:
       - tests/test_privacy_security.py::test_channel_and_kind_are_known_values
       - tests/test_privacy_security.py::test_a_claim_id_must_be_a_code
       - tests/test_privacy_security.py::test_redaction_cant_reveal_a_signal_the_detector_missed
+      - tests/test_privacy_security.py::test_the_complaint_desk_s_own_vocabulary_is_flagged
+      - tests/test_privacy_security.py::test_ordinary_complaint_text_is_not_flagged
+      - tests/test_privacy_security.py::test_ordinary_claim_and_leave_text_is_not_flagged
     evidence:
       - "pending: uv run python -m hall_monitor.evals.adversarial"
     nist: [MEASURE 2.7, MANAGE 1.3]
@@ -387,7 +462,14 @@ controls:
       mitigations: [MI-03, MI-17, MI-19]
     gaps: >-
       Pattern detection misses wording it wasn't written for; the adversarial suite measures
-      that. Entities encoded twice (&amp;lt;) are decoded once only. A claim whose channel or
+      that, and the red-team arena (HM-30) found the gaps this review widened the list for: it
+      is still a list of phrasings, a tripwire, not a classifier. Entities encoded more than
+      five times are decoded five times only, and look-alike letters are a fixed table of
+      Cyrillic and Greek ones (other scripts and symbols aren't mapped). The desk's phrases
+      are shared with claims and HR, so a claim saying "set the urgency to low" in passing goes
+      to a person, the safe side; narrowing them to a field and a value (review 38b) means an
+      attack that steers without naming a value ("change the category") or addresses an
+      assistant mid-sentence is no longer flagged by these two patterns. A claim whose channel or
       attachment kind isn't a known value is refused when it is loaded, before triage, with the
       fields named but not their values, so it leaves no audit entry. The coverage step's cited clauses are free
       text the recommender receives unchecked, so a clause written with a name or condition in it
@@ -484,8 +566,9 @@ controls:
       risks: [RI-04, RI-06]
       mitigations: [MI-05]
     gaps: >-
-      Published results were scored on earlier agent versions (named in each findings note).
-      Coverage counts as correct when every deciding clause is cited, even with extra clauses;
+      Published claims results were scored on earlier agent versions (named in each findings
+      note); the only live result on the currently approved agents is the HR leave run
+      (HM-22). Coverage counts as correct when every deciding clause is cited, even with extra clauses;
       clause precision is reported separately.
 
   - id: HM-13
@@ -581,9 +664,11 @@ controls:
     name: CI checks and the eval gate
     what: >-
       Every pull request runs lint, the offline tests, the approvals check, this register's
-      checks, and the eval gate, which fails when a published score is below its threshold and
-      flags results scored on an older agent version or prompt than the one approved, or that
-      don't record their versions.
+      checks, and the eval gate, which fails when a published score is below its threshold, or
+      isn't a finite number (NaN, infinity, a boolean or text fail rather than pass), and flags
+      results scored on an older agent version or prompt than the one approved, or that don't
+      record their versions. Required checks include the live run of the agentic leave path
+      (route and intake accuracy at least 0.95, no errors).
     status: built
     code:
       - .github/workflows/ci.yml
@@ -594,6 +679,7 @@ controls:
       - tests/test_gate.py::test_stale_results_are_flagged
       - tests/test_gate.py::test_results_without_agent_versions_count_as_stale
       - tests/test_gate.py::test_a_changed_prompt_makes_a_result_stale
+      - tests/test_gate.py::test_a_metric_that_isnt_a_finite_number_fails
     evidence: []
     nist: [MEASURE 3.1]
     finos:
@@ -602,7 +688,8 @@ controls:
     gaps: >-
       The gate checks published results; it doesn't run live evals itself (that costs money and
       needs an API key), so a stale result is only a warning until a fresh baseline exists.
-      Until then the gate doesn't block a regression. A failing check fails CI but doesn't block a
+      Until then the gate doesn't block a regression: today the claims baseline and the seeded
+      critic eval are flagged stale. A failing check fails CI but doesn't block a
       merge: main has no branch protection yet. Metrics other than unsafe routes are read
       from the summary each run wrote. The live-eval workflow runs only from main, but that guard
       is in the workflow file, which a branch can edit in its own copy: the API key must be a
@@ -632,7 +719,8 @@ controls:
     finos:
       risks: [RI-19]
       mitigations: [MI-06]
-    gaps: Data quality is documented, not monitored; there is no drift detection.
+    gaps: >-
+      Data quality is documented, not monitored; there is no drift detection.
 
   - id: HM-19
     name: Kill switch
@@ -643,7 +731,12 @@ controls:
       its next model call, including the next tool round of a call already under way, and on its
       next tool call; a stopped agent stops the claim and sends it to a person. Every agent a
       claim's result rests on is checked again just before routing, so a claim that used the
-      answer of an agent stopped after it gave it also goes to a person. The stop list fails
+      answer of an agent stopped after it gave it also goes to a person; on the agentic path
+      every agent already used is checked again before each next agent, inside a critic's
+      revision round too. The other workflows do the same with an answer given before a stop:
+      the complaint desk's agentic loop (its default) discards the answer of a triage agent
+      stopped after it answered (no draft, specialist review at high urgency), and partner-claim preparation discards both agents' answers
+      (agent_stopped). The stop list fails
       closed: if it is missing, unreadable or has a key twice, names an unknown agent or a person
       not in registry/owners.yaml, or approvals clear a stop it doesn't hold, every agent is
       refused. Restarting needs the stop cleared in registry/approvals.yaml (python -m
@@ -686,6 +779,9 @@ controls:
       - tests/test_kill_switch.py::test_a_malformed_stop_list_fails_the_check_with_a_message
       - tests/test_kill_switch.py::test_the_kill_switch_drill_finds_no_call_or_automatic_route_after_a_stop
       - tests/test_kill_switch.py::test_the_drill_fails_when_the_kill_switch_is_broken
+      - tests/test_agentic.py::test_a_stop_during_a_revision_round_halts_it_before_the_next_agent
+      - tests/test_desk_agentic.py::test_a_triage_agent_stopped_after_it_answered_has_its_answer_discarded
+      - tests/test_partner_agents.py::test_a_stop_made_after_the_intake_agent_answered_sends_the_claim_to_a_person
     evidence:
       - evals/results/kill-switch-drill/results.json
     nist: [MANAGE 2.4, GOVERN 2.1]
@@ -840,14 +936,21 @@ controls:
       distance, hours week, home state or employer record, an unknown leave-year method, or
       earlier caregiver leave whose servicemember the records don't name, is "can't decide", not
       a failure. Birth bonding leave starting before the birth can't be decided either: before a
-      birth it is prenatal care or a health condition, not bonding. A code rule then sends every check
+      birth it is prenatal care or a health condition, not bonding. Nor can military leave (a
+      qualifying exigency or military caregiver leave) for a covered relationship: the family
+      member's covered active duty or covered servicemember status isn't in the records, so the
+      reason check is "can't decide" (military_status_unverified). A code rule then sends every check
       that didn't pass and every flag (intermittent leave, retaliation risk, a possible
       accommodation, a state with its own leave law where the employee works or lives, a key
       employee, a spouse at the same employer where leave may be shared, bonding leave running
-      past its 12 months) to HR review, and names the least senior role that may decide: denying
-      or finding an employee ineligible needs an HR manager or above, extending past the
-      entitlement or deciding a case with a retaliation risk needs an HR director. Even a clean
-      request is a draft for a leave specialist to sign, never an approval without a person. The
+      past its 12 months) to HR review, and names the least senior role that may decide, from
+      the three roles of a branch company: the employee's local manager, an HR business
+      partner and an HR director. Every reason names an HR business partner or above, so a
+      local manager never decides a flagged request; extending past the entitlement, deciding
+      a case with a retaliation risk, a request the agentic path routed before the rules ran
+      (assessment_skipped) and one refused at the spending cap need an HR director. Only a clean request with no reason at all takes the light path
+      (manager_sign_off), and even that is a draft for the local manager to sign, never an
+      approval without a person. The
       records hold no names and no diagnosis; the health information they do hold is coarse (the
       reason category of a request and of leave already taken, whether an adult child can't care
       for themselves, signs of an accommodation need), and bonding requests carry the date of the
@@ -876,21 +979,28 @@ controls:
       - tests/test_hr_leave.py::test_birth_bonding_before_the_birth_can_t_be_decided_but_placement_can_start_before
       - tests/test_hr_leave.py::test_any_flag_on_a_clean_request_sends_it_to_hr_review
       - tests/test_hr_leave.py::test_a_check_that_didn_t_pass_reaches_a_person_even_without_a_code
-      - tests/test_hr_leave.py::test_only_hr_managers_and_directors_may_deny_or_extend
+      - tests/test_hr_leave.py::test_a_local_manager_never_decides_a_flagged_request
+      - tests/test_hr_leave.py::test_the_light_path_is_the_local_manager_s
+      - tests/test_hr_leave.py::test_military_leave_without_a_verified_military_status_goes_to_a_person
       - tests/test_hr_leave.py::test_the_records_carry_only_the_fields_the_rules_read
-    evidence: []
+    evidence:
+      - evals/results/hr-agentic-live/results.json
     nist: [GOVERN 3.2, MAP 3.5, MANAGE 1.3]
     finos:
       risks: [RI-22, RI-24]
       mitigations: []
     gaps: >-
-      No panel cases for this workflow yet, so status is partial (the agents are HM-22 and the
-      signed sign-off HM-23, which enforces the role the rule names). The rules are our reading of the
-      federal regulations (29 CFR Part 825), not reviewed by HR or an employment lawyer, and not
-      legal advice. The sign-off table comes from the design for HR review, which is a Claude Doc
-      outside this repo; the roles for an adult child, an accommodation, a state law, a key
-      employee, a spouse and earlier caregiver leave are this code's choice, and more leave than
-      is left goes to an HR director although an HR manager could deny the excess. The positions
+      Status is partial: the rules are our reading of the federal regulations (29 CFR Part
+      825), not reviewed by HR or an employment lawyer, and not legal advice, and state laws
+      aren't modelled (the agents are HM-22 and the signed sign-off HM-23, which enforces the
+      role the rule names). The live run (evals/results/hr-agentic-live) routed all 28
+      synthetic requests as their answer keys do, but the requests and keys are one person's
+      and it is one run. The director's cases come from the design for HR review, which is a
+      Claude Doc outside this repo; the three roles are modelled on how a branch company
+      works, and sending every flag to an HR business partner is this code's choice, not
+      confirmed by HR. More leave than is left goes to an HR director although an HR business
+      partner could deny the excess. Military leave is held for a person on every request with
+      a covered relationship, because no record carries the covered status. The positions
       taken on the design's open questions, and on when employer coverage is judged (the notice
       date's calendar year and the one before), are assumptions listed in
       data/synthetic/hr/README.md. State and local leave laws, company policy, paid leave and
@@ -917,8 +1027,9 @@ controls:
       then decide eligibility, entitlement, the route and the role. The intake agent's answer is
       what the rules run on, so a wrong extraction changes the result; the eval measures that.
       The leave explanation agent reads only the code's result, never the message, the employee
-      ID or the request ID, and writes an advisory note for the specialist (a list of one note
-      per check), kept only if it covers exactly the checks the code made; it can't change the
+      ID or the request ID, and writes an advisory note for the person who decides the request
+      (the local manager for a plain request, HR for anything flagged; prompt v2), a list of
+      one note per check, kept only if it covers exactly the checks the code made; it can't change the
       route or the role. Text in the message aimed at the AI (the injection detector, run on the
       message as sent and as redacted) sends the request to HR review whatever the agents say.
       Any failure of intake or the rules stops the request and sends it to a person, keeping the
@@ -939,7 +1050,12 @@ controls:
       kept out of traces, because the explanation's input has so few possible values that a
       plain hash could be confirmed by guessing. An eval (python -m hall_monitor.hr.evals) scores intake field by field
       and the end-to-end result against the answer keys, including the intake errors the rules
-      can't see.
+      can't see. One live run is published (evals/results/hr-agentic-live, the agentic path,
+      28 synthetic requests on the approved leave intake v1, supervisor v1 and explainer v2,
+      claude-haiku-5-5, commit 99399d1, clean tree): route accuracy 1.0, intake field accuracy
+      1.0 with all 28 extractions exact, 28 notes kept, 0 explanation failures, 0 errors,
+      0.0258 USD in all; the CI gate requires route and intake accuracy of at least 0.95 and no
+      errors.
     status: partial
     code:
       - hall_monitor/hr/pipeline.py::prepare
@@ -967,20 +1083,22 @@ controls:
       - tests/test_hr_agents.py::test_no_plain_hash_of_an_hr_agent_s_input_reaches_a_trace
       - tests/test_hr_agents.py::test_implausible_dates_are_refused_when_the_answer_is_parsed
     evidence:
-      - "pending: uv run python -m hall_monitor.hr.evals --out evals/results/hr-intake"
+      - evals/results/hr-agentic-live/results.json
     nist: [GOVERN 1.6, MAP 3.5, MEASURE 2.10, MANAGE 2.4]
     finos:
       risks: [RI-01, RI-10, RI-24]
       mitigations: [MI-18]
     gaps: >-
-      No live run yet: the agents are tested only with a scripted model that gives the answer
-      key, so how well the intake agent reads real messages is unmeasured, and the eval isn't in
-      the CI gate. An intake error the rules can't see (a wrong date, the wrong family member,
-      a missed accommodation sign) changes the result without a flag; the eval measures it and
-      the specialist checks the message, but nothing in code catches it. There is no critic and
+      One live run, of 28 short synthetic messages written by the same person who wrote their
+      answer keys: it shows the agents reading messages of that kind, not real employees'
+      messages, which are longer and messier, and says nothing about run-to-run variation. An
+      intake error the rules can't see (a wrong date, the wrong family member, a missed
+      accommodation sign) changes the result without a flag; the eval measures it and the
+      person deciding checks the message, but nothing in code catches it. There is no critic and
       no risk agent from the design; the signed sign-off is HM-23. The injection detector's phrases were written
       for claims; it now also knows the HR tags and a few HR phrasings (approval claimed from HR,
-      keeping a leave specialist out, role play as an HR director or manager), but it is a phrase
+      keeping HR or a specialist out, role play as an HR director, HR business partner or local
+      manager), but it is a phrase
       list, so other phrasings get through, and the detector is shared, so those phrases can
       also flag claim text ("already approved by my HR manager" in a business-travel claim),
       which sends it to a person: the safe side. The message itself still goes to the model provider with the employee's
@@ -999,12 +1117,18 @@ controls:
       request again is refused, and the chain check reports a pack that was changed or erased. A decision
       counts only if the staff member is in registry/hr_staff.yaml, it is signed with their
       Ed25519 key over the request, every decision field and the evidence hash, and code finds it
-      within their role: at least the role the routing rule named; approving FMLA leave only for
+      within their role: at least the role the routing rule named (a local manager for the
+      light path, an HR business partner or HR director for HR review; a route or role the
+      rules don't know, as a log written before the roles were renamed may hold, is refused
+      cleanly); approving FMLA leave only for
       an eligible employee with a qualifying reason, for more than 0 weeks and no more than are
-      left, were asked or qualify (bonding weeks after the 12 months don't); approving fewer weeks
-      than asked (for intermittent leave, than are left) only by an HR manager or above, with a
-      reason, since it refuses the rest;
-      denying only by an HR manager or above, with a reason; extending only by an HR director,
+      left, were asked or qualify (bonding weeks after the 12 months don't); approving military
+      leave whose only open question is the family member's covered status only by an HR
+      business partner or above, with a reason of at least 20 characters as their written
+      attestation that they checked it; approving fewer weeks
+      than asked (for intermittent leave, than are left) only by an HR business partner or
+      above, with a reason, since it refuses the rest;
+      denying only by an HR business partner or above, with a reason; extending only by an HR director,
       with a reason, for an eligible employee whose request is past the entitlement, granting more
       weeks in total than are left and no more than were asked; approving a request the rule sent
       to HR review only with a reason. Asking for more information is open to anyone registered
@@ -1030,8 +1154,8 @@ controls:
       - registry/hr_staff.yaml
     tests:
       - tests/test_hr_signoff.py::test_the_role_the_rules_name_is_enforced
-      - tests/test_hr_signoff.py::test_only_a_manager_or_above_may_deny_even_on_a_specialist_case
-      - tests/test_hr_signoff.py::test_extending_needs_a_director_even_on_a_specialist_s_case
+      - tests/test_hr_signoff.py::test_only_an_hr_business_partner_or_above_may_deny_even_on_the_light_path
+      - tests/test_hr_signoff.py::test_extending_needs_a_director_even_on_the_light_path
       - tests/test_hr_signoff.py::test_fmla_leave_is_approved_only_for_an_eligible_employee_with_a_qualifying_reason
       - tests/test_hr_signoff.py::test_approved_weeks_fit_what_is_left_and_what_was_asked
       - tests/test_hr_signoff.py::test_a_reason_is_needed_to_deny_extend_or_approve_against_the_route
@@ -1050,6 +1174,19 @@ controls:
       - tests/test_hr_signoff.py::test_a_logged_decision_always_has_its_signed_record
       - tests/test_hr_signoff.py::test_a_preparation_that_stopped_before_the_rules_can_be_prepared_again
       - tests/test_hr_signoff.py::test_an_information_request_is_kept_and_can_t_be_replayed
+      - tests/test_hr_signoff.py::test_a_local_manager_signs_off_a_clean_request
+      - tests/test_hr_signoff.py::test_a_local_manager_may_not_decide_a_flagged_request
+      - tests/test_hr_signoff.py::test_the_local_manager_may_still_ask_for_information_on_any_request
+      - tests/test_hr_signoff.py::test_a_partial_approval_needs_an_hr_business_partner_even_with_a_reason
+      - tests/test_hr_signoff.py::test_military_leave_can_be_approved_by_an_hr_business_partner_attesting_the_status
+      - tests/test_hr_signoff.py::test_military_leave_without_the_attestation_is_refused
+      - tests/test_hr_signoff.py::test_a_local_manager_may_not_approve_military_leave
+      - tests/test_hr_signoff.py::test_the_military_exception_is_for_an_hr_business_partner_even_if_the_route_says_less
+      - tests/test_hr_signoff.py::test_the_military_exception_needs_the_rest_of_eligibility
+      - tests/test_hr_signoff.py::test_the_military_exception_doesn_t_extend_leave
+      - tests/test_hr_signoff.py::test_a_reason_for_unclear_leave_is_still_refused_with_an_attestation
+      - tests/test_hr_signoff.py::test_an_old_role_or_route_in_an_evidence_pack_is_refused_cleanly
+      - tests/test_hr_signoff.py::test_the_chain_check_reports_a_changed_or_missing_signed_leave_decision
     evidence: []
     nist: [GOVERN 3.2, MAP 3.5, MEASURE 2.8]
     finos:
@@ -1067,8 +1204,14 @@ controls:
       for someone the rules find ineligible is decided outside this step. After a request for
       more information the request keeps waiting, but the employee's answer isn't added to the
       evidence: the person decides on the same pack. The
-      roles and limits are the design's guess and this code's choices (HM-21), not confirmed by
-      HR. The evidence pack holds personal and health information an auditor with the database
+      roles and limits are modelled on a branch company and are this code's choices (HM-21), not
+      confirmed by HR. The military attestation is a written reason, stored signed; nothing
+      checks it against a record of the family member's status. A request in a log written before
+      the roles were renamed can't be decided here: the refusal says it needs preparing again,
+      but preparing a request the log already holds is refused too, so it is handled outside
+      this step. The live leave eval
+      (HM-22) prepares requests but signs no decisions, so the sign-off has been exercised only
+      in tests with the demo keys. The evidence pack holds personal and health information an auditor with the database
       can read: the redacted message (with the employee's name and condition), the structured
       request (dates, the reason category, the family relationship, whether an adult child can't
       care for themselves, signs of an accommodation need, a birth or placement date), the hours,
@@ -1089,9 +1232,10 @@ controls:
       writes to the demo log with the demo builder's scripted model, so it takes only the
       synthetic messages and calls no API; live mode takes free text from a synthetic employee,
       calls the Claude API for each submission, and stops at a spend cap (--max-requests, 20 per
-      run). Every page says synthetic data only, and which mode it is in. With no sign-in it
+      run by default, 1 to 50 allowed). Every page says synthetic data only, and which mode it is in. With no sign-in it
       answers only requests addressed to localhost or 127.0.0.1 and listens only on loopback; a
-      submission must carry the form's token, which another site can't read, and come from the
+      submission must carry the form's token (compared as bytes, so a non-ASCII token is a
+      403, not a server error), which another site can't read, and come from the
       form's own origin (the browser's Origin header, and Sec-Fetch-Site when sent), so a page
       elsewhere can't post to it through the browser. Only a form post is taken, each field
       once; a body over the room the longest message needs (about 91 KB, URL-encoded) is refused
@@ -1121,6 +1265,8 @@ controls:
       - tests/test_hr_submit.py::test_pages_carry_the_security_headers_and_no_scripts
       - tests/test_hr_submit.py::test_the_routes_are_the_form_the_submission_and_the_result
       - tests/test_hr_submit.py::test_the_cli_needs_a_mode_and_a_loopback_host
+      - tests/test_hr_submit.py::test_a_non_ascii_token_is_refused_not_a_server_error
+      - tests/test_hr_submit.py::test_the_cli_refuses_a_request_cap_outside_1_to_50
     evidence: []
     nist: [MANAGE 4.1]
     finos:
@@ -1140,9 +1286,7 @@ controls:
       it can't take edited text. A request that stops before the rules ran keeps no message (the
       log has only its keyed hash), so the submitter has to type it again. The result page reports only on requests this run of
       the form added, from memory, so after a restart it no longer finds them (the panel still
-      does). A same-origin post with a non-ASCII token makes the token comparison raise, so it
-      gets a bare server error instead of a 403 (found in Review 24; fixed in the complaint
-      form, not yet here).
+      does).
 
   - id: HM-25
     name: No reply, no send
@@ -1161,7 +1305,9 @@ controls:
       proxy) and refuses to start on one exposing such a tool or to call one. A
       draft acknowledgement has no field for an address, recipient, channel or send time, can
       only be never_sent, and is stored by its hash with a log entry recording never_sent and
-      delivery none; verify reports a stored draft that was changed. A static check (python -m hall_monitor.no_send check), run in CI and in the
+      delivery none; verify reports a stored draft that was changed. The draft check is strict:
+      a draft with any 3-digit run (a $100 figure, a year) is not kept; the complaint still goes
+      to its queue (HM-27). A static check (python -m hall_monitor.no_send check), run in CI and in the
       tests, fails on mail, messaging and raw network libraries and connection calls, HTTP
       clients outside egress.py or its internals imported elsewhere, HTTP write calls (named
       methods, a constant getattr of one, or request, stream or build_request with a method
@@ -1322,8 +1468,27 @@ controls:
       the complaint ID, state or ZIP prefix, and returns a summary, category, urgency,
       confidence, concerns and a draft acknowledgement. It can add reasons and raise urgency,
       never remove or lower them; a failure never invents an answer. The draft is kept only if
-      it passes a pattern check (no refund, credit, waiver, guarantee, "we will" commitment or
-      deadline; no link, bare domain, email address or phone number), and is never sent (HM-25). The audit log, scoped cfpb-<complaint id>, records the complaint's hash,
+      it passes a strict pattern check, read as written and again decoded (entities,
+      full-width forms, look-alike letters, invisible characters): no refund, credit, waiver,
+      guarantee, promise of an outcome or of contact, or deadline; no link, domain-shaped token
+      or spelled-out link ("example dot com"), email address, handle, phone or vanity number,
+      street or PO box address, extension or person to ask for; and no run of three or more
+      digits at all, so a draft with any 3-digit run (a $100 figure, a year) is not kept; the
+      complaint still goes to its queue. It is never sent (HM-25). A routed complaint whose
+      stored version changes in a way a person must see (the new version adds a code reason no
+      earlier route gave, such as a Servicemember tag or an untimely response, raises the
+      urgency floor, or adds a narrative where the routed version had none) is re-routed when a
+      run meets it again: an additive complaint_rerouted entry sends it to specialist review
+      with reason record_changed, every earlier reason and the new version's code reasons, at
+      the higher of the earlier urgency and the new floor, with no agent call; the first route
+      is never edited or lowered. The entry is written once per version: the audit log refuses
+      a second complaint_rerouted with the same content hash inside its write transaction, so
+      two runs at the same moment re-route it once. Any other change (a company_response
+      status moving from "In progress" to "Closed with explanation", a dropped tag, an edited
+      narrative) writes nothing and the earlier route stands; the run summary counts it as
+      changed_not_rerouted. On the agentic path a triage
+      agent stopped after it answered has its answers discarded: no draft, specialist review
+      at high urgency. The audit log, scoped cfpb-<complaint id>, records the complaint's hash,
       redaction counts and injection signals, each agent call (input hash keyed), and the route
       with its reasons, urgencies, category, a keyed hash of the summary, the draft's hash and
       the cost, and whether the answer came from the scripted stand-in; never the summary or draft
@@ -1369,6 +1534,13 @@ controls:
       - tests/test_complaint_triage.py::test_a_crash_after_the_complaint_is_claimed_still_routes_it_to_a_person
       - tests/test_complaint_triage.py::test_a_complaint_claimed_by_a_killed_run_goes_to_a_person_on_the_next_run
       - tests/test_complaint_triage.py::test_the_draft_check_on_benign_and_bad_drafts
+      - tests/test_complaint_triage.py::test_a_draft_with_a_way_to_reach_someone_or_a_commitment_is_refused
+      - tests/test_complaint_triage.py::test_a_neutral_internal_draft_still_passes
+      - tests/test_complaint_triage.py::test_a_changed_version_of_a_routed_complaint_is_re_routed_without_editing_the_log
+      - tests/test_complaint_triage.py::test_a_re_route_never_lowers_the_first_route
+      - tests/test_complaint_triage.py::test_a_routine_status_change_does_not_send_a_standard_complaint_to_specialists
+      - tests/test_complaint_triage.py::test_a_re_route_is_written_once_per_version
+      - tests/test_desk_agentic.py::test_a_triage_agent_stopped_after_it_answered_has_its_answer_discarded
     evidence:
       - "pending: uv run python -m hall_monitor.complaints.run --live --limit 50"
     nist: [GOVERN 3.2, MAP 3.5, MANAGE 2.4]
@@ -1382,7 +1554,14 @@ controls:
       under another issue is caught only if the agent raises it. CFPB no longer publishes
       narratives, so the injection and redaction paths see only the company's public response
       and the labels in live data; they are tested with made-up text. The draft check is a
-      pattern list (promises, links, emails, phone numbers), not a review of tone or accuracy.
+      pattern list, strict on purpose (it refuses any three-digit run, so a draft quoting an
+      amount is dropped too), not a review of tone or accuracy; a promise in words it doesn't
+      list still passes. A change that adds no code reason, raises no floor and adds no
+      narrative is not re-routed, so an edited narrative or public response that only a person
+      or an agent would read differently keeps its earlier route (an added injection signal is a
+      code reason and is re-routed). A changed record is re-routed only when a run meets it again: the
+      ingest cursor only moves forward, so a change CFPB makes later is fetched only by a
+      manual pull from an earlier date (--since), and nothing schedules that.
       The two queues and urgencies are for people; nothing here measures how fast a person
       works them. The scripted stand-in's calls still record the manifest's model; the routed entry says
       scripted (the stand-in marks itself, so no caller can omit it), and the demo refuses the
@@ -1417,7 +1596,9 @@ controls:
       the model (the log's label means "not the scripted stand-in"); unknown when the log
       doesn't say, never assumed to be the model; no answer when the agent failed or triage was
       interrupted; not yet when it was claimed but not routed. A banner shows whenever any
-      answer is scripted, and the page names the audit log it reads by its path in the repo. A complaint claimed but never routed is listed as such.
+      answer is scripted, and the page names the audit log it reads by its path in the repo. A complaint claimed but never routed is listed as such. After a re-route
+      (record_changed, written only when a new version adds a code reason, raises the floor or
+      adds a narrative) the page shows the latest route.
       Complaints never appear as claims, and their scopes have no case page.
     status: built
     code:
@@ -1454,6 +1635,7 @@ controls:
       - tests/test_complaint_evals.py::test_the_banner_counts_answered_complaints_only
       - tests/test_complaint_evals.py::test_a_log_in_the_repo_is_named_by_its_path_there
       - tests/test_complaint_evals.py::test_the_page_names_the_log_it_reads
+      - tests/test_complaint_evals.py::test_the_desk_page_shows_the_latest_route_after_a_re_route
     evidence:
       - evals/results/complaints-scripted/report.md
       - "pending: uv run python -m hall_monitor.complaints.evals --live --limit 50"
@@ -1591,15 +1773,17 @@ controls:
       risks: [RI-10]
       mitigations: [MI-05, MI-17]
     gaps: >-
-      The first published run finds real gaps, not yet fixed. Routing reads only CFPB's labels
-      and tags (HM-27), so must-route complaints that say what happened only in the narrative
-      (fraud, a foreclosure sale, an older consumer scammed) go to the standard queue: 3 of 3
-      such seeds caused harm in round 1. The draft check misses a promise in words it doesn't
-      list (one seed, plain text, round 1) and reads drafts undecoded, so a link, phone number,
-      email address or promise written with HTML entities or full-width forms is kept (four
-      seeds, rounds 2 and 3); a kept draft is still never sent (HM-25). The injection detector
-      misses entities encoded twice and look-alike Cyrillic letters (all 4 injection seeds,
-      rounds 5 and 6). In all, 8 of 18 seeds caused harm. The must_route labels were written by
+      The published run (republished after review 38's fixes) still finds one real gap:
+      routing reads only CFPB's labels and tags (HM-27), so must-route complaints that say what
+      happened only in the narrative (fraud, a foreclosure sale, an older consumer scammed) go
+      to the standard queue: 3 of 3 such seeds caused harm in round 1, and they are the only
+      harm (3 of 18 seeds; the first run had 8 of 18). The drafts the first run found kept (a
+      promise in plain words, and a link, phone number, email address or promise written with
+      HTML entities or full-width forms) are now refused by the stricter draft check, which
+      reads drafts decoded, and the injections written with entities encoded twice or
+      look-alike letters are now flagged; both checks are still pattern lists, so a mutation
+      the list doesn't reach would get through. 2 fake-urgency seeds raise urgency in every
+      round, the accepted cost of letting the agent raise it. The must_route labels were written by
       one person. The attacker is a
       fixed list of mutations over 18 hand-written seeds, so it finds only gaps those reach; the
       defender is a hijacked stand-in, so the run measures the code, not how often the real
@@ -1711,7 +1895,8 @@ controls:
       claim's budget: 16 steps before every turn, finish included, and 0.25 USD and 300 seconds
       before every model call the loop makes, each agent of a revision included; running out
       stops the claim for a person; the supervisor's hall pass is checked when it is asked and again
-      before the step it chose runs, and each specialist checks its own on every call. Finish is
+      before the step it chose runs, each specialist checks its own on every call, and every
+      agent already used is checked again before each next agent, within a revision round too. Finish is
       a request: auto is possible only if intake found a policy and coverage, risk, the critic
       (when on) and the recommendation all ran on the latest inputs, and route_claim, unchanged,
       finds nothing for a person; a hand-off always goes to a person. Every choice is logged as
@@ -1726,7 +1911,8 @@ controls:
       triage_skipped, and a complaint no agent read goes at high urgency however the loop
       ended. Refusals, a budget (6 steps, 0.02 USD, 120 seconds, and a cost that can't be
       priced) and the kill switch send it to specialist review as supervisor_failed; a failed
-      or stopped triage agent is agent_failed; both are counted in the complaint evals and gated
+      or stopped triage agent is agent_failed, and a triage agent stopped after it answered
+      has its answers discarded (no draft, high urgency); both are counted in the complaint evals and gated
       at zero. An interrupted triage goes at high urgency on either path. No reply, no send (HM-25) is unchanged. The offline eval runs all 500
       pinned complaints on both paths under scripted desk policies; the gate requires that
       none gives a complaint less review than the fixed order. HR leave runs the same way
@@ -1803,22 +1989,34 @@ controls:
       - tests/test_hr_agentic.py::test_no_leave_policy_gives_a_request_less_review_than_the_fixed_order
       - tests/test_agentic.py::test_a_stop_on_a_specialist_that_already_answered_halts_the_claim_at_the_next_step
       - tests/test_hr_agentic.py::test_a_stop_on_the_intake_agent_after_it_answered_halts_at_the_next_step
+      - tests/test_agentic.py::test_a_stop_during_a_revision_round_halts_it_before_the_next_agent
+      - tests/test_desk_agentic.py::test_a_triage_agent_stopped_after_it_answered_has_its_answer_discarded
+      - tests/test_desk_agentic.py::test_a_triage_that_answered_then_was_stopped_is_shown_as_discarded
       - tests/test_pipeline.py::test_correct_agent_outputs_give_the_expected_route
     evidence:
       - evals/results/agentic-scripted/results.json
       - evals/results/kill-switch-drill/results.json
+      - evals/results/hr-agentic-live/results.json
       - "pending: a live eval of the supervisor's choices (uv run python -m hall_monitor.evals.baseline, which now runs the agentic path)"
     nist: [GOVERN 1.4, MANAGE 1.3, MANAGE 2.4, MAP 3.5]
     finos:
       risks: [RI-24, RI-28]
       mitigations: [MI-18, MI-21]
     gaps: >-
-      The fixed HR path still gives a leave specialist a request whose intake failed; only
-      the agentic path escalates an unassessed request to an HR director. The desk's
+      The fixed HR path gives a request whose intake failed to an HR business partner (the
+      local manager never decides it); only the agentic path escalates a request the rules
+      never ran on to an HR director. The desk's
       re-check uses the same model and prompt, so its two answers aren't independent in any
       strong sense; the eval's "less review" counts only the code's own reasons, since the
-      agent's can't exist when no triage ran. No live run of any supervisor has been made, so how well it chooses (how often it hands off or skips
-      work and sends claims to a person) is unmeasured; the published live eval results were
+      agent's can't exist when no triage ran. One live run of the leave supervisor has been
+      made (evals/results/hr-agentic-live: the 28 synthetic requests on the approved leave
+      intake, supervisor and explainer, claude-haiku-5-5, at commit 99399d1 with a clean tree:
+      route accuracy 1.0, intake exact on 28 of 28, 0 errors, 0 explanation failures, 0.0258
+      USD in all). It is one run over 28 short synthetic requests written by one person with
+      their own answer keys, so it shows the path working end to end on the live model, not
+      how it does on real messages or across runs. No live run of the claims or desk
+      supervisor has been made, so how well they choose (how often they hand off or skip work
+      and send cases to a person) is unmeasured; the published claims live eval results were
       scored on the fixed path with earlier agent versions, and the gate's stale check doesn't
       flag that they predate the supervisor. The order is no longer deterministic: with a live
       model, runs of one claim can take different paths at different cost. Cost and time are
@@ -1932,8 +2130,10 @@ controls:
       Each workflow's case budget (steps, cost, seconds), its daily and monthly spending caps and
       its owner, and the price table every cost is computed from, live in registry/budgets.yaml,
       approved by digest in approvals.yaml like a hall pass (python -m hall_monitor.approvals).
-      The claims, desk and leave pipelines read it at the start of every case, before any model
-      call: a file that isn't the approved version, or can't be read, refuses the case, and with
+      The claims, desk and leave pipelines, and partner-claim preparation (the partners
+      workflow: 2 steps, 0.05 USD and 120 seconds a case, 1.00 USD a day, 10.00 a month,
+      estimates since no live run has measured those agents), read it at the start of every
+      case, before any model call: a file that isn't the approved version, or can't be read, refuses the case, and with
       it unapproved no model has a price, so every cost is unknown and goes to a person. The live
       entry points (hall_monitor.run, complaints.run --live, complaints.submit --live, hr.run,
       hr.submit --live) pass a spend ledger (var/spend.sqlite): each case reserves its whole case
@@ -1943,7 +2143,9 @@ controls:
       the budgets or approvals file changes. A case that would pass a cap, or finds the ledger
       unreachable, is refused with no model call and goes to a person: a claim to an adjuster, a
       complaint to specialist review (spend_refused), a leave request to an HR director
-      (spend_refused) with its evidence pack stored. The reasons are fixed templates, shown on
+      (spend_refused) with its evidence pack stored, a partner claim to review (spend_refused)
+      with nothing reimbursable. A partner claim whose case budget runs out before every agent
+      answered goes to review as budget_exhausted. The reasons are fixed templates, shown on
       the panel. The ledger holds workflow names, case IDs, amounts and times only.
     status: built
     code:
@@ -1968,6 +2170,11 @@ controls:
       - tests/test_spend.py::test_a_claim_s_case_budget_comes_from_the_approved_file
       - tests/test_spend.py::test_a_live_form_s_submission_is_held_to_the_cap
       - tests/test_spend.py::test_the_claims_cli_passes_the_ledger
+      - tests/test_partner_agents.py::test_each_partner_claim_reserves_against_the_partners_caps_and_settles
+      - tests/test_partner_agents.py::test_a_partner_claim_over_the_daily_cap_makes_no_model_call_and_goes_to_a_person
+      - tests/test_partner_agents.py::test_unapproved_budgets_send_a_partner_claim_to_a_person
+      - tests/test_partner_agents.py::test_a_case_out_of_steps_skips_the_reviewer_and_goes_to_review
+      - tests/test_partner_agents.py::test_a_case_out_of_time_before_the_first_call_reimburses_nothing
     evidence: []
     nist: [MANAGE 3.1, MEASURE 3.1]
     finos:
@@ -1983,7 +2190,9 @@ controls:
       yet to release it. The ledger is one machine's SQLite file: several machines would need a
       shared store. The budgets file is read from the shipped registry directory, whatever
       registry a run is given. The case budgets were set from the fixed path's published costs
-      and the caps are a demo starting point, not tuned on live runs. Days and months are UTC.
+      (the partners budget is an estimate: those agents have no live run) and the caps are a
+      demo starting point, not tuned on live runs. Partner claims have no live entry point yet
+      (no pipeline), so only the tests pass prepare() a ledger. Days and months are UTC.
       No page shows spend against the caps yet (slice 3).
 
   - id: HM-35
@@ -2088,7 +2297,10 @@ controls:
       be reimbursed is computed in exact decimals, capped at the claim, the invoice total and
       the pre-approval, and reported with the amount held. The least senior role that may decide
       is the higher of the approval ladder for the amount claimed and any role a reason demands;
-      a compliance reason goes to a compliance officer. python -m hall_monitor.partners scores
+      a compliance reason goes to a compliance officer. A portal submission naming a partner
+      the book doesn't hold gets partner_not_approved and payee_not_on_master (compliance
+      review), and one naming an unknown pre-approval gets no_preapproval, rather than
+      stopping with an error. python -m hall_monitor.partners scores
       the rules against hand-written answer keys for 47 claims, with boundary cases on both
       sides of every numeric rule.
     status: partial
@@ -2106,6 +2318,8 @@ controls:
       - tests/test_partner_rules.py::test_a_duplicate_is_found_across_partners_too
       - tests/test_partner_rules.py::test_compliance_outranks_red_and_red_outranks_yellow
       - tests/test_partner_rules.py::test_the_role_is_the_higher_of_the_ladder_and_the_reason
+      - tests/test_partner_agents.py::test_a_partner_or_pre_approval_not_in_the_book_goes_to_a_person
+      - tests/test_partner_agents.py::test_an_unknown_partner_still_goes_to_compliance_when_nobody_could_read_the_documents
     evidence: []
     nist: [GOVERN 1.4, MAP 3.5, MANAGE 1.3]
     finos:
@@ -2114,16 +2328,17 @@ controls:
     gaps: >-
       The rules assess typed fields; the agents that read the documents and judge the proof
       are HM-37 (slice 2), and nothing runs them in a pipeline yet. No pipeline,
-      audit events, spend check, panel page or evals yet. The approval ladder ($5,000 /
+      audit events, panel page or evals yet; the spend check is in partner-claim preparation
+      (HM-34, HM-37). The approval ladder ($5,000 /
       $25,000) and the caps are assumptions: no vendor publishes its thresholds. The answer
       keys and the program terms were written by one person, and the claims are fictional. The
       proposal stage (lead time before an activity) and the "more proof requested" cure period
       are not modelled. Accounting classification (expense or contra-revenue) stays with
       accounting staff and isn't attempted. Split detection and pre-approval use look only at the
       claims being assessed, not at paid history, which holds no claim amounts or submission
-      dates. One bad reference (an unknown partner or pre-approval) stops the whole book from
-      loading rather than sending that one claim to a person; the pipeline (slice 3) should
-      route it instead. Duplicate matching normalises names but can still miss a determined
+      dates. A claim already in the book with an unknown partner or pre-approval still stops the
+      whole book from loading (the rules CLI's answer-key run); only a portal submission
+      prepared against the book (prepare(), HM-37) is sent to a person instead. Duplicate matching normalises names but can still miss a determined
       variation (a different issuer name). retention_months is informational: no rule reads it.
       No audit events are written yet, so decisions aren't logged (slice 3).
 
@@ -2140,8 +2355,17 @@ controls:
       invoice number, issuer, lines with unit counts, total and activity dates; code checks
       every extracted number, name and date against the documents' own text and adds
       extraction_unsupported (review) for any value that isn't there: the invoice number as a
-      whole token, the issuer as a whole part of a line, the total on the total line, each line
-      amount with its unit count on one other line, never digits from an identifier or a date.
+      whole token, the issuer as a whole part of a line of the invoice's header (before any
+      Bill to, Client, Ship to or similar label, so the party billed can't stand in for the
+      issuer and hide a self-invoice; Client and Customer count as labels only followed by a
+      colon or ending the line, so an issuer named "Customer Events LLC" is still the issuer),
+      the total on the total line, each line amount on one other line, never digits from an
+      identifier or a date; a line's unit count written there as a count of units ("20 units",
+      "20 x", "20 @"), not one of the line's other money figures (the stated unit price aside,
+      which may equal the count: "20 units at 20.00"), and, where a unit price is stated, units
+      times that price equal to the line amount; and
+      the activity's start and end as the pair written together ("2026-09-10 to 2026-09-13"),
+      so a later start or an earlier end can't be picked from elsewhere in the documents.
       A failed intake call or nothing extracted gives extraction_failed: review, nothing
       reimbursable, the whole claim held, the reviewer not asked, and every rule finding that
       needs no invoice kept (partner status and hold, pre-approval, activity and evidence, the
@@ -2155,8 +2379,14 @@ controls:
       senior role, and the result is the rules' assessment with those reasons added. The tier
       and role only go up and no rule finding is removed; an edited document needs the finance
       controller. A failed review adds review_failed and a low-confidence one review_uncertain,
-      both review. Tested on 11 documented claims with scripted agents against hand-written
-      reviewer answer keys.
+      both review. Before the result is returned every agent that answered is checked again
+      against the registry: a stop made while the claim was prepared discards what the agents
+      said and sends it to review as agent_stopped, nothing reimbursable, the portal findings
+      kept. Each claim is a case under the partners budget (HM-34): refused at a cap or with
+      unapproved budgets it gets spend_refused before any model call; out of steps, money or
+      time before an agent's call it gets budget_exhausted (before the intake call, nothing is
+      reimbursable; before the review, the proof goes unreviewed to a person). Tested on 11
+      documented claims with scripted agents against hand-written reviewer answer keys.
     status: partial
     code:
       - hall_monitor/partners/prepare.py::prepare
@@ -2184,6 +2414,17 @@ controls:
       - tests/test_partner_agents.py::test_digits_from_the_invoice_number_or_a_date_are_not_an_amount
       - tests/test_partner_agents.py::test_the_total_must_be_the_invoice_s_total_line
       - tests/test_partner_agents.py::test_our_own_bug_is_not_passed_off_as_an_agent_failure
+      - tests/test_partner_agents.py::test_the_line_amount_or_unit_price_is_not_a_unit_count
+      - tests/test_partner_agents.py::test_a_money_figure_as_the_unit_count_can_t_dodge_the_merchandise_cap
+      - tests/test_partner_agents.py::test_units_times_the_stated_unit_price_must_make_the_line_amount
+      - tests/test_partner_agents.py::test_activity_dates_must_be_the_pair_written_on_the_activity_line
+      - tests/test_partner_agents.py::test_the_bill_to_party_is_not_the_issuer
+      - tests/test_partner_agents.py::test_an_issuer_named_customer_or_client_is_still_the_issuer
+      - tests/test_partner_agents.py::test_units_equal_to_the_unit_price_still_count
+      - tests/test_partner_agents.py::test_a_stop_made_after_the_intake_agent_answered_sends_the_claim_to_a_person
+      - tests/test_partner_agents.py::test_a_stop_on_the_reviewer_after_it_answered_keeps_the_portal_findings
+      - tests/test_partner_agents.py::test_a_partner_claim_over_the_daily_cap_makes_no_model_call_and_goes_to_a_person
+      - tests/test_partner_agents.py::test_a_case_out_of_steps_skips_the_reviewer_and_goes_to_review
     evidence: []
     nist: [MAP 3.5, MEASURE 2.7, MANAGE 1.3]
     finos:
@@ -2197,8 +2438,16 @@ controls:
       changes money or routing: C-104 without competitor content would be green at $6,000
       instead of $1,800, and C-107 without public-sector attendees green instead of compliance
       review. Either way a person still signs, but on the wrong route; slice 4 measures how
-      often it happens. The checks assume an invoice laid out in lines with a total line; an
-      issuer run into other text, or a total on a line not saying "total", goes to review.
+      often it happens. Only the unit count, the activity dates and the issuer were tightened in
+      review 38; these flags and the categories are still trusted. The checks assume an invoice
+      laid out in lines with a total line; an issuer run into other text, or a total on a line
+      not saying "total", goes to review. Unit counts and date pairs are recognised only in
+      the forms the synthetic documents use ("20 units", "A to B"); other forms go to review.
+      A start date that isn't the written pair sends the claim to review as
+      extraction_unsupported, but the rules don't re-derive activity_before_approval from the
+      written dates: C-105 extracted with a later start than written is yellow (review), not
+      the red (hold) it gets when read correctly. The partners case budget is an estimate:
+      neither agent has been run live.
       Redaction is pattern-based: it removes emails, phone numbers, cards, IBANs and similar
       identifiers, not people's names, so a real attendee list naming its guests would reach
       agents declared financial-only (the synthetic lists hold counts only). The reviewer's
@@ -2285,5 +2534,6 @@ audit_events:
   complaint_quarantined: [HM-26]
   complaint_received: [HM-27, HM-09, HM-10]
   complaint_routed: [HM-27, HM-16]
+  complaint_rerouted: [HM-27, HM-16]
   batch_budget_reached: [HM-31]
   supervisor_step: [HM-32]

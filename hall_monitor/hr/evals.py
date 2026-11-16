@@ -7,7 +7,8 @@ choosing the intake agent, the rules in code and the explanation agent, ADR 0028
 scored field by field against the structured request the message
 describes (data/synthetic/hr/requests.json); the end-to-end result against the answer key
 (ground_truth.json). An intake error the rules can't see (a wrong date, the wrong family member)
-shows up here, not in routing: that is what this eval is for. No result has been published yet.
+shows up here, not in routing: that is what this eval is for. First live result:
+evals/results/hr-agentic-live (28 requests, 2026-11-15).
 """
 
 from __future__ import annotations

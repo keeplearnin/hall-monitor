@@ -1,6 +1,7 @@
 """The complaint desk's page in the control panel: read from the audit log alone.
 
-Shows the queue (what went to specialist review and why, in the code's own words), urgency,
+Shows the queue (what went to specialist review and why, in the code's own words; a complaint
+re-routed because its stored version changed shows its latest route, marked re-routed), urgency,
 cost per complaint, the pulls from CFPB (counts, retries, status), and the no-send control's
 status: the static check run now against this checkout, egress refusals logged, and whether
 every stored draft is marked never sent. Never the summary, the draft's text, or anything from
@@ -16,7 +17,7 @@ from hall_monitor import no_send
 from hall_monitor.complaints.routing import REASONS
 from hall_monitor.complaints.supervisor import DeskAction
 from hall_monitor.panel import views
-from hall_monitor.panel.pages import badge, page, table, tag, usd
+from hall_monitor.panel.pages import Safe, badge, page, table, tag, usd
 from hall_monitor.panel.views import DESK_EVENTS
 
 DESK_ACTIONS = frozenset(a.value for a in DeskAction)
@@ -85,6 +86,14 @@ def _steps_shown(c: dict) -> str:
     return "fixed order" if c["mode"] == "fixed" else "not recorded"
 
 
+def _reasons_shown(c: dict) -> Safe | str:
+    explained = "; ".join(c["explained"]) or "none"
+    if not c.get("rerouted"):
+        return explained
+    codes = ", ".join(c["rerouted_because"])
+    return tag("span", badge("re-routed", "warn"), f" ({codes}) ", explained)
+
+
 def complaint_desk(src: views.Sources) -> dict:
     entries, problem = views._entries(src)
     ids = desk_ids(entries)
@@ -109,31 +118,44 @@ def complaint_desk(src: views.Sources) -> dict:
             "source": "not yet",
             "path": [],
             "mode": None,
+            "rerouted": False,
+            "rerouted_because": [],
         }
         for scope in unrouted
     ]
+    # A re-route (complaint_rerouted, review 25) supersedes the first route; the latest stands.
+    rerouted: dict[str, dict] = {}
+    for e in mine:
+        if e["event"] == "complaint_rerouted" and isinstance(e["payload"], dict):
+            rerouted[e["claim_id"]] = e["payload"]
     reasons: Counter[str] = Counter()
     for e in routed:
         p = e["payload"] if isinstance(e["payload"], dict) else {}
-        codes = [r for r in p.get("reasons", []) if r in REASONS]
+        # The route that stands: the latest re-route if there is one. Who answered, the steps
+        # and the cost stay the first run's: a re-route calls no agent.
+        latest = rerouted.get(e["claim_id"], p)
+        codes = [r for r in latest.get("reasons") or [] if r in REASONS]
         reasons.update(codes)
+        why = [r for r in latest.get("new_code_reasons") or [] if r in REASONS]
         complaints.append(
             {
                 "complaint_id": e["claim_id"],
-                "state": "routed",
-                "queue": p.get("queue") if p.get("queue") in QUEUES else None,
-                "urgency": p.get("urgency")
-                if p.get("urgency") in ("low", "normal", "high")
+                "state": "re-routed" if latest is not p else "routed",
+                "queue": latest.get("queue") if latest.get("queue") in QUEUES else None,
+                "urgency": latest.get("urgency")
+                if latest.get("urgency") in ("low", "normal", "high")
                 else None,
                 "reasons": codes,
+                # Codes only: the stored version changed, and the new version's own reasons.
+                "rerouted": latest is not p,
+                "rerouted_because": sorted({"record_changed", *why}) if latest is not p else [],
                 "explained": [REASONS[r] for r in codes],
                 "cost_usd": views._number(p.get("cost_usd")),
                 "draft_kept": isinstance(p.get("draft_sha256"), str),
                 "agent_failed": "agent_failed" in codes,
-                # A failed or interrupted triage has no answer, whoever was asked.
-                # No triage answered (no category recorded): a failed agent, or an agentic run
-                # that ended before triage. A triage that answered and was stopped afterwards
-                # still answered.
+                # No triage answer stands (no category recorded): a failed or interrupted
+                # agent, an agentic run that ended before triage, or a triage agent stopped
+                # after it answered, whose answer is discarded (review 25).
                 "source": "no answer"
                 if p.get("category") is None
                 and ("agent_failed" in codes or p.get("mode") == "agentic")
@@ -145,7 +167,11 @@ def complaint_desk(src: views.Sources) -> dict:
             }
         )
     complaints.sort(
-        key=lambda c: (c["state"] == "routed", c["queue"] != "specialist_review", c["complaint_id"])
+        key=lambda c: (
+            c["state"] != "claimed, not routed",
+            c["queue"] != "specialist_review",
+            c["complaint_id"],
+        )
     )
     pulls = []
     for e in mine:
@@ -258,7 +284,7 @@ def complaints_page(data: dict, *, demo: bool) -> str:
             ),
             c["urgency"] or "unknown",
             badge(c["source"], "ok" if c["source"] == "model" else "warn"),
-            "; ".join(c["explained"]) or "none",
+            _reasons_shown(c),
             _steps_shown(c),
             usd(c["cost_usd"]),
         )

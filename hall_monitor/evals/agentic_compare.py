@@ -541,7 +541,7 @@ class _LeaveScripted:
 
 def run_leave(registry: Registry) -> dict:
     """Every synthetic leave request on the fixed order and under each policy. less_review
-    counts requests a policy gave less review than the fixed order: the specialist's light
+    counts requests a policy gave less review than the fixed order: the local manager's light
     path where the fixed order chose HR review, a less senior role, (when the rules ran) one of
     their reasons dropped, or no evidence pack where the fixed order stored one, so nobody
     could sign it. It must be zero."""
@@ -582,7 +582,7 @@ def run_leave(registry: Registry) -> dict:
             (base, base_packed), route = fixed[m.id], result.route
             routes[route.route] += 1
             agree += route == base
-            lighter = route.route == "specialist_sign_off" and base.route != route.route
+            lighter = route.route == "manager_sign_off" and base.route != route.route
             junior = Role[route.decided_by.upper()] < Role[base.decided_by.upper()]
             dropped = result.assessment is not None and not set(base.reasons) <= set(route.reasons)
             unsignable = base_packed and not packed  # review 24: no pack, nobody can sign
@@ -679,7 +679,7 @@ def report(result: dict) -> str:
     lines += [
         "",
         "- **Less review:** requests this policy gave less review than the fixed order (the "
-        "specialist's light path instead of HR review, a less senior role, or, where the rules "
+        "local manager's light path instead of HR review, a less senior role, or, where the rules "
         "ran, one of their reasons dropped, or no evidence pack where the fixed order stored "
         "one). Must be 0. `recheck_disagrees` answers every "
         "re-check with the opposite intermittent answer.",

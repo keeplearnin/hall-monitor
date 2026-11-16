@@ -10,17 +10,18 @@ adjuster, and changing the AI's recommendation needs a reason.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from hall_monitor.governance import signing
 from hall_monitor.governance.audit import evidence_body, sha256
 from hall_monitor.models import ClaimSubmission, NextStep, RiskLevel, Route, TriageResult
-from hall_monitor.registry import ADJUSTERS_FILENAME, DEFAULT_REGISTRY_DIR
+from hall_monitor.registry import ADJUSTERS_FILENAME, APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR
 
 ADJUSTERS_FILE = DEFAULT_REGISTRY_DIR / ADJUSTERS_FILENAME
 MIN_REASON_LENGTH = 20
@@ -32,15 +33,68 @@ class Adjuster(BaseModel):
     id: str
     name: str
     role: str
-    authority_limit_usd: float
+    authority_limit_usd: float = Field(gt=0, allow_inf_nan=False)
     may_pay_flagged: bool
     public_key: str
     demo_key: bool = False
 
 
 def load_adjusters(path: Path = ADJUSTERS_FILE) -> dict[str, Adjuster]:
-    raw = yaml.safe_load(path.read_text())["adjusters"]
-    return {a["id"]: Adjuster.model_validate(a) for a in raw}
+    """The adjusters file, refused whole (ValueError, without the file's values) if it doesn't
+    parse, an entry isn't valid (an authority limit must be a finite number above 0: a NaN
+    limit would let any payout pass), or an ID is listed twice (the later entry could otherwise
+    change someone's authority)."""
+    try:
+        entries = yaml.safe_load(path.read_text())["adjusters"]
+        adjusters = [Adjuster.model_validate(a) for a in entries]
+    except yaml.YAMLError:
+        raise ValueError(f"{path.name} isn't valid YAML") from None
+    except (KeyError, TypeError):
+        raise ValueError(f"{path.name} has no list of adjusters") from None
+    except ValidationError as exc:
+        fields = ", ".join(sorted({".".join(map(str, e["loc"])) for e in exc.errors()}))
+        raise ValueError(f"{path.name} has an entry that isn't valid ({fields})") from None
+    seen: dict[str, Adjuster] = {}
+    for adjuster in adjusters:
+        if adjuster.id in seen:
+            raise ValueError(f"{adjuster.id} is listed twice in {path.name}")
+        seen[adjuster.id] = adjuster
+    return seen
+
+
+def adjusters_digest(adjusters: dict[str, Adjuster]) -> str:
+    """Hash of the adjusters' canonical content, so comments and layout don't count as a
+    change. Recorded in registry/approvals.yaml like the budgets' digest."""
+    body = [a.model_dump(mode="json") for a in adjusters.values()]
+    return sha256(json.dumps(body, sort_keys=True, separators=(",", ":")))
+
+
+class AdjustersNotApproved(ValueError):
+    pass
+
+
+def approved_adjusters(registry_dir: Path = DEFAULT_REGISTRY_DIR) -> dict[str, Adjuster]:
+    """The adjusters file, if its digest is the approved one in registry/approvals.yaml;
+    otherwise AdjustersNotApproved, and no decision can be validated against it. An adjusters
+    or approvals file that can't be read or doesn't validate is refused the same way."""
+    try:
+        adjusters = load_adjusters(registry_dir / ADJUSTERS_FILENAME)
+    except Exception as exc:
+        raise AdjustersNotApproved(
+            f"adjusters not approved: {ADJUSTERS_FILENAME} can't be read ({type(exc).__name__})"
+        ) from None
+    try:
+        approvals = yaml.safe_load((registry_dir / APPROVALS_FILENAME).read_text()) or {}
+        approved = (approvals.get("adjusters") or {}).get("digest")
+    except Exception as exc:  # missing, unreadable, not YAML, or not the expected shape
+        raise AdjustersNotApproved(
+            f"adjusters not approved: {APPROVALS_FILENAME} can't be read ({type(exc).__name__})"
+        ) from None
+    if adjusters_digest(adjusters) != approved:
+        raise AdjustersNotApproved(
+            f"adjusters not approved: {ADJUSTERS_FILENAME} is not the approved version"
+        )
+    return adjusters
 
 
 class AdjusterDecision(BaseModel):

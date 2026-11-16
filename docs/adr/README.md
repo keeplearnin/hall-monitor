@@ -40,6 +40,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0031](0031-agents-act-within-their-grant.md) | Agents act within their grant: spend is charged, and handoffs are a tool that starts a governed run | HM-35 |
 | [0032](0032-partner-claims-rules-decide.md) | Partner claims: the rules route, a person decides, nothing pays | HM-36 |
 | [0033](0033-partner-claim-agents-read-and-flag.md) | Partner claims: agents read and flag, code checks them, they never decide | HM-37 |
+| [0034](0034-leave-roles-follow-the-branch.md) | Leave roles follow the branch: local manager, HR business partner, director | HM-21, HM-23 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".

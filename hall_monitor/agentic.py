@@ -329,6 +329,7 @@ def _run_coverage(
     ctx: _Context, state: _State, feedback: str | None = None, *, revision: bool = False
 ) -> CoverageAssessment:
     _check_spend(ctx)
+    _recheck(ctx)  # a stop since the last agent answered (inside a revision round too)
     state.agents.append("coverage_check")
     economy = (
         not revision
@@ -354,6 +355,7 @@ def _run_coverage(
 
 def _run_risk(ctx: _Context, state: _State, feedback: str | None = None) -> RiskAssessment:
     _check_spend(ctx)
+    _recheck(ctx)
     state.agents.append("risk_fraud")
     risk = ctx.run.output(
         run_risk_fraud(
@@ -372,7 +374,8 @@ def _run_risk(ctx: _Context, state: _State, feedback: str | None = None) -> Risk
 
 def _revise(ctx: _Context, state: _State, stages: list[ReviewedStage]) -> None:
     """One revision round, as on the fixed path: the stages chosen get the critic's problems
-    as feedback, and an intake revision reruns coverage and risk too (they read intake)."""
+    as feedback, and an intake revision reruns coverage and risk too (they read intake). The
+    budget and the stops are checked before each agent in the round, not only before it."""
     run = ctx.run
     run.revisions += 1
     problems = _problems(state.review)
@@ -381,6 +384,7 @@ def _revise(ctx: _Context, state: _State, stages: list[ReviewedStage]) -> None:
         chosen |= {ReviewedStage.COVERAGE_CHECK, ReviewedStage.RISK_FRAUD}
         previous = run.extraction
         _check_spend(ctx)
+        _recheck(ctx)
         state.agents.append("intake")
         run.extraction = run.revised(
             ReviewedStage.INTAKE,

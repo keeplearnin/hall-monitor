@@ -1,7 +1,7 @@
 # hall-monitor: business summary
 
 *Updated 15 November 2026: three worked examples and a fourth started (partner marketing-fund
-claims, rules only so far), AI that chooses its own steps, and approved spending limits. Plain
+claims: rules, and AI steps tested only with scripted stand-ins), AI that chooses its own steps, and approved spending limits. Plain
 English.*
 
 ## The problem
@@ -84,9 +84,14 @@ The claims example was built first. Two more show the controls aren't specific t
   the federal FMLA rules make them eligible and how much leave is left. The rules are written
   as ordinary software; one AI reads the employee's message and pulls out the dates and the
   reason, and another writes a note for HR. The first AI's answer has no free-text field, so a
-  diagnosis has nowhere to go. Every request is decided by a named HR person whose role the
-  rules set (denying needs a manager or above), and the decision is signed. The rules are our
-  reading of the regulations, not yet reviewed by HR or a lawyer.
+  diagnosis has nowhere to go. Every request is decided by a named person whose role the rules
+  set, as a branch company already works: the employee's local manager signs off only a plain
+  request with nothing flagged, an HR business partner decides every flagged request and every
+  denial, and an HR director any extension; the decision is signed. In one live run on the
+  current AI steps, all 28 fictional requests went to the right person and were read exactly,
+  for under 3 cents in all (one run; the requests and answer keys were written by one person).
+  The rules are our reading of the regulations, not yet reviewed by HR or a lawyer. The whole
+  path in a few minutes: [the leave path, told once](leave-path.md).
 - **A complaint desk on real public data.** A simulated company's desk reads real complaints
   from the US Consumer Financial Protection Bureau's public database. Every complaint goes to a
   person; software sends fraud, identity theft, foreclosure, discrimination and complaints from
@@ -107,9 +112,9 @@ that read the text, and code checks them). Software checks every choice, stops a
 runs over its budget or whose AI has been stopped, and alone decides where the case goes. The
 supervisor can add review, never remove it: in offline tests with hostile and broken supervisors
 on every test case, no claim went through automatically that the fixed order sent to a person,
-and no complaint or leave request got less review. **No supervisor has been
-run on the live AI yet**, so how often it hands work to people, and what it costs, is
-unmeasured.
+and no complaint or leave request got less review. **Only the leave supervisor has run on the
+live AI**, once, on 28 fictional requests; how often the claims and complaint supervisors hand
+work to people, and what they cost, is unmeasured.
 
 ## Approved spending limits
 
@@ -125,17 +130,18 @@ against the caps come next.
 ## Tested under pressure
 
 - **Attacks.** An automated attacker ran 18 attacks, each in several disguises, on the complaint desk, with the AI
-  assumed fully taken over. Harm got through in 8: complaints whose seriousness shows only in
-  the free text weren't escalated, and some planted drafts with hidden links or promises were
-  kept (drafts are never sent). These are published and not yet fixed.
+  assumed fully taken over. Harm got through in 3 (8 before the fixes): complaints whose
+  seriousness shows only in the free text aren't escalated, because the rules read only the
+  complaint's labels. The planted drafts with hidden links or promises are now dropped, and the
+  disguised instructions are now caught, though both checks are lists of patterns.
 - **Many cases at once, with failures injected on purpose.** Outages, timeouts, wrong answers,
   crashes and duplicate submissions across every synthetic claim, run several at a time (the
   default drill: 72 runs, 8 at a time; no report published yet): every failed, crashed or
   stopped case that started ended with a person.
 - **The stop button.** In 120 simulated trials across the three examples, an AI stopped by its
   owner made no further call, and nothing went through without review.
-- **A readiness check** of the kind a CIO or Chief AI Officer would run: 44 items, 16 pass, 16
-  partial and 12 gaps, each linked to its evidence ([readiness checklist](readiness-checklist.md)).
+- **A readiness check** of the kind a CIO or Chief AI Officer would run: 44 items, 16 pass, 17
+  partial and 11 gaps, each linked to its evidence ([readiness checklist](readiness-checklist.md)).
 
 ## What we've measured
 
@@ -152,7 +158,8 @@ keys. Treat these as early signals, not proven rates.
 - **About 4 cents and 21 seconds of AI time per claim.**
 - **An adjuster would have overridden the AI on about 2% of the claims sent to them** (simulated).
 
-These numbers come from runs on earlier versions of every AI step, before milestones 4 to 8. The approved data channel, the approval
+These claims numbers come from runs on earlier versions of every claims AI step, before
+milestones 4 to 8; the only live result on current versions is the leave path's, above. The approved data channel, the approval
 gate, the tamper-evident record, the privacy and attack defences, the signed decisions, the kill
 switch and the tax ID and bank number removal have passed their tests, but haven't yet been
 scored in a full live run. Neither have the new attack and fairness tests. The routing rule is
@@ -167,9 +174,9 @@ always did.
 
 | Next | What it adds |
 |---|---|
-| Live results | A scored run of everything built since milestone 4, the three supervisors, the attack tests, and a fairness test that checks whether changing only the customer's name changes the outcome |
+| Live results | A scored run of everything built since milestone 4, the claims and complaint supervisors, the attack tests, and a fairness test that checks whether changing only the customer's name changes the outcome |
 | Spending, part two | Caps per AI step, a signed sign-off before any live run over a set amount, and a page showing spend against the caps |
-| Fixing the attack findings | Escalating complaints whose seriousness shows only in the free text, and catching hidden links and promises in drafts |
+| Fixing the last attack finding | Escalating complaints whose seriousness shows only in the free text |
 | A team of AIs on one complaint | A lead AI handing parts of a case to helpers, each with no more access than it was given and a budget set by code, every AI call charged to it (these rules are built; the team isn't) |
 | External review | Review by people outside the project. The package is ready ([review](review/README.md)); none has happened yet |
 

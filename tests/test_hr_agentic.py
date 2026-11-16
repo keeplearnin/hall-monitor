@@ -27,7 +27,7 @@ from tests.test_hr_agents import ANSWERS, COMPANY, EMPLOYEES, MESSAGES, _explana
 
 REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
 A, R = LeaveAction, LeaveSupervisorReason
-CLEAN = next(i for i, a in ANSWERS.items() if a.route == "specialist_sign_off")
+CLEAN = next(i for i, a in ANSWERS.items() if a.route == "manager_sign_off")
 DIRECTOR = next(i for i, a in ANSWERS.items() if a.decided_by == "hr_director")
 
 
@@ -67,7 +67,7 @@ def test_the_old_order_gives_the_fixed_path_s_route_for_a_clean_request():
     result, _ = _run()
     fixed, _ = _run(agentic=False)
     assert result.mode == "agentic" and result.route == fixed.route
-    assert result.route.route == "specialist_sign_off"
+    assert result.route.route == "manager_sign_off"
     assert [s.action for s in result.supervisor_steps] == [
         A.RUN_INTAKE,
         A.ASSESS,
@@ -80,7 +80,7 @@ def test_the_old_order_gives_the_fixed_path_s_route_for_a_clean_request():
 
 
 def test_the_supervisor_s_answer_has_no_route_or_role_field():
-    for extra in ({"route": "specialist_sign_off"}, {"decided_by": "leave_specialist"}):
+    for extra in ({"route": "manager_sign_off"}, {"decided_by": "local_manager"}):
         with pytest.raises(ValidationError):
             LeaveDecision.model_validate({"action": "finish", "reason": "work_complete", **extra})
 

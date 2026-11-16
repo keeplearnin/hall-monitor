@@ -264,6 +264,8 @@ _REASONS = (
     r"incident date is outside the coverage period",
     r"no claim text to check the claimed amounts against",
     rf"claimed amounts not in the claim documents in USD: {_N}(?:, {_N})*",
+    rf"claimed amounts not in the claim documents marked USD \(they name [A-Z]{{3}}"
+    rf"(?:, [A-Z]{{3}})*\): {_N}(?:, {_N})*",
     rf"claimed items \({_N}\) don't add up to the {_N} claimed",
     r"recommended [a-z ]+",
     r"nothing covered \(a denial\)",
@@ -277,6 +279,7 @@ _REASONS = (
     rf"pipeline stopped: {_STOP}",
     r"supervisor handed the claim to a person \([a-z_]+\)",
     r"required steps missing or out of date: [a-z_ ]+(?:, [a-z_ ]+)*",
+    r"duplicate_documents: the same documents were filed with an earlier claim on this policy",
 )
 _REJECTIONS = (
     r"the decision names an adjuster who isn't registered",
@@ -328,6 +331,7 @@ def reason_kind(reason: str) -> str:
     for prefix, kind in (
         ("fraud flags:", "fraud flags"),
         ("claimed amounts not in the claim documents in USD", None),
+        ("claimed amounts not in the claim documents marked USD", None),
         ("claimed items (", "claimed items don't add up to the total claimed"),
         ("claim text addresses the AI", None),
         ("pipeline stopped: agent refused or returned no usable output", None),
@@ -420,7 +424,9 @@ _SHOWN_FIELDS |= {
 # Calls log the input hash keyed; a log written before claims did that holds it plain, which is
 # never shown.
 _SHOWN_FIELDS["agent_call"] = (_SHOWN_FIELDS["agent_call"] - {"input_sha256"}) | {"input_hmac"}
-_ROLES = "leave_specialist|hr_manager|hr_director"
+# The roles, and the two a log written before they were renamed may name (refusals then
+# read "needs a hr_manager or above; hrs-101 is a leave_specialist").
+_ROLES = "local_manager|hr_business_partner|hr_director|leave_specialist|hr_manager"
 _HR_AGENT_STOP = (
     rf"agent refused or returned no usable output: (?:leave_intake|leave_explainer) (?:declined "
     rf"claim {_ID}|was still calling tools after \d+ rounds|returned no complete output for {_ID})"
@@ -469,10 +475,16 @@ _HR_REFUSALS = (
     r"approved weeks must be no more than qualify",
     r"intermittent bonding leave running past its 12 months can't be measured against them "
     r"here; a person decides it outside this step",
-    r"approving fewer weeks than asked is a partial denial: it needs an HR manager or above",
-    r"(?:a partial denial|approving a request sent to HR review|denying leave|extending leave) "
+    r"approving fewer weeks than asked is a partial denial: it needs an HR (?:business partner|"
+    r"manager) or above",
+    r"approving military leave before the records show its covered status needs an HR business "
+    r"partner or above",
+    r"(?:a partial denial|approving a request sent to HR review|denying leave|extending leave|"
+    r"approving military leave before the records show its covered status) "
     r"needs a reason of at least \d+ characters",
-    r"denying leave needs an HR manager or above",
+    r"denying leave needs an HR (?:business partner|manager) or above",
+    r"the route recorded for this request isn't one the rules know; it needs preparing again",
+    r"[\w-]+: its role isn't one the rules know",
     r"a denial can't carry weeks",
     r"extending leave past the entitlement needs an HR director",
     r"an extension is for an eligible employee with a qualifying reason; a person decides "
@@ -729,6 +741,7 @@ DESK_EVENTS = frozenset(
     {
         "complaint_received",
         "complaint_routed",
+        "complaint_rerouted",
         "complaint_pull",
         "complaint_quarantined",
         "egress_refused",
@@ -821,7 +834,7 @@ def _leave_requests(entries: list[dict], broken: frozenset[str] = frozenset()) -
         standing = (before or [r for _, r in runs] or [None])[-1]
         if standing is not None:
             route = standing.get("route")
-            req["route"] = route if route in ("specialist_sign_off", "hr_review") else None
+            req["route"] = route if route in ("manager_sign_off", "hr_review") else None
             req["_codes"] = standing["_codes"]
             req["stopped_reason"] = standing["stopped_reason"]
         pack = req.pop("_pack", None)
@@ -973,7 +986,7 @@ def overview(src: Sources) -> dict:
     hr = {
         "requests": len(requests),
         "prepared": len(prepared),
-        "specialist_sign_off": sum(r["route"] == "specialist_sign_off" for r in prepared),
+        "manager_sign_off": sum(r["route"] == "manager_sign_off" for r in prepared),
         "hr_review": sum(r["route"] == "hr_review" for r in prepared),
         "waiting_for_hr": sum(r["state"] == "waiting for HR" for r in requests),
         "evidence_problems": sum(r["state"] == "evidence pack erased or changed" for r in requests),

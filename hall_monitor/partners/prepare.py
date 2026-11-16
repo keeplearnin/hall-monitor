@@ -9,10 +9,20 @@
 4. The rules (slice 1) assess the claim built from the portal's fields and the extraction.
 5. The proof reviewer raises concerns from a closed list. Each maps to a fixed reason that can
    only add review: the tier and the role only go up, and no rule finding is ever removed.
+6. Before returning, every agent that answered is checked again against the registry: a stop
+   made while the claim was prepared discards what the agents said (``agent_stopped``).
+
+Each claim is a case under the ``partners`` budget in registry/budgets.yaml (HM-34): before any
+model call its budget is reserved against the workflow's daily and monthly caps
+(``spend_refused`` if that is refused), each agent call needs a step, money and time left in the
+case budget (``budget_exhausted`` if not), and the reservation is settled at what the calls cost.
+Each of these sends the claim to a person.
 """
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
 
@@ -20,6 +30,8 @@ import anthropic
 from pydantic import ValidationError
 
 from hall_monitor.agents.base import AgentRefusedError
+from hall_monitor.budgets import CaseBudget, SpendRefused
+from hall_monitor.gateway.cost import UnpricedModelError, total_cost
 from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.models import AgentCall
 from hall_monitor.partners.documents import (
@@ -40,6 +52,7 @@ from hall_monitor.partners.rules import (
     route_of,
 )
 from hall_monitor.registry import Registry, RegistryError
+from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 
 CENT = Decimal("0.01")
 
@@ -51,8 +64,8 @@ AGENT_FAILURES = (AgentRefusedError, RegistryError, anthropic.APIError, Validati
 
 @dataclass
 class Prepared:
-    """What a person sees: the assessment, the reviewer's answer (None when it wasn't asked or
-    gave none) and every agent call, for the record."""
+    """What a person sees: the assessment, the reviewer's answer (None when it wasn't asked, gave
+    none or was set aside by a stop) and every agent call, for the record."""
 
     assessment: Assessment
     review: ProofReview | None = None
@@ -70,10 +83,16 @@ def _call_of(exc: BaseException) -> AgentCall | None:
     return getattr(exc, "call", None) or getattr(exc, "partial_call", None)
 
 
-def _unread(submission: Submission, documents: Documents, book: ClaimBook) -> Assessment:
-    """Nobody could read the documents: a person reads them, nothing is reimbursable yet, and
-    every finding code can make without the invoice is kept (review 37)."""
-    reasons = {"extraction_failed"} | portal_reasons(
+def _unread(
+    submission: Submission,
+    documents: Documents,
+    book: ClaimBook,
+    reason: str = "extraction_failed",
+) -> Assessment:
+    """Nobody could read the documents (or what was read can't be used: a stopped agent, no
+    budget): a person reads them, nothing is reimbursable yet, and every finding code can make
+    without the invoice is kept (review 37)."""
+    reasons = {reason} | portal_reasons(
         partner_id=submission.partner_id,
         preapproval_id=submission.preapproval_id,
         activity_type=submission.activity_type,
@@ -111,6 +130,13 @@ def _with(assessment: Assessment, added: set[str], claimed_usd, book: ClaimBook)
     )
 
 
+def _known_cost(calls: list[AgentCall]) -> float | None:
+    try:
+        return total_cost(calls)
+    except UnpricedModelError:
+        return None
+
+
 def prepare(
     submission: Submission,
     documents: Documents,
@@ -118,10 +144,70 @@ def prepare(
     *,
     registry: Registry,
     client: anthropic.Anthropic | None = None,
+    spend: SpendLedger | None = None,
+    limits: CaseBudget | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> Prepared:
+    """Prepare one claim as a case under the partners budget (HM-34). With spend (the ledger a
+    live entry point passes) the case's budget is reserved against the workflow's caps first;
+    limits overrides the approved case budget (tests)."""
     calls: list[AgentCall] = []
-    redacted = _redacted(documents)
+    start: CaseStart | None = None
+    try:
+        try:
+            start = start_case("partners", submission.id, spend)
+        except SpendRefused:  # budgets not approved, or a cap reached: no model call
+            return Prepared(_unread(submission, documents, book, "spend_refused"), None, calls)
+        return _prepare(
+            submission, documents, book, registry, client, calls, limits or start.budget, clock
+        )
+    except BaseException:
+        # Our own bug or an interruption: a request in flight may have been billed, so the
+        # reservation keeps counting in full, as a crash's does.
+        start = None
+        raise
+    finally:
+        # What the claim cost, freeing the rest of its reservation; unpriced stays reserved.
+        finish_case(spend, start, _known_cost(calls))
 
+
+def _prepare(
+    submission: Submission,
+    documents: Documents,
+    book: ClaimBook,
+    registry: Registry,
+    client: anthropic.Anthropic | None,
+    calls: list[AgentCall],
+    limits: CaseBudget,
+    clock: Callable[[], float],
+) -> Prepared:
+    started = clock()
+    steps = 0
+
+    def budget_left() -> bool:
+        """A step, money and time left for one more agent call. A cost that can't be priced
+        would read as free, so it counts as none left."""
+        cost = _known_cost(calls)
+        return (
+            steps < limits.max_steps
+            and cost is not None
+            and cost < limits.max_cost_usd
+            and clock() - started < limits.max_seconds
+        )
+
+    def stopped() -> bool:
+        """A stop (or any other refusal) on an agent that answered, made since it answered."""
+        for agent_id in dict.fromkeys(c.agent_id for c in calls):
+            try:
+                registry.require(agent_id)
+            except RegistryError:
+                return True
+        return False
+
+    redacted = _redacted(documents)
+    if not budget_left():
+        return Prepared(_unread(submission, documents, book, "budget_exhausted"), None, calls)
+    steps += 1
     try:
         run = run_claim_intake(submission.id, redacted, registry, client)
     except AGENT_FAILURES as exc:  # all go to a person
@@ -144,19 +230,25 @@ def prepare(
     added = {"extraction_unsupported"} if problems else set()
 
     review: ProofReview | None = None
-    try:
-        reviewed = run_proof_review(
-            submission.id, submission.activity_type, extraction, redacted, registry, client
-        )
-    except AGENT_FAILURES as exc:  # a person checks the proof
-        if (call := _call_of(exc)) is not None:
-            calls.append(call)
-        added.add("review_failed")
+    if not budget_left():  # the proof isn't reviewed: a person checks it
+        added.add("budget_exhausted")
     else:
-        calls.append(reviewed.call)
-        review = reviewed.output
-        added |= {CONCERN_REASONS[c] for c in review.concerns}
-        if review.confidence == "low":
-            added.add("review_uncertain")
+        steps += 1
+        try:
+            reviewed = run_proof_review(
+                submission.id, submission.activity_type, extraction, redacted, registry, client
+            )
+        except AGENT_FAILURES as exc:  # a person checks the proof
+            if (call := _call_of(exc)) is not None:
+                calls.append(call)
+            added.add("review_failed")
+        else:
+            calls.append(reviewed.call)
+            review = reviewed.output
+            added |= {CONCERN_REASONS[c] for c in review.concerns}
+            if review.confidence == "low":
+                added.add("review_uncertain")
 
+    if stopped():  # what a stopped agent said isn't used
+        return Prepared(_unread(submission, documents, book, "agent_stopped"), None, calls)
     return Prepared(_with(assessment, added, submission.claimed_usd, book), review, calls)

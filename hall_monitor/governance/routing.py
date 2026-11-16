@@ -15,7 +15,7 @@ Anything other than a clean, low-risk payment within bounds goes to an adjuster.
 
 from __future__ import annotations
 
-from hall_monitor.amounts import amount_in, untraced
+from hall_monitor.amounts import amount_in, other_currencies, untraced
 from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
 from hall_monitor.models import (
     CoverageAssessment,
@@ -61,10 +61,27 @@ def route_claim(
     if claim_text is None:
         reasons.append("no claim text to check the claimed amounts against")
     else:
-        missing = untraced([i.amount for i in extraction.claimed_items], claim_text, usd=True)
-        if not amount_in(extraction.total_claimed, claim_text, usd=True):
+        # Where the documents name another currency anywhere, a bare "$" may be it: only figures
+        # marked USD or US$ count then.
+        named = other_currencies(claim_text)
+        strict = bool(named)
+        items = [i.amount for i in extraction.claimed_items]
+        missing = untraced(items, claim_text, usd=True, strict=strict)
+        # Strict, a total written with a bare "$" is still supported when every item is marked
+        # USD and the items add up to it (checked below).
+        sums_to_total = items and abs(sum(items) - extraction.total_claimed) <= 0.005
+        total_ok = amount_in(extraction.total_claimed, claim_text, usd=True, strict=strict) or (
+            strict and not missing and sums_to_total
+        )
+        if not total_ok:
             missing.append(extraction.total_claimed)
-        if missing:
+        if missing and strict:
+            listed = ", ".join(f"{a:,.2f}" for a in missing)
+            reasons.append(
+                f"claimed amounts not in the claim documents marked USD "
+                f"(they name {', '.join(named)}): {listed}"
+            )
+        elif missing:
             listed = ", ".join(f"{a:,.2f}" for a in missing)
             reasons.append(f"claimed amounts not in the claim documents in USD: {listed}")
     items_total = sum(i.amount for i in extraction.claimed_items)
@@ -96,6 +113,20 @@ def route_claim(
     if injection_signals:
         reasons.append("claim text addresses the AI: " + ", ".join(injection_signals))
     return RoutingDecision(route=Route.ADJUSTER if reasons else Route.AUTO, reasons=reasons)
+
+
+DUPLICATE_DOCUMENTS = (
+    "duplicate_documents: the same documents were filed with an earlier claim on this policy"
+)
+
+
+def route_duplicate_documents(routing: RoutingDecision) -> RoutingDecision:
+    """A claim whose documents match an earlier claim's on the same policy (the audit log's
+    keyed hash of them, governance/audit.py) goes to a person, whatever the agents found: the
+    same receipts filed under a new claim ID mustn't be paid automatically twice."""
+    if DUPLICATE_DOCUMENTS in routing.reasons:
+        return routing
+    return RoutingDecision(route=Route.ADJUSTER, reasons=[*routing.reasons, DUPLICATE_DOCUMENTS])
 
 
 def route_stopped(reason: str) -> RoutingDecision:

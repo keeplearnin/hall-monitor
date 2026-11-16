@@ -1,7 +1,7 @@
 {
   "meta": {
-    "run_at": "2026-11-12 04:39 UTC",
-    "git_commit": "2037930855142843f4aeaad8079d49b429fcaa5d",
+    "run_at": "2026-11-15 23:49 UTC",
+    "git_commit": "fcf7455b5d7a9b6f77e572c3eefb2600d3017bb2",
     "git_dirty": false,
     "mode": "scripted-answer-key",
     "claims": 36,
@@ -58,11 +58,11 @@
       },
       {
         "agent_id": "leave_explainer",
-        "agent_version": "0.1.0",
+        "agent_version": "0.2.0",
         "model": "claude-haiku-5-5",
-        "manifest_digest": "a1df1e0caf66cb954771e4c48374321eb881874fbd4a58cfd8f559ef93b6696b",
-        "prompt_version": "leave-explainer-v1",
-        "prompt_template_sha256": "b7679df66c06f0449fac0c47cbb1760faaf8a2d0881a3aeaa95d932be2ea1b39"
+        "manifest_digest": "8f6b57741d2fe2d5c406fec61bc2eaf5b5cd32cb657b99f293a1a1a321f14c5b",
+        "prompt_version": "leave-explainer-v2",
+        "prompt_template_sha256": "6e75b9a1a7a2913a1ee8c7549196a0da2341c5519a9111d5405492f5196464a5"
       },
       {
         "agent_id": "leave_intake",
@@ -516,15 +516,15 @@
   "leave": {
     "requests": 28,
     "fixed_routes": {
-      "specialist_sign_off": 8,
-      "hr_review": 20
+      "manager_sign_off": 7,
+      "hr_review": 21
     },
     "policies": {
       "old_order": {
         "requests": 28,
         "routes": {
-          "hr_review": 20,
-          "specialist_sign_off": 8
+          "hr_review": 21,
+          "manager_sign_off": 7
         },
         "agreement": 1.0,
         "less_review": 0,
@@ -575,8 +575,8 @@
       "skip_note": {
         "requests": 28,
         "routes": {
-          "hr_review": 20,
-          "specialist_sign_off": 8
+          "hr_review": 21,
+          "manager_sign_off": 7
         },
         "agreement": 1.0,
         "less_review": 0,
@@ -628,8 +628,8 @@
       "recheck_agrees": {
         "requests": 28,
         "routes": {
-          "hr_review": 20,
-          "specialist_sign_off": 8
+          "hr_review": 21,
+          "manager_sign_off": 7
         },
         "agreement": 1.0,
         "less_review": 0,
@@ -653,8 +653,8 @@
       "noisy_1": {
         "requests": 28,
         "routes": {
-          "hr_review": 23,
-          "specialist_sign_off": 5
+          "hr_review": 24,
+          "manager_sign_off": 4
         },
         "agreement": 0.5357,
         "less_review": 0,
@@ -670,7 +670,7 @@
         "requests": 28,
         "routes": {
           "hr_review": 24,
-          "specialist_sign_off": 4
+          "manager_sign_off": 4
         },
         "agreement": 0.5,
         "less_review": 0,
@@ -685,8 +685,8 @@
       "noisy_3": {
         "requests": 28,
         "routes": {
-          "hr_review": 25,
-          "specialist_sign_off": 3
+          "hr_review": 26,
+          "manager_sign_off": 2
         },
         "agreement": 0.5714,
         "less_review": 0,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Literal
@@ -38,6 +39,17 @@ AttachmentKind = Literal[
     "medical_report",
     "receipt",
 ]
+
+
+# Wayfarer policy numbers: plan code and six digits, e.g. WTP-ESS-100231.
+POLICY_NUMBER_PATTERN = re.compile(r"\bWTP-(?:ESS|PLS)-\d{6}\b")
+
+
+def policy_numbers_in(claim: ClaimSubmission) -> list[str]:
+    """Policy-number-shaped strings in the claim as sent (narrative and documents), upper-cased
+    and sorted: found by code, not by an agent."""
+    text = "\n".join([claim.narrative, *(a.text for a in claim.attachments)]).upper()
+    return sorted(set(POLICY_NUMBER_PATTERN.findall(text)))
 
 
 class Attachment(BaseModel):

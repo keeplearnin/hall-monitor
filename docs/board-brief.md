@@ -1,13 +1,14 @@
 # Board brief: governing AI agents in regulated work
 
-*hall-monitor, updated 13 November 2026. One page for a board or risk committee.*
+*hall-monitor, updated 15 November 2026. One page for a board or risk committee.*
 
 ## What this is
 
 A working reference system that shows how AI agents can help with regulated work while the firm
 keeps control of every decision. Its main example triages insurance claims; the same controls
 also run an HR leave workflow and a complaint desk reading real public complaints from the US
-Consumer Financial Protection Bureau. Claims, policies and employees are fictional. It is not in
+Consumer Financial Protection Bureau ([the leave path, told once](leave-path.md)). Claims,
+policies and employees are fictional. It is not in
 production, and nothing here is a recommendation to deploy.
 
 ## The risk a board would own
@@ -21,7 +22,7 @@ show, claim by claim, what the AI was allowed to do and who decided.
 
 | Risk | Control | How we know it works |
 |---|---|---|
-| AI decides something it shouldn't | A fixed software rule sends any denial, payout over $2,500, fraud sign, decision the checking AI changed or still disputes, suspicious text or failure to a person | 0 of 204 test runs let a claim through that needed a person |
+| AI decides something it shouldn't | A fixed software rule sends any denial, payout over $2,500, fraud sign, decision the checking AI changed or still disputes, suspicious text or failure to a person | 0 of 204 test runs let a claim through that needed a person (those runs scored earlier versions of the AI steps and an older, looser rule) |
 | Wrong amount paid | A second AI checks the first and sends errors back; corrections that change a decision go to a person | Caught 84 of 84 planted errors, 1 false alarm in 34 (on an earlier version) |
 | Unapproved AI in use | Each AI step needs an approved permit; any change to its model, tools or core instructions is refused at run time until re-approved (not yet covered: the policy wording it reads, the descriptions of the look-ups it may use, and the text sending a correction back) | Automated tests on every change |
 | AI misbehaving in use | Each AI step has a named owner who can stop it at once, without an approval; turning it back on needs one | Automated tests; relies on repository controls not yet switched on |
@@ -29,10 +30,11 @@ show, claim by claim, what the AI was allowed to do and who decided.
 | Manipulated claims | Claim text treated as evidence, never instructions; suspicious text sent to a person; AI can look up only that claim's records (earlier claims are matched by name, so namesakes share them) | 10 attack tests built; not yet run live |
 | Unfair outcomes | Each claim re-run with names from six groups to see if outcomes change | Test built; not yet run live |
 | No record for the regulator | Tamper-evident log of each claim's AI steps, look-ups, corrections, decision and cost | Automated tests |
-| AI choosing its own steps skips work | A supervising AI picks each next step but sees only codes, can't choose the outcome, and is checked by software at every step; skipped work sends the case to a person | Offline tests with hostile supervisors: no claim went through automatically that the fixed order sent to a person, and no complaint or leave request got less review. No live run yet |
+| AI misreads an employee's leave request | The AI only extracts dates and categories; FMLA rules in code decide eligibility and who may decide; a local manager signs only a plain request, HR every flagged one, a director any extension | One live run on the current approved AI steps: all 28 fictional requests routed to the right person, all 28 read exactly, $0.026 in all (one run; requests and answer keys by one author) |
+| AI choosing its own steps skips work | A supervising AI picks each next step but sees only codes, can't choose the outcome, and is checked by software at every step; skipped work sends the case to a person | Offline tests with hostile supervisors: no claim went through automatically that the fixed order sent to a person, and no complaint or leave request got less review. Live, only the leave supervisor has run (once, 28 requests) |
 | AI spending runs away | Approved budgets per case and caps per day and month for each kind of work; a live case over a cap goes to a person with no AI call; changing a cap needs an approval | Automated tests, including many workers, each with its own connection, racing for the last of a cap; live runs only |
 | AI contacts a customer | The complaint desk is built never to send: one allow-listed outbound path, no sending tools, drafts with no address, and an automated check that fails if an ordinary way to send is added (a deliberately hidden one needs review to catch) | Automated tests on every change |
-| Manipulated complaints | Complaint text treated as evidence, never instructions; code sets which complaints need a specialist at minimum; the AI can only add review | An automated attacker got harm through in 8 of 18 attacks on the desk, assuming the AI fully taken over; findings published, not yet fixed |
+| Manipulated complaints | Complaint text treated as evidence, never instructions; code sets which complaints need a specialist at minimum; the AI can only add review | An automated attacker got harm through in 3 of 18 attacks on the desk (8 of 18 before the fixes), assuming the AI fully taken over; the 3 left are complaints whose seriousness shows only in the free text, which the rules don't read |
 
 Every control is mapped to the NIST AI Risk Management Framework and the FINOS AI Governance
 Framework, including what isn't covered ([controls register](controls.md)). The reasons behind
@@ -42,15 +44,18 @@ each design choice are in the [decision records](adr/README.md).
 
 - **Fictional data, one author.** The same person wrote the claims and the answer keys. The
   numbers are early signals, not rates to rely on.
-- **Results are from earlier versions.** Every AI step has been revised since the scored runs.
+- **Most results are from earlier versions.** Every claims and complaint AI step has been
+  revised since its scored runs; only the leave path has a live result on its current versions,
+  from one run.
 - **Recent controls untested live.** The privacy, attack and fairness defences pass automated
   tests but haven't had a scored live run (about $20 of AI usage).
-- **The supervising AIs haven't run live.** Their choices, and what they cost, are measured only
-  with scripted stand-ins.
-- **Open attack findings.** The red-team results above are published and not yet fixed.
+- **The claims and complaint supervising AIs haven't run live.** Their choices, and what they
+  cost, are measured only with scripted stand-ins; the leave supervisor has one live run.
+- **Open attack findings.** The red-team run still gets 3 of 18 attacks through: complaints
+  whose seriousness is only in the free text.
 - **No independent review yet.** An external review package is ready
   ([review](review/README.md)); nobody outside the project has reviewed it. A readiness check
-  against what a CIO or Chief AI Officer would ask scores 16 pass, 16 partial and 12 gaps of 44
+  against what a CIO or Chief AI Officer would ask scores 16 pass, 17 partial and 11 gaps of 44
   ([readiness checklist](readiness-checklist.md)).
 
 ## Decisions a board would need to make before any pilot

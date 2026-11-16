@@ -27,8 +27,11 @@ come from the partner who wants to be paid, so they are untrusted: one synthetic
   every rule finding that needs no invoice (`portal_reasons`: partner status and hold,
   pre-approval, activity and evidence, the payee, text aimed at the AI) is kept, so a document
   crafted to make the agent fail can't lower the route. The checks look for each value where it
-  belongs: the invoice number as a whole token, the issuer as a whole part of a line, the total
-  on the total line, a line's amount and unit count together on one line.
+  belongs: the invoice number as a whole token, the issuer as a whole part of a line of the
+  invoice's header (never the Bill-to party), the total on the total line, a line's amount on
+  one line with its unit count written as units (not one of the line's money figures) and,
+  where a unit price is stated, units times that price making the amount, and the activity's
+  start and end as the pair written together (review 38 tightened these three).
 - **Text aimed at the AI is found by code in the raw documents,** by the repo's injection
   detector inside the slice-1 rules, not by asking an agent whether it was attacked.
 - **The proof reviewer can only add review.** `partner_proof_reviewer` (Sonnet, no tools,
@@ -39,7 +42,12 @@ come from the partner who wants to be paid, so they are untrusted: one synthetic
   `review_failed`; a low-confidence one adds `review_uncertain`. Both go to a person.
 - **Both agents run inside the shared controls:** hall pass by digest, approved prompt hash,
   data-class check (`carries={financial}`), kill switch, budgets, typed output and a call record
-  for each.
+  for each. Every agent that answered is checked against the registry again before the result
+  is returned, so a stop made while the claim was prepared discards their answers
+  (`agent_stopped`). Each claim is a case under the `partners` budget in
+  `registry/budgets.yaml` (2 steps, 0.05 USD, 120 s; 1.00 USD a day, 10.00 a month, estimates,
+  not measurements): refused at a cap it gets `spend_refused` before any call, out of budget
+  before an agent's call `budget_exhausted` (review 38).
 
 ## Alternatives considered
 
@@ -63,6 +71,11 @@ come from the partner who wants to be paid, so they are untrusted: one synthetic
   dropped flag puts a claim on the wrong route (C-107 would be green, not compliance review),
   though a person still signs. Slice 4 measures how often.
 - The checks assume an invoice laid out in lines with a total line; other layouts go to review.
+  A start date that isn't the written pair goes to review as `extraction_unsupported`; the
+  rules don't re-derive `activity_before_approval` from the written dates, so C-105 extracted
+  with a later start is review, not the hold it gets when read correctly (HM-37 gap).
+- A portal submission naming a partner or pre-approval the book doesn't hold goes to a person
+  (`partner_not_approved`, `no_preapproval`) instead of stopping with an error.
 - Redaction removes contact details, card numbers and IBANs before an agent sees the documents.
   It is pattern-based and doesn't remove people's names; the synthetic attendee lists hold
   counts only.

@@ -59,6 +59,7 @@ DEMO_DIR = demo.DEFAULT_OUT
 MAX_TEXT = LeaveMessage.model_fields["text"].metadata[-1].max_length
 # Room for the longest message the form allows: URL-encoding makes a character up to 9 bytes.
 MAX_BODY = 9 * MAX_TEXT + 1024
+MAX_LIVE = 50  # the most --max-requests allows
 # The panel's headers, except that a browser must send this app its origin when it posts the
 # form: under "no-referrer" it sends "Origin: null", which the origin check refuses.
 HEADERS = SECURITY_HEADERS | {"Referrer-Policy": "same-origin"}
@@ -236,7 +237,7 @@ def create_app(
         if any(len(v) != 1 for v in parsed.values()):
             raise _Refused(400, "Submit the form on the page.")
         fields = {k: v[0] for k, v in parsed.items()}
-        if not hmac.compare_digest(fields.pop("token", ""), token):
+        if not hmac.compare_digest(fields.pop("token", "").encode(), token.encode()):
             raise _Refused(403, "This form only takes submissions from its own page.")
         return fields
 
@@ -369,8 +370,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--audit-db", type=Path, default=DEFAULT_AUDIT_DB, help="live mode")
-    parser.add_argument("--max-requests", type=int, default=20, help="live submissions per run")
+    parser.add_argument(
+        "--max-requests", type=int, default=20, help=f"live submissions per run (1-{MAX_LIVE})"
+    )
     args = parser.parse_args(argv)
+    if not 1 <= args.max_requests <= MAX_LIVE:
+        parser.error(f"--max-requests must be between 1 and {MAX_LIVE}")
     if args.host not in ("127.0.0.1", "localhost"):
         print("the form has no sign-in, so it serves only this machine", file=sys.stderr)
         return 2

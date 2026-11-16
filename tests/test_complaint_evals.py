@@ -365,3 +365,25 @@ def test_a_log_in_the_repo_is_named_by_its_path_there(tmp_path):
     )
     for rel in ("var/audit.sqlite", "var/demo/audit.sqlite", "var/demo/complaints-audit.sqlite"):
         assert rel in text
+
+
+def test_the_desk_page_shows_the_latest_route_after_a_re_route(tmp_path):
+    from hall_monitor.complaints.pipeline import reroute_changed, triage_complaint
+    from tests.test_complaint_triage import _client, complaint
+
+    def write(audit):
+        first = triage_complaint(complaint(), registry=REGISTRY, client=_client(), audit=audit)
+        assert first.route.queue == "standard_queue"
+        changed = complaint(tags=("servicemember",), timely=False)
+        assert reroute_changed(changed, audit) is not None
+
+    data = desk.complaint_desk(_src_with(tmp_path, write))
+    [c] = data["complaints"]
+    assert c["queue"] == "specialist_review" and c["state"] == "re-routed"
+    assert "record_changed" in c["reasons"] and c["rerouted"] is True
+    assert "record_changed" in c["rerouted_because"]
+    assert all(r in routing.REASONS for r in c["rerouted_because"])
+    assert data["queues"] == {"specialist_review": 1}
+    assert {r["code"] for r in data["reasons"]} >= {"record_changed"}
+    text = desk.complaints_page(data, demo=False)
+    assert "re-routed" in text and "record_changed" in text

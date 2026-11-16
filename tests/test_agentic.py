@@ -18,6 +18,7 @@ from hall_monitor.models import (
     CoverageFinding,
     CriticIssue,
     CriticReview,
+    IntakeExtraction,
     Recommendation,
     ReviewedStage,
     RiskAssessment,
@@ -683,3 +684,36 @@ def test_a_stop_during_a_specialist_call_means_no_further_supervisor_turn(regist
     result, client = _run(outputs=outputs, registry=registry)
     assert "coverage_check" in result.stopped_reason
     assert len(client.messages.supervisor_calls) == 2  # intake's turn, coverage's turn; no more
+
+
+@pytest.mark.parametrize(
+    ("stopped", "model", "not_called"),
+    [
+        ("intake", IntakeExtraction, ["CoverageFinding", "RiskAssessment"]),
+        ("coverage_check", CoverageFinding, ["RiskAssessment"]),
+    ],
+)
+def test_a_stop_during_a_revision_round_halts_it_before_the_next_agent(
+    registry_dir, stopped, model, not_called
+):
+    """Review finding 9: inside an intake revision only the budget was checked between agents,
+    so coverage and risk still ran after a stop on an agent the claim had already used."""
+    registry = Registry.from_dir(registry_dir)
+    outputs = outputs_from_truth(load_ground_truth("claim_001"))
+    outputs[CriticReview] = _critic_raises_then_clean(ReviewedStage.INTAKE)
+    first, calls = outputs[model], []
+
+    def stop_on_the_revision(request):
+        calls.append(1)
+        if len(calls) == 2:  # the revision's call: the agent has already answered once
+            _stop(registry_dir, stopped)
+        return first
+
+    outputs[model] = stop_on_the_revision
+    result, client = _run(outputs=outputs, registry=registry)
+    assert stopped in result.stopped_reason and "stopped" in result.stopped_reason
+    formats = client.messages.formats()
+    revision = formats[formats.index("CriticReview") + 1 :]
+    assert not set(not_called) & set(revision)
+    assert result.supervisor_steps[-1].action is A.REVISE
+    assert result.supervisor_steps[-1].outcome is StepOutcome.FAILED

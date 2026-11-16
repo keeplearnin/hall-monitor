@@ -86,6 +86,14 @@ uv run python -m hall_monitor.approvals --resume stop-0001   # writes registry/a
 Commit the change and open a PR; the diff to `approvals.yaml` is the approval. Stops are never
 removed (CI checks the file is append-only), so a restart can't be done by deleting the stop.
 
+## Adjusters and their authority
+
+`registry/adjusters.yaml` lists the adjusters, their authority limits and public keys. It is
+approved by digest like the budgets: edit it on a branch, run `uv run python -m
+hall_monitor.approvals` and get the diff reviewed. Until the new digest is approved, or if the
+file lists an ID twice or a limit that isn't a finite number above 0, every adjuster decision
+is rejected (HM-05); claims keep waiting, nothing is decided wrongly.
+
 ## Spending limits (budgets and caps)
 
 `registry/budgets.yaml` sets each workflow's case budget (steps, USD, seconds), its daily and
@@ -105,6 +113,9 @@ monthly caps and owner, and the model price table (HM-34, ADR 0030). Days and mo
 - **Only live runs count:** `hall_monitor.run`, `complaints.run --live`, `complaints.submit
   --live`, `hr.run` and `hr.submit --live` pass the ledger. Demo and scripted runs, and the evals'
   live runs, aren't held to the caps yet (state the cost before running an eval, CLAUDE.md).
+- **Partner claims** have a `partners` budget too (2 steps, 0.05 USD, 120 s a case; 1.00 USD a
+  day, 10.00 a month: estimates, since those agents have no live run). They have no live entry
+  point yet, so only the tests pass that workflow a ledger.
 - **Open reservations:** a crash, an interrupted run, an unpriced cost or a ledger that failed
   while settling leaves a case's reservation counting in full until the day (or month) rolls
   over. There is no tool yet to release one; don't edit the ledger by hand during the day unless
