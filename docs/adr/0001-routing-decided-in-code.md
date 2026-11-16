@@ -30,11 +30,18 @@ backstop, not a currency parser; HM-04's gaps list what it misses and what it re
 inflated, counted twice or copied from a total line then goes to a person even when coverage pays it in full, because the new total isn't in the
 documents. A year or a time read as the whole claim goes to a person because it isn't written
 as dollars, and so does a claim written as EUR 450, CAD $450, HK $450, (CAD) $450 or $450 cad
-that the intake labels USD. A bare "$" meant as another currency, one beside a
-code not in the list, or one whose currency is named only in a header still counts as USD, and a
-refund written as ($20.00) traces as $20 (HM-04 gaps). (The first version of the trace
+that the intake labels USD. When the documents name another currency
+anywhere (a sign or code, or a name next to a figure or after a header such as "all amounts in
+CAD"), only figures marked USD or US$ count. A refund in brackets that stands alone at the end of
+its line, or sits on a line saying refund, credit or return, doesn't count. A bare "$" meant as
+another currency when no other currency is named anywhere, or a currency outside the fixed list,
+still counts as USD (HM-04 gaps). (The first version of the trace
 matched bare figures, and a review found that a year from a date, taken as the only item, the
-total and the payout, traced and was paid automatically on all 16 automatic test claims.) A claim the pipeline couldn't finish always goes to a person
+total and the payout, traced and was paid automatically on all 16 automatic test claims.) In the workflow,
+documents already filed under another claim ID on the same policy go to an adjuster
+(`duplicate_documents`), matched on a keyed hash of the attachments scoped by the policy numbers
+in the claim as sent; evals and a direct triage keep no log, so they don't run this check (HM-04
+gaps). A claim the pipeline couldn't finish always goes to a person
 (`route_stopped`).
 
 The rule checks the facts behind a decision, not only the labels. A review found the first

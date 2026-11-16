@@ -39,7 +39,7 @@ A human adjuster decides every claim the routing rule sends them, at an approval
 
 ## Results
 
-Every published claims result was scored on the fixed order of steps with earlier agent versions; the agentic default has been compared with the fixed order only offline, with scripted supervisors. The numbers and what they can't show are in the README's [Results](../../README.md#results).
+Every live claims result was scored on the fixed order of steps with earlier agent versions; the agentic default has been compared with the fixed order only offline, with scripted supervisors. The numbers and what they can't show are in the README's [Results](../../README.md#results).
 
 ## Run it
 
@@ -55,7 +55,7 @@ uv run python -m hall_monitor.evals.fairness               # name-swap fairness,
 uv run python -m hall_monitor.evals.override evals/results/hardened-critic  # no API calls
 ```
 
-`run` triages a claim with the claims supervisor choosing which of the five agents run, in what order (code checks each step and decides the route), then decides it automatically or leaves it waiting for an adjuster. The eval commands call the Claude API and cost the amounts shown.
+`run` triages a claim with the claims supervisor choosing which of the five agents run, in what order (code checks each step and decides the route), then decides it automatically or leaves it waiting for an adjuster. The commands marked with a cost call the Claude API; those marked no API calls don't.
 
 ## Where it lives
 

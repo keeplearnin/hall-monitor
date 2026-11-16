@@ -1337,3 +1337,25 @@ reviewer's. Every code fix is test-first: each test failed before the change and
 | 8. Partner claims: a unit count equal to the unit price ("20 units at 20.00") was refused as a money figure (HM-37) | Low | Fixed: the stated unit price's span is left out of the money figures compared, like the count's own | `test_units_equal_to_the_unit_price_still_count` |
 | 9. Claims: `approved_adjusters` raised a raw YAML or OS error when `approvals.yaml` couldn't be read (HM-05) | Low | Fixed: refused as `AdjustersNotApproved`, so every decision is rejected and the claim waits for a person | `test_an_unreadable_approvals_file_refuses_the_adjusters` |
 | 10. Complaint desk: the draft check drops any draft with a 3-digit run ($100 or more, a year) (HM-25, HM-27) | Note | Kept strict on purpose; now stated plainly in HM-25 and HM-27: a draft with any 3-digit run is not kept, the complaint still goes to its queue | `test_a_draft_with_a_way_to_reach_someone_or_a_commitment_is_refused` |
+
+## Review 39 (docs-examples-pages): one page per worked example
+
+**Reviewer:** the `governance-reviewer` agent on this branch's changes before the PR, a docs-only
+restructure: the README's four example sections moved to `docs/examples/`, with a table in the
+README. It confirmed twelve findings, all in docs, no code bugs. Severities are the reviewer's.
+Fixes a test can catch are test-first: each test failed before the change and passes after.
+
+| Finding | Severity | Outcome | Test |
+|---|---|---|---|
+| 1. The claims page said "every check is listed in ADR 0001", but ADR 0001 left out the duplicate-documents check and still said a header-named currency counts as USD and a bracketed refund traces, both the opposite of the code since review 38 (HM-04) | High | Fixed: ADR 0001 names the duplicate-documents check and states the header-currency and refund rules as the code has them | `test_adr_0001_lists_every_routing_check` |
+| 2. The leave and complaints pages left out their supervisor agents, though both pipelines default to agentic | Medium | Fixed: the leave supervisor and the complaint desk supervisor are on their pages. A test that every manifest is named on its page wasn't added: manifest names don't map to pages one-to-one | — |
+| 3. README table: claims "Complete" | Medium | Fixed: "Most complete", with adversarial and fairness results not yet published | — |
+| 4. README table: complaints "can never reply or send anything" dropped "to anyone" and hardened the claim the page itself qualifies | Medium | Fixed: "never replies to or sends anything to anyone" | — |
+| 5. Claims page: "every published claims result" was scored on the fixed order, but the scripted agentic comparison is published | Low | Fixed: "every live claims result" | — |
+| 6. Complaints page: the red-team arena lost "findings not yet fixed" | Low | Fixed: 3 of 18 attacks still cause harm, with the report linked | — |
+| 7. Complaints page: `evals --live` given without a cost, and it needs `--limit` | Low | Fixed | — |
+| 8. Claims page: "the eval commands call the Claude API" contradicted two commands marked no API calls | Low | Fixed | — |
+| 9. README: the architecture diagram shows the fixed order but read as the default | Low | Fixed: says it shows `agentic=False` and that the supervisor picks the steps by default | — |
+| 10. "Each has one page with the same headings" wasn't true: the complaints page merged and added headings, and leave and partners ran in another order | Low | Fixed: every page has the same eight `##` headings in order; extra matter sits under `###` | `test_every_example_page_has_the_same_headings` |
+| 11. README Results: "the claims and complaint desk agents … the numbers below describe older versions", but no complaint numbers follow | Low | Fixed: the complaint desk's agent has never run live, so it has no numbers there | — |
+| 12. README: the agentic path said to apply across examples (partners has no pipeline); and `test_docs.py` didn't check the README's links | Low | Fixed: claims, leave and the complaint desk named; the README added to the pages whose links and anchors are checked (a guard: its links already resolved, so this test passed before) | `test_relative_links_resolve[README.md]` |

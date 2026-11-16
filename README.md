@@ -29,12 +29,12 @@ Four regulated-shaped workflows run on the same controls. Each has one page with
 
 | Example | What it shows | How far it's built | Live results |
 |---|---|---|---|
-| [Insurance claims triage](docs/examples/claims.md) | Five agents and a supervisor prepare a claim; code routes denials, large payouts, fraud flags and any failure to an adjuster, who signs the decision | Complete: agentic path, approval gate, signed decisions, panel | Older agent versions only |
+| [Insurance claims triage](docs/examples/claims.md) | Five agents and a supervisor prepare a claim; code routes denials, large payouts, fraud flags and any failure to an adjuster, who signs the decision | Most complete: agentic path, approval gate, signed decisions, panel; adversarial and fairness results not yet published | Older agent versions only |
 | [Leave of absence (FMLA)](docs/examples/leave.md) | Eligibility and entitlement rules in code; agents extract and explain; a signed sign-off checked against the role the rules name | Rules, agents, sign-off, panel cases, submission form | One run on the approved agents: 28 of 28 routed as the answer keys say |
-| [Complaint desk on CFPB data](docs/examples/complaints.md) | Real public complaints; every one goes to a person; the system can never reply or send anything | Ingestion, triage, evals, panel page, submission form | None: scripted runs only |
+| [Complaint desk on CFPB data](docs/examples/complaints.md) | Real public complaints; every one goes to a person; the system never replies to or sends anything to anyone | Ingestion, triage, evals, panel page, submission form | None: scripted runs only |
 | [Partner rebate and marketing-fund claims](docs/examples/partners.md) | Proof checking where abuse hides: duplicates, split claims, changed payees; rules decide, agents read and flag | Rules and agents; no pipeline, evals or panel page yet | None: scripted agents only |
 
-Some work runs on these examples without being one: the complaint investigation crew and the red-team arena use the complaint desk; the failure drills use the claims workflow; the agentic path (ADR 0028) and cost governance (ADR 0030) apply across examples. They are listed in the [Roadmap](#roadmap).
+Some work runs on these examples without being one: the complaint investigation crew and the red-team arena use the complaint desk; the failure drills use the claims workflow; the agentic path (ADR 0028) runs in claims, leave and the complaint desk, and cost governance (ADR 0030) holds the live entry points' spending. They are listed in the [Roadmap](#roadmap).
 
 To add a fifth, the `new-worked-example` skill in `.claude/skills/` sets out the order the first four were built in.
 
@@ -42,7 +42,7 @@ All data in this repository is synthetic, except one folder: the complaint desk'
 
 ## Architecture
 
-How a claim moves through the claims example today (after milestone 11 and Phase B so far):
+How a claim moves through the claims example on the fixed order of steps (`agentic=False`), after milestone 11 and Phase B; by default the claims supervisor picks the steps within the same boundaries:
 
 ```mermaid
 flowchart LR
@@ -141,7 +141,7 @@ Numbers are published as each milestone lands, from runs anyone can reproduce wi
 
 What it can't show: it is one run, so run-to-run variation is unmeasured; the 28 requests are short and plainly worded, and the same person wrote them and their answer keys, so it says nothing about real employees' messages; no decision was signed, so the sign-off isn't exercised. The CI gate requires route and intake accuracy of at least 95% and no errors on it.
 
-**Claims and complaints.** The claims and complaint desk agents have no live run on their current versions; the numbers below describe older versions. *Every row below was scored on the fixed order of steps with earlier agent versions; the default path is now agentic (HM-32), and it has been compared with the fixed order only offline, with scripted supervisors ([agentic-scripted](evals/results/agentic-scripted/report.md)). Its live accuracy and cost are not yet measured.*
+**Claims and complaints.** The claims agents have no live run on their current versions; the numbers below describe older claims agents. The complaint desk's agent has never run live, so it has no numbers here. *Every row below was scored on the fixed order of steps with earlier agent versions; the default path is now agentic (HM-32), and it has been compared with the fixed order only offline, with scripted supervisors ([agentic-scripted](evals/results/agentic-scripted/report.md)). Its live accuracy and cost are not yet measured.*
 
 | Milestone | Extraction accuracy | Coverage-reasoning accuracy | Hallucination rate | Cost per claim | Human override rate |
 |---|---|---|---|---|---|

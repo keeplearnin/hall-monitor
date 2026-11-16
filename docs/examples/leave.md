@@ -8,6 +8,16 @@
 
 The same pattern on an HR workflow: an employee asks for leave, and someone has to decide whether federal FMLA rules make them eligible and how much leave is left. A wrong denial harms an employee, and the request touches health information an AI must not collect. The whole path, told once for a CIO or an HR head: [The leave path, told once](../leave-path.md).
 
+## What the agents do
+
+Three agents, through the same registry, approvals, kill switch, data-class check and audit log as the claims agents:
+
+| Agent | What it does |
+|---|---|
+| **Leave intake** | Reads the employee's message (identifiers redacted, fenced as untrusted) and returns the dates, a reason category and yes-or-no facts. Its answer has no free-text field, so a diagnosis has nowhere to go. |
+| **Leave supervisor** | Chooses the next step (run intake, one independent re-check, the rules in code, the explanation, finish, or hand off to HR review) from codes only, with no tools. Code checks every choice, runs the rules on the first intake whatever happens, and holds each request to a budget (8 steps, $0.02, 120 seconds); it never chooses a route or role ([ADR 0028](../adr/0028-agent-picks-the-steps-code-holds-the-boundaries.md)). |
+| **Leave explanation** | Reads only the code's result, never the message or the employee and request IDs, and writes a note for the person who decides: the local manager on the light path, HR for anything flagged. Advisory: it can't change the route or the role, and a note that doesn't cover exactly the code's checks is dropped. |
+
 ## What code decides
 
 The rules came first, as code with no model (`python -m hall_monitor.hr`):
@@ -18,15 +28,6 @@ The rules came first, as code with no model (`python -m hall_monitor.hr`):
 - **Routing:** a code rule sends every check that didn't pass and every flag to HR review, and names the least senior of the three roles a branch company already has that may decide. The employee's **local manager** prepares every request with them and signs off only a plain request with nothing flagged (`manager_sign_off`), still as a draft for them to sign; an **HR business partner** decides every flagged request, every denial and every partial approval; an **HR director** extends leave past the entitlement and decides a case with a retaliation risk.
 
 The rules run on what intake extracts, so a wrong extraction changes the result; an eval measures that. Text aimed at the AI sends the request to a person whatever the agents say, and any failure of intake or the rules stops it and sends it to a person (a failed explanation only leaves the note out). Each step goes to the audit log as IDs, keyed hashes, codes and costs.
-
-## What the agents do
-
-Two agents, through the same registry, approvals, kill switch, data-class check and audit log as the claims agents:
-
-| Agent | What it does |
-|---|---|
-| **Leave intake** | Reads the employee's message (identifiers redacted, fenced as untrusted) and returns the dates, a reason category and yes-or-no facts. Its answer has no free-text field, so a diagnosis has nowhere to go. |
-| **Leave explanation** | Reads only the code's result, never the message or the employee and request IDs, and writes a note for the person who decides: the local manager on the light path, HR for anything flagged. Advisory: it can't change the route or the role, and a note that doesn't cover exactly the code's checks is dropped. |
 
 ## Who decides
 
