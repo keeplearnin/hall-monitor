@@ -14,6 +14,7 @@ PAGES = [
     DOCS / "adr" / "README.md",
     DOCS / "board-brief.md",
     *(DOCS / "review").glob("*.md"),
+    *sorted((DOCS / "examples").glob("*.md")),
 ]
 CONTROL_IDS = {c["id"] for c in load_register()["controls"]}
 
