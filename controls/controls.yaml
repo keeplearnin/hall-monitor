@@ -503,7 +503,8 @@ controls:
       - tests/test_privacy_security.py::test_tax_ids_and_bank_details_are_redacted
       - tests/test_privacy_security.py::test_bank_and_tax_patterns_leave_ordinary_evidence_alone
       - tests/test_privacy_security.py::test_redaction_stays_fast_on_long_runs_of_space
-      - tests/test_workflow.py::test_known_limit_a_decided_claims_checkpoint_keeps_its_submission
+      - tests/test_workflow.py::test_known_limit_a_decided_claims_checkpoint_keeps_its_text_and_reasons
+      - tests/test_workflow.py::test_known_limit_erasing_a_claims_pack_leaves_its_checkpoint_copy
     evidence: []
     nist: [MEASURE 2.10]
     finos:
@@ -523,10 +524,14 @@ controls:
       class, which their manifests allow, so in practice the input check constrains only the
       recommender.
       Pattern redaction misses unusual formats.
-      The claims workflow's checkpoint file (var/checkpoints.sqlite) keeps each claim as sent,
-      in plain JSON, with its triage result and evidence pack, for as long as the file exists:
-      nothing deletes a decided claim's thread, and erasure under a data-protection request
-      covers the evidence store, not this file (ADR 0006).
+      The claims workflow's checkpoint file (var/checkpoints.sqlite, LangGraph's msgpack, not
+      encrypted) keeps every checkpoint version of each claim for as long as the file exists:
+      the claim as sent, its triage result and evidence pack, and the adjuster's name and
+      written reasons, including those of rejected decisions (the audit log keeps reasons only
+      as keyed hashes). Nothing deletes the thread of a claim whose triage finished, whether it
+      is waiting, decided or with a person. Packs can be deleted from the evidence store
+      (erase_evidence), with no erasure procedure yet, and that doesn't reach the checkpoint
+      copy (ADR 0006).
 
   - id: HM-11
     name: Telemetry without claim content
@@ -2034,7 +2039,10 @@ controls:
       numbers are set from the fixed path's published costs, not tuned on live supervisor runs.
       The claims supervisor's whole run is one node of the claims workflow's LangGraph graph,
       so nothing is saved between its steps: a triage that crashed is restarted from the start
-      (run --fresh), and every agent it had already run is called, and paid for, again
+      (run --fresh), nothing from the first attempt is reused, and the agents are called, and
+      paid for, again (a live supervisor chooses afresh, so not necessarily the same ones).
+      Each attempt gets a new case budget; only the workflow's daily and monthly caps count
+      every attempt, so how much one claim can spend is bounded by how often it is restarted
       (ADR 0006).
 
   - id: HM-33

@@ -40,11 +40,13 @@ the hash of the evidence pack they were shown
 - Readers can audit the decision logic without learning a framework.
 - SQLite checkpoints are fine for one process; production would use Postgres.
 - The supervisor's whole run is one node of the graph (`triage`), so nothing is saved between
-  its steps. A triage that crashed is restarted from the start (`run --fresh`), and every agent
-  it had already run is called, and paid for, again (HM-32 gap).
-- The checkpoints hold the claim as sent, in plain JSON, with its result and evidence pack, and
-  nothing deletes a decided claim's thread, so erasure under a data-protection request doesn't
-  reach them (HM-10 gap).
+  its steps. A triage that crashed is restarted from the start (`run --fresh`): nothing is
+  reused, the agents are called and paid for again, and the attempt gets a new case budget
+  (HM-32 gap).
+- The checkpoints (LangGraph's msgpack, not encrypted) keep every version of a claim's state:
+  the claim as sent, its result and evidence pack, and the adjuster's name and written reasons,
+  rejected decisions included. Nothing deletes the thread of a claim whose triage finished, and
+  deleting its stored pack doesn't reach the checkpoint copy (HM-10 gap).
 - An adjuster can only decide on the evidence pack the claim was paused with; a different hash
   is refused. Checkpoints aren't tamper-evident, so the review step also checks the saved pack
   against the copy stored under its hash in the audit database

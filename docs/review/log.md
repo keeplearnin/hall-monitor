@@ -1383,3 +1383,23 @@ What stays true and is not a defect: the guard covers direct imports only. The l
 desk and partner pipelines still load `hall_monitor.models` at run time, because the one agent
 call path, `hall_monitor/agents/base.py`, takes `ClaimSubmission` and `PolicyRecord` from it.
 Moving the claims code into its own package (the next PR) is where that is untangled.
+
+## Review 41 (adr-0006-checkpoint-gap): ADR 0006 and the checkpoint file
+
+**Reviewer:** the `governance-reviewer` agent on this branch's changes before the PR. The branch
+came from a LangChain-architect read of the repo: ADR 0006 still rested on fixed steps after ADR
+0028, and the claims checkpoint file holds claim data no control covered. The reviewer confirmed
+the core statements (no thread is deleted once triage finished, erasure doesn't reach the
+checkpoint file, a restart reuses nothing) and seven findings in how the branch said them.
+Severities are the reviewer's. Each new test fails before its fix or, for a known limit, pins
+behaviour the reviewer confirmed by running it.
+
+| Finding | Severity | Outcome | Test |
+|---|---|---|---|
+| 1. "In plain JSON": LangGraph's SQLite checkpointer stores msgpack; only the state values are JSON-shaped (HM-10) | Medium | Fixed: "LangGraph's msgpack, not encrypted" in the register and ADR 0006 | `test_known_limit_a_decided_claims_checkpoint_keeps_its_text_and_reasons` (reads the raw bytes, not `get_state`) |
+| 2. The file keeps more than the claim, result and pack: every checkpoint version, the adjuster's name and written reasons, rejected decisions included (HM-10) | Medium | Fixed: stated in the register, ADR 0006, ADR 0014, the threat model, the readiness checklist and the board brief | `test_known_limit_a_decided_claims_checkpoint_keeps_its_text_and_reasons` |
+| 3. "Erasure covers the evidence store" implied a claims erasure path; only `erase_evidence` exists, with no procedure (HM-10) | Medium | Fixed: "packs can be deleted from the evidence store (`erase_evidence`), with no erasure procedure yet, and that doesn't reach the checkpoint copy" | `test_known_limit_erasing_a_claims_pack_leaves_its_checkpoint_copy` |
+| 4. The restart test asserted only that some calls were made, not that the agents were called again (HM-32) | Medium | Fixed: the crashed run's and the restart's calls are compared and must match | `test_known_limit_a_restarted_triage_calls_every_agent_again` |
+| 5. "Every agent it had already run is called again" holds only for a scripted supervisor; and each attempt gets a new case budget (HM-32) | Low | Fixed: nothing is reused, a live supervisor chooses afresh, each attempt has a new case budget and only the daily and monthly caps count every attempt | — |
+| 6. Readiness checklist: "nothing deletes it" is broader than the code (`run --fresh` deletes an unfinished thread) | Low | Fixed: nothing deletes a claim's checkpoints once its triage finished | — |
+| 7. ADR 0014, ADR 0008, the threat model and the board brief presented deleting a pack as the erasure answer, silent on the checkpoint copy | Low | Fixed: each names the checkpoint copy | `test_adr_0014_says_erasing_a_pack_leaves_the_checkpoint_copy` (ADRs 0014 and 0008) |
