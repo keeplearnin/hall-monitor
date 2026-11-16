@@ -164,7 +164,7 @@ complaint -> redact, scan for text aimed at the AI           (code)
 | `triage_skipped` | the desk supervisor finished before any triage ran |
 | `supervisor_failed` | the desk supervisor failed, was stopped, ran out of budget or kept choosing steps code refused (the triage agent may have answered) |
 | `spend_refused` | the desk's spending cap was reached, its budgets aren't approved or the spend ledger couldn't be reached: refused before any model call, so no agent read it (HM-34, [ADR 0030](adr/0030-cost-governance-budgets-and-caps.md)) |
-| `record_changed` | CFPB's stored version changed after the complaint was routed (a new tag, an untimely response, a narrative): an additive `complaint_rerouted` entry sends it to specialist review with every earlier reason and the new version's, never at a lower urgency, no agent call (review 25). Ingest's cursor only moves forward, so a later change is met only by a manual pull from an earlier date (`--since`) |
+| `record_changed` | CFPB's stored version changed after the complaint was routed in a way a person must see (it adds a code reason such as a new tag or an untimely response, raises the urgency floor, or adds a narrative where there was none; a routine status change isn't re-routed, review 38b): an additive `complaint_rerouted` entry, written once per version, sends it to specialist review with every earlier reason and the new version's, never at a lower urgency, no agent call (review 25). Ingest's cursor only moves forward, so a later change is met only by a manual pull from an earlier date (`--since`) |
 
 The label patterns are checked against every label in the pinned snapshot by a hand-written
 table in the tests, not by the patterns themselves (review 16 found two common labels missed).

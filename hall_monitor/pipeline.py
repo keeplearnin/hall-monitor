@@ -13,7 +13,6 @@ is reference text and is passed in directly.
 
 from __future__ import annotations
 
-import re
 import time
 from collections import defaultdict
 from collections.abc import Callable
@@ -61,6 +60,7 @@ from hall_monitor.models import (
     SupervisorStep,
     ToolCall,
     TriageResult,
+    policy_numbers_in,
 )
 from hall_monitor.registry import Registry, RegistryError
 from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
@@ -71,8 +71,6 @@ if TYPE_CHECKING:
 
 MAX_REVISIONS = 2
 
-# Wayfarer policy numbers: plan code and six digits, e.g. WTP-ESS-100231.
-POLICY_NUMBER_PATTERN = re.compile(r"\bWTP-(?:ESS|PLS)-\d{6}\b")
 
 # Fields whose change by a revision can change the outcome, so a person must see it.
 DECISION_FIELDS: dict[ReviewedStage, tuple[str, ...]] = {
@@ -155,8 +153,7 @@ def _lookup(extraction: IntakeExtraction, gateway: ToolGateway, run: _Run) -> Po
 
 def _policy_numbers_in(claim: ClaimSubmission, gateway: ToolGateway, run: _Run) -> list[str]:
     """Policy numbers in the claim text that match a real policy record."""
-    text = "\n".join([claim.narrative, *(a.text for a in claim.attachments)]).upper()
-    candidates = sorted(set(POLICY_NUMBER_PATTERN.findall(text)))
+    candidates = policy_numbers_in(claim)
     return [n for n in candidates if gateway.lookup_policy(n, run.tool_calls) is not None]
 
 
@@ -206,7 +203,7 @@ def triage(
     limits: Limits | None = None,
     clock: Callable[[], float] | None = None,
     spend: SpendLedger | None = None,
-    documents_seen: Callable[[str], bool] | None = None,
+    documents_seen: Callable[[ClaimSubmission], bool] | None = None,
 ) -> TriageResult:
     """model_routing=False (the default) runs every agent on its main model.
 
@@ -230,8 +227,9 @@ def triage(
     at either end raises.
 
     documents_seen, if given (the workflow passes TriageRecorder.documents_seen), says whether
-    the claim's documents were already filed with another claim on the policy the result names;
-    if so the claim goes to a person (routing.route_duplicate_documents).
+    the claim's documents were already filed with another claim on the same policy, read from
+    the claim as sent (not from any agent's output, so a stopped claim is checked too); if so
+    the claim goes to a person (routing.route_duplicate_documents).
     """
     if agentic:
         from hall_monitor.agentic import Limits as _Limits
@@ -261,11 +259,7 @@ def triage(
     result = _triage_with_stop(
         claim, registry, wording, gateway, client, critic, model_routing, on_event, body, spend
     )
-    if (
-        documents_seen is not None
-        and result.extraction is not None
-        and documents_seen(result.extraction.policy_number)
-    ):
+    if documents_seen is not None and documents_seen(claim):
         result = result.model_copy(update={"routing": route_duplicate_documents(result.routing)})
     if on_event is not None:
         on_event("triage_result", result)

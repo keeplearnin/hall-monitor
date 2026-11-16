@@ -177,9 +177,13 @@ def _segments(lines: list[str]) -> set[str]:
     }
 
 
-# Where the invoice names the party it is addressed to, not the one that issued it.
+# Where the invoice names the party it is addressed to, not the one that issued it: a two-word
+# label (Bill to, Ship to...), or Client or Customer as a label, followed by a colon or ending
+# the line, so an issuer named "Customer Events LLC" or "Client Solutions Inc" is still the
+# issuer (review 38b).
 _ADDRESSEE = re.compile(
-    r"\b(?:bill(?:ed)?\s+to|client|customer|ship\s+to|sold\s+to|invoice\s+to)\b",
+    r"\b(?:bill(?:ed)?\s+to|ship\s+to|sold\s+to|invoice\s+to)\b"
+    r"|\b(?:client|customer)\b(?=\s*(?::|$))",
     re.IGNORECASE,
 )
 _ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
@@ -223,6 +227,10 @@ def _units_on(line: str, units: int, amount: Decimal) -> bool:
         found = (_PRICE_AFTER_SIGN if signed else _PRICE_AFTER_WORD).match(rest)
         if signed and found is None:
             continue  # "20 x" with no price after it isn't a count
+        # The line's other money figures: not the count itself, nor the unit price stated after
+        # it, which may equal the count ("20 units at 20.00", review 38b).
+        if found is not None:
+            rest = rest[: found.start(1)] + " " + rest[found.end(1) :]
         money = _amounts_in(line[: match.start()] + " " + rest)
         if Decimal(units).quantize(CENT) in money:
             return False

@@ -75,16 +75,22 @@ class AdjustersNotApproved(ValueError):
 
 def approved_adjusters(registry_dir: Path = DEFAULT_REGISTRY_DIR) -> dict[str, Adjuster]:
     """The adjusters file, if its digest is the approved one in registry/approvals.yaml;
-    otherwise AdjustersNotApproved, and no decision can be validated against it. A file that
-    can't be read or doesn't validate is refused the same way."""
+    otherwise AdjustersNotApproved, and no decision can be validated against it. An adjusters
+    or approvals file that can't be read or doesn't validate is refused the same way."""
     try:
         adjusters = load_adjusters(registry_dir / ADJUSTERS_FILENAME)
     except Exception as exc:
         raise AdjustersNotApproved(
             f"adjusters not approved: {ADJUSTERS_FILENAME} can't be read ({type(exc).__name__})"
         ) from None
-    approvals = yaml.safe_load((registry_dir / APPROVALS_FILENAME).read_text()) or {}
-    if adjusters_digest(adjusters) != (approvals.get("adjusters") or {}).get("digest"):
+    try:
+        approvals = yaml.safe_load((registry_dir / APPROVALS_FILENAME).read_text()) or {}
+        approved = (approvals.get("adjusters") or {}).get("digest")
+    except Exception as exc:  # missing, unreadable, not YAML, or not the expected shape
+        raise AdjustersNotApproved(
+            f"adjusters not approved: {APPROVALS_FILENAME} can't be read ({type(exc).__name__})"
+        ) from None
+    if adjusters_digest(adjusters) != approved:
         raise AdjustersNotApproved(
             f"adjusters not approved: {ADJUSTERS_FILENAME} is not the approved version"
         )

@@ -795,8 +795,64 @@ def test_a_claim_is_not_a_duplicate_of_its_own_earlier_run(tmp_path):
     )
     recorder = TriageRecorder(log, claim.claim_id)
     recorder("claim_submitted", {"claim": claim, "redactions": {}, "injection_signals": []})
-    assert not recorder.documents_seen(result.extraction.policy_number)
+    assert result.routing.route.value == "auto"
+    assert not recorder.documents_seen(claim)
     other = TriageRecorder(log, "claim_001b")
     other("claim_submitted", {"claim": claim, "redactions": {}, "injection_signals": []})
-    assert other.documents_seen(result.extraction.policy_number)
+    assert other.documents_seen(claim)
     log.close()
+
+
+# --- Review 38b: the documents hash comes from the submitted claim, not the agent's output -----
+
+
+def _open_with(path, client):
+    return open_workflow(
+        path,
+        audit_db=path.with_name("audit.sqlite"),
+        registry=REGISTRY,
+        gateway=GATEWAY,
+        wording=WORDING,
+        client=client,
+    )
+
+
+def test_a_stopped_claim_with_no_policy_number_still_goes_to_an_adjuster(db):
+    """No policy number in the claim and none extracted: triage stops for a person, it doesn't
+    crash on hashing the documents."""
+    import re
+
+    claim = CLAIMS["claim_001"]
+    claim = claim.model_copy(
+        update={
+            "claim_id": "claim_001_nopolicy",
+            "narrative": re.sub(r",? policy WTP-ESS-100231", "", claim.narrative),
+        }
+    )
+    assert "WTP-" not in claim.model_dump_json()
+    truth = load_ground_truth("claim_001")
+    extraction = truth.extraction.model_copy(update={"policy_number": None})
+    client = fake_client(outputs_from_truth(truth) | {type(extraction): extraction})
+    with _open_with(db, client) as workflow:
+        status = workflow.submit(claim)
+        logged = _triage_entry(workflow, claim.claim_id)
+    assert status["state"] == "waiting_for_adjuster"
+    assert logged["route"] == "adjuster"
+    assert len(logged["documents_hmac"]) == 64
+
+
+def test_refiling_a_claim_whose_first_triage_stopped_is_still_caught(db):
+    """The first filing stopped before intake (the agent refused), so no extraction; the same
+    documents under a new claim ID are still matched against it."""
+    from hall_monitor.models import IntakeExtraction
+
+    truth = load_ground_truth("claim_001")
+    refusing = fake_client(outputs_from_truth(truth), stop_reason={IntakeExtraction: "refusal"})
+    with _open_with(db, refusing) as workflow:
+        first = workflow.submit(CLAIMS["claim_001"])
+        logged = _triage_entry(workflow, "claim_001")
+    assert first["state"] == "waiting_for_adjuster"
+    assert len(logged["documents_hmac"]) == 64
+    status = _submit_as(db, "claim_001", _refiled("claim_001", "claim_001b"))
+    assert status["state"] == "waiting_for_adjuster"
+    assert DUPLICATE_REASON in status["routing_reasons"]

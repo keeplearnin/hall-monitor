@@ -240,6 +240,7 @@ def triage_complaint(
                 {
                     "complaint_id": complaint.complaint_id,
                     "content_sha256": complaint.content_sha256(),
+                    "has_narrative": bool(complaint.narrative),
                     "identifiers_redacted": redactions,
                     "injection_signals": signals,
                 },
@@ -300,15 +301,23 @@ def _scan(complaint: Complaint) -> tuple[str | None, str | None, dict[str, int],
     return narrative, public, redactions, signals
 
 
-def reroute_changed(complaint: Complaint, audit: AuditLog) -> ComplaintRoute | None:
-    """Re-route a routed complaint whose stored version changed (review 25): CFPB can add a
-    Servicemember tag, mark the response untimely or publish a narrative after the desk routed
-    it. None if it isn't routed yet or this version is the one last routed.
+def reroute_changed(
+    complaint: Complaint, audit: AuditLog, summary: dict | None = None
+) -> ComplaintRoute | None:
+    """Re-route a routed complaint whose stored version changed in a way a person must see
+    (review 25, narrowed in review 38b): the new version adds a code reason no earlier route
+    gave (CFPB adds a Servicemember tag or marks the response untimely), raises the urgency
+    floor, or adds a narrative where the routed version had none. None if it isn't routed yet,
+    this version is the one last routed, or the change is routine (a company_response status
+    moving from "In progress" to "Closed with explanation", a dropped tag): then nothing is
+    written and the earlier route stands; with summary, it is counted as changed_not_rerouted.
 
     The first route is never edited: an additive complaint_rerouted entry sends it to specialist
     review as record_changed, with the new version's code reasons and every reason an earlier
     route gave, at the higher of the earlier urgency and the new floor. No agent is called: the
-    triage answered about another version, and a person reads this one. Hashes and codes only."""
+    triage answered about another version, and a person reads this one. Written once per
+    version (the log refuses a second complaint_rerouted with the same content hash inside its
+    write transaction), so two runs at the same moment re-route it once. Hashes and codes only."""
     scope = scope_id(complaint.complaint_id)
     entries = audit.entries(scope)
     received = [e["payload"] for e in entries if e["event"] == RECEIVED]
@@ -316,7 +325,8 @@ def reroute_changed(complaint: Complaint, audit: AuditLog) -> ComplaintRoute | N
     if not received or not routes:
         return None
     rerouted = [e["payload"] for e in entries if e["event"] == REROUTED]
-    seen = (rerouted[-1] if rerouted else received[0]).get("content_sha256")
+    last = rerouted[-1] if rerouted else received[0]
+    seen = last.get("content_sha256")
     digest = complaint.content_sha256()
     if not isinstance(seen, str) or seen == digest:
         # Unchanged, or a received entry with no hash to compare (a killed run's): that one
@@ -325,9 +335,18 @@ def reroute_changed(complaint: Complaint, audit: AuditLog) -> ComplaintRoute | N
     _, _, redactions, signals = _scan(complaint)
     new = code_reasons_for(complaint, signals)
     before = {r for p in routes for r in p.get("reasons") or [] if r in REASONS}
-    reasons = sorted(before | new | {"record_changed"})
     floor = urgency_floor(new)
     known = {u.value for u in Urgency}
+    floors = [Urgency(p["urgency_floor"]) for p in routes if p.get("urgency_floor") in known]
+    # An entry written before has_narrative was recorded: unknown, so a narrative counts as new.
+    narrative_added = bool(complaint.narrative) and not last.get("has_narrative", False)
+    added = new - before
+    raised = not floors or floor.rank > max(f.rank for f in floors)
+    if not (added or raised or narrative_added):
+        if summary is not None:
+            summary["changed_not_rerouted"] = summary.get("changed_not_rerouted", 0) + 1
+        return None
+    reasons = sorted(before | new | {"record_changed"})
     urgencies = [floor] + [Urgency(p["urgency"]) for p in routes if p.get("urgency") in known]
     route = ComplaintRoute(
         queue="specialist_review",
@@ -336,23 +355,29 @@ def reroute_changed(complaint: Complaint, audit: AuditLog) -> ComplaintRoute | N
         urgency_floor=floor,
         urgency=max(urgencies, key=lambda u: u.rank),
     )
-    audit.append(
-        scope,
-        "complaint_rerouted",  # REROUTED, written out so the register test can read it
-        "pipeline",
-        {
-            "complaint_id": complaint.complaint_id,
-            "content_sha256": digest,
-            "previous_content_sha256": seen,
-            "queue": route.queue,
-            "reasons": route.reasons,
-            "new_code_reasons": sorted(new),
-            "urgency_floor": route.urgency_floor.value,
-            "urgency": route.urgency.value,
-            "identifiers_redacted": redactions,
-            "injection_signals": signals,
-        },
-    )
+    try:
+        audit.append(
+            scope,
+            "complaint_rerouted",  # REROUTED, written out so the register test can read it
+            "pipeline",
+            {
+                "complaint_id": complaint.complaint_id,
+                "content_sha256": digest,
+                "previous_content_sha256": seen,
+                "queue": route.queue,
+                "reasons": route.reasons,
+                "new_code_reasons": sorted(added),
+                "narrative_added": narrative_added,
+                "has_narrative": bool(complaint.narrative),
+                "urgency_floor": route.urgency_floor.value,
+                "urgency": route.urgency.value,
+                "identifiers_redacted": redactions,
+                "injection_signals": signals,
+            },
+            once_per="content_sha256",
+        )
+    except AlreadyRecorded:  # another run re-routed this version at the same moment
+        return None
     return route
 
 

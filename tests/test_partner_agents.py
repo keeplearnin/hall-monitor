@@ -528,3 +528,28 @@ def test_a_case_out_of_time_before_the_first_call_reimburses_nothing():
     assert client.messages.calls == []
     assert "budget_exhausted" in result.assessment.reasons
     assert result.assessment.reimbursable_usd == 0
+
+
+# --- Review 38b: labels and figures read where they stand ---------------------------------------
+
+
+@pytest.mark.parametrize("issuer", ["Customer Events LLC", "Client Solutions Inc"])
+def test_an_issuer_named_customer_or_client_is_still_the_issuer(issuer):
+    """An addressee label counts only as a label (followed by a colon or ending the line), not
+    as a word in the issuer's own name."""
+    docs = DOCS["C-101"]
+    text = docs.invoice.replace("PIXELPATH ADS", issuer.upper())
+    docs = docs.model_copy(update={"invoice": text})
+    good = extraction_of(_claim("C-101")).model_copy(update={"invoice_issuer": issuer})
+    assert "issuer_not_in_invoice" not in check_extraction(good, docs)
+    # The party billed still isn't the issuer.
+    bad = good.model_copy(update={"invoice_issuer": "Quillfeather IT"})
+    assert "issuer_not_in_invoice" in check_extraction(bad, docs)
+
+
+def test_units_equal_to_the_unit_price_still_count():
+    """20 mugs at 20.00: the count equals the unit price, which is not a second money figure
+    the count could have been read from."""
+    docs = _b03("Branded mugs: 20 units at 20.00 USD 400.00", total="400.00")
+    assert check_extraction(_units(20, amount=400.0), docs) == []
+    assert "units_not_in_invoice" in check_extraction(_units(400, amount=400.0), docs)

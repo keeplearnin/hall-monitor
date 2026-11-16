@@ -533,18 +533,64 @@ def test_a_changed_version_of_a_routed_complaint_is_re_routed_without_editing_th
     assert {"servicemember", "untimely", "record_changed"} <= set(rerouted["reasons"])
     assert rerouted["content_sha256"] == v2.content_sha256()
     assert rerouted["previous_content_sha256"] == v1.content_sha256()
-    # The same version again is a repeat; another change is re-routed again.
+    # The same version again is a repeat; a routine status change isn't re-routed (review 38b),
+    # and a change that adds a code reason is re-routed again.
     assert complaint_run.run([v2], audit, _client(), REGISTRY)["skipped"] == 1
     v3 = v2.model_copy(update={"company_response": "Closed with monetary relief"})
-    assert complaint_run.run([v3], audit, _client(), REGISTRY)["rerouted"] == 1
+    summary = complaint_run.run([v3], audit, _client(), REGISTRY)
+    assert (summary["rerouted"], summary["changed_not_rerouted"]) == (0, 1)
+    v4 = v3.model_copy(update={"tags": (Tag.SERVICEMEMBER, Tag.OLDER_AMERICAN)})
+    assert complaint_run.run([v4], audit, _client(), REGISTRY)["rerouted"] == 1
 
 
 def test_a_re_route_never_lowers_the_first_route(tmp_path):
-    """A version that drops a reason (CFPB removes a tag) still goes to specialist review with
-    the first route's reasons and urgency kept."""
+    """A version that drops a reason (CFPB relabels the issue) is not re-routed: the first route
+    stands. One that also adds a reason goes to specialist review with the first route's
+    reasons and urgency kept."""
     audit = AuditLog(tmp_path / "audit.sqlite")
     complaint_run.run([complaint(issue="Fraud or scam")], audit, _client(), REGISTRY)
-    complaint_run.run([complaint()], audit, _client(), REGISTRY)
+    assert complaint_run.run([complaint()], audit, _client(), REGISTRY)["rerouted"] == 0
+    changed = complaint(tags=(Tag.SERVICEMEMBER,))
+    assert complaint_run.run([changed], audit, _client(), REGISTRY)["rerouted"] == 1
     (rerouted,) = [e["payload"] for e in audit.entries() if e["event"] == "complaint_rerouted"]
     assert "fraud" in rerouted["reasons"] and rerouted["urgency"] == "high"
-    assert "record_changed" in rerouted["reasons"]
+    assert {"record_changed", "servicemember"} <= set(rerouted["reasons"])
+
+
+def test_a_routine_status_change_does_not_send_a_standard_complaint_to_specialists(tmp_path):
+    """Review 38b: CFPB moving a complaint from "In progress" to "Closed with explanation"
+    changes its content hash, but adds no reason a person must see; re-routing on any change
+    sent every complaint to specialist review."""
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    v1 = complaint(company_response="In progress")
+    assert complaint_run.run([v1], audit, _client(), REGISTRY)["standard_queue"] == 1
+    v2 = complaint(company_response="Closed with explanation")
+    summary = complaint_run.run([v2], audit, _client(), REGISTRY)
+    assert (summary["rerouted"], summary["specialist_review"]) == (0, 0)
+    assert summary["changed_not_rerouted"] == 1
+    assert not [e for e in audit.entries() if e["event"] == "complaint_rerouted"]
+    # A narrative CFPB publishes where there was none is new text no agent read: re-routed.
+    v3 = v2.model_copy(update={"narrative": "The bank charged me twice for one purchase."})
+    assert complaint_run.run([v3], audit, _client(), REGISTRY)["rerouted"] == 1
+    (rerouted,) = [e["payload"] for e in audit.entries() if e["event"] == "complaint_rerouted"]
+    assert rerouted["narrative_added"] is True and "record_changed" in rerouted["reasons"]
+
+
+def test_a_re_route_is_written_once_per_version(tmp_path):
+    """Two runs re-routing the same version at the same moment: the second write is refused
+    inside the log's write transaction, so the version is re-routed once."""
+    from hall_monitor.complaints.pipeline import reroute_changed
+
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    complaint_run.run([complaint()], audit, _client(), REGISTRY)
+    changed = complaint(tags=(Tag.SERVICEMEMBER,))
+    real = audit.entries
+
+    def stale(*args, **kwargs):  # what a run that read the log before the other's write sees
+        return [e for e in real(*args, **kwargs) if e["event"] != "complaint_rerouted"]
+
+    assert reroute_changed(changed, audit) is not None
+    audit.entries = stale
+    assert reroute_changed(changed, audit) is None
+    audit.entries = real
+    assert len([e for e in audit.entries() if e["event"] == "complaint_rerouted"]) == 1

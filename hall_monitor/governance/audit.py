@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from hall_monitor.models import policy_numbers_in
+
 GENESIS_HASH = "0" * 64
 DEFAULT_AUDIT_DB = Path(__file__).resolve().parents[2] / "var" / "audit.sqlite"
 
@@ -211,17 +213,37 @@ class AuditLog:
         self._db.close()
 
     def append(
-        self, claim_id: str, event: str, actor: str, payload: dict, *, once: bool = False
+        self,
+        claim_id: str,
+        event: str,
+        actor: str,
+        payload: dict,
+        *,
+        once: bool = False,
+        once_per: str | None = None,
     ) -> ChainHead:
         """Add an entry. With once, refuse (AlreadyRecorded) if the claim already has this
         event, checked inside the same write transaction, so two processes deciding the same
-        claim at the same moment can't both record a decision."""
+        claim at the same moment can't both record a decision. With once_per (a payload field),
+        refuse only if the claim already has this event with the same value in that field: once
+        per version, say, where the event may recur."""
         body = canonical(payload)
         with self._lock:
             self._db.execute("BEGIN IMMEDIATE")
             try:
                 if once and self._first(claim_id, event) is not None:
                     raise AlreadyRecorded(f"{claim_id} already has a {event} in the audit log")
+                if (
+                    once_per is not None
+                    and self._db.execute(
+                        "SELECT 1 FROM audit_log WHERE claim_id = ? AND event = ?"
+                        " AND json_extract(payload, ?) = ? LIMIT 1",
+                        (claim_id, event, f"$.{once_per}", payload[once_per]),
+                    ).fetchone()
+                ):
+                    raise AlreadyRecorded(
+                        f"{claim_id} already has a {event} for this {once_per} in the audit log"
+                    )
                 row = self._db.execute(
                     "SELECT seq, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"
                 ).fetchone()
@@ -461,24 +483,27 @@ class TriageRecorder:
 
     def __init__(self, log: AuditLog, claim_id: str):
         self.log, self.claim_id = log, claim_id
-        self._attachments: list[str] = []
+        self._documents: str | None = None
 
-    def documents_hmac(self, policy_number: str) -> str | None:
-        """A keyed hash of the policy number and the claim's documents, normalised (case,
-        spacing and their order don't count), or None if the claim sent no documents. Keyed, so
-        the log holds neither the documents nor the policy number, nor a hash a guess could
-        confirm."""
-        documents = sorted(" ".join(t.split()).casefold() for t in self._attachments)
+    def documents_hmac(self, claim) -> str | None:
+        """A keyed hash of the claim's documents, normalised (case, spacing and their order
+        don't count), scoped by the policy numbers in the claim as sent (code finds them; an
+        agent's extraction isn't used, so a claim stopped before intake, or with no policy
+        number, is hashed too: with none, the documents alone). None if the claim sent no
+        documents. Keyed, so the log holds neither the documents nor the policy number, nor a
+        hash a guess could confirm."""
+        documents = sorted(" ".join(a.text.split()).casefold() for a in claim.attachments)
         if not any(documents):
             return None
-        policy = " ".join(policy_number.split()).upper()
-        return self.log.keyed_hash(canonical({"policy": policy, "documents": documents}))
+        policies = policy_numbers_in(claim)
+        return self.log.keyed_hash(canonical({"policies": policies, "documents": documents}))
 
-    def documents_seen(self, policy_number: str) -> bool:
+    def documents_seen(self, claim) -> bool:
         """Whether another claim ID's triage result recorded the same documents_hmac: the
-        same documents filed again on the same policy (a restarted triage of this claim doesn't
-        count). Triage results only, so a claim counts once its triage has finished."""
-        digest = self.documents_hmac(policy_number)
+        same documents filed again with the same policy numbers (a restarted triage of this
+        claim doesn't count). Triage results only, so a claim counts once its triage has
+        finished, stopped or not."""
+        digest = self.documents_hmac(claim)
         return digest is not None and self.log.documents_recorded(digest, self.claim_id)
 
     def __call__(self, event: str, item) -> None:
@@ -487,7 +512,7 @@ class TriageRecorder:
 
     def _claim_submitted(self, item: dict) -> tuple[str, dict]:
         claim = item["claim"]
-        self._attachments = [a.text for a in claim.attachments]
+        self._documents = self.documents_hmac(claim)
         return f"channel:{claim.channel}", {
             "claim_sha256": sha256(claim.model_dump_json()),
             "submitted_at": claim.submitted_at.isoformat(),
@@ -540,11 +565,9 @@ class TriageRecorder:
         return "pipeline", {"correction": correction}
 
     def _triage_result(self, result) -> tuple[str, dict]:
-        extraction = result.extraction
         return "pipeline", {
-            "documents_hmac": self.documents_hmac(extraction.policy_number)
-            if extraction is not None
-            else None,
+            # From the claim as sent, for every result, stopped or not (review 38b).
+            "documents_hmac": self._documents,
             "result_sha256": sha256(result.model_dump_json()),
             "route": result.routing.route.value,
             "routing_reasons": result.routing.reasons,

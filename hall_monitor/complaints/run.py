@@ -55,11 +55,14 @@ def run(
 ) -> dict:
     """Triage each complaint not already in the log; a summary of what happened. A complaint a
     killed run claimed but never routed goes to specialist review now (interrupted); a routed
-    one whose content changed is re-routed to specialist review (rerouted)."""
+    one whose new version adds a code reason, raises the urgency floor or adds a narrative is
+    re-routed to specialist review (rerouted); another change is counted, its earlier route
+    standing (changed_not_rerouted, also counted as skipped)."""
     summary = {
         "triaged": 0,
         "skipped": 0,
         "rerouted": 0,
+        "changed_not_rerouted": 0,
         "interrupted": 0,
         "specialist_review": 0,
         "standard_queue": 0,
@@ -79,7 +82,7 @@ def run(
                     continue
                 except AlreadyRecorded:
                     pass
-            elif reroute_changed(complaint, audit) is not None:
+            elif reroute_changed(complaint, audit, summary) is not None:
                 summary["rerouted"] += 1
                 summary["specialist_review"] += 1
                 continue

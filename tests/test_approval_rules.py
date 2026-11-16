@@ -194,3 +194,22 @@ def test_a_changed_adjusters_file_is_not_approved(tmp_path):
     (tmp_path / ADJUSTERS_FILENAME).write_text("adjusters: [")
     with pytest.raises(AdjustersNotApproved, match="can't be read"):
         approved_adjusters(tmp_path)
+
+
+def test_an_unreadable_approvals_file_refuses_the_adjusters(tmp_path):
+    """Review 38b: a broken or missing approvals.yaml raised a raw YAML or OS error; it refuses
+    the adjusters like any other unapproved file, so the claim waits for a person."""
+    import shutil
+
+    from hall_monitor.governance.approval import AdjustersNotApproved, approved_adjusters
+    from hall_monitor.registry import ADJUSTERS_FILENAME, APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR
+
+    shutil.copy(DEFAULT_REGISTRY_DIR / ADJUSTERS_FILENAME, tmp_path / ADJUSTERS_FILENAME)
+    with pytest.raises(AdjustersNotApproved, match="approvals.yaml can't be read"):
+        approved_adjusters(tmp_path)  # missing
+    (tmp_path / APPROVALS_FILENAME).write_text("adjusters: [")
+    with pytest.raises(AdjustersNotApproved, match="approvals.yaml can't be read"):
+        approved_adjusters(tmp_path)
+    (tmp_path / APPROVALS_FILENAME).write_text("- a list, not a mapping\n")
+    with pytest.raises(AdjustersNotApproved, match="approvals.yaml can't be read"):
+        approved_adjusters(tmp_path)

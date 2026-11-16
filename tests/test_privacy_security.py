@@ -615,9 +615,37 @@ def test_the_complaint_desk_s_own_vocabulary_is_flagged(text):
         "The bank's specialist reviewed my file and said it was standard.",
         "Please review my complaint and refund the fee.",
         "Το πρόβλημα παραμένει.",  # ordinary Greek text, nothing aimed at the AI
+        # Review 38b: plain English the desk-vocabulary patterns used to flag.
+        "I want to raise my concerns about the delay.",
+        "I was told my concerns must be standard practice.",
+        "I asked them to change the category of my booking.",
+        "The pharmacy said my priority should be low.",
+        "I explained it to the assistant, who said it would be fixed.",
+        "The ticket agent: change fee waived.",
     ],
 )
 def test_ordinary_complaint_text_is_not_flagged(text):
+    from hall_monitor.gateway.injection import detect_in_texts
+
+    assert detect_in_texts([text]) == [], text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A claim narrative or an employee's leave message: the same words, other workflows.
+        "Please raise my concerns with the airline as well.",
+        "The hotel offered to change the category of my room.",
+        "The check-in agent: change of seat allowed, no fee.",
+        "My manager said the priority should be low until the project ends.",
+        "I spoke to the assistant at the clinic, who booked the scan.",
+        "HR told me my concerns should be raised with my manager first.",
+        "The gate agent, please note, rebooked me the next morning.",
+    ],
+)
+def test_ordinary_claim_and_leave_text_is_not_flagged(text):
+    """Review 38b: the desk's patterns are shared by every workflow's detector, so plain
+    English in a claim or a leave request mustn't send it to a person as an injection."""
     from hall_monitor.gateway.injection import detect_in_texts
 
     assert detect_in_texts([text]) == [], text
