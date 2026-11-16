@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from hall_monitor.budgets import SpendRefused, approved_budgets
-from hall_monitor.models import AgentCall
 from hall_monitor.registry import APPROVALS_FILENAME, BUDGETS_FILENAME, DEFAULT_REGISTRY_DIR
+from hall_monitor.shared_models import AgentCall
 
 _REGISTRY_DIR = DEFAULT_REGISTRY_DIR
 

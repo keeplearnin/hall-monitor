@@ -9,9 +9,10 @@ from hall_monitor.agents import coverage_check
 from hall_monitor.agents.base import run_agent
 from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.gateway.cost import PRICES_PER_MTOK, call_cost
-from hall_monitor.models import AgentCall, CoverageFinding, CriticReview, ReviewedStage
+from hall_monitor.models import CoverageFinding, CriticReview, ReviewedStage
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, AgentManifest, Registry
+from hall_monitor.shared_models import AgentCall
 from hall_monitor.tools.gateway import ToolGateway
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth
 

@@ -67,8 +67,8 @@ from hall_monitor.gateway.cost import UnpricedModelError, total_cost
 from hall_monitor.gateway.injection import decoded, detect_in_texts
 from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.governance.audit import AlreadyRecorded, AuditLog
-from hall_monitor.models import AgentCall, StepOutcome, StepRefusal
 from hall_monitor.registry import Registry, RegistryError
+from hall_monitor.shared_models import AgentCall, StepOutcome, StepRefusal
 from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 
 ROUTED = "complaint_routed"

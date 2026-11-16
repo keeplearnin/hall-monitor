@@ -683,7 +683,7 @@ def test_a_bool_is_not_an_allotment(registry, book):
 
 def test_a_case_s_cost_is_summed_with_one_price_refresh(monkeypatch):
     from hall_monitor.gateway import cost
-    from hall_monitor.models import AgentCall
+    from hall_monitor.shared_models import AgentCall
 
     call = AgentCall(
         agent_id="intake",

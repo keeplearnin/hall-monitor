@@ -47,8 +47,8 @@ from hall_monitor.complaints.models import CfpbSource, Complaint
 from hall_monitor.complaints.store import DEFAULT_STORE, ComplaintStore
 from hall_monitor.egress import CFPB_POLICY, CfpbClient, audit_refusals, guarded_client
 from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog, TriageRecorder
-from hall_monitor.models import ToolCall
 from hall_monitor.registry import Registry
+from hall_monitor.shared_models import ToolCall
 from hall_monitor.tools.gateway import PIPELINE_ACTOR, ToolGateway
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -547,7 +547,6 @@ def test_every_reason_the_code_generates_is_shown(tmp_path, demo_data):
         route_stopped,
     )
     from hall_monitor.models import (
-        AgentCall,
         CoverageAssessment,
         CoverageDecision,
         NextStep,
@@ -557,6 +556,7 @@ def test_every_reason_the_code_generates_is_shown(tmp_path, demo_data):
         RiskLevel,
     )
     from hall_monitor.registry import DataClass, Registry, RegistryError
+    from hall_monitor.shared_models import AgentCall
 
     stops = []
 

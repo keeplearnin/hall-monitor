@@ -34,7 +34,7 @@ from hall_monitor.registry import RegistryError
 
 if TYPE_CHECKING:
     from hall_monitor.agents.base import AgentRun, Usage
-    from hall_monitor.models import AgentCall
+    from hall_monitor.shared_models import AgentCall
 
 HANDOFF_TOOL = "hand_off"
 MAX_TASK_CHARS = 4000

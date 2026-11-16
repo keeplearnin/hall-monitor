@@ -23,14 +23,13 @@ from hall_monitor.models import (
     ReviewedStage,
     RiskAssessment,
     Route,
-    StepOutcome,
-    StepRefusal,
     SupervisorAction,
     SupervisorDecision,
     SupervisorReason,
 )
 from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
+from hall_monitor.shared_models import StepOutcome, StepRefusal
 from hall_monitor.tools.gateway import ToolGateway
 from hall_monitor.workflow import open_workflow
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth, specialists

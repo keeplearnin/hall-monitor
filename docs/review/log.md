@@ -1359,3 +1359,27 @@ Fixes a test can catch are test-first: each test failed before the change and pa
 | 10. "Each has one page with the same headings" wasn't true: the complaints page merged and added headings, and leave and partners ran in another order | Low | Fixed: every page has the same eight `##` headings in order; extra matter sits under `###` | `test_every_example_page_has_the_same_headings` |
 | 11. README Results: "the claims and complaint desk agents … the numbers below describe older versions", but no complaint numbers follow | Low | Fixed: the complaint desk's agent has never run live, so it has no numbers there | — |
 | 12. README: the agentic path said to apply across examples (partners has no pipeline); and `test_docs.py` didn't check the README's links | Low | Fixed: claims, leave and the complaint desk named; the README added to the pages whose links and anchors are checked (a guard: its links already resolved, so this test passed before) | `test_relative_links_resolve[README.md]` |
+
+## Review 40 (split-shared-models): the shared records leave the claims types
+
+**Reviewer:** the `governance-reviewer` agent on this branch's changes before the PR. The branch
+moves `AgentCall`, `ToolCall`, `StepOutcome` and `StepRefusal` from `hall_monitor/models.py` to
+`hall_monitor/shared_models.py`, with no behaviour change; the claims types stay in `models.py`
+until claims moves into its own package. Review 39 is the example pages PR (#81).
+
+The reviewer found no behaviour change: the moved classes match `main` byte for byte apart from
+one comment ("stopped the claim" now "stopped the case"), the rest of `models.py` is unchanged,
+the JSON schema `$defs` names are the same, and no digest, pickle or string path depends on the
+module. No doc or register entry pointed at a moved symbol's file. It confirmed three Low
+findings, all in the new guard test; the reviewer's severities.
+
+| Finding | Severity | Outcome | Test |
+|---|---|---|---|
+| 1. The guard test saw only `from hall_monitor.models import …`, so `import hall_monitor.models as m`, `from hall_monitor import models` or a relative import could reach the shared records through the claims module unnoticed | Low | Fixed: every import form is read, relative imports resolved against the file's package; a test pins each form | `test_every_import_form_of_the_claims_module_is_found` |
+| 2. The packages kept off the claims types were a fixed list (`hr`, `complaints`, `partners`), so a new example's package wasn't checked | Low | Fixed: every `hall_monitor` subpackage with its own `models.py` is checked | `test_every_other_example_package_is_checked`, `test_other_examples_do_not_import_claims_types` |
+| 3. The test checked that `shared_models` had the names, not that it defined them, so the classes could move back with a re-export | Low | Fixed: each record's `__module__` must be `hall_monitor.shared_models` | `test_the_shared_records_are_defined_in_shared_models` |
+
+What stays true and is not a defect: the guard covers direct imports only. The leave, complaint
+desk and partner pipelines still load `hall_monitor.models` at run time, because the one agent
+call path, `hall_monitor/agents/base.py`, takes `ClaimSubmission` and `PolicyRecord` from it.
+Moving the claims code into its own package (the next PR) is where that is untangled.

@@ -59,5 +59,5 @@ uv run python -m hall_monitor.evals.override evals/results/hardened-critic  # no
 
 ## Where it lives
 
-- **Code:** `hall_monitor/` at the package root (`pipeline.py`, `agentic.py`, `workflow.py`, `run.py`, `review.py`), `hall_monitor/agents/`, `hall_monitor/tools/`, `hall_monitor/governance/routing.py` and `hall_monitor/evals/`. The claims code sits beside the shared controls because it came first.
+- **Code:** `hall_monitor/` at the package root (`pipeline.py`, `agentic.py`, `workflow.py`, `run.py`, `review.py`, and `models.py` for the claims types), `hall_monitor/agents/`, `hall_monitor/tools/`, `hall_monitor/governance/routing.py` and `hall_monitor/evals/`. The claims code sits beside the shared controls because it came first. The records every example shares (agent call, tool call, supervisor step outcome and refusal) are in `hall_monitor/shared_models.py`.
 - **Design and decisions:** no design doc. ADRs [0001](../adr/0001-routing-decided-in-code.md) to [0016](../adr/0016-read-only-control-panel.md) were written while building claims (most of them cover controls every example now shares), and [0028](../adr/0028-agent-picks-the-steps-code-holds-the-boundaries.md) covers the agentic path.
