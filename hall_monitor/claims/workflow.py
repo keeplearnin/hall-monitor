@@ -23,7 +23,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 from pydantic import ValidationError
 
-from hall_monitor.governance.approval import (
+from hall_monitor.claims.approval import (
     AdjusterDecision,
     DecisionRejected,
     approved_adjusters,
@@ -34,6 +34,8 @@ from hall_monitor.governance.approval import (
     final_from_adjuster,
     validate_decision,
 )
+from hall_monitor.claims.models import ClaimSubmission, Route, TriageResult
+from hall_monitor.claims.pipeline import triage
 from hall_monitor.governance.audit import (
     DEFAULT_AUDIT_DB,
     AlreadyRecorded,
@@ -43,13 +45,11 @@ from hall_monitor.governance.audit import (
     canonical,
     sha256,
 )
-from hall_monitor.models import ClaimSubmission, Route, TriageResult
-from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
 from hall_monitor.spend import SpendLedger
 from hall_monitor.tools.gateway import ToolGateway
 
-DEFAULT_CHECKPOINTS = Path(__file__).resolve().parents[1] / "var" / "checkpoints.sqlite"
+DEFAULT_CHECKPOINTS = Path(__file__).resolve().parents[2] / "var" / "checkpoints.sqlite"
 
 
 class ClaimState(TypedDict, total=False):

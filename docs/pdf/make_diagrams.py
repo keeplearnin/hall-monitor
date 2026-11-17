@@ -17,7 +17,7 @@ from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas
 
-AS_OF = "14 Nov 2026"
+AS_OF = "16 Nov 2026"
 REPO = Path(__file__).resolve().parents[2]
 OUT = str(
     Path(sys.argv[1])
@@ -221,7 +221,7 @@ def page_architecture(c):
         (
             "Live CLIs",
             [
-                "hall_monitor.run (claims)",
+                "hall_monitor.claims.run (claims)",
                 "complaints.run --live",
                 "hr.run",
                 "all pass the spend ledger",

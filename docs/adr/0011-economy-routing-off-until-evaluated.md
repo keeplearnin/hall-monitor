@@ -11,7 +11,7 @@ claims under $1,000 could cut cost, but nobody has measured whether accuracy hol
 ## Decision
 
 A manifest may name an approved `economy_model` and an `economy_max_claim_usd` limit. A code
-rule (`_economy` in [`pipeline.py`](../../hall_monitor/pipeline.py)) uses it only for claims
+rule (`_economy` in [`pipeline.py`](../../hall_monitor/claims/pipeline.py)) uses it only for claims
 within the limit, and critic-driven revisions always go back to the main model. The feature is
 off unless `--model-routing` is passed, and stays off until a scored run shows accuracy holds.
 Cost per claim is recorded on every result and in the audit log, prompt caching included.

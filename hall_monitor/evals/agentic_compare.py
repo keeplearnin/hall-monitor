@@ -35,33 +35,11 @@ from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
-from hall_monitor.agentic import Limits
-from hall_monitor.agents.supervisor import scripted_answer, view_from_content
 from hall_monitor.approvals import CLAIMS_AGENTS
-from hall_monitor.complaints.ingest import PINNED_NAME, load_pinned
-from hall_monitor.complaints.pipeline import code_reasons_for, triage_complaint
-from hall_monitor.complaints.scripted import scripted_triage
-from hall_monitor.complaints.supervisor import (
-    DeskAction,
-    DeskDecision,
-    DeskReason,
-    scripted_desk_answer,
-)
-from hall_monitor.complaints.supervisor import view_from_content as desk_view_from_content
-from hall_monitor.complaints.triage_agent import Confidence, Urgency
-from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
-from hall_monitor.evals.meta import run_meta
-from hall_monitor.governance.audit import AuditLog
-from hall_monitor.hr.models import LeaveIntake
-from hall_monitor.hr.pipeline import prepare as prepare_leave
-from hall_monitor.hr.supervisor import (
-    LeaveAction,
-    LeaveDecision,
-    LeaveSupervisorReason,
-    scripted_leave_answer,
-)
-from hall_monitor.hr.supervisor import view_from_content as leave_view_from_content
-from hall_monitor.models import (
+from hall_monitor.claims.agentic import Limits
+from hall_monitor.claims.agents.supervisor import scripted_answer, view_from_content
+from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.models import (
     CoverageFinding,
     CriticIssue,
     CriticReview,
@@ -74,7 +52,29 @@ from hall_monitor.models import (
     SupervisorDecision,
     SupervisorReason,
 )
-from hall_monitor.pipeline import triage
+from hall_monitor.claims.pipeline import triage
+from hall_monitor.complaints.ingest import PINNED_NAME, load_pinned
+from hall_monitor.complaints.pipeline import code_reasons_for, triage_complaint
+from hall_monitor.complaints.scripted import scripted_triage
+from hall_monitor.complaints.supervisor import (
+    DeskAction,
+    DeskDecision,
+    DeskReason,
+    scripted_desk_answer,
+)
+from hall_monitor.complaints.supervisor import view_from_content as desk_view_from_content
+from hall_monitor.complaints.triage_agent import Confidence, Urgency
+from hall_monitor.evals.meta import run_meta
+from hall_monitor.governance.audit import AuditLog
+from hall_monitor.hr.models import LeaveIntake
+from hall_monitor.hr.pipeline import prepare as prepare_leave
+from hall_monitor.hr.supervisor import (
+    LeaveAction,
+    LeaveDecision,
+    LeaveSupervisorReason,
+    scripted_leave_answer,
+)
+from hall_monitor.hr.supervisor import view_from_content as leave_view_from_content
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
 

@@ -10,7 +10,7 @@ import yaml
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from hall_monitor.data import iter_claims, load_policy_records
+from hall_monitor.claims.data import iter_claims, load_policy_records
 from hall_monitor.evals import gate
 from hall_monitor.governance.audit import AuditLog, ChainHead
 from hall_monitor.governance.controls import load_register
@@ -18,6 +18,7 @@ from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.panel import __main__ as cli
 from hall_monitor.panel import demo, views
 from hall_monitor.panel.app import create_app
+from tests.import_names import reaches
 
 PANEL = Path(views.__file__).parent
 DEMO_STOP_REASON = "Risk scores drifted after a vendor data change"
@@ -85,6 +86,22 @@ def test_reading_every_page_leaves_every_file_as_it_was(demo_data, src, client):
     assert {p: views.file_sha256(p) for p in sorted(out.rglob("*")) if p.is_file()} == before
 
 
+CHECKPOINTS = ("hall_monitor.claims.workflow",)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from hall_monitor.claims.workflow import open_workflow",
+        "from hall_monitor.claims import workflow",
+        "import hall_monitor.claims.workflow",
+        "from ..claims import workflow",
+    ],
+)
+def test_the_checkpoint_guard_sees_every_import_form(source):
+    assert reaches(source, CHECKPOINTS, "hall_monitor.panel")
+
+
 def test_the_panel_opens_the_audit_log_read_only_and_never_the_checkpoints():
     for file in ("views.py", "app.py", "pages.py", "__main__.py"):
         tree = ast.parse((PANEL / file).read_text())
@@ -100,8 +117,8 @@ def test_the_panel_opens_the_audit_log_read_only_and_never_the_checkpoints():
             if isinstance(node, ast.ImportFrom)
             for alias in node.names
         }
-        modules = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
-        assert "hall_monitor.workflow" not in modules, f"{file} reaches the checkpoints"
+        source = (PANEL / file).read_text()
+        assert not reaches(source, CHECKPOINTS, "hall_monitor.panel"), f"{file} reaches them"
         assert not imported & {"add_stop", "current_approvals", "open_workflow"}, file
 
 
@@ -539,14 +556,7 @@ def test_saved_pages_carry_their_own_security_policy(src, tmp_path):
 def test_every_reason_the_code_generates_is_shown(tmp_path, demo_data):
     """Reasons built by the real routing rule and the real refusals, so a changed message fails
     here instead of being withheld unnoticed."""
-    from hall_monitor.gateway.cost import UnpricedModelError, call_cost
-    from hall_monitor.gateway.injection import SIGNALS
-    from hall_monitor.governance.routing import (
-        route_claim,
-        route_duplicate_documents,
-        route_stopped,
-    )
-    from hall_monitor.models import (
+    from hall_monitor.claims.models import (
         CoverageAssessment,
         CoverageDecision,
         NextStep,
@@ -555,6 +565,13 @@ def test_every_reason_the_code_generates_is_shown(tmp_path, demo_data):
         RiskFlag,
         RiskLevel,
     )
+    from hall_monitor.claims.routing import (
+        route_claim,
+        route_duplicate_documents,
+        route_stopped,
+    )
+    from hall_monitor.gateway.cost import UnpricedModelError, call_cost
+    from hall_monitor.gateway.injection import SIGNALS
     from hall_monitor.registry import DataClass, Registry, RegistryError
     from hall_monitor.shared_models import AgentCall
 

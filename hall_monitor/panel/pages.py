@@ -137,7 +137,7 @@ def page(title: str, current: str, body: Safe, *, root: str = "", demo: bool = F
             "This panel changes nothing. An owner stops an agent with ",
             tag("code", "python -m hall_monitor.kill_switch stop"),
             "; an adjuster decides with ",
-            tag("code", "python -m hall_monitor.review decide"),
+            tag("code", "python -m hall_monitor.claims.review decide"),
             "; approvals and restarts are reviewed changes to the registry.",
             class_="banner",
         )
@@ -526,7 +526,7 @@ def queue_page(queue: list[dict], leave: list[dict], *, demo: bool) -> str:
                 "p",
                 "Claims the routing rule sent to a person and nobody has decided. An adjuster "
                 "opens one with ",
-                tag("code", "python -m hall_monitor.review show CLAIM_ID"),
+                tag("code", "python -m hall_monitor.claims.review show CLAIM_ID"),
                 " to see the evidence, and signs a decision within their authority.",
                 class_="lead",
             ),

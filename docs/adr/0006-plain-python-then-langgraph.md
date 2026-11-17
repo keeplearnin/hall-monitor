@@ -13,14 +13,14 @@ evidence they saw.
 ## Decision
 
 The triage pipeline is plain Python (`triage` in
-[`pipeline.py`](../../hall_monitor/pipeline.py); by default the supervisor loop in
-[`agentic.py`](../../hall_monitor/agentic.py), with the fixed order kept as `agentic=False`), so
+[`pipeline.py`](../../hall_monitor/claims/pipeline.py); by default the supervisor loop in
+[`agentic.py`](../../hall_monitor/claims/agentic.py), with the fixed order kept as `agentic=False`), so
 every step, condition and refusal is in Python and tested directly. LangGraph is used only around it, in
-[`workflow.py`](../../hall_monitor/workflow.py), for what it is good at: an `interrupt` that pauses
+[`workflow.py`](../../hall_monitor/claims/workflow.py), for what it is good at: an `interrupt` that pauses
 a claim for an adjuster, with state saved by a SQLite checkpointer, and a resume when the
 decision comes in. The decision is checked in code against the adjuster's authority limit and
 the hash of the evidence pack they were shown
-([`governance/approval.py`](../../hall_monitor/governance/approval.py)).
+([`claims/approval.py`](../../hall_monitor/claims/approval.py)).
 
 ## Alternatives considered
 

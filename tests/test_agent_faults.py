@@ -15,13 +15,13 @@ import anthropic
 import httpx
 import pytest
 
-from hall_monitor.data import (
+from hall_monitor.claims.data import (
     iter_claims,
     load_ground_truth,
     load_policy_records,
     load_policy_wording,
 )
-from hall_monitor.models import (
+from hall_monitor.claims.models import (
     ClaimedItem,
     CoverageFinding,
     CriticIssue,
@@ -35,7 +35,7 @@ from hall_monitor.models import (
     RiskLevel,
     Route,
 )
-from hall_monitor.pipeline import triage
+from hall_monitor.claims.pipeline import triage
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth

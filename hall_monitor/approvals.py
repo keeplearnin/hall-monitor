@@ -20,7 +20,8 @@ from types import ModuleType
 
 import yaml
 
-from hall_monitor.agents import (
+from hall_monitor.budgets import load_budgets
+from hall_monitor.claims.agents import (
     coverage_check,
     critic,
     intake,
@@ -28,10 +29,9 @@ from hall_monitor.agents import (
     risk_fraud,
     supervisor,
 )
-from hall_monitor.budgets import load_budgets
+from hall_monitor.claims.approval import adjusters_digest, load_adjusters
 from hall_monitor.complaints import supervisor as complaint_supervisor
 from hall_monitor.complaints import triage_agent
-from hall_monitor.governance.approval import adjusters_digest, load_adjusters
 from hall_monitor.hr import leave_explainer, leave_intake
 from hall_monitor.hr import supervisor as leave_supervisor
 from hall_monitor.kill_switch import STOPS_FILENAME, load_stops

@@ -13,7 +13,7 @@ from hall_monitor.agents.base import (
     render_claim,
     run_agent,
 )
-from hall_monitor.models import ClaimSubmission, IntakeExtraction
+from hall_monitor.claims.models import ClaimSubmission, IntakeExtraction
 from hall_monitor.registry import Registry
 
 AGENT_ID = "intake"

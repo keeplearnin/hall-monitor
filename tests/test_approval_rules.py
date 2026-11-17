@@ -2,8 +2,7 @@
 
 import pytest
 
-from hall_monitor.data import load_ground_truth
-from hall_monitor.governance.approval import (
+from hall_monitor.claims.approval import (
     DecisionRejected,
     audit_payload,
     final_auto,
@@ -11,8 +10,8 @@ from hall_monitor.governance.approval import (
     load_adjusters,
     validate_decision,
 )
-from hall_monitor.governance.routing import route_stopped
-from hall_monitor.models import (
+from hall_monitor.claims.data import load_ground_truth
+from hall_monitor.claims.models import (
     CoverageAssessment,
     NextStep,
     Recommendation,
@@ -22,6 +21,7 @@ from hall_monitor.models import (
     RoutingDecision,
     TriageResult,
 )
+from hall_monitor.claims.routing import route_stopped
 from tests.fakes import signed_decision
 
 ADJUSTERS = load_adjusters()
@@ -175,7 +175,7 @@ def test_a_bad_adjusters_file_is_refused(tmp_path, body):
 
 
 def test_the_shipped_adjusters_are_approved():
-    from hall_monitor.governance.approval import approved_adjusters
+    from hall_monitor.claims.approval import approved_adjusters
 
     assert approved_adjusters() == ADJUSTERS
 
@@ -183,7 +183,7 @@ def test_the_shipped_adjusters_are_approved():
 def test_a_changed_adjusters_file_is_not_approved(tmp_path):
     import shutil
 
-    from hall_monitor.governance.approval import AdjustersNotApproved, approved_adjusters
+    from hall_monitor.claims.approval import AdjustersNotApproved, approved_adjusters
     from hall_monitor.registry import ADJUSTERS_FILENAME, APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR
 
     shutil.copy(DEFAULT_REGISTRY_DIR / APPROVALS_FILENAME, tmp_path / APPROVALS_FILENAME)
@@ -201,7 +201,7 @@ def test_an_unreadable_approvals_file_refuses_the_adjusters(tmp_path):
     the adjusters like any other unapproved file, so the claim waits for a person."""
     import shutil
 
-    from hall_monitor.governance.approval import AdjustersNotApproved, approved_adjusters
+    from hall_monitor.claims.approval import AdjustersNotApproved, approved_adjusters
     from hall_monitor.registry import ADJUSTERS_FILENAME, APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR
 
     shutil.copy(DEFAULT_REGISTRY_DIR / ADJUSTERS_FILENAME, tmp_path / ADJUSTERS_FILENAME)

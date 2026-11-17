@@ -6,15 +6,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.models import Route
+from hall_monitor.claims.pipeline import triage
 from hall_monitor.kill_switch import (
     STOPS_FILENAME,
     AppendOnlyError,
     add_stop,
     check_append_only,
 )
-from hall_monitor.models import Route
-from hall_monitor.pipeline import triage
 from hall_monitor.registry import (
     APPROVALS_FILENAME,
     DEFAULT_REGISTRY_DIR,
@@ -340,9 +340,9 @@ def test_a_stop_during_an_agents_tool_rounds_halts_its_next_model_request(regist
     """A refused tool call goes back to the model as an error, so the loop must check too."""
     from types import SimpleNamespace
 
-    from hall_monitor.agents import coverage_check
     from hall_monitor.agents.base import ToolAccess, run_agent
-    from hall_monitor.models import CoverageFinding
+    from hall_monitor.claims.agents import coverage_check
+    from hall_monitor.claims.models import CoverageFinding
 
     registry = Registry.from_dir(registry_dir)
     calls = []
@@ -505,7 +505,7 @@ def test_code_the_kill_switch_relies_on_has_a_code_owner():
         ".github/CODEOWNERS",
         "hall_monitor/kill_switch.py",
         "hall_monitor/registry.py",
-        "hall_monitor/pipeline.py",
+        "hall_monitor/claims/pipeline.py",
         "registry/approvals.yaml",
         "registry/owners.yaml",
     ):
@@ -538,7 +538,7 @@ def test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted(
     import anthropic
     import httpx
 
-    from hall_monitor.models import CoverageFinding
+    from hall_monitor.claims.models import CoverageFinding
 
     registry = Registry.from_dir(registry_dir)
     claim = next(c for c in iter_claims() if c.claim_id == "claim_001")
@@ -711,7 +711,7 @@ def test_the_drill_stops_specialists_that_have_already_answered():
 def test_the_drill_fails_without_the_per_step_re_check(monkeypatch):
     """Review 26 re-check: with the per-step re-checks removed, every gated key still passed.
     A stop on an agent the case already used must end it before any further call."""
-    import hall_monitor.agentic as agentic
+    import hall_monitor.claims.agentic as agentic
     from hall_monitor.evals import stop_timing
 
     monkeypatch.setattr(agentic, "_recheck", lambda ctx: None)

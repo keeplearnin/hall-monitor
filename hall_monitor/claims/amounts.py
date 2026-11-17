@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from hall_monitor.models import ClaimSubmission
+from hall_monitor.claims.models import ClaimSubmission
 
 # Any space but a line break: a figure on the next line isn't marked, but a non-breaking space
 # (common in text taken from PDFs) or a run of spaces is still a space.

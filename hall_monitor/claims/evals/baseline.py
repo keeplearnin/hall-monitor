@@ -1,6 +1,6 @@
 """Run every synthetic claim through the pipeline, score it, and write the results.
 
-    uv run python -m hall_monitor.evals.baseline --trials 3 --out evals/results/baseline
+    uv run python -m hall_monitor.claims.evals.baseline --trials 3 --out evals/results/baseline
 
 Writes results.json (every run, every score, every hall pass) and report.md.
 """
@@ -21,17 +21,17 @@ from dotenv import load_dotenv
 
 from hall_monitor import tracing
 from hall_monitor.agents.base import default_client
-from hall_monitor.data import (
+from hall_monitor.claims.data import (
     iter_claims,
     load_ground_truth,
     load_policy_wording,
 )
-from hall_monitor.evals import scoring
+from hall_monitor.claims.evals import scoring
+from hall_monitor.claims.models import ClaimSubmission, TriageResult
+from hall_monitor.claims.pipeline import MAX_REVISIONS, triage
+from hall_monitor.claims.routing import ADJUSTER_PAYOUT_THRESHOLD_USD
 from hall_monitor.evals.meta import git
 from hall_monitor.gateway.cost import total_cost
-from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
-from hall_monitor.models import ClaimSubmission, TriageResult
-from hall_monitor.pipeline import MAX_REVISIONS, triage
 from hall_monitor.registry import Registry
 from hall_monitor.shared_models import AgentCall
 from hall_monitor.tools.gateway import ToolGateway
@@ -230,7 +230,7 @@ def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths
         "## Reproduce",
         "",
         "```bash",
-        "uv run python -m hall_monitor.evals.baseline "
+        "uv run python -m hall_monitor.claims.evals.baseline "
         f"--trials {meta['trials']} --out {path.parent}"
         + ("" if meta["critic"] else " --no-critic"),
         "```",
@@ -240,7 +240,7 @@ def write_report(path: Path, meta: dict, summary: dict, runs: list[dict], truths
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="hall_monitor.evals.baseline")
+    parser = argparse.ArgumentParser(prog="hall_monitor.claims.evals.baseline")
     parser.add_argument("--trials", type=int, default=3)
     parser.add_argument("--out", type=Path, default=Path("evals/results/baseline"))
     parser.add_argument("--workers", type=int, default=6)

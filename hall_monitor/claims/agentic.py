@@ -1,6 +1,6 @@
 """The agentic claims path: a supervisor agent picks the steps, code holds the boundaries.
 
-ADR 0028, HM-32. The supervisor (agents/supervisor.py) chooses one action at a time from a
+ADR 0028, HM-32. The supervisor (claims/agents/supervisor.py) chooses one action at a time from a
 closed list. Before anything runs, code checks, in this order:
 
 1. **Budget.** Steps, cost and wall-clock time for the claim. Running out stops the claim for a
@@ -37,15 +37,15 @@ from dataclasses import dataclass, field
 import anthropic
 
 from hall_monitor.agents.base import ToolAccess, render_feedback
-from hall_monitor.agents.coverage_check import run_coverage_check
-from hall_monitor.agents.critic import run_critic
-from hall_monitor.agents.intake import run_intake
-from hall_monitor.agents.recommendation import run_recommendation
-from hall_monitor.agents.risk_fraud import run_risk_fraud
-from hall_monitor.agents.supervisor import (
+from hall_monitor.claims.agents.coverage_check import run_coverage_check
+from hall_monitor.claims.agents.critic import run_critic
+from hall_monitor.claims.agents.intake import run_intake
+from hall_monitor.claims.agents.recommendation import run_recommendation
+from hall_monitor.claims.agents.risk_fraud import run_risk_fraud
+from hall_monitor.claims.agents.supervisor import (
     AGENT_ID as SUPERVISOR,
 )
-from hall_monitor.agents.supervisor import (
+from hall_monitor.claims.agents.supervisor import (
     SupervisorView,
     _Budget,
     _Coverage,
@@ -56,10 +56,8 @@ from hall_monitor.agents.supervisor import (
     _Risk,
     run_supervisor,
 )
-from hall_monitor.amounts import source_text
-from hall_monitor.gateway.cost import call_cost
-from hall_monitor.governance.routing import route_claim
-from hall_monitor.models import (
+from hall_monitor.claims.amounts import source_text
+from hall_monitor.claims.models import (
     ClaimSubmission,
     CoverageAssessment,
     CriticReview,
@@ -75,7 +73,7 @@ from hall_monitor.models import (
     SupervisorStep,
     TriageResult,
 )
-from hall_monitor.pipeline import (
+from hall_monitor.claims.pipeline import (
     MAX_REVISIONS,
     PipelineStopped,
     _cost,
@@ -86,6 +84,8 @@ from hall_monitor.pipeline import (
     _problems,
     _Run,
 )
+from hall_monitor.claims.routing import route_claim
+from hall_monitor.gateway.cost import call_cost
 from hall_monitor.registry import Registry
 from hall_monitor.shared_models import AgentCall, StepOutcome, StepRefusal
 from hall_monitor.tools.gateway import ToolGateway

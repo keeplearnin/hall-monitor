@@ -1,9 +1,9 @@
 """Submit a claim: triage it, then decide it automatically or send it to an adjuster.
 
-    uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
+    uv run python -m hall_monitor.claims.run --claim data/synthetic/claims/claim_001.json
 
 A claim the routing rule sends to a person waits in the workflow (state saved in
-var/checkpoints.sqlite) until an adjuster decides it with `python -m hall_monitor.review`.
+var/checkpoints.sqlite) until an adjuster decides it with `python -m hall_monitor.claims.review`.
 `--triage-only` prints the pipeline's full result without the workflow.
 """
 
@@ -18,16 +18,18 @@ from dotenv import load_dotenv
 from pydantic import ValidationError
 
 from hall_monitor import tracing
-from hall_monitor.data import load_claim, load_policy_wording
-from hall_monitor.pipeline import triage
+from hall_monitor.claims.data import load_claim, load_policy_wording
+from hall_monitor.claims.pipeline import triage
+from hall_monitor.claims.workflow import DEFAULT_CHECKPOINTS, open_workflow
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, Registry
 from hall_monitor.spend import DEFAULT_SPEND_DB, SpendLedger
 from hall_monitor.tools.gateway import ToolGateway
-from hall_monitor.workflow import DEFAULT_CHECKPOINTS, open_workflow
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="hall_monitor.run", description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(
+        prog="hall_monitor.claims.run", description=__doc__.split("\n")[0]
+    )
     parser.add_argument("--claim", type=Path, required=True, help="Path to a claim JSON file.")
     parser.add_argument("--registry", type=Path, default=DEFAULT_REGISTRY_DIR)
     parser.add_argument("--checkpoints", type=Path, default=DEFAULT_CHECKPOINTS)
@@ -101,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     if status["state"] == "waiting_for_adjuster":
         print(
             f"\n{claim.claim_id} is waiting for an adjuster. Review it with:\n"
-            f"  uv run python -m hall_monitor.review show {claim.claim_id}",
+            f"  uv run python -m hall_monitor.claims.review show {claim.claim_id}",
             file=sys.stderr,
         )
     return 0

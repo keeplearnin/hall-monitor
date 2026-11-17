@@ -1,11 +1,11 @@
 """Adjuster review: list claims waiting for a person, show the evidence, record a decision.
 
-    uv run python -m hall_monitor.review list
-    uv run python -m hall_monitor.review show claim_004
-    uv run python -m hall_monitor.review decide claim_004 --adjuster adj-101 \\
+    uv run python -m hall_monitor.claims.review list
+    uv run python -m hall_monitor.claims.review show claim_004
+    uv run python -m hall_monitor.claims.review decide claim_004 --adjuster adj-101 \\
         --next-step deny --reason "Crohn's medication changed 43 days before purchase (5.1)." \\
         --evidence-sha256 <hash from show>
-    uv run python -m hall_monitor.review decide claim_003 --adjuster adj-201 --accept \\
+    uv run python -m hall_monitor.claims.review decide claim_003 --adjuster adj-201 --accept \\
         --evidence-sha256 <hash from show>
 
 Deciding needs the evidence hash that `show` prints, and the decision is signed with the
@@ -24,13 +24,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from hall_monitor.data import load_policy_wording
-from hall_monitor.governance.approval import AdjusterDecision, load_adjusters
+from hall_monitor.claims.approval import AdjusterDecision, load_adjusters
+from hall_monitor.claims.data import load_policy_wording
+from hall_monitor.claims.models import NextStep
+from hall_monitor.claims.workflow import DEFAULT_CHECKPOINTS, open_workflow
 from hall_monitor.governance.signing import demo_private_key, load_private_key
-from hall_monitor.models import NextStep
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
-from hall_monitor.workflow import DEFAULT_CHECKPOINTS, open_workflow
 
 
 def _print(data: dict) -> None:
@@ -38,7 +38,9 @@ def _print(data: dict) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="hall_monitor.review", description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(
+        prog="hall_monitor.claims.review", description=__doc__.split("\n")[0]
+    )
     parser.add_argument("--checkpoints", type=Path, default=DEFAULT_CHECKPOINTS)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("list", help="Claims waiting for an adjuster.")

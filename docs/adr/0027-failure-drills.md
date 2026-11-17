@@ -13,7 +13,7 @@ controls still hold together is a separate question from whether each holds alon
 
 ## Decision
 
-- **A drill runner in the package**, `python -m hall_monitor.drills`, running the synthetic
+- **A drill runner in the package**, `python -m hall_monitor.claims.drills`, running the synthetic
   claims through the real claims workflow on threads, with only the model scripted.
 - **Failures on a seeded plan.** A share of the cases get one fault each, the kinds taken in
   turn so each appears; the owner's stop comes when two thirds of the cases have begun; an

@@ -44,20 +44,20 @@ Every live claims result was scored on the fixed order of steps with earlier age
 ## Run it
 
 ```bash
-uv run python -m hall_monitor.run --claim data/synthetic/claims/claim_001.json
-uv run python -m hall_monitor.review list                  # claims waiting for an adjuster
-uv run python -m hall_monitor.review show claim_004        # evidence pack and its hash
-uv run python -m hall_monitor.evals.baseline --trials 3 --out evals/results/my-baseline  # 36 claims x 3, about $4 on the fixed order; the agentic default adds about six Haiku supervisor calls per claim (--fixed for the old order)
+uv run python -m hall_monitor.claims.run --claim data/synthetic/claims/claim_001.json
+uv run python -m hall_monitor.claims.review list                  # claims waiting for an adjuster
+uv run python -m hall_monitor.claims.review show claim_004        # evidence pack and its hash
+uv run python -m hall_monitor.claims.evals.baseline --trials 3 --out evals/results/my-baseline  # 36 claims x 3, about $4 on the fixed order; the agentic default adds about six Haiku supervisor calls per claim (--fixed for the old order)
 uv run python -m hall_monitor.evals.agentic_compare        # agentic vs fixed with scripted supervisors; no API calls
-uv run python -m hall_monitor.evals.critic_seeded         # critic vs planted errors, about $2
-uv run python -m hall_monitor.evals.adversarial            # attack suite, about $1
-uv run python -m hall_monitor.evals.fairness               # name-swap fairness, about $10
-uv run python -m hall_monitor.evals.override evals/results/hardened-critic  # no API calls
+uv run python -m hall_monitor.claims.evals.critic_seeded         # critic vs planted errors, about $2
+uv run python -m hall_monitor.claims.evals.adversarial            # attack suite, about $1
+uv run python -m hall_monitor.claims.evals.fairness               # name-swap fairness, about $10
+uv run python -m hall_monitor.claims.evals.override evals/results/hardened-critic  # no API calls
 ```
 
 `run` triages a claim with the claims supervisor choosing which of the five agents run, in what order (code checks each step and decides the route), then decides it automatically or leaves it waiting for an adjuster. The commands marked with a cost call the Claude API; those marked no API calls don't.
 
 ## Where it lives
 
-- **Code:** `hall_monitor/` at the package root (`pipeline.py`, `agentic.py`, `workflow.py`, `run.py`, `review.py`, and `models.py` for the claims types), `hall_monitor/agents/`, `hall_monitor/tools/`, `hall_monitor/governance/routing.py` and `hall_monitor/evals/`. The claims code sits beside the shared controls because it came first. The records every example shares (agent call, tool call, supervisor step outcome and refusal) are in `hall_monitor/shared_models.py`.
+- **Code:** `hall_monitor/claims/`: `pipeline.py` (the fixed order), `agentic.py` (the supervisor loop), `workflow.py` (the LangGraph approval gate), `routing.py`, `approval.py`, `tool_server.py` (`policy_lookup`, `claims_history`), `run.py`, `review.py`, `drills.py`, `models.py` for the claims types, and `agents/` and `evals/`. The shared code stays at the package root: `agents/base.py` (the one call path), `tools/gateway.py`, the audit log, the records in `shared_models.py`, and the two offline comparisons that run every agentic example (`evals/agentic_compare.py`, `evals/stop_timing.py`). Claims came first, and some shared code still depends on it: `agents/base.py`, the redaction and injection checks and the audit log import claims types, so running any example loads the claims package; the tool gateway builds the claims tool server by default; and the eval gate, the approvals command and the control panel import claims modules by name. Untangling the first three is a follow-up (pinned by `test_known_limit_the_other_examples_still_load_the_claims_package`).
 - **Design and decisions:** no design doc. ADRs [0001](../adr/0001-routing-decided-in-code.md) to [0016](../adr/0016-read-only-control-panel.md) were written while building claims (most of them cover controls every example now shares), and [0028](../adr/0028-agent-picks-the-steps-code-holds-the-boundaries.md) covers the agentic path.

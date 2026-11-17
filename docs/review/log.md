@@ -1403,3 +1403,24 @@ behaviour the reviewer confirmed by running it.
 | 5. "Every agent it had already run is called again" holds only for a scripted supervisor; and each attempt gets a new case budget (HM-32) | Low | Fixed: nothing is reused, a live supervisor chooses afresh, each attempt has a new case budget and only the daily and monthly caps count every attempt | — |
 | 6. Readiness checklist: "nothing deletes it" is broader than the code (`run --fresh` deletes an unfinished thread) | Low | Fixed: nothing deletes a claim's checkpoints once its triage finished | — |
 | 7. ADR 0014, ADR 0008, the threat model and the board brief presented deleting a pack as the erasure answer, silent on the checkpoint copy | Low | Fixed: each names the checkpoint copy | `test_adr_0014_says_erasing_a_pack_leaves_the_checkpoint_copy` (ADRs 0014 and 0008) |
+
+## Review 42 (claims-subpackage): claims becomes a peer of the other examples
+
+**Reviewer:** the `governance-reviewer` agent on this branch's changes before the PR. The branch
+moves the claims code into `hall_monitor/claims/` (the pipeline, the agentic loop, the workflow,
+the routing rule, the approval gate, the claims tools, the agents, the claims evals, the CLIs and
+the claims types) with no change in behaviour: agent IDs, manifests, prompts, approvals and
+`data/synthetic/` are untouched, so nothing is re-approved. Historical records (the devlogs, this
+log and the published eval reports, whose reproduce commands name the old modules) are left as
+they were written. The reviewer confirmed paths, CLIs, prompt hashes, the gate and every current
+reference, and seven findings. Severities are the reviewer's.
+
+| Finding | Severity | Outcome | Test |
+|---|---|---|---|
+| 1. The HR "rules call no model" guard matched `hall_monitor.agents` only, so an import of the moved claims agents passed (HM-22) | Medium | Fixed: the guard also refuses `hall_monitor.claims` and reads `from x import y` as `x.y` | `test_the_no_model_guard_sees_every_agent_import` |
+| 2. Review 40 said this PR would untangle `agents/base.py`'s import of claims types; it doesn't, and nothing recorded the deferral | Medium | Deferred and recorded: `agents/base.py`, the redaction and injection checks and the audit log still import claims types, so running any example loads the claims package. The claims page says so; untangling them is a follow-up | `test_known_limit_the_other_examples_still_load_the_claims_package` |
+| 3. The claims page's list of shared code that depends on claims was incomplete (the panel, the approvals command) and understated the tool gateway | Low | Fixed: the page lists all of it, including the gateway building the claims tool server by default | — |
+| 4. `make_diagrams.py` changed but the architecture PDF wasn't rebuilt; it still printed `hall_monitor.run` | Low | Fixed: rebuilt, `AS_OF` 16 Nov 2026 | — |
+| 5. The other-examples guard recognised only `claims.models`; `claims.routing` and `claims.pipeline` hand out the same types, and `from hall_monitor import claims` got past it (and the panel's checkpoint guard had the same shape) | Low | Fixed: the other-examples guard covers the whole claims package; the panel guard reads every import form | `test_every_claims_module_counts_for_the_other_examples`, `test_the_checkpoint_guard_sees_every_import_form` |
+| 6. `agentic_compare` and `stop_timing` run the leave and complaint examples too, so moving them into `claims/evals/` made claims import the other examples | Low | Fixed: both stay in the shared `hall_monitor/evals/` | `test_the_claims_package_imports_no_other_example` |
+| 7. The audit log's `evidence_body` docstring named `governance.approval` | Low | Fixed | — |

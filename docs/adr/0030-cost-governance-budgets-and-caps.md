@@ -51,7 +51,7 @@ enforced in code.
   path since no agent read it), a leave request to an HR director (`spend_refused`, since the
   rules never ran), with its evidence pack stored so it can be signed. The reasons are fixed
   templates, and the panel shows them.
-- **The live entry points pass the ledger**: `hall_monitor.run`, `complaints.run --live`,
+- **The live entry points pass the ledger**: `hall_monitor.claims.run`, `complaints.run --live`,
   `complaints.submit --live`, `hr.run` and `hr.submit --live`. Demo and scripted runs aren't
   counted: their costs come from scripted token counts, not money spent. Tests check that each
   entry point passes the ledger, and that a form's live submission is refused at the cap.

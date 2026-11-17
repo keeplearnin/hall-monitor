@@ -18,9 +18,9 @@ import yaml
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from hall_monitor.claims.models import ClaimSubmission, NextStep, RiskLevel, Route, TriageResult
 from hall_monitor.governance import signing
 from hall_monitor.governance.audit import evidence_body, sha256
-from hall_monitor.models import ClaimSubmission, NextStep, RiskLevel, Route, TriageResult
 from hall_monitor.registry import ADJUSTERS_FILENAME, APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR
 
 ADJUSTERS_FILE = DEFAULT_REGISTRY_DIR / ADJUSTERS_FILENAME

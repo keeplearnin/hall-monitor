@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 
-from hall_monitor.models import ClaimSubmission
+from hall_monitor.claims.models import ClaimSubmission
 
 # Between a label and its number: punctuation, a "no."/"number"/"#", an "is". Every run is
 # bounded, so a label followed by a long blank stretch of OCR text can't make matching slow.

@@ -13,9 +13,9 @@ import anthropic
 from pydantic import BaseModel
 
 from hall_monitor import tracing
+from hall_monitor.claims.models import ClaimSubmission, PolicyRecord
 from hall_monitor.gateway.cost import require_price
 from hall_monitor.handoff import HANDOFF_TOOL, Delegated, handoff_definition
-from hall_monitor.models import ClaimSubmission, PolicyRecord
 from hall_monitor.registry import ALL_DATA_CLASSES, DataClass, Registry, RegistryError
 from hall_monitor.shared_models import AgentCall, ToolCall
 

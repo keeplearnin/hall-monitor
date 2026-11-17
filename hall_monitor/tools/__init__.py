@@ -1,1 +1,1 @@
-"""Governed MCP tools: policy_lookup and claims_history (milestone 4)."""
+"""The MCP tool gateway (HM-03); the claims tools it serves are in claims/tool_server.py."""

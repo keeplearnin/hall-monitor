@@ -1,6 +1,5 @@
 """HM-21: leave eligibility, entitlement and routing are decided by code, on the boundaries."""
 
-import ast
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -23,6 +22,7 @@ from hall_monitor.hr.eligibility import (
 )
 from hall_monitor.hr.models import Employee, Employer, LeaveRequest
 from hall_monitor.hr.routing import REASONS, Role, route_leave
+from tests.import_names import reaches
 
 COMPANY, EMPLOYEES, REQUESTS, ANSWERS = (
     load_company(),
@@ -603,17 +603,29 @@ def test_the_check_facts_carry_no_dates_of_birth_or_placement():
     assert str(request.event_date) not in str(facts) and request.event_date not in facts.values()
 
 
+# The rules may reach no model: not the SDK, not the shared agent runtime, not another example.
+NO_MODEL = ("anthropic", "hall_monitor.agents", "hall_monitor.claims")
+
+
 def test_the_hr_rules_call_no_model():
     """The rules and their records; the agents are separate modules (HM-22)."""
     rules = ("models.py", "eligibility.py", "routing.py", "data.py", "__main__.py")
     for file in (HR / name for name in rules):
-        imported = {
-            n.module if isinstance(n, ast.ImportFrom) else a.name
-            for n in ast.walk(ast.parse(file.read_text()))
-            if isinstance(n, ast.Import | ast.ImportFrom)
-            for a in (n.names if isinstance(n, ast.Import) else [n])
-        }
-        assert not any(str(m).startswith(("anthropic", "hall_monitor.agents")) for m in imported)
+        assert not reaches(file.read_text(), NO_MODEL, "hall_monitor.hr"), file
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from hall_monitor.claims.agents.critic import run_critic",
+        "from hall_monitor.claims.agents import intake",
+        "from hall_monitor import claims",
+        "from hall_monitor.agents.base import run_agent",
+        "import anthropic",
+    ],
+)
+def test_the_no_model_guard_sees_every_agent_import(source):
+    assert reaches(source, NO_MODEL, "hall_monitor.hr")
 
 
 # --- Re-review of review 8 -------------------------------------------------------------------

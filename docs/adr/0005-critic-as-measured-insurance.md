@@ -14,7 +14,7 @@ not assumed.
 
 A critic (Sonnet 5.5) compares intake, coverage and fraud work with the claim documents and the
 policy wording. Problems go back to the step that made them, for up to two revisions
-(`MAX_REVISIONS` in [`pipeline.py`](../../hall_monitor/pipeline.py)). Every revision is kept. If a
+(`MAX_REVISIONS` in [`pipeline.py`](../../hall_monitor/claims/pipeline.py)). Every revision is kept. If a
 revision changes a decision field (amount, coverage decision, risk level or flags, policy
 number, claim type, incident date, total claimed), or the critic still disagrees, the claim goes
 to a person ([ADR 0001](0001-routing-decided-in-code.md)). The coverage label is also set in code

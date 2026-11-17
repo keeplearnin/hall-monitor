@@ -127,9 +127,9 @@ def test_agent_without_an_approval_is_refused():
 def test_unapproved_prompt_is_refused_at_run_time():
     from types import SimpleNamespace
 
-    from hall_monitor.agents import intake
     from hall_monitor.agents.base import run_agent
-    from hall_monitor.models import IntakeExtraction
+    from hall_monitor.claims.agents import intake
+    from hall_monitor.claims.models import IntakeExtraction
     from hall_monitor.registry import UnapprovedManifestError
 
     def parse(**kwargs):

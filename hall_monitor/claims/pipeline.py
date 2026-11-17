@@ -30,22 +30,14 @@ from hall_monitor.agents.base import (
     default_client,
     render_feedback,
 )
-from hall_monitor.agents.coverage_check import run_coverage_check
-from hall_monitor.agents.critic import run_critic
-from hall_monitor.agents.intake import run_intake
-from hall_monitor.agents.recommendation import run_recommendation
-from hall_monitor.agents.risk_fraud import run_risk_fraud
-from hall_monitor.amounts import source_text
 from hall_monitor.budgets import CaseBudget, SpendRefused
-from hall_monitor.gateway.cost import UnpricedModelError, total_cost
-from hall_monitor.gateway.injection import SIGNALS, detect_instructions
-from hall_monitor.gateway.redaction import redact_claim
-from hall_monitor.governance.routing import (
-    route_claim,
-    route_duplicate_documents,
-    route_stopped,
-)
-from hall_monitor.models import (
+from hall_monitor.claims.agents.coverage_check import run_coverage_check
+from hall_monitor.claims.agents.critic import run_critic
+from hall_monitor.claims.agents.intake import run_intake
+from hall_monitor.claims.agents.recommendation import run_recommendation
+from hall_monitor.claims.agents.risk_fraud import run_risk_fraud
+from hall_monitor.claims.amounts import source_text
+from hall_monitor.claims.models import (
     ClaimSubmission,
     CoverageAssessment,
     CriticReview,
@@ -60,13 +52,21 @@ from hall_monitor.models import (
     TriageResult,
     policy_numbers_in,
 )
+from hall_monitor.claims.routing import (
+    route_claim,
+    route_duplicate_documents,
+    route_stopped,
+)
+from hall_monitor.gateway.cost import UnpricedModelError, total_cost
+from hall_monitor.gateway.injection import SIGNALS, detect_instructions
+from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.registry import Registry, RegistryError
 from hall_monitor.shared_models import AgentCall, ToolCall
 from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 from hall_monitor.tools.gateway import ToolGateway
 
 if TYPE_CHECKING:
-    from hall_monitor.agentic import Limits
+    from hall_monitor.claims.agentic import Limits
 
 MAX_REVISIONS = 2
 
@@ -231,8 +231,8 @@ def triage(
     the claim goes to a person (routing.route_duplicate_documents).
     """
     if agentic:
-        from hall_monitor.agentic import Limits as _Limits
-        from hall_monitor.agentic import supervise
+        from hall_monitor.claims.agentic import Limits as _Limits
+        from hall_monitor.claims.agentic import supervise
 
         now = clock or time.monotonic
 

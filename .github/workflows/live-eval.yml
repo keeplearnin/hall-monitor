@@ -42,7 +42,7 @@ jobs:
       - name: Run eval
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: uv run python -m hall_monitor.evals.${{ inputs.eval }} --out evals/results/live-${{ inputs.eval }}
+        run: uv run python -m hall_monitor.claims.evals.${{ inputs.eval }} --out evals/results/live-${{ inputs.eval }}
 
       - name: Upload results
         if: always()

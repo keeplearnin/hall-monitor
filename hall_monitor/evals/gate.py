@@ -17,7 +17,7 @@ from pathlib import Path
 
 import yaml
 
-from hall_monitor.data import load_ground_truth
+from hall_monitor.claims.data import load_ground_truth
 from hall_monitor.registry import load_approvals
 
 ROOT = Path(__file__).resolve().parents[2]
