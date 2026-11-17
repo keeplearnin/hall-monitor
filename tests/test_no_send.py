@@ -19,6 +19,7 @@ from pydantic import ValidationError
 
 from hall_monitor import no_send
 from hall_monitor.approvals import current_approvals
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.complaints.drafts import DraftResponse, store_draft
 from hall_monitor.egress import (
     CFPB_API_HOST,
@@ -197,11 +198,11 @@ def test_the_gateway_refuses_to_start_on_a_server_exposing_a_send_tool():
         return {}
 
     with pytest.raises(SendCapabilityError, match="send_reply"):
-        ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR), server)
+        ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR), server, tool_data_classes={})
 
 
 def test_every_tool_the_shipped_servers_expose_is_in_the_read_only_catalogue():
-    gateway = ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR))
+    gateway = claims_gateway(Registry.from_dir(TEST_REGISTRY_DIR))
     assert set(gateway._definitions) <= set(no_send.READ_ONLY_TOOLS)
     assert not [t for t in no_send.READ_ONLY_TOOLS if no_send.SEND_WORDS.search(t)]
 
@@ -392,13 +393,15 @@ def test_the_gateway_refuses_a_proxy_server():
 
     proxy = FastMCPProxy.__new__(FastMCPProxy)  # never started: no network
     with pytest.raises(TypeError, match="in-process"):
-        ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR), proxy)
+        ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR), proxy, tool_data_classes={})
 
 
 def test_the_gateway_takes_only_an_in_process_server():
     """Review 14: a URL would make fastmcp post tool calls off the machine."""
     with pytest.raises(TypeError, match="in-process"):
-        ToolGateway(Registry.from_dir(TEST_REGISTRY_DIR), "https://evil.example/mcp")
+        ToolGateway(
+            Registry.from_dir(TEST_REGISTRY_DIR), "https://evil.example/mcp", tool_data_classes={}
+        )
 
 
 @pytest.mark.parametrize("package", ["sendgrid>=6", "twilio", "slack-sdk==3.0", "Requests"])

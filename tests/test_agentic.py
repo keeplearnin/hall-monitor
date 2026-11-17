@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from hall_monitor.claims.agentic import MAX_REFUSALS, Limits
 from hall_monitor.claims.agents.supervisor import scripted_answer, view_from_content
 from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import (
     CoverageFinding,
     CriticIssue,
@@ -26,17 +27,16 @@ from hall_monitor.claims.models import (
     SupervisorReason,
 )
 from hall_monitor.claims.pipeline import triage
+from hall_monitor.claims.recorder import TriageRecorder
 from hall_monitor.claims.workflow import open_workflow
-from hall_monitor.governance.audit import TriageRecorder
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.registry import Registry
 from hall_monitor.shared_models import StepOutcome, StepRefusal
-from hall_monitor.tools.gateway import ToolGateway
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth, specialists
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
 REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
-GATEWAY = ToolGateway(REGISTRY)
+GATEWAY = claims_gateway(REGISTRY)
 WORDING = load_policy_wording()
 A, R = SupervisorAction, SupervisorReason
 
@@ -50,7 +50,7 @@ def _run(claim_id="claim_001", supervisor=None, outputs=None, registry=REGISTRY,
     if supervisor is not None:
         outputs = {**outputs, SupervisorDecision: supervisor}
     client = fake_client(outputs)
-    gateway = GATEWAY if registry is REGISTRY else ToolGateway(registry)
+    gateway = GATEWAY if registry is REGISTRY else claims_gateway(registry)
     result = triage(
         CLAIMS[claim_id],
         registry=registry,

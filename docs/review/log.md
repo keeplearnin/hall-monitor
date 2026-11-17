@@ -1424,3 +1424,33 @@ reference, and seven findings. Severities are the reviewer's.
 | 5. The other-examples guard recognised only `claims.models`; `claims.routing` and `claims.pipeline` hand out the same types, and `from hall_monitor import claims` got past it (and the panel's checkpoint guard had the same shape) | Low | Fixed: the other-examples guard covers the whole claims package; the panel guard reads every import form | `test_every_claims_module_counts_for_the_other_examples`, `test_the_checkpoint_guard_sees_every_import_form` |
 | 6. `agentic_compare` and `stop_timing` run the leave and complaint examples too, so moving them into `claims/evals/` made claims import the other examples | Low | Fixed: both stay in the shared `hall_monitor/evals/` | `test_the_claims_package_imports_no_other_example` |
 | 7. The audit log's `evidence_body` docstring named `governance.approval` | Low | Fixed | — |
+
+## Review 43 (claims-decouple-shared): shared code stops importing claims
+
+**Reviewer:** the `governance-reviewer` agent on this branch's changes before the PR. The branch
+resolves Review 42's deferred finding 2: shared code imported claims types, so running any example
+loaded the claims package. Each claims-specific helper moved into `hall_monitor/claims/`, with no
+change in behaviour and no prompt, manifest or approval change: `render_claim` and the
+untrusted-claim notice to `claims/agents/rendering.py` (`render_policy_record` had no callers and
+was removed); `redact_claim` and `detect_instructions` to `claims/screening.py`, over the shared
+`redact_text` and `detect_in_texts`; the audit log's `TriageRecorder` split into a shared
+`EventRecorder` (agent and tool calls; the complaint ingest uses it) and the claims
+`TriageRecorder` in `claims/recorder.py`; and the tool gateway lost its claims default, so
+`ToolGateway` takes each example's server and data classes as arguments (the pipeline's own tools
+default to none) and claims passes its own through `claims_gateway` in `claims/gateway.py`, with
+`lookup_policy` beside it. Review 42's pin `test_known_limit_the_other_examples_still_load_the_claims_package`
+is replaced by `test_running_another_example_loads_no_claims_code`, which failed on the branch's
+base for all eight run modules it checked first and passes now. Code that serves every example
+(the panel and the submission forms in it, approvals and the evals' meta checks, the eval gate,
+the two offline comparisons) still imports claims; that is pinned and stated on the claims page.
+The reviewer confirmed the moved bodies are identical, every gateway constructor passes its
+arguments, the full suite, lint and the gate, and four findings. Severities are the reviewer's.
+Each new test guards a fix that holds today, so it passes before and after; the reviewer
+confirmed findings 1 and 2 by running each module in a fresh interpreter.
+
+| Finding | Severity | Outcome | Test |
+|---|---|---|---|
+| 1. The claims page listed `evals/agentic_compare.py` and `evals/stop_timing.py` as shared code that imports no claims code; each loads 19 claims modules | High | Fixed: the page lists them with the other code that serves every example | `test_known_limit_code_serving_every_example_still_loads_claims_code` (both added) |
+| 2. The guard checked eight hand-picked modules, so a new module, or `complaints.submit` and `complaints.evals`, wasn't checked | Medium | Fixed: every module of the leave, complaint and partner examples, found on disk, less the four that serve every example, each pinned | `test_running_another_example_loads_no_claims_code`, `test_known_limit_code_serving_every_example_still_loads_claims_code` |
+| 3. ADR 0004's "no default server" rested on the signature alone: nothing failed if a default came back | Low | Fixed: a test checks the signature and that the pipeline may call no tool unless named | `test_the_tool_gateway_has_no_default_server_or_data_classes` |
+| 4. The audit-events mapping check read a fixed pair of recorders, so a later `EventRecorder` subclass's events would go unchecked | Low | Fixed: every subclass found in the source is read | `test_every_recorder_s_events_are_read` |

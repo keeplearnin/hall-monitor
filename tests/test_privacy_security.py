@@ -26,18 +26,18 @@ from hall_monitor.claims.evals.fairness import (
     swap_name,
 )
 from hall_monitor.claims.evals.scoring import amount_in, source_text
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import CoverageFinding, IntakeExtraction, Route
 from hall_monitor.claims.pipeline import triage
+from hall_monitor.claims.screening import detect_instructions, redact_claim
 from hall_monitor.claims.tool_server import build_server
-from hall_monitor.gateway.injection import detect_instructions
-from hall_monitor.gateway.redaction import redact_claim, redact_text
+from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.registry import DataClassNotAllowedError, Registry
-from hall_monitor.tools.gateway import ToolGateway
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
 REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
-GATEWAY = ToolGateway(REGISTRY)
+GATEWAY = claims_gateway(REGISTRY)
 WORDING = load_policy_wording()
 CASES = load_cases()
 
@@ -199,7 +199,7 @@ def test_a_tool_beyond_the_agents_data_classes_is_refused():
     no_health = REGISTRY.get("risk_fraud").model_copy(update={"data_classes": ("pii", "financial")})
     registry = Registry([no_health])  # unapproved copy: approval checks off for this test
     log = []
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     result = gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, log)
     assert "may not see health" in result["error"]
     assert not log[0].allowed
@@ -213,7 +213,7 @@ def test_identifiers_are_redacted_from_tool_results_and_file_names():
             "summary": "Called from +1 415 555 0134; email d.okafor@example.com.",
         }
     ]
-    gateway = ToolGateway(REGISTRY, server=build_server(history=history))
+    gateway = claims_gateway(REGISTRY, server=build_server(history=history))
     result = gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, [])
     summary = result["claims"][0]["summary"]
     assert "example.com" not in summary and "555" not in summary

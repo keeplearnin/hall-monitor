@@ -151,8 +151,8 @@ def test_unapproved_prompt_is_refused_at_run_time():
 def test_the_approved_prompt_covers_the_untrusted_claim_notice():
     """Everything in an agent's system prompt but the policy wording is in the hashed
     template, so an edit to the notice needs a new approval."""
-    from hall_monitor.agents.base import UNTRUSTED_CLAIM_NOTICE
     from hall_monitor.approvals import AGENT_MODULES
+    from hall_monitor.claims.agents.rendering import UNTRUSTED_CLAIM_NOTICE
     from hall_monitor.complaints.triage_agent import UNTRUSTED_COMPLAINT_NOTICE
     from hall_monitor.hr.leave_intake import UNTRUSTED_REQUEST_NOTICE
     from hall_monitor.partners.documents import UNTRUSTED_DOCUMENTS_NOTICE
@@ -185,6 +185,6 @@ def test_the_approved_prompt_covers_the_untrusted_claim_notice():
 
 def test_the_untrusted_claim_notice_has_no_braces():
     """It is put into templates that later go through str.format."""
-    from hall_monitor.agents.base import UNTRUSTED_CLAIM_NOTICE
+    from hall_monitor.claims.agents.rendering import UNTRUSTED_CLAIM_NOTICE
 
     assert "{" not in UNTRUSTED_CLAIM_NOTICE and "}" not in UNTRUSTED_CLAIM_NOTICE

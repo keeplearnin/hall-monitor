@@ -6,15 +6,14 @@ import anthropic
 
 from hall_monitor import tracing
 from hall_monitor.agents.base import (
-    UNTRUSTED_CLAIM_NOTICE,
     AgentRun,
     ToolAccess,
     default_client,
     join_content,
-    render_claim,
     render_json,
     run_agent,
 )
+from hall_monitor.claims.agents.rendering import UNTRUSTED_CLAIM_NOTICE, render_claim
 from hall_monitor.claims.models import ClaimSubmission, IntakeExtraction, RiskAssessment
 from hall_monitor.registry import Registry
 

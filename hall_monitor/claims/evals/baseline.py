@@ -27,6 +27,7 @@ from hall_monitor.claims.data import (
     load_policy_wording,
 )
 from hall_monitor.claims.evals import scoring
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import ClaimSubmission, TriageResult
 from hall_monitor.claims.pipeline import MAX_REVISIONS, triage
 from hall_monitor.claims.routing import ADJUSTER_PAYOUT_THRESHOLD_USD
@@ -34,7 +35,6 @@ from hall_monitor.evals.meta import git
 from hall_monitor.gateway.cost import total_cost
 from hall_monitor.registry import Registry
 from hall_monitor.shared_models import AgentCall
-from hall_monitor.tools.gateway import ToolGateway
 
 
 def _pct(value: float | None) -> str:
@@ -258,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     registry = Registry.from_dir()
     context = {
         "registry": registry,
-        "gateway": ToolGateway(registry),
+        "gateway": claims_gateway(registry),
         "wording": load_policy_wording(),
         "client": default_client(),
         "truths": {c.claim_id: load_ground_truth(c.claim_id) for c in claims},

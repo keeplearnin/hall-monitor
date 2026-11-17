@@ -53,6 +53,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from hall_monitor.claims.agents.supervisor import scripted_answer
 from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import (
     ClaimSubmission,
     CoverageFinding,
@@ -64,7 +65,6 @@ from hall_monitor.claims.workflow import ClaimWorkflow, build_graph
 from hall_monitor.governance.audit import AuditLog
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR, Registry
-from hall_monitor.tools.gateway import ToolGateway
 
 DEFAULT_OUT = DEFAULT_REGISTRY_DIR.parent / "var" / "drills"
 MARKER = ".drill"  # only a directory holding this is ever cleared
@@ -265,7 +265,7 @@ def _workflow(out: Path, registry: Registry, client, *, crash: bool) -> Iterator
         with SqliteSaver.from_conn_string(str(out / "checkpoints.sqlite")) as saver:
             app = build_graph(
                 registry=registry,
-                gateway=ToolGateway(registry),
+                gateway=claims_gateway(registry),
                 wording=load_policy_wording(),
                 audit=audit,
                 client=client,

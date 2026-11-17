@@ -12,8 +12,6 @@ import html
 import re
 import unicodedata
 
-from hall_monitor.claims.models import ClaimSubmission
-
 # The system's own agents, by the names its prompts and docs use: text naming one is aimed at it.
 _DESK_AGENTS = r"(?:(?:complaint )?triage (?:agent|model)|desk supervisor|supervisor agent)"
 _AGENTS = (
@@ -120,15 +118,6 @@ SIGNALS: dict[str, re.Pattern[str]] = {
         r"\b(?:policy_lookup|claims_history|run_agent|route_claim|covered_amount|risk_flags?)\b"
     ),
 }
-
-
-def detect_instructions(claim: ClaimSubmission) -> list[str]:
-    """Names of the signals found anywhere in the claim, in a stable order."""
-    codes = [claim.channel, *(a.kind for a in claim.attachments)]
-    texts = [claim.narrative, *(a.text for a in claim.attachments)]
-    texts += [a.filename for a in claim.attachments]
-    texts += codes + [code.replace("_", " ") for code in codes]  # tool names keep underscores
-    return detect_in_texts(texts)
 
 
 def detect_in_texts(texts: list[str]) -> list[str]:

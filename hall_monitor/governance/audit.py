@@ -25,8 +25,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from hall_monitor.claims.models import policy_numbers_in
-
 GENESIS_HASH = "0" * 64
 DEFAULT_AUDIT_DB = Path(__file__).resolve().parents[2] / "var" / "audit.sqlite"
 
@@ -472,54 +470,21 @@ class AuditLog:
         return missing
 
 
-class TriageRecorder:
-    """Writes one claim's triage events to the log as they happen (pipeline.triage's on_event).
+class EventRecorder:
+    """Writes a case's agent and tool calls to the log as they happen, under the case's ID.
 
-    Payloads hold IDs, hashes, decision fields and costs, never claim text: critic issues and
-    the claim itself are hashed. An agent's input hash is keyed (HMAC): the recommendation
-    agent's input has few possible values, so a plain hash could be confirmed by guessing. A tool
-    result's hash is keyed for the same reason.
+    An agent's input hash is keyed (HMAC): an input with few possible values (the claims
+    recommendation agent's, say) could be confirmed from a plain hash by guessing. A tool
+    result's hash is keyed for the same reason. Each example records its own other events by
+    adding a _<event> method (the claims TriageRecorder, in hall_monitor.claims.recorder).
     """
 
     def __init__(self, log: AuditLog, claim_id: str):
         self.log, self.claim_id = log, claim_id
-        self._documents: str | None = None
-
-    def documents_hmac(self, claim) -> str | None:
-        """A keyed hash of the claim's documents, normalised (case, spacing and their order
-        don't count), scoped by the policy numbers in the claim as sent (code finds them; an
-        agent's extraction isn't used, so a claim stopped before intake, or with no policy
-        number, is hashed too: with none, the documents alone). None if the claim sent no
-        documents. Keyed, so the log holds neither the documents nor the policy number, nor a
-        hash a guess could confirm."""
-        documents = sorted(" ".join(a.text.split()).casefold() for a in claim.attachments)
-        if not any(documents):
-            return None
-        policies = policy_numbers_in(claim)
-        return self.log.keyed_hash(canonical({"policies": policies, "documents": documents}))
-
-    def documents_seen(self, claim) -> bool:
-        """Whether another claim ID's triage result recorded the same documents_hmac: the
-        same documents filed again with the same policy numbers (a restarted triage of this
-        claim doesn't count). Triage results only, so a claim counts once its triage has
-        finished, stopped or not."""
-        digest = self.documents_hmac(claim)
-        return digest is not None and self.log.documents_recorded(digest, self.claim_id)
 
     def __call__(self, event: str, item) -> None:
         actor, payload = getattr(self, f"_{event}")(item)
         self.log.append(self.claim_id, event, actor, payload)
-
-    def _claim_submitted(self, item: dict) -> tuple[str, dict]:
-        claim = item["claim"]
-        self._documents = self.documents_hmac(claim)
-        return f"channel:{claim.channel}", {
-            "claim_sha256": sha256(claim.model_dump_json()),
-            "submitted_at": claim.submitted_at.isoformat(),
-            "attachments": len(claim.attachments),
-            "identifiers_redacted": item["redactions"],
-            "injection_signals": item["injection_signals"],
-        }
 
     def _agent_call(self, call) -> tuple[str, dict]:
         payload = call.model_dump(mode="json")
@@ -533,47 +498,3 @@ class TriageRecorder:
         result = payload.pop("result_sha256")
         payload["result_hmac"] = None if result is None else self.log.keyed_hash(result)
         return tool.actor, payload
-
-    def _critic_review(self, review) -> tuple[str, dict]:
-        # Issue text can quote the claim, so only its keyed hash is kept here.
-        return "critic", {
-            "issues": [
-                {
-                    "stage": i.stage.value,
-                    "problem_hmac": self.log.keyed_hash(i.problem + i.evidence),
-                }
-                for i in review.issues
-            ]
-        }
-
-    @staticmethod
-    def _supervisor_step(step) -> tuple[str, dict]:
-        # Codes, counts and amounts only (SupervisorStep has no free-text field).
-        return "claims_supervisor", step.model_dump(mode="json")
-
-    @staticmethod
-    def _revision(record) -> tuple[str, dict]:
-        return record.stage.value, {
-            "round": record.round,
-            "changed": {
-                f: [record.before.get(f), record.after.get(f)] for f in record.changed_fields
-            },
-        }
-
-    @staticmethod
-    def _code_correction(correction: str) -> tuple[str, dict]:
-        return "pipeline", {"correction": correction}
-
-    def _triage_result(self, result) -> tuple[str, dict]:
-        return "pipeline", {
-            # From the claim as sent, for every result, stopped or not (review 38b).
-            "documents_hmac": self._documents,
-            "result_sha256": sha256(result.model_dump_json()),
-            "route": result.routing.route.value,
-            "routing_reasons": result.routing.reasons,
-            "recommended_next_step": result.recommendation.next_step.value,
-            "covered_amount": result.coverage.covered_amount if result.coverage else None,
-            "stopped_reason": result.stopped_reason,
-            "cost_usd": result.cost_usd,
-            "models": sorted({f"{c.agent_id}:{c.model}" for c in result.agent_calls}),
-        }

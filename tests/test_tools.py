@@ -8,6 +8,7 @@ from fastmcp import FastMCP
 
 from hall_monitor.agents.base import ToolAccess, run_agent
 from hall_monitor.claims.agents import coverage_check
+from hall_monitor.claims.gateway import claims_gateway, lookup_policy
 from hall_monitor.claims.models import CoverageFinding
 from hall_monitor.claims.tool_server import build_server
 from hall_monitor.registry import Registry
@@ -16,7 +17,7 @@ from hall_monitor.tools.gateway import PIPELINE_ACTOR, ToolGateway
 from tests.fakes import TEST_REGISTRY_DIR
 
 REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
-GATEWAY = ToolGateway(REGISTRY)
+GATEWAY = claims_gateway(REGISTRY)
 
 
 def test_agents_are_offered_only_their_allowed_tools():
@@ -50,8 +51,8 @@ def test_call_outside_the_allow_list_is_refused_and_recorded():
 
 def test_pipeline_may_only_look_up_policies():
     log: list[ToolCall] = []
-    assert GATEWAY.lookup_policy("WTP-ESS-100231", log).insured_name == "Daniel Okafor"
-    assert GATEWAY.lookup_policy("WTP-NOPE-000000", log) is None
+    assert lookup_policy(GATEWAY, "WTP-ESS-100231", log).insured_name == "Daniel Okafor"
+    assert lookup_policy(GATEWAY, "WTP-NOPE-000000", log) is None
     result = GATEWAY.call(
         PIPELINE_ACTOR, "claims_history", {"policy_number": "WTP-ESS-100231"}, log
     )
@@ -136,7 +137,7 @@ def _failing_server():
 
 
 def test_a_tool_call_that_fails_after_it_was_allowed_is_still_recorded():
-    gateway = ToolGateway(REGISTRY, server=_failing_server())
+    gateway = claims_gateway(REGISTRY, server=_failing_server())
     log = []
     with pytest.raises(Exception, match="unavailable"):
         gateway.call("coverage_check", "policy_lookup", {"policy_number": "WTP-ESS-100231"}, log)
@@ -146,7 +147,7 @@ def test_a_tool_call_that_fails_after_it_was_allowed_is_still_recorded():
 
 def test_the_gateway_works_inside_a_running_event_loop():
     async def inside_an_async_app():
-        gateway = ToolGateway(REGISTRY)
+        gateway = claims_gateway(REGISTRY)
         return gateway.call(
             "coverage_check", "policy_lookup", {"policy_number": "WTP-ESS-100231"}, []
         )
@@ -156,7 +157,7 @@ def test_the_gateway_works_inside_a_running_event_loop():
 
 def test_agents_are_offered_only_tools_their_data_classes_allow():
     no_health = REGISTRY.get("risk_fraud").model_copy(update={"data_classes": ("pii", "financial")})
-    gateway = ToolGateway(Registry([no_health]))
+    gateway = claims_gateway(Registry([no_health]))
     assert [d["name"] for d in gateway.definitions("risk_fraud")] == ["policy_lookup"]
 
 
@@ -167,7 +168,7 @@ def test_identifiers_removed_from_a_tool_result_are_counted():
             "summary": "Call +1 415 555 0134 or email d.okafor@example.com.",
         }
     ]
-    gateway = ToolGateway(REGISTRY, server=build_server(history=history))
+    gateway = claims_gateway(REGISTRY, server=build_server(history=history))
     log = []
     gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, log)
     assert log[0].identifiers_redacted == {"email": 1, "phone": 1}
@@ -176,6 +177,24 @@ def test_identifiers_removed_from_a_tool_result_are_counted():
 @pytest.mark.parametrize("recorded", ["DANIEL OKAFOR", "Daniel  Okafor.", "Dániel Okafor"])
 def test_claims_history_matches_names_ignoring_case_spacing_accents_and_punctuation(recorded):
     history = [{"insured_name": recorded, "summary": "Earlier baggage claim."}]
-    gateway = ToolGateway(REGISTRY, server=build_server(history=history))
+    gateway = claims_gateway(REGISTRY, server=build_server(history=history))
     result = gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, [])
     assert len(result["claims"]) == 1
+
+
+def test_the_tool_gateway_has_no_default_server_or_data_classes():
+    """Shared by every example, so none runs on another's tools or data classes by leaving an
+    argument out (ADR 0004), and the pipeline's own code may call no tool unless named."""
+    import inspect
+
+    from hall_monitor.claims.tool_server import TOOL_DATA_CLASSES
+
+    params = inspect.signature(ToolGateway.__init__).parameters
+    assert params["server"].default is inspect.Parameter.empty
+    assert params["tool_data_classes"].default is inspect.Parameter.empty
+    gateway = ToolGateway(REGISTRY, build_server(), tool_data_classes=TOOL_DATA_CLASSES)
+    log = []
+    result = gateway.call(PIPELINE_ACTOR, "policy_lookup", {"policy_number": "WTP-ESS-100231"}, log)
+    assert result["error"].startswith("Refused: pipeline may not call")
+    [call] = log
+    assert not call.allowed

@@ -19,11 +19,11 @@ from pydantic import ValidationError
 
 from hall_monitor import tracing
 from hall_monitor.claims.data import load_claim, load_policy_wording
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.pipeline import triage
 from hall_monitor.claims.workflow import DEFAULT_CHECKPOINTS, open_workflow
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR, Registry
 from hall_monitor.spend import DEFAULT_SPEND_DB, SpendLedger
-from hall_monitor.tools.gateway import ToolGateway
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
 
     load_dotenv()
     registry = Registry.from_dir(args.registry)
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     try:
         claim = load_claim(args.claim)
     except ValidationError as exc:
