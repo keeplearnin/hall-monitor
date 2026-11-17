@@ -856,3 +856,108 @@ def test_refiling_a_claim_whose_first_triage_stopped_is_still_caught(db):
     status = _submit_as(db, "claim_001", _refiled("claim_001", "claim_001b"))
     assert status["state"] == "waiting_for_adjuster"
     assert DUPLICATE_REASON in status["routing_reasons"]
+
+
+def _raw_checkpoint_bytes(path) -> bytes:
+    """Every stored checkpoint and pending write, as the bytes on disk (not through LangGraph)."""
+    import sqlite3
+
+    con = sqlite3.connect(path)
+    try:
+        rows = con.execute("SELECT checkpoint, metadata FROM checkpoints").fetchall()
+        rows += con.execute("SELECT value, value FROM writes").fetchall()
+    finally:
+        con.close()
+    return b"".join(bytes(part) for row in rows for part in row if part is not None)
+
+
+REJECTED_REASON = "claimant told me by phone her mother was in hospital"
+ACCEPTED_REASON = "Denied under the exclusion the coverage step cited; letter to follow."
+
+
+def _decide_after_a_rejection(db):
+    _submit(db, "claim_004")
+    rejected = _decide(
+        db,
+        "claim_004",
+        adjuster_id="adj-201",
+        next_step=NextStep.PAY,
+        payout_usd=99_999.0,
+        reason=REJECTED_REASON,
+    )
+    assert rejected["state"] == "waiting_for_adjuster"
+    return _decide(
+        db,
+        "claim_004",
+        adjuster_id="adj-201",
+        next_step=NextStep.DENY,
+        payout_usd=0,
+        reason=ACCEPTED_REASON,
+    )
+
+
+def test_known_limit_a_decided_claims_checkpoint_keeps_its_text_and_reasons(db):
+    """HM-10 gap: the checkpoint file keeps, unencrypted and never deleted, the claim as sent and
+    every checkpoint version, including the adjuster's name and written reasons, rejected
+    decisions too; the audit log keeps reasons only as keyed hashes."""
+    status = _decide_after_a_rejection(db)
+    assert status["state"] == "decided"
+    raw = _raw_checkpoint_bytes(db)
+    assert CLAIMS["claim_004"].narrative.encode() in raw
+    assert REJECTED_REASON.encode() in raw and ACCEPTED_REASON.encode() in raw
+    if status["final"].get("adjuster_name"):
+        assert status["final"]["adjuster_name"].encode() in raw
+
+
+def test_known_limit_erasing_a_claims_pack_leaves_its_checkpoint_copy(db):
+    """HM-10 gap: deleting a stored evidence pack (erase_evidence) doesn't reach the checkpoint
+    file, which keeps its own copy of the pack and the claim."""
+    from hall_monitor.governance.audit import AuditLog
+
+    _submit(db, "claim_004")
+    with _open(db) as workflow:
+        digest = workflow.status("claim_004")["evidence_sha256"]
+    audit = AuditLog(db.with_name("audit.sqlite"))
+    try:
+        audit.erase_evidence(digest)
+        assert audit.get_evidence(digest) is None
+    finally:
+        audit.close()
+    raw = _raw_checkpoint_bytes(db)
+    assert digest.encode() in raw
+    assert CLAIMS["claim_004"].narrative.encode() in raw
+
+
+def test_known_limit_a_restarted_triage_calls_every_agent_again(db, monkeypatch):
+    """HM-32 gap: the supervisor's whole run is one node of the claims workflow, so nothing is
+    saved between its steps; a triage that crashed is restarted from the start with a new case
+    budget, and the agents are called, and paid for, again (here, with the scripted supervisor,
+    exactly the same calls)."""
+    import hall_monitor.workflow as workflow_module
+
+    real = workflow_module.build_evidence_pack
+
+    def crash(*args):
+        raise RuntimeError("process died after the agents ran")
+
+    def workflow_with(client):
+        return open_workflow(
+            db,
+            audit_db=db.with_name("audit.sqlite"),
+            registry=REGISTRY,
+            gateway=GATEWAY,
+            wording=WORDING,
+            client=client,
+        )
+
+    first = fake_client(outputs_from_truth(load_ground_truth("claim_001")))
+    monkeypatch.setattr(workflow_module, "build_evidence_pack", crash)
+    with pytest.raises(RuntimeError), workflow_with(first) as workflow:
+        workflow.submit(CLAIMS["claim_001"])
+    monkeypatch.setattr(workflow_module, "build_evidence_pack", real)
+
+    second = fake_client(outputs_from_truth(load_ground_truth("claim_001")))
+    with workflow_with(second) as workflow:
+        assert workflow.submit(CLAIMS["claim_001"], restart=True)["state"] == "decided"
+    assert first.messages.formats() and second.messages.formats() == first.messages.formats()
+    assert len(second.messages.supervisor_calls) == len(first.messages.supervisor_calls) > 0

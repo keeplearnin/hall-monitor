@@ -26,7 +26,9 @@ could show the adjuster different evidence, or change it afterwards.
   stored pack that no longer matches its hash.
 - **Erasure without breaking the chain.** A stored pack may be deleted, for example under a
   data-protection request. `verify` reports it as erased, not as tampering, because its hash
-  stays in the chain.
+  stays in the chain. Deleting it isn't the whole answer to such a request yet: the claims
+  workflow's checkpoint file keeps its own copy of the pack, the claim as sent and the
+  adjuster's reasons, and nothing deletes it (HM-10 gap); there is no erasure procedure.
 
 ## Alternatives considered
 

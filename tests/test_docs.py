@@ -88,6 +88,20 @@ def test_adr_0001_lists_every_routing_check():
     assert "traces as $20" not in adr
 
 
+def test_adr_0006_says_the_step_order_is_the_supervisors():
+    """ADR 0028 made the claims step order agentic; ADR 0006 must not still rest on fixed steps."""
+    adr = (DOCS / "adr" / "0006-plain-python-then-langgraph.md").read_text()
+    assert "0028-agent-picks-the-steps-code-holds-the-boundaries.md" in adr
+    assert "since the steps are fixed" not in adr
+
+
+def test_adr_0014_says_erasing_a_pack_leaves_the_checkpoint_copy():
+    """A deleted pack isn't the whole answer to an erasure request while checkpoints keep a copy."""
+    for name in ("0014-signed-decisions-and-stored-evidence.md", "0008-hash-chained-audit-log.md"):
+        adr = (DOCS / "adr" / name).read_text()
+        assert "checkpoint" in adr and "HM-10" in adr, name
+
+
 @pytest.mark.parametrize("page", sorted((DOCS / "examples").glob("*.md")), ids=lambda p: p.name)
 def test_every_example_page_has_the_same_headings(page):
     headings = re.findall(r"^## (.+)$", page.read_text(), re.M)

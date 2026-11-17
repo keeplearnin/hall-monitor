@@ -87,7 +87,7 @@ records the skeptical review of this page.
 | # | Item | Status | Proof | Limit |
 |---|---|---|---|---|
 | 36 | Incident response and regulator notification | **Gap** | — | No incident process, on-call, post-incident review or serious-incident reporting (EU AI Act Art. 73) |
-| 37 | Data retention and erasure | **Gap** | Evidence packs are stored by hash and erasable; the log holds no free text (HM-06, HM-10) | No retention periods; the append-only log can't erase an entry; no GDPR erasure procedure for packs |
+| 37 | Data retention and erasure | **Gap** | Evidence packs are stored by hash and erasable; the log holds no free text (HM-06, HM-10) | No retention periods; the append-only log can't erase an entry; no GDPR erasure procedure for packs; the claims workflow's checkpoint file keeps each claim as sent and the adjuster's written reasons, unencrypted, and nothing deletes a claim's checkpoints once its triage finished (HM-10 gap) |
 | 38 | Backup and disaster recovery | **Gap** | — | No backup of the SQLite log, packs and checkpoints, or of the anchor kept elsewhere |
 | 39 | Latency, SLA and capacity | **Gap** | Per-call bound of 60 s per attempt, two attempts (`default_client`) | No latency target, capacity plan or rate-limit handling beyond the SDK's retry; the 60 s per-attempt bound is untested live and may stop long Sonnet answers (they would go to a person) |
 | 40 | Vendor and model risk | **Partial** | Pinned model IDs with no silent fallback (HM-02); a model change is a reviewed manifest change | Single provider; no deprecation plan; whether the model names are dated snapshots or aliases isn't checked; provider data-retention terms out of scope |

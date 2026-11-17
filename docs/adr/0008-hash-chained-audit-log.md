@@ -46,6 +46,7 @@ that copy.
 - The anchor is only as good as where it's kept, which is a deployment decision.
 - A log outage stops claims rather than letting them through unrecorded.
 - Evidence packs are stored beside the log, by hash, where they can be erased without breaking
-  the chain ([ADR 0014](0014-signed-decisions-and-stored-evidence.md)).
+  the chain ([ADR 0014](0014-signed-decisions-and-stored-evidence.md)). The claims workflow's
+  checkpoint file keeps its own copy, which erasing a pack doesn't reach (HM-10 gap).
 - Copying the chain head out is still manual.
 - SQLite suits one writer; production would move to Postgres with the same hashing.
