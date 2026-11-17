@@ -8,12 +8,12 @@ import pytest
 from pydantic import BaseModel, ConfigDict
 
 from hall_monitor.agents.base import ToolAccess, run_agent
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.delegation import DelegationError, GrantBook
 from hall_monitor.governance.audit import AuditLog
 from hall_monitor.handoff import HANDOFF_TOOL, Delegated, HandOff
 from hall_monitor.kill_switch import add_stop
 from hall_monitor.registry import AgentManifest, Registry, RegistryError
-from hall_monitor.tools.gateway import ToolGateway
 
 STEP_USD = 0.0002  # one fake step: 1,000 input and 200 output tokens on Haiku 5.5
 POLICY = {"policy_number": "WTP-ESS-100231"}
@@ -104,7 +104,7 @@ def book(registry, audit):
 
 @pytest.fixture
 def gateway(registry):
-    return ToolGateway(registry)
+    return claims_gateway(registry)
 
 
 def _run(agent_id, client, registry, gateway, delegated, log=None):
@@ -215,7 +215,7 @@ def test_an_unpriced_model_can_t_run_under_a_grant(registry, gateway, book):
     root = unpriced_book.issue("lead", budget_usd=0.01)
     client = _client(("final", "done"))
     with pytest.raises(Exception, match="price"):
-        _run("lead", client, unpriced, ToolGateway(unpriced), Delegated(unpriced_book, root))
+        _run("lead", client, unpriced, claims_gateway(unpriced), Delegated(unpriced_book, root))
     assert client.messages.calls == []
 
 

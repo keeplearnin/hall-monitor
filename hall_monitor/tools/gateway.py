@@ -20,8 +20,6 @@ from typing import TYPE_CHECKING, Any
 
 from fastmcp import Client, FastMCP
 
-from hall_monitor.claims.models import PolicyRecord
-from hall_monitor.claims.tool_server import POLICY_LOOKUP, TOOL_DATA_CLASSES, build_server
 from hall_monitor.gateway.redaction import redact_value
 from hall_monitor.no_send import tool_problems
 from hall_monitor.registry import (
@@ -38,8 +36,6 @@ if TYPE_CHECKING:
     from hall_monitor.delegation import Grant, GrantBook
 
 PIPELINE_ACTOR = RESERVED_AGENT_ID  # no agent may take this ID (Registry refuses it)
-# The pipeline's own code checks may use these tools; it is not an agent and has no manifest.
-PIPELINE_TOOLS = frozenset({POLICY_LOOKUP})
 
 
 def _run[T](coro: Coroutine[Any, Any, T]) -> T:
@@ -57,25 +53,26 @@ class ToolGateway:
     def __init__(
         self,
         registry: Registry,
-        server: FastMCP | None = None,
+        server: FastMCP,
         *,
-        tool_data_classes: dict[str, frozenset[DataClass]] | None = None,
-        pipeline_tools: frozenset[str] | None = None,
+        tool_data_classes: dict[str, frozenset[DataClass]],
+        pipeline_tools: frozenset[str] = frozenset(),
     ):
-        """server defaults to the claims records server; another example passes its own, with
-        what each tool returns (tool_data_classes) and the tools its pipeline may call. The
-        gateway refuses to start on a server exposing any tool that could send (HM-25)."""
+        """Each example passes its own server, what each tool returns (tool_data_classes; a
+        tool missing from it counts as returning every data class) and the tools its pipeline's
+        own code may call (none unless given). There is no default server, so no example runs
+        on another's tools or data classes by leaving an argument out (claims_gateway, in
+        hall_monitor.claims.gateway, passes the claims ones). The gateway refuses to start on a
+        server exposing any tool that could send (HM-25)."""
         self.registry = registry
-        if server is not None and type(server) is not FastMCP:
+        if type(server) is not FastMCP:
             # fastmcp's Client would treat a URL or a command as a remote server and post tool
             # calls to it, and a proxy (a FastMCP subclass) forwards them (HM-25): only a plain
             # in-process server is taken.
             raise TypeError("the tool gateway takes only an in-process FastMCP server")
-        self.server = server or build_server()
-        self.tool_data_classes = (
-            TOOL_DATA_CLASSES if tool_data_classes is None else tool_data_classes
-        )
-        self.pipeline_tools = PIPELINE_TOOLS if pipeline_tools is None else pipeline_tools
+        self.server = server
+        self.tool_data_classes = tool_data_classes
+        self.pipeline_tools = pipeline_tools
         self._definitions = _run(self._list_tools())
         problems = tool_problems(sorted(self._definitions))
         if problems:
@@ -214,12 +211,3 @@ class ToolGateway:
             )
         )
         return result
-
-    def lookup_policy(self, policy_number: str | None, log: list[ToolCall]) -> PolicyRecord | None:
-        """The pipeline's own policy check, through the same audited path as the agents."""
-        if not policy_number:
-            return None
-        result = self.call(PIPELINE_ACTOR, POLICY_LOOKUP, {"policy_number": policy_number}, log)
-        if not result.get("found"):
-            return None
-        return PolicyRecord.model_validate({k: v for k, v in result.items() if k != "found"})

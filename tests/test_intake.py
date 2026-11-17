@@ -4,8 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from hall_monitor.agents.base import AgentRefusedError, render_claim
+from hall_monitor.agents.base import AgentRefusedError
 from hall_monitor.claims.agents.intake import run_intake
+from hall_monitor.claims.agents.rendering import render_claim
 from hall_monitor.claims.data import iter_claims, load_ground_truth
 from hall_monitor.registry import Registry, UnregisteredAgentError
 from tests.fakes import TEST_REGISTRY_DIR

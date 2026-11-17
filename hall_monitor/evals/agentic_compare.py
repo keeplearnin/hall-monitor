@@ -39,6 +39,7 @@ from hall_monitor.approvals import CLAIMS_AGENTS
 from hall_monitor.claims.agentic import Limits
 from hall_monitor.claims.agents.supervisor import scripted_answer, view_from_content
 from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import (
     CoverageFinding,
     CriticIssue,
@@ -76,7 +77,6 @@ from hall_monitor.hr.supervisor import (
 )
 from hall_monitor.hr.supervisor import view_from_content as leave_view_from_content
 from hall_monitor.registry import Registry
-from hall_monitor.tools.gateway import ToolGateway
 
 ROOT = Path(__file__).resolve().parents[2]
 RESULTS_DIR = ROOT / "evals" / "results" / "agentic-scripted"
@@ -224,7 +224,7 @@ def run(
     registry: Registry | None = None, limit: int | None = None, desk_limit: int | None = None
 ) -> dict:
     registry = registry or Registry.from_dir()
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     wording = load_policy_wording()
     claims = list(iter_claims())[:limit]
     fixed: dict[str, dict] = {}

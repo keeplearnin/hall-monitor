@@ -28,6 +28,7 @@ from hall_monitor.claims.data import (
     load_ground_truth,
     load_policy_wording,
 )
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import (
     ClaimSubmission,
     CoverageAssessment,
@@ -43,7 +44,6 @@ from hall_monitor.claims.models import (
 from hall_monitor.evals.meta import run_meta
 from hall_monitor.gateway.cost import call_cost
 from hall_monitor.registry import Registry
-from hall_monitor.tools.gateway import ToolGateway
 
 
 @dataclass
@@ -237,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
     registry = Registry.from_dir()
     context = {
         "registry": registry,
-        "gateway": ToolGateway(registry),
+        "gateway": claims_gateway(registry),
         "wording": load_policy_wording(),
         "client": default_client(),
     }

@@ -46,7 +46,7 @@ from hall_monitor.complaints.cfpb import (
 from hall_monitor.complaints.models import CfpbSource, Complaint
 from hall_monitor.complaints.store import DEFAULT_STORE, ComplaintStore
 from hall_monitor.egress import CFPB_POLICY, CfpbClient, audit_refusals, guarded_client
-from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog, TriageRecorder
+from hall_monitor.governance.audit import DEFAULT_AUDIT_DB, AuditLog, EventRecorder
 from hall_monitor.registry import Registry
 from hall_monitor.shared_models import ToolCall
 from hall_monitor.tools.gateway import PIPELINE_ACTOR, ToolGateway
@@ -249,7 +249,7 @@ def pull(
     requests_before = None if client is None else client.requests
     retries_before = None if client is None else client.retries
     date_min = started.date()
-    recorder = TriageRecorder(audit, pull_id) if audit is not None else None
+    recorder = EventRecorder(audit, pull_id) if audit is not None else None
     try:
         if cursor_before is not None and not _valid_cursor(cursor_before):
             raise PullError("stored_cursor_invalid")  # --since restarts and replaces it

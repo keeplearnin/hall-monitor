@@ -35,6 +35,7 @@ from hall_monitor.agents.base import escape
 from hall_monitor.claims.agents.supervisor import scripted_answer
 from hall_monitor.claims.approval import AdjusterDecision
 from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import (
     CoverageFinding,
     CriticReview,
@@ -52,7 +53,6 @@ from hall_monitor.hr.pipeline import prepare
 from hall_monitor.hr.supervisor import LeaveDecision, scripted_leave_answer
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR, Registry
-from hall_monitor.tools.gateway import ToolGateway
 
 DEFAULT_OUT = DEFAULT_REGISTRY_DIR.parent / "var" / "demo"
 STOP_AFTER = 30  # claims triaged before the risk agent is stopped
@@ -259,7 +259,7 @@ def build(
             checkpoints,
             audit_db,
             registry=registry,
-            gateway=ToolGateway(registry),
+            gateway=claims_gateway(registry),
             wording=wording,
             client=client,
         ) as workflow:
@@ -267,7 +267,7 @@ def build(
 
     registry = Registry.from_dir(registry_dir)
     with open_workflow(
-        checkpoints, audit_db, registry=registry, gateway=ToolGateway(registry), wording=wording
+        checkpoints, audit_db, registry=registry, gateway=claims_gateway(registry), wording=wording
     ) as workflow:
         triaged_before_stop = {c.claim_id for c in claims[:stop_after]}
         to_decide = [c for c in workflow.waiting() if c in triaged_before_stop]

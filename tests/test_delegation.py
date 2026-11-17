@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.delegation import (
     MAX_HANDOFFS,
     DelegationError,
@@ -15,7 +16,6 @@ from hall_monitor.delegation import (
 from hall_monitor.governance.audit import AuditLog
 from hall_monitor.kill_switch import add_stop
 from hall_monitor.registry import AgentManifest, DataClass, Registry, RegistryError
-from hall_monitor.tools.gateway import ToolGateway
 
 ALL = ("pii", "health", "financial")
 POLICY = {"policy_number": "WTP-ESS-100231"}
@@ -281,7 +281,7 @@ def test_the_registry_knows_which_agents_are_in_a_crew(registry):
 
 
 def test_a_crew_agent_s_tool_call_without_a_grant_is_refused(registry):
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     log = []
     result = gateway.call("lead", "policy_lookup", POLICY, log)
     assert "Refused" in result["error"]
@@ -290,7 +290,7 @@ def test_a_crew_agent_s_tool_call_without_a_grant_is_refused(registry):
 
 
 def test_a_crew_agent_s_tool_call_with_a_grant_goes_through(registry, book):
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     root = book.issue("lead", budget_usd=1.0)
     log = []
     result = gateway.call("lead", "policy_lookup", POLICY, log, grants=book, grant=root)
@@ -299,7 +299,7 @@ def test_a_crew_agent_s_tool_call_with_a_grant_goes_through(registry, book):
 
 
 def test_the_gateway_refuses_what_the_grant_doesn_t_hold_though_the_manifest_does(registry, book):
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     root = book.issue("lead", budget_usd=1.0)
     analyst = book.delegate(
         root,
@@ -316,7 +316,7 @@ def test_the_gateway_refuses_what_the_grant_doesn_t_hold_though_the_manifest_doe
 
 
 def test_the_gateway_refuses_a_grant_held_by_another_agent(registry, book):
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     root = book.issue("lead", budget_usd=1.0)
     log = []
     result = gateway.call("analyst", "policy_lookup", POLICY, log, grants=book, grant=root)
@@ -324,7 +324,7 @@ def test_the_gateway_refuses_a_grant_held_by_another_agent(registry, book):
 
 
 def test_the_gateway_needs_the_book_and_the_grant_together(registry, book):
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     root = book.issue("lead", budget_usd=1.0)
     log = []
     result = gateway.call("lead", "policy_lookup", POLICY, log, grant=root)
@@ -332,7 +332,7 @@ def test_the_gateway_needs_the_book_and_the_grant_together(registry, book):
 
 
 def test_a_crew_agent_is_offered_only_its_grant_s_tools(registry, book):
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     root = book.issue("lead", budget_usd=1.0)
     analyst = book.delegate(
         root,
@@ -348,7 +348,7 @@ def test_a_crew_agent_is_offered_only_its_grant_s_tools(registry, book):
 
 
 def test_agents_outside_a_crew_work_as_before(registry):
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     log = []
     result = gateway.call("loner", "policy_lookup", POLICY, log)
     assert result.get("found") is True
@@ -408,7 +408,7 @@ def test_a_forged_grant_s_names_never_reach_the_audit_log(registry, book, audit)
     forged = root.model_copy(update={"holder": FREE_TEXT, "chain": ("pipeline", FREE_TEXT)})
     with pytest.raises(DelegationError):
         book.delegate(forged, "analyst", budget_usd=0.1)
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     log = []
     gateway.call("lead", "policy_lookup", POLICY, log, grants=book, grant=forged)
     assert log[0].allowed is False
@@ -430,7 +430,7 @@ def test_a_grant_s_names_must_be_plain_identifiers():
 
 
 def test_definitions_and_calls_agree_for_an_agent_outside_a_crew_given_a_grant(registry, book):
-    gateway = ToolGateway(registry)
+    gateway = claims_gateway(registry)
     root = book.issue("lead", budget_usd=1.0)
     log = []
     assert (

@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import Route
 from hall_monitor.claims.pipeline import triage
 from hall_monitor.kill_switch import (
@@ -25,7 +26,6 @@ from hall_monitor.registry import (
     StopListError,
     load_owners,
 )
-from hall_monitor.tools.gateway import ToolGateway
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth
 
 OWNER = "own-301"  # owns intake in the shipped registry
@@ -128,7 +128,7 @@ def test_a_stopped_agent_stops_the_claim_and_sends_it_to_a_person(registry_dir):
     result = triage(
         claim,
         registry=registry,
-        gateway=ToolGateway(registry),
+        gateway=claims_gateway(registry),
         wording=load_policy_wording(),
         client=client,
     )
@@ -362,7 +362,7 @@ def test_a_stop_during_an_agents_tool_rounds_halts_its_next_model_request(regist
             usage=SimpleNamespace(input_tokens=1, output_tokens=1),
         )
 
-    access = ToolAccess(ToolGateway(registry))
+    access = ToolAccess(claims_gateway(registry))
     with pytest.raises(AgentStoppedError):
         run_agent(
             "coverage_check",
@@ -402,7 +402,7 @@ def test_a_stop_after_an_agent_answers_still_sends_the_claim_to_a_person(registr
     result = triage(
         claim,
         registry=registry,
-        gateway=ToolGateway(registry),
+        gateway=claims_gateway(registry),
         wording=load_policy_wording(),
         client=client,
     )
@@ -419,7 +419,7 @@ def test_the_unstopped_claim_routes_automatically(registry_dir):
     result = triage(
         claim,
         registry=registry,
-        gateway=ToolGateway(registry),
+        gateway=claims_gateway(registry),
         wording=load_policy_wording(),
         client=client,
     )
@@ -451,7 +451,7 @@ def test_a_tool_call_refused_for_a_bad_stop_list_is_still_recorded(registry_dir)
     registry = Registry.from_dir(registry_dir)
     (registry_dir / STOPS_FILENAME).write_bytes(b"\xe9")
     log = []
-    result = ToolGateway(registry).call("coverage_check", "policy_lookup", {}, log)
+    result = claims_gateway(registry).call("coverage_check", "policy_lookup", {}, log)
     assert "Refused" in result["error"]
     assert [c.allowed for c in log] == [False]
 
@@ -562,7 +562,7 @@ def test_rounds_already_sent_stay_in_the_record_when_an_agent_is_interrupted(
     result = triage(
         claim,
         registry=registry,
-        gateway=ToolGateway(registry),
+        gateway=claims_gateway(registry),
         wording=load_policy_wording(),
         client=client,
         on_event=lambda name, item: events.append((name, item)),

@@ -81,6 +81,7 @@ controls:
     status: built
     code:
       - hall_monitor/tools/gateway.py::ToolGateway
+      - hall_monitor/claims/gateway.py::claims_gateway
       - hall_monitor/claims/tool_server.py::build_server
     tests:
       - tests/test_tools.py::test_agents_are_offered_only_their_allowed_tools
@@ -439,7 +440,8 @@ controls:
     status: built, results pending
     code:
       - hall_monitor/agents/base.py::escape
-      - hall_monitor/gateway/injection.py::detect_instructions
+      - hall_monitor/gateway/injection.py::detect_in_texts
+      - hall_monitor/claims/screening.py::detect_instructions
     tests:
       - tests/test_pipeline.py::test_claim_text_cannot_close_its_fence_or_forge_feedback
       - tests/test_privacy_security.py::test_no_real_claim_is_flagged
@@ -489,7 +491,8 @@ controls:
       data. Identifiers removed from tool results are counted on each tool call.
     status: built
     code:
-      - hall_monitor/gateway/redaction.py::redact_claim
+      - hall_monitor/gateway/redaction.py::redact_text
+      - hall_monitor/claims/screening.py::redact_claim
       - hall_monitor/claims/agents/recommendation.py::recommendation_input
       - hall_monitor/registry.py::Registry
       - hall_monitor/claims/tool_server.py

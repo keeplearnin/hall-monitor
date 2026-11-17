@@ -219,7 +219,7 @@ Each example's page lists its own commands, with what the live ones cost: [claim
 hall-monitor/
 ├── registry/                # Agent manifests, approvals.yaml, adjusters.yaml, owners.yaml, stops.yaml, manifest schema
 ├── hall_monitor/
-│   ├── claims/              # Claims example: agents/, evals/, pipeline, agentic loop, LangGraph workflow, routing rule, approval gate, claims tools, run and review CLIs
+│   ├── claims/              # Claims example: agents/, evals/, pipeline, agentic loop, LangGraph workflow, routing rule, approval gate, claims tools and their gateway, claim screening, audit recorder, run and review CLIs
 │   ├── hr/                  # Leave example: rules in code, agents, signed sign-off, submission form
 │   ├── complaints/          # Complaint desk on CFPB data: CFPB tool, ingestion, store, snapshots, triage agent, routing, never-sent drafts, submission form
 │   ├── partners/            # Partner marketing-fund claims: rules in code, intake agent, proof reviewer

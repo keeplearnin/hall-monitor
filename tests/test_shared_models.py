@@ -115,19 +115,56 @@ def test_the_claims_package_imports_no_other_example() -> None:
     assert offenders == []
 
 
-def test_known_limit_the_other_examples_still_load_the_claims_package() -> None:
-    """agents/base.py, the redaction and injection checks and the audit log import claims types,
-    so running another example loads hall_monitor.claims. Untangling them is a follow-up
-    (Review 42); this pins it until then."""
-    for module in ("hall_monitor.hr.pipeline", "hall_monitor.complaints.pipeline"):
-        code = (
-            f"import sys, {module}; "
-            "print(any(m.startswith('hall_monitor.claims') for m in sys.modules))"
-        )
-        out = subprocess.run(
-            [sys.executable, "-c", code], capture_output=True, text=True, check=True, cwd=ROOT
-        )
-        assert out.stdout.strip() == "True", module
+# These serve every example, so they load claims code with the rest: the submit pages run in
+# the shared panel (panel/demo.py), the evals' meta checks read every agent's approval
+# (approvals.py), and the two offline comparisons run every agentic example, claims included.
+SERVES_EVERY_EXAMPLE = (
+    "hall_monitor.hr.submit",
+    "hall_monitor.hr.evals",
+    "hall_monitor.complaints.submit",
+    "hall_monitor.complaints.evals",
+    "hall_monitor.evals.agentic_compare",
+    "hall_monitor.evals.stop_timing",
+)
+
+
+def _example_modules() -> list[str]:
+    """Every module of the leave, complaint and partner examples, found on disk so a new one is
+    checked too, less those that serve every example."""
+    found = []
+    for package in ("hr", "complaints", "partners"):
+        for path in sorted((PACKAGE / package).rglob("*.py")):
+            parts = path.relative_to(ROOT).with_suffix("").parts
+            name = ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+            if name not in SERVES_EVERY_EXAMPLE:
+                found.append(name)
+    return found
+
+
+def _claims_modules_loaded_by(module: str) -> list[str]:
+    code = (
+        f"import sys, {module}; "
+        "print(sorted(m for m in sys.modules if (m + '.').startswith('hall_monitor.claims.')))"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True, cwd=ROOT
+    )
+    return ast.literal_eval(out.stdout.strip())
+
+
+@pytest.mark.parametrize("module", _example_modules())
+def test_running_another_example_loads_no_claims_code(module) -> None:
+    """Shared code (agents/base.py, the gateway's redaction and injection checks, the tool
+    gateway and the audit log) imports no claims types, so running another example loads no
+    hall_monitor.claims module (Review 42's deferred finding)."""
+    assert _claims_modules_loaded_by(module) == []
+
+
+@pytest.mark.parametrize("module", SERVES_EVERY_EXAMPLE)
+def test_known_limit_code_serving_every_example_still_loads_claims_code(module) -> None:
+    """The panel, approvals.py and the two offline comparisons import every example, claims
+    included. Splitting them per example is a follow-up; this pins it until then."""
+    assert _claims_modules_loaded_by(module) != []
 
 
 def test_the_shared_records_are_defined_in_shared_models() -> None:

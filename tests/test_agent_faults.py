@@ -21,6 +21,7 @@ from hall_monitor.claims.data import (
     load_policy_records,
     load_policy_wording,
 )
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import (
     ClaimedItem,
     CoverageFinding,
@@ -37,11 +38,10 @@ from hall_monitor.claims.models import (
 )
 from hall_monitor.claims.pipeline import triage
 from hall_monitor.registry import Registry
-from hall_monitor.tools.gateway import ToolGateway
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth
 
 REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
-GATEWAY = ToolGateway(REGISTRY)
+GATEWAY = claims_gateway(REGISTRY)
 WORDING = load_policy_wording()
 POLICIES = load_policy_records()
 AUTO_CLAIMS = [c for c in iter_claims() if load_ground_truth(c.claim_id).route is Route.AUTO]

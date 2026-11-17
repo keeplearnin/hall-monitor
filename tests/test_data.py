@@ -12,7 +12,7 @@ from hall_monitor.claims.data import (
 )
 from hall_monitor.claims.models import CoverageAssessment, Recommendation, RiskAssessment
 from hall_monitor.claims.routing import route_claim
-from hall_monitor.gateway.redaction import redact_claim
+from hall_monitor.claims.screening import redact_claim
 
 CLAIMS = list(iter_claims())
 POLICIES = load_policy_records()

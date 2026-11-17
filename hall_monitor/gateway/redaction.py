@@ -19,8 +19,6 @@ from __future__ import annotations
 import re
 from collections import Counter
 
-from hall_monitor.claims.models import ClaimSubmission
-
 # Between a label and its number: punctuation, a "no."/"number"/"#", an "is". Every run is
 # bounded, so a label followed by a long blank stretch of OCR text can't make matching slow.
 _SEP = r"[\s:#.]{0,6}(?:(?:no\.?|number|num\.?)[\s:#.]{0,6})?(?:is[\s:]{1,4})?"
@@ -172,23 +170,3 @@ def redact_value(value, counts: Counter[str] | None = None):
     if isinstance(value, list):
         return [redact_value(v, counts) for v in value]
     return value
-
-
-def redact_claim(claim: ClaimSubmission) -> tuple[ClaimSubmission, dict[str, int]]:
-    """A copy of the claim with identifiers removed, and how many of each type were removed."""
-    counts: Counter[str] = Counter()
-    redacted = claim.model_copy(
-        update={
-            "narrative": redact_text(claim.narrative, counts),
-            "attachments": [
-                a.model_copy(
-                    update={
-                        "filename": redact_text(a.filename, counts),
-                        "text": redact_text(a.text, counts),
-                    }
-                )
-                for a in claim.attachments
-            ],
-        }
-    )
-    return redacted, {k: v for k, v in sorted(counts.items()) if v}
