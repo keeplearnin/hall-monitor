@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from hall_monitor import drills
+from hall_monitor.claims import drills
 from hall_monitor.governance.audit import AuditLog
 from hall_monitor.kill_switch import STOPS_FILENAME
 from hall_monitor.registry import DEFAULT_REGISTRY_DIR
@@ -145,10 +145,10 @@ def test_the_drill_never_touches_the_shipped_registry(drill):
 def test_the_checks_fail_when_a_failure_is_decided_automatically(tmp_path, monkeypatch):
     """Mutation: if the routing rule let every claim through, a wrong answer would be paid
     automatically, and the drill must say so."""
-    import hall_monitor.agentic as agentic_module
-    import hall_monitor.pipeline as pipeline_module
-    from hall_monitor.governance.routing import RoutingDecision
-    from hall_monitor.models import Route
+    import hall_monitor.claims.agentic as agentic_module
+    import hall_monitor.claims.pipeline as pipeline_module
+    from hall_monitor.claims.models import Route
+    from hall_monitor.claims.routing import RoutingDecision
 
     for module in (pipeline_module, agentic_module):
         monkeypatch.setattr(
@@ -161,9 +161,9 @@ def test_the_checks_fail_when_a_failure_is_decided_automatically(tmp_path, monke
 def test_the_checks_fail_when_a_case_is_left_with_no_one(tmp_path, monkeypatch):
     """Mutation: a stopped claim routed automatically is refused at the auto step (coverage is
     missing), so it is left in progress with no one; the drill must say so, not count it."""
-    import hall_monitor.pipeline as pipeline_module
-    from hall_monitor.governance.routing import RoutingDecision
-    from hall_monitor.models import Route
+    import hall_monitor.claims.pipeline as pipeline_module
+    from hall_monitor.claims.models import Route
+    from hall_monitor.claims.routing import RoutingDecision
 
     monkeypatch.setattr(
         pipeline_module,
@@ -227,8 +227,8 @@ def test_an_unexpected_error_in_one_case_is_reported_not_fatal(tmp_path, monkeyp
 
 def _without_over_claim_rule(real):
     """route_claim with the "payout exceeds the amount claimed" rule removed."""
-    from hall_monitor.governance.routing import RoutingDecision
-    from hall_monitor.models import Route
+    from hall_monitor.claims.models import Route
+    from hall_monitor.claims.routing import RoutingDecision
 
     def weakened(*args, **kwargs):
         decision = real(*args, **kwargs)
@@ -241,8 +241,8 @@ def _without_over_claim_rule(real):
 def test_the_checks_fail_when_the_over_claim_rule_is_removed(tmp_path, monkeypatch):
     """Review 21 finding 1: a wrong answer on a claim that goes to a person anyway proved
     nothing. The check now asks for the over-claim reason itself in the logged routing."""
-    import hall_monitor.agentic as agentic_module
-    import hall_monitor.pipeline as pipeline_module
+    import hall_monitor.claims.agentic as agentic_module
+    import hall_monitor.claims.pipeline as pipeline_module
 
     for module in (pipeline_module, agentic_module):
         monkeypatch.setattr(

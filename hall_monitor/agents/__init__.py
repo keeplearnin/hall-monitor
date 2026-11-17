@@ -1,1 +1,1 @@
-"""Intake, coverage check, critic, risk and fraud, and recommendation agents."""
+"""Shared agent runtime: run_agent and the Claude client protocol every example's agents use."""

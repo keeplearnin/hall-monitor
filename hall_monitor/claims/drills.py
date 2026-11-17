@@ -1,7 +1,7 @@
 """Failure drills: many claims at once, with failures injected on purpose (HM-31).
 
-    uv run python -m hall_monitor.drills                 # writes var/drills/
-    uv run python -m hall_monitor.drills --rounds 3 --workers 8 --cap-usd 2.00
+    uv run python -m hall_monitor.claims.drills                 # writes var/drills/
+    uv run python -m hall_monitor.claims.drills --rounds 3 --workers 8 --cap-usd 2.00
 
 Runs the synthetic claims through the real claims workflow, several at a time on threads, into
 its own registry copy, audit log and checkpoints. Every control runs as it does for real; only
@@ -51,20 +51,20 @@ import anthropic
 import yaml
 from langgraph.checkpoint.sqlite import SqliteSaver
 
-from hall_monitor.agents.supervisor import scripted_answer
-from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
-from hall_monitor.governance.audit import AuditLog
-from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
-from hall_monitor.models import (
+from hall_monitor.claims.agents.supervisor import scripted_answer
+from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.models import (
     ClaimSubmission,
     CoverageFinding,
     CriticReview,
     Recommendation,
     RiskAssessment,
 )
+from hall_monitor.claims.workflow import ClaimWorkflow, build_graph
+from hall_monitor.governance.audit import AuditLog
+from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR, Registry
 from hall_monitor.tools.gateway import ToolGateway
-from hall_monitor.workflow import ClaimWorkflow, build_graph
 
 DEFAULT_OUT = DEFAULT_REGISTRY_DIR.parent / "var" / "drills"
 MARKER = ".drill"  # only a directory holding this is ever cleared
@@ -87,7 +87,7 @@ FAULT_REASONS = {
     "api_error": "APIConnectionError from the model call",
     "timeout": "APITimeoutError from the model call",
 }
-OVER_CLAIM_REASON = "exceeds the"  # governance/routing.py: payout above the amount claimed
+OVER_CLAIM_REASON = "exceeds the"  # claims/routing.py: payout above the amount claimed
 STOPPED_REASON = "is stopped"  # registry.py: AgentStoppedError
 TRACING_KEYS = ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY")
 
@@ -255,7 +255,7 @@ def _prepare(out: Path) -> None:
             raise ValueError(f"{out} isn't empty and isn't a drill directory; not clearing it")
         shutil.rmtree(out)
     out.mkdir(parents=True, exist_ok=True)
-    (out / MARKER).write_text("written by python -m hall_monitor.drills\n")
+    (out / MARKER).write_text("written by python -m hall_monitor.claims.drills\n")
 
 
 @contextmanager
@@ -641,7 +641,9 @@ def render(report: dict) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m hall_monitor.drills", description=__doc__)
+    parser = argparse.ArgumentParser(
+        prog="python -m hall_monitor.claims.drills", description=__doc__
+    )
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--workers", type=int, default=8)

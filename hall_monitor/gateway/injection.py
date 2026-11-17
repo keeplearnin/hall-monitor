@@ -12,7 +12,7 @@ import html
 import re
 import unicodedata
 
-from hall_monitor.models import ClaimSubmission
+from hall_monitor.claims.models import ClaimSubmission
 
 # The system's own agents, by the names its prompts and docs use: text naming one is aimed at it.
 _DESK_AGENTS = r"(?:(?:complaint )?triage (?:agent|model)|desk supervisor|supervisor agent)"

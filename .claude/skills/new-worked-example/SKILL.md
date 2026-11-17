@@ -11,7 +11,7 @@ ones are the templates; copy their shape, not their code:
 
 | Example | Package | Page | Design | Notes |
 |---|---|---|---|---|
-| Insurance claims | `hall_monitor/` (pipeline.py, agentic.py, agents/) | `docs/examples/claims.md` | ADRs 0001–0016 | The first; most mature |
+| Insurance claims | `hall_monitor/claims/` | `docs/examples/claims.md` | ADRs 0001–0016 | The first; most mature |
 | HR leave (FMLA) | `hall_monitor/hr/` | `docs/examples/leave.md` | ADRs 0017–0020, 0034 | Rules first, then agents, sign-off, form |
 | Complaint desk | `hall_monitor/complaints/` | `docs/examples/complaints.md` | `docs/complaint-desk-design.md` | Public data, never sends anything |
 | Partner claims | `hall_monitor/partners/` | `docs/examples/partners.md` | `docs/partner-claims-design.md` | Rules and agents; pipeline next |
@@ -89,7 +89,7 @@ docs current, governance review logged. The order below is the one that worked.
   reason template for every outcome. Every reason a person sees is a template, never model text.
 - `hall_monitor/<pkg>/models.py`: typed records (Pydantic, `extra="forbid"`). Take the records
   every example shares (`AgentCall`, `ToolCall`, `StepOutcome`, `StepRefusal`) from
-  `hall_monitor/shared_models.py`, not from `hall_monitor/models.py`, which holds the claims types.
+  `hall_monitor/shared_models.py`, not from `hall_monitor/claims/models.py`, which holds the claims types.
 - Tests on both sides of every boundary; a test that every routing reason appears in an answer
   key or is a pipeline reason (see `tests/test_hr_leave.py`).
 - A CLI that scores the rules against the answer keys (`python -m hall_monitor.hr` is the model).

@@ -8,6 +8,7 @@ from itertools import count
 import pytest
 from pydantic import ValidationError
 
+from hall_monitor.claims.models import CriticReview
 from hall_monitor.governance.audit import AuditLog
 from hall_monitor.hr.models import LeaveExplanation, LeaveIntake
 from hall_monitor.hr.pipeline import LeaveLimits, prepare
@@ -20,7 +21,6 @@ from hall_monitor.hr.supervisor import (
     view_from_content,
 )
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
-from hall_monitor.models import CriticReview
 from hall_monitor.registry import Registry
 from hall_monitor.shared_models import StepOutcome, StepRefusal
 from tests.fakes import TEST_REGISTRY_DIR, fake_client

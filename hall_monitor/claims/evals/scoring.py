@@ -15,9 +15,9 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 
-from hall_monitor.amounts import amount_in, source_text, untraced  # noqa: F401 (re-exported)
+from hall_monitor.claims.amounts import amount_in, source_text, untraced  # noqa: F401 (re-exported)
+from hall_monitor.claims.models import ClaimSubmission, GroundTruth, IntakeExtraction, TriageResult
 from hall_monitor.gateway.redaction import redact_claim
-from hall_monitor.models import ClaimSubmission, GroundTruth, IntakeExtraction, TriageResult
 
 EXTRACTION_FIELDS = (
     "claimant_name",

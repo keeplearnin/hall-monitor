@@ -6,9 +6,9 @@ import json
 from collections.abc import Iterator
 from pathlib import Path
 
-from hall_monitor.models import ClaimSubmission, GroundTruth, PolicyRecord
+from hall_monitor.claims.models import ClaimSubmission, GroundTruth, PolicyRecord
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "synthetic"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "synthetic"
 
 
 def load_claim(path: Path) -> ClaimSubmission:

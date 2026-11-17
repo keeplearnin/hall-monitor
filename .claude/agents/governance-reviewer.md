@@ -34,7 +34,7 @@ rules the code must keep.
 
 **1. The governance invariants.** Each of these must hold on every path, including error paths:
 
-- A model never decides who decides. `governance/routing.py` sends to a person any denial, any
+- A model never decides who decides. `claims/routing.py` sends to a person any denial, any
   payout above the threshold or above the amount claimed, any fraud flag or non-low risk, critic
   changes or unresolved disagreement, injection signals, a claimant who isn't the insured, an
   incident outside cover, a non-USD claim, and anything that stopped. Look for a path that

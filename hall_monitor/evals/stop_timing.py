@@ -43,19 +43,19 @@ from types import SimpleNamespace
 
 import yaml
 
-from hall_monitor.agents.supervisor import scripted_answer
+from hall_monitor.claims.agents.supervisor import scripted_answer
+from hall_monitor.claims.data import iter_claims, load_policy_wording
+from hall_monitor.claims.models import Route
+from hall_monitor.claims.pipeline import triage
 from hall_monitor.complaints.ingest import PINNED_NAME, load_pinned
 from hall_monitor.complaints.pipeline import triage_complaint
 from hall_monitor.complaints.supervisor import scripted_desk_answer
-from hall_monitor.data import iter_claims, load_policy_wording
 from hall_monitor.evals.agentic_compare import _client, _DeskScripted, _LeaveScripted
 from hall_monitor.evals.meta import run_meta
 from hall_monitor.hr.data import load_company, load_employees, load_messages
 from hall_monitor.hr.pipeline import prepare as prepare_leave
 from hall_monitor.hr.supervisor import scripted_leave_answer
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
-from hall_monitor.models import Route
-from hall_monitor.pipeline import triage
 from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR, Registry
 from hall_monitor.tools.gateway import ToolGateway
 

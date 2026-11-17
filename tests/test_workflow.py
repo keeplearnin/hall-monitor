@@ -2,14 +2,14 @@
 
 import pytest
 
-from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
-from hall_monitor.governance.approval import AdjusterDecision, build_evidence_pack, evidence_sha256
+from hall_monitor.claims.approval import AdjusterDecision, build_evidence_pack, evidence_sha256
+from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.models import NextStep
+from hall_monitor.claims.pipeline import triage
+from hall_monitor.claims.workflow import open_workflow
 from hall_monitor.governance.signing import demo_private_key
-from hall_monitor.models import NextStep
-from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
-from hall_monitor.workflow import open_workflow
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth, signed_decision
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
@@ -213,7 +213,7 @@ def test_an_edited_checkpoint_cant_change_the_evidence(db, rehash):
 
 
 def test_a_claim_whose_triage_crashed_can_be_restarted_on_request(db, monkeypatch):
-    import hall_monitor.workflow as workflow_module
+    import hall_monitor.claims.workflow as workflow_module
 
     real = workflow_module.build_evidence_pack
 
@@ -252,8 +252,8 @@ def test_the_adjuster_is_shown_the_stored_evidence_not_an_edited_checkpoint(db):
 
 def _run_fresh(db, claim_id, monkeypatch):
     """`run --fresh` as a user runs it, but on the fake client and this test's databases."""
-    import hall_monitor.run as run_module
-    from hall_monitor.data import DATA_DIR
+    import hall_monitor.claims.run as run_module
+    from hall_monitor.claims.data import DATA_DIR
 
     real = run_module.open_workflow
 
@@ -340,7 +340,7 @@ def _finals(db, claim_id):
 def test_two_runs_of_the_same_claim_at_once_pay_it_once(db, monkeypatch):
     """A queue that redelivers, or a double click: both runs pass submit's checks before
     either finishes triage. Only the first final decision is recorded; the second run fails."""
-    import hall_monitor.workflow as workflow_module
+    import hall_monitor.claims.workflow as workflow_module
 
     real = workflow_module.build_evidence_pack
     nested = []
@@ -360,7 +360,7 @@ def test_two_runs_of_the_same_claim_at_once_pay_it_once(db, monkeypatch):
 
 def test_two_adjusters_deciding_at_once_decide_once(db, monkeypatch):
     """Both resume the same waiting checkpoint; the second decision is refused and recorded."""
-    import hall_monitor.workflow as workflow_module
+    import hall_monitor.claims.workflow as workflow_module
 
     _submit(db, "claim_004")
     real = workflow_module.validate_decision
@@ -422,8 +422,8 @@ def test_a_restored_checkpoints_file_cant_decide_a_claim_again(db):
 def test_entries_appended_to_the_log_cant_relax_the_approval_rules(db):
     """Someone who can edit the checkpoint can usually append to the audit log beside it. The
     pack and result checked are the ones recorded at triage, not the latest appended."""
+    from hall_monitor.claims.models import TriageResult
     from hall_monitor.governance.audit import AuditLog, sha256
-    from hall_monitor.models import TriageResult
 
     _submit(db, "claim_006")  # duplicate receipt flagged: needs a senior adjuster
     config = {"configurable": {"thread_id": "claim_006"}}
@@ -522,7 +522,7 @@ def test_an_edited_decision_in_the_checkpoint_is_reported(db):
 def test_two_runs_of_a_claim_for_review_leave_it_decidable(db, monkeypatch):
     """Two runs of a claim that goes to an adjuster: the second fails, and the first stays
     waiting and can be decided, rather than reading as tampered with."""
-    import hall_monitor.workflow as workflow_module
+    import hall_monitor.claims.workflow as workflow_module
 
     real = workflow_module.build_evidence_pack
     nested = []
@@ -571,7 +571,7 @@ def test_the_adjuster_sees_the_pack_stored_at_triage_after_a_forged_append(db):
 
 
 def test_cli_reports_a_claim_already_decided_without_a_traceback(db, monkeypatch, capsys):
-    import hall_monitor.review as review_module
+    import hall_monitor.claims.review as review_module
 
     digest = _submit(db, "claim_003")["evidence_sha256"]
     backup = db.read_bytes()
@@ -607,8 +607,8 @@ def test_cli_reports_a_claim_already_decided_without_a_traceback(db, monkeypatch
 
 def test_cli_reports_a_lost_race_without_a_traceback(db, monkeypatch, capsys):
     """The decision that loses a race fails inside decide(), after the CLI's own check."""
-    import hall_monitor.review as review_module
-    import hall_monitor.workflow as workflow_module
+    import hall_monitor.claims.review as review_module
+    import hall_monitor.claims.workflow as workflow_module
 
     digest = _submit(db, "claim_004")["evidence_sha256"]
     real_open, real_validate = review_module.open_workflow, workflow_module.validate_decision
@@ -657,7 +657,7 @@ def test_cli_reports_a_lost_race_without_a_traceback(db, monkeypatch, capsys):
 
 def test_a_claim_whose_pack_was_logged_but_not_saved_needs_a_person(db, monkeypatch):
     """The crash window HM-05 logs: the pack is in the log but the checkpoint never got it."""
-    import hall_monitor.workflow as workflow_module
+    import hall_monitor.claims.workflow as workflow_module
 
     real = workflow_module.AuditLog.append
 
@@ -678,7 +678,7 @@ def test_a_claim_whose_pack_was_logged_but_not_saved_needs_a_person(db, monkeypa
 
 @pytest.mark.parametrize("payout", ["-5", "nan"])
 def test_cli_refuses_an_impossible_payout_without_a_traceback(db, monkeypatch, capsys, payout):
-    import hall_monitor.review as review_module
+    import hall_monitor.claims.review as review_module
 
     digest = _submit(db, "claim_003")["evidence_sha256"]
     real_open = review_module.open_workflow
@@ -714,8 +714,8 @@ def test_cli_refuses_an_impossible_payout_without_a_traceback(db, monkeypatch, c
 def test_a_decision_is_rejected_while_the_adjusters_file_isnt_approved(db, monkeypatch):
     """Review finding 10: the adjusters file is approved by digest; an unapproved one can't
     authorise a decision, and the claim stays with a person."""
-    from hall_monitor import workflow as wf
-    from hall_monitor.governance.approval import AdjustersNotApproved
+    from hall_monitor.claims import workflow as wf
+    from hall_monitor.claims.approval import AdjustersNotApproved
 
     _submit(db, "claim_004")
 
@@ -844,7 +844,7 @@ def test_a_stopped_claim_with_no_policy_number_still_goes_to_an_adjuster(db):
 def test_refiling_a_claim_whose_first_triage_stopped_is_still_caught(db):
     """The first filing stopped before intake (the agent refused), so no extraction; the same
     documents under a new claim ID are still matched against it."""
-    from hall_monitor.models import IntakeExtraction
+    from hall_monitor.claims.models import IntakeExtraction
 
     truth = load_ground_truth("claim_001")
     refusing = fake_client(outputs_from_truth(truth), stop_reason={IntakeExtraction: "refusal"})
@@ -933,7 +933,7 @@ def test_known_limit_a_restarted_triage_calls_every_agent_again(db, monkeypatch)
     saved between its steps; a triage that crashed is restarted from the start with a new case
     budget, and the agents are called, and paid for, again (here, with the scripted supervisor,
     exactly the same calls)."""
-    import hall_monitor.workflow as workflow_module
+    import hall_monitor.claims.workflow as workflow_module
 
     real = workflow_module.build_evidence_pack
 

@@ -9,12 +9,12 @@ import pytest
 import yaml
 
 from hall_monitor import budgets as budgets_module
-from hall_monitor.agentic import Limits
 from hall_monitor.budgets import (
     BudgetsNotApproved,
     approved_budgets,
     load_budgets,
 )
+from hall_monitor.claims.agentic import Limits
 from hall_monitor.complaints.pipeline import DeskLimits
 from hall_monitor.gateway import cost
 from hall_monitor.hr.pipeline import LeaveLimits
@@ -281,7 +281,7 @@ def unapproved(monkeypatch):
 
 @pytest.mark.parametrize("agentic", [True, False])
 def test_a_claim_over_the_cap_goes_to_a_person_with_no_model_call(tmp_path, agentic):
-    from hall_monitor.models import Route
+    from hall_monitor.claims.models import Route
     from tests.test_agentic import _run as run_claim
 
     ledger = _full(tmp_path, "claims", 20)
@@ -294,7 +294,7 @@ def test_a_claim_over_the_cap_goes_to_a_person_with_no_model_call(tmp_path, agen
 
 @pytest.mark.parametrize("agentic", [True, False])
 def test_a_claim_under_the_cap_settles_at_its_cost(tmp_path, agentic):
-    from hall_monitor.models import Route
+    from hall_monitor.claims.models import Route
     from tests.test_agentic import _run as run_claim
 
     ledger = _ledger(tmp_path)
@@ -315,7 +315,7 @@ def test_a_claim_that_fails_part_way_still_settles(tmp_path):
 
 
 def test_a_claim_with_unapproved_budgets_goes_to_a_person(unapproved):
-    from hall_monitor.models import Route
+    from hall_monitor.claims.models import Route
     from tests.test_agentic import _run as run_claim
 
     result, client = run_claim()
@@ -443,7 +443,7 @@ def test_the_panel_shows_a_leave_request_s_spend_refusal(reason):
 def test_the_claims_cli_passes_the_ledger(tmp_path, monkeypatch):
     import contextlib
 
-    import hall_monitor.run as claims_run
+    import hall_monitor.claims.run as claims_run
     from hall_monitor.spend import SpendLedger as Ledger
 
     seen = []
@@ -602,7 +602,7 @@ class _BrokenLedger:
 
 @pytest.mark.parametrize("agentic", [True, False])
 def test_a_broken_ledger_sends_a_claim_to_a_person_with_no_model_call(agentic):
-    from hall_monitor.models import Route
+    from hall_monitor.claims.models import Route
     from tests.test_agentic import _run as run_claim
 
     result, client = run_claim(spend=_BrokenLedger(), agentic=agentic)
@@ -640,7 +640,7 @@ def test_a_ledger_that_fails_while_settling_doesn_t_lose_the_case(tmp_path, monk
     """The case has already been routed; its reservation just stays counted in full."""
     import sqlite3
 
-    from hall_monitor.models import Route
+    from hall_monitor.claims.models import Route
     from tests.test_agentic import _run as run_claim
 
     ledger = _ledger(tmp_path)
@@ -655,10 +655,10 @@ def test_a_ledger_that_fails_while_settling_doesn_t_lose_the_case(tmp_path, monk
 
 
 def test_the_claims_workflow_holds_a_claim_to_the_cap(tmp_path):
-    """The live claims path end to end: hall_monitor.run opens the workflow with the ledger,
+    """The live claims path end to end: hall_monitor.claims.run opens the workflow with the ledger,
     and the workflow's triage step passes it on."""
-    from hall_monitor.data import load_ground_truth
-    from hall_monitor.workflow import open_workflow
+    from hall_monitor.claims.data import load_ground_truth
+    from hall_monitor.claims.workflow import open_workflow
     from tests.fakes import fake_client, outputs_from_truth
     from tests.test_workflow import CLAIMS, GATEWAY, REGISTRY, WORDING
 
@@ -765,8 +765,8 @@ def test_an_unpriced_claim_stays_reserved_in_full(tmp_path, monkeypatch):
 def test_an_interrupted_claim_stays_reserved_in_full(tmp_path):
     """A KeyboardInterrupt or SystemExit mid-claim: the request in flight may have been billed,
     so the reservation keeps counting in full, as a crash's does."""
-    from hall_monitor.data import load_ground_truth
-    from hall_monitor.models import CoverageFinding
+    from hall_monitor.claims.data import load_ground_truth
+    from hall_monitor.claims.models import CoverageFinding
     from tests.fakes import outputs_from_truth
     from tests.test_agentic import _run as run_claim
 

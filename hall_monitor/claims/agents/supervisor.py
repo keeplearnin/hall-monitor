@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict
 
 from hall_monitor import tracing
 from hall_monitor.agents.base import AgentRun, default_client, render_json, run_agent
-from hall_monitor.models import (
+from hall_monitor.claims.models import (
     ClaimType,
     CoverageDecision,
     NextStep,

@@ -9,12 +9,10 @@ from itertools import count
 import pytest
 from pydantic import ValidationError
 
-from hall_monitor.agentic import MAX_REFUSALS, Limits
-from hall_monitor.agents.supervisor import scripted_answer, view_from_content
-from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
-from hall_monitor.governance.audit import TriageRecorder
-from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
-from hall_monitor.models import (
+from hall_monitor.claims.agentic import MAX_REFUSALS, Limits
+from hall_monitor.claims.agents.supervisor import scripted_answer, view_from_content
+from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.models import (
     CoverageFinding,
     CriticIssue,
     CriticReview,
@@ -27,11 +25,13 @@ from hall_monitor.models import (
     SupervisorDecision,
     SupervisorReason,
 )
-from hall_monitor.pipeline import triage
+from hall_monitor.claims.pipeline import triage
+from hall_monitor.claims.workflow import open_workflow
+from hall_monitor.governance.audit import TriageRecorder
+from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.registry import Registry
 from hall_monitor.shared_models import StepOutcome, StepRefusal
 from hall_monitor.tools.gateway import ToolGateway
-from hall_monitor.workflow import open_workflow
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth, specialists
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}

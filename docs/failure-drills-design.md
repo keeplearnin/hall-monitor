@@ -21,7 +21,7 @@ outcome in code.
 
 ## What a drill does
 
-`python -m hall_monitor.drills` runs the 36 synthetic claims (twice by default, as separate
+`python -m hall_monitor.claims.drills` runs the 36 synthetic claims (twice by default, as separate
 cases) through the real claims workflow, several at a time on threads, into its own registry
 copy, audit log and checkpoints under `var/drills/`. Every control runs as it does for real: the
 registry and its stop list, the tool gateway, the routing rule, the once-only evidence pack and

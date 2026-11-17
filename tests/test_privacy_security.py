@@ -6,26 +6,33 @@ from types import SimpleNamespace
 
 import pytest
 
-from hall_monitor.agents import recommendation, risk_fraud
 from hall_monitor.agents.base import ToolAccess, run_agent
-from hall_monitor.agents.recommendation import RecommendationInput
-from hall_monitor.data import (
+from hall_monitor.claims.agents import recommendation, risk_fraud
+from hall_monitor.claims.agents.recommendation import RecommendationInput
+from hall_monitor.claims.data import (
     DATA_DIR,
     iter_claims,
     load_ground_truth,
     load_policy_records,
     load_policy_wording,
 )
-from hall_monitor.evals.adversarial import build_claim, load_cases, score
-from hall_monitor.evals.fairness import NAMES, _forms, name_variant, run, summarize, swap_name
-from hall_monitor.evals.scoring import amount_in, source_text
+from hall_monitor.claims.evals.adversarial import build_claim, load_cases, score
+from hall_monitor.claims.evals.fairness import (
+    NAMES,
+    _forms,
+    name_variant,
+    run,
+    summarize,
+    swap_name,
+)
+from hall_monitor.claims.evals.scoring import amount_in, source_text
+from hall_monitor.claims.models import CoverageFinding, IntakeExtraction, Route
+from hall_monitor.claims.pipeline import triage
+from hall_monitor.claims.tool_server import build_server
 from hall_monitor.gateway.injection import detect_instructions
 from hall_monitor.gateway.redaction import redact_claim, redact_text
-from hall_monitor.models import CoverageFinding, IntakeExtraction, Route
-from hall_monitor.pipeline import triage
 from hall_monitor.registry import DataClassNotAllowedError, Registry
 from hall_monitor.tools.gateway import ToolGateway
-from hall_monitor.tools.server import build_server
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
@@ -383,7 +390,7 @@ def test_channel_and_kind_must_be_codes(field):
     kind into every prompt; both are the claimant's, so free text there is refused."""
     from pydantic import ValidationError
 
-    from hall_monitor.models import ClaimSubmission
+    from hall_monitor.claims.models import ClaimSubmission
 
     claim = CLAIMS["claim_001"].model_dump(mode="json")
     if "channel" in field:
@@ -466,7 +473,7 @@ def test_channel_and_kind_are_known_values(field):
     """A code can still spell a name or an instruction, so only known channels and kinds load."""
     from pydantic import ValidationError
 
-    from hall_monitor.models import ClaimSubmission
+    from hall_monitor.claims.models import ClaimSubmission
 
     claim = CLAIMS["claim_001"].model_dump(mode="json")
     if "channel" in field:
@@ -480,8 +487,8 @@ def test_channel_and_kind_are_known_values(field):
 def test_run_refuses_a_bad_claim_file_without_echoing_it(tmp_path, capsys):
     import json as json_module
 
-    import hall_monitor.run as run_module
-    from hall_monitor.data import DATA_DIR
+    import hall_monitor.claims.run as run_module
+    from hall_monitor.claims.data import DATA_DIR
 
     raw = json_module.loads((DATA_DIR / "claims" / "claim_001.json").read_text())
     raw["channel"] = "email from Jane Q. Doe"
@@ -499,7 +506,7 @@ def test_a_claim_id_must_be_a_code(claim_id):
     """The claim ID reaches every audit entry, the recommender's input and traces."""
     from pydantic import ValidationError
 
-    from hall_monitor.models import ClaimSubmission
+    from hall_monitor.claims.models import ClaimSubmission
 
     with pytest.raises(ValidationError):
         ClaimSubmission.model_validate(
@@ -525,7 +532,7 @@ def test_redaction_cant_reveal_a_signal_the_detector_missed(text):
 
 def test_eval_claim_variants_have_valid_claim_ids():
     """The evals copy claims without validation, so their IDs are checked here."""
-    from hall_monitor.models import ClaimSubmission
+    from hall_monitor.claims.models import ClaimSubmission
 
     variants = [build_claim(case, CLAIMS) for case in load_cases()]
     claim = CLAIMS["claim_001"]
@@ -549,9 +556,9 @@ def test_the_default_model_client_bounds_each_call():
 def test_the_pipelines_use_the_bounded_client_when_none_is_passed(monkeypatch):
     """Review 26 re-check: only the factory was tested; a pipeline reverting to the SDK's
     default client would have passed."""
+    import hall_monitor.claims.pipeline as claims_pipeline
     import hall_monitor.hr.pipeline as hr_pipeline
-    import hall_monitor.pipeline as claims_pipeline
-    from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
+    from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
     from hall_monitor.hr.data import load_company, load_employees, load_messages
     from hall_monitor.registry import Registry
     from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth

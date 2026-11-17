@@ -10,16 +10,14 @@ import pytest
 from pydantic import ValidationError
 
 from hall_monitor.agents.base import render_claim, render_feedback
-from hall_monitor.amounts import source_text
-from hall_monitor.data import (
+from hall_monitor.claims.amounts import source_text
+from hall_monitor.claims.data import (
     iter_claims,
     load_ground_truth,
     load_policy_records,
     load_policy_wording,
 )
-from hall_monitor.gateway.redaction import redact_claim
-from hall_monitor.governance.routing import route_claim
-from hall_monitor.models import (
+from hall_monitor.claims.models import (
     CoverageAssessment,
     CoverageDecision,
     CoverageFinding,
@@ -34,7 +32,9 @@ from hall_monitor.models import (
     RiskLevel,
     Route,
 )
-from hall_monitor.pipeline import triage
+from hall_monitor.claims.pipeline import triage
+from hall_monitor.claims.routing import route_claim
+from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.registry import Registry, load_approvals
 from hall_monitor.tools.gateway import ToolGateway
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth, specialists

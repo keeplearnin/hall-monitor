@@ -204,7 +204,7 @@ def test_two_decisions_at_once_record_one(log, monkeypatch):
 
 
 def test_identical_packs_have_different_hashes():
-    from hall_monitor.governance.approval import evidence_sha256
+    from hall_monitor.claims.approval import evidence_sha256
 
     prepared = type("P", (), {})()
     for name, value in {

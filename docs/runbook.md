@@ -21,7 +21,7 @@ uv run python -m hall_monitor.no_send check        # nothing in the tree can sen
 - **Secrets:** `ANTHROPIC_API_KEY` (and optional Langfuse keys) in `.env`, never committed
   (`.env.example` lists names only). Without a key nothing calls the model; the demos and every
   test run with scripted clients.
-- **What runs agentic:** claims (`python -m hall_monitor.run`), the complaint desk
+- **What runs agentic:** claims (`python -m hall_monitor.claims.run`), the complaint desk
   (`python -m hall_monitor.complaints.run`) and HR leave (`python -m hall_monitor.hr.run`) let
   their supervisors choose steps within code's bounds (ADR 0028). The fixed order is kept for
   comparison only (`triage(..., agentic=False)`, `baseline --fixed`).
@@ -110,7 +110,7 @@ monthly caps and owner, and the model price table (HM-34, ADR 0030). Days and mo
   sqlite3 -readonly var/spend.sqlite "SELECT workflow, ROUND(SUM(COALESCE(actual_usd, reserved_usd)), 4) AS committed, SUM(actual_usd IS NULL) AS open FROM spend WHERE day = strftime('%Y-%m-%d','now') GROUP BY workflow"
   ```
 
-- **Only live runs count:** `hall_monitor.run`, `complaints.run --live`, `complaints.submit
+- **Only live runs count:** `hall_monitor.claims.run`, `complaints.run --live`, `complaints.submit
   --live`, `hr.run` and `hr.submit --live` pass the ledger. Demo and scripted runs, and the evals'
   live runs, aren't held to the caps yet (state the cost before running an eval, CLAUDE.md).
 - **Partner claims** have a `partners` budget too (2 steps, 0.05 USD, 120 s a case; 1.00 USD a
@@ -154,7 +154,7 @@ uv run python -m hall_monitor.audit verify                  # the chain
 uv run python -m hall_monitor.evals.gate                    # results vs thresholds, staleness
 uv run python -m hall_monitor.evals.agentic_compare         # agentic vs fixed, scripted
 uv run python -m hall_monitor.evals.stop_timing             # kill-switch drill
-uv run python -m hall_monitor.drills --cap-usd 0.45         # failure drills, scripted
+uv run python -m hall_monitor.claims.drills --cap-usd 0.45         # failure drills, scripted
 uv run python -m hall_monitor.panel serve                   # read-only control panel
 ```
 

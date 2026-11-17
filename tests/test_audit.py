@@ -8,13 +8,13 @@ import threading
 import pytest
 from langgraph.types import Command
 
-from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
-from hall_monitor.governance.approval import AdjusterDecision
+from hall_monitor.claims.approval import AdjusterDecision
+from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.models import NextStep
+from hall_monitor.claims.workflow import open_workflow
 from hall_monitor.governance.audit import GENESIS_HASH, AuditLog, ChainHead, entry_hash
-from hall_monitor.models import NextStep
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
-from hall_monitor.workflow import open_workflow
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth, signed_decision
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
@@ -188,7 +188,7 @@ def test_a_tool_result_hash_can_t_confirm_the_insured_s_name(tmp_path):
     """Tool results go to the agent too. For a policy with no earlier claims, claims_history
     returns only the insured's name, so a plain hash of the result could be confirmed from a
     list of names; the log keys it."""
-    from hall_monitor.data import load_policy_records
+    from hall_monitor.claims.data import load_policy_records
     from hall_monitor.governance.audit import TriageRecorder
 
     def name_only(name: str) -> str:

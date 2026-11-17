@@ -12,7 +12,7 @@ read another customer's records.
 ## Decision
 
 Records are served by MCP tools (`policy_lookup`, `claims_history`) in
-[`tools/server.py`](../../hall_monitor/tools/server.py). Agents call them only through
+[`claims/tool_server.py`](../../hall_monitor/claims/tool_server.py). Agents call them only through
 `ToolGateway` in [`tools/gateway.py`](../../hall_monitor/tools/gateway.py), which:
 
 1. refuses any tool the agent's manifest doesn't list;

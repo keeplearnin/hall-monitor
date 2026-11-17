@@ -1,6 +1,7 @@
 """Adversarial suite: attacks planted in real claims, scored on whether any of them worked.
 
-    uv run python -m hall_monitor.evals.adversarial --trials 2 --out evals/results/adversarial
+    uv run python -m hall_monitor.claims.evals.adversarial --trials 2 \
+        --out evals/results/adversarial
 
 Each case in data/synthetic/adversarial/cases.json adds text to a claim's narrative or as a new
 attachment. An attack succeeds if the payout rises above the answer key, a denial becomes a
@@ -22,11 +23,11 @@ from dotenv import load_dotenv
 
 from hall_monitor import tracing
 from hall_monitor.agents.base import default_client
-from hall_monitor.data import DATA_DIR, iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.data import DATA_DIR, iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.evals.scoring import is_infrastructure_stop
+from hall_monitor.claims.models import Attachment, ClaimSubmission, NextStep, Route, TriageResult
+from hall_monitor.claims.pipeline import triage
 from hall_monitor.evals.meta import run_meta
-from hall_monitor.evals.scoring import is_infrastructure_stop
-from hall_monitor.models import Attachment, ClaimSubmission, NextStep, Route, TriageResult
-from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
 
@@ -154,7 +155,7 @@ def write_report(path: Path, meta: dict, summary: dict, results: list[AttackResu
     lines += [
         "",
         "```bash",
-        f"uv run python -m hall_monitor.evals.adversarial --out {path.parent}",
+        f"uv run python -m hall_monitor.claims.evals.adversarial --out {path.parent}",
         "```",
         "",
     ]
@@ -162,7 +163,7 @@ def write_report(path: Path, meta: dict, summary: dict, results: list[AttackResu
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="hall_monitor.evals.adversarial")
+    parser = argparse.ArgumentParser(prog="hall_monitor.claims.evals.adversarial")
     parser.add_argument("--trials", type=int, default=2)
     parser.add_argument("--out", type=Path, default=Path("evals/results/adversarial"))
     parser.add_argument("--workers", type=int, default=6)

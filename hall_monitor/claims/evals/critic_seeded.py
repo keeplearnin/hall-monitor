@@ -1,6 +1,6 @@
 """Measure the critic directly: correct work with one planted error, and correct work with none.
 
-    uv run python -m hall_monitor.evals.critic_seeded --out evals/results/critic-seeded
+    uv run python -m hall_monitor.claims.evals.critic_seeded --out evals/results/critic-seeded
 
 Each case gives the critic the answer key's extraction, coverage and risk for one claim. A
 control case changes nothing, so any issue raised is a false alarm. Each seeded case plants one
@@ -22,15 +22,13 @@ from dotenv import load_dotenv
 
 from hall_monitor import tracing
 from hall_monitor.agents.base import ToolAccess, default_client
-from hall_monitor.agents.critic import run_critic
-from hall_monitor.data import (
+from hall_monitor.claims.agents.critic import run_critic
+from hall_monitor.claims.data import (
     iter_claims,
     load_ground_truth,
     load_policy_wording,
 )
-from hall_monitor.evals.meta import run_meta
-from hall_monitor.gateway.cost import call_cost
-from hall_monitor.models import (
+from hall_monitor.claims.models import (
     ClaimSubmission,
     CoverageAssessment,
     CoverageDecision,
@@ -42,6 +40,8 @@ from hall_monitor.models import (
     RiskFlag,
     RiskLevel,
 )
+from hall_monitor.evals.meta import run_meta
+from hall_monitor.gateway.cost import call_cost
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
 
@@ -218,7 +218,7 @@ def write_report(path: Path, meta: dict, summary: dict, results: list[CaseResult
         "## Reproduce",
         "",
         "```bash",
-        f"uv run python -m hall_monitor.evals.critic_seeded --out {path.parent}",
+        f"uv run python -m hall_monitor.claims.evals.critic_seeded --out {path.parent}",
         "```",
         "",
     ]
@@ -226,7 +226,7 @@ def write_report(path: Path, meta: dict, summary: dict, results: list[CaseResult
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="hall_monitor.evals.critic_seeded")
+    parser = argparse.ArgumentParser(prog="hall_monitor.claims.evals.critic_seeded")
     parser.add_argument("--out", type=Path, default=Path("evals/results/critic-seeded"))
     parser.add_argument("--workers", type=int, default=6)
     args = parser.parse_args(argv)

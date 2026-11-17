@@ -2,7 +2,7 @@
 
 Run it standalone over stdio for inspection or another client:
 
-    uv run python -m hall_monitor.tools.server
+    uv run python -m hall_monitor.claims.tool_server
 
 Inside the pipeline it runs in-process, behind hall_monitor.tools.gateway, which checks each
 agent's allow-list before any call reaches it.
@@ -15,8 +15,8 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from hall_monitor.data import DATA_DIR, load_policy_records
-from hall_monitor.models import PolicyRecord
+from hall_monitor.claims.data import DATA_DIR, load_policy_records
+from hall_monitor.claims.models import PolicyRecord
 from hall_monitor.names import name_key
 from hall_monitor.registry import DataClass
 

@@ -1,6 +1,6 @@
 """Simulated human override rate, from a saved eval run. No model calls.
 
-    uv run python -m hall_monitor.evals.override evals/results/hardened-critic
+    uv run python -m hall_monitor.claims.evals.override evals/results/hardened-critic
 
 The simulated adjuster decides every claim the routing rule sends to a person exactly as the
 answer key does. An override is a routed claim where that decision differs from the AI's
@@ -15,8 +15,8 @@ import json
 import sys
 from pathlib import Path
 
-from hall_monitor.data import load_ground_truth
-from hall_monitor.models import NextStep, Route
+from hall_monitor.claims.data import load_ground_truth
+from hall_monitor.claims.models import NextStep, Route
 
 
 def ai_matches_key(result: dict, truth) -> bool:

@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from hall_monitor.models import policy_numbers_in
+from hall_monitor.claims.models import policy_numbers_in
 
 GENESIS_HASH = "0" * 64
 DEFAULT_AUDIT_DB = Path(__file__).resolve().parents[2] / "var" / "audit.sqlite"
@@ -122,7 +122,7 @@ class EvidenceChanged(RuntimeError):
 
 def evidence_body(pack: dict) -> str:
     """The stored form of an evidence pack; its SHA-256 is the pack's hash
-    (governance.approval.evidence_sha256)."""
+    (claims.approval.evidence_sha256)."""
     return json.dumps(pack, sort_keys=True)
 
 

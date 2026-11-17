@@ -15,9 +15,8 @@ Anything other than a clean, low-risk payment within bounds goes to an adjuster.
 
 from __future__ import annotations
 
-from hall_monitor.amounts import amount_in, other_currencies, untraced
-from hall_monitor.governance import ADJUSTER_PAYOUT_THRESHOLD_USD
-from hall_monitor.models import (
+from hall_monitor.claims.amounts import amount_in, other_currencies, untraced
+from hall_monitor.claims.models import (
     CoverageAssessment,
     CoverageDecision,
     IntakeExtraction,
@@ -30,6 +29,9 @@ from hall_monitor.models import (
     RoutingDecision,
 )
 from hall_monitor.names import name_key
+
+# Payouts above this amount stop for an adjuster. See data/synthetic/README.md.
+ADJUSTER_PAYOUT_THRESHOLD_USD = 2_500
 
 
 def route_claim(

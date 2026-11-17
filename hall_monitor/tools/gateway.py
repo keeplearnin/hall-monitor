@@ -20,8 +20,9 @@ from typing import TYPE_CHECKING, Any
 
 from fastmcp import Client, FastMCP
 
+from hall_monitor.claims.models import PolicyRecord
+from hall_monitor.claims.tool_server import POLICY_LOOKUP, TOOL_DATA_CLASSES, build_server
 from hall_monitor.gateway.redaction import redact_value
-from hall_monitor.models import PolicyRecord
 from hall_monitor.no_send import tool_problems
 from hall_monitor.registry import (
     ALL_DATA_CLASSES,
@@ -32,7 +33,6 @@ from hall_monitor.registry import (
     SendCapabilityError,
 )
 from hall_monitor.shared_models import ToolCall
-from hall_monitor.tools.server import POLICY_LOOKUP, TOOL_DATA_CLASSES, build_server
 
 if TYPE_CHECKING:
     from hall_monitor.delegation import Grant, GrantBook

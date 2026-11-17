@@ -4,14 +4,14 @@ import re
 
 import pytest
 
-from hall_monitor.amounts import source_text
-from hall_monitor.data import (
+from hall_monitor.claims.amounts import source_text
+from hall_monitor.claims.data import (
     iter_claims,
     load_ground_truth,
     load_policy_records,
     load_policy_wording,
 )
-from hall_monitor.evals.scoring import (
+from hall_monitor.claims.evals.scoring import (
     amount_in,
     clause_exists,
     failed_run,
@@ -22,16 +22,16 @@ from hall_monitor.evals.scoring import (
     summarize,
     untraced,
 )
-from hall_monitor.gateway.cost import call_cost
-from hall_monitor.gateway.redaction import redact_claim
-from hall_monitor.governance.routing import route_claim
-from hall_monitor.models import (
+from hall_monitor.claims.models import (
     ClaimedItem,
     CoverageAssessment,
     Recommendation,
     RiskAssessment,
     TriageResult,
 )
+from hall_monitor.claims.routing import route_claim
+from hall_monitor.gateway.cost import call_cost
+from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.shared_models import AgentCall
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
@@ -164,8 +164,8 @@ def test_stopped_run_scores_as_wrong_without_crashing():
 def test_report_renders(tmp_path):
     from dataclasses import asdict
 
-    from hall_monitor.evals.baseline import write_report
-    from hall_monitor.evals.scoring import summarize
+    from hall_monitor.claims.evals.baseline import write_report
+    from hall_monitor.claims.evals.scoring import summarize
 
     result = result_from_truth("claim_001")
     s = score(result)
@@ -200,7 +200,7 @@ def test_report_renders(tmp_path):
     ],
 )
 def test_amounts_match_whole_numbers_only(amount, text, found):
-    from hall_monitor.evals.scoring import amount_in
+    from hall_monitor.claims.evals.scoring import amount_in
 
     assert amount_in(amount, text) is found
 
@@ -217,7 +217,7 @@ def test_over_citing_lowers_clause_precision_not_recall():
 
 
 def test_seeded_cases_plant_exactly_one_error_each():
-    from hall_monitor.evals.critic_seeded import build_cases
+    from hall_monitor.claims.evals.critic_seeded import build_cases
 
     truths = [load_ground_truth(cid) for cid in sorted(CLAIMS)]
     cases = build_cases(truths)
@@ -237,8 +237,8 @@ def test_seeded_cases_plant_exactly_one_error_each():
 
 
 def test_seeded_scoring():
-    from hall_monitor.evals.critic_seeded import _control, _missing_date, run_case
-    from hall_monitor.models import CriticIssue, CriticReview, ReviewedStage
+    from hall_monitor.claims.evals.critic_seeded import _control, _missing_date, run_case
+    from hall_monitor.claims.models import CriticIssue, CriticReview, ReviewedStage
     from hall_monitor.registry import Registry
     from hall_monitor.tools.gateway import ToolGateway
     from tests.fakes import TEST_REGISTRY_DIR, fake_client
@@ -270,7 +270,7 @@ def test_run_stopped_before_intake_scores_as_wrong_without_crashing():
 def test_simulated_override_rate_on_a_published_run():
     from pathlib import Path
 
-    from hall_monitor.evals.override import simulate
+    from hall_monitor.claims.evals.override import simulate
 
     summary = simulate(Path("evals/results/hardened-critic"))
     assert summary["routed_to_adjuster"] + summary["routed_automatically"] == 102
@@ -427,7 +427,7 @@ def test_the_routing_trace_only_counts_dollar_amounts(amount, text, found):
     ],
 )
 def test_another_currency_named_anywhere_in_the_documents_is_found(text, named):
-    from hall_monitor.amounts import other_currencies
+    from hall_monitor.claims.amounts import other_currencies
 
     assert other_currencies(text) == named
 
@@ -440,7 +440,7 @@ def test_another_currency_named_anywhere_in_the_documents_is_found(text, named):
     ],
 )
 def test_ordinary_us_receipts_name_no_other_currency(text):
-    from hall_monitor.amounts import other_currencies
+    from hall_monitor.claims.amounts import other_currencies
 
     assert other_currencies(text) == []
 
@@ -471,7 +471,7 @@ def test_a_claim_whose_documents_name_another_currency_goes_to_a_person():
 
 
 def test_figures_marked_usd_still_trace_when_another_currency_is_named():
-    from hall_monitor.amounts import untraced
+    from hall_monitor.claims.amounts import untraced
 
     text = "Total: USD 38.50 (card, converted from JPY)\nShirt US$214.00"
     assert untraced([38.5, 214.0], text, usd=True, strict=True) == []
@@ -513,7 +513,7 @@ def test_wont_and_hotel_names_dont_make_a_us_claim_strict(text):
     """Words that are also currency names, or English words that are also currency codes, away
     from any figure and not in a header phrase, don't make the documents name another
     currency, so a bare "$" still counts as US dollars."""
-    from hall_monitor.amounts import other_currencies, untraced
+    from hall_monitor.claims.amounts import other_currencies, untraced
 
     assert other_currencies(text) == []
     strict = bool(other_currencies(text))
@@ -533,6 +533,6 @@ def test_wont_and_hotel_names_dont_make_a_us_claim_strict(text):
     ],
 )
 def test_currency_names_next_to_a_figure_or_in_a_header_are_still_found(text, named):
-    from hall_monitor.amounts import other_currencies
+    from hall_monitor.claims.amounts import other_currencies
 
     assert other_currencies(text) == named

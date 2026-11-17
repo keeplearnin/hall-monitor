@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 from hall_monitor.agents.base import AgentRefusedError, render_claim
-from hall_monitor.agents.intake import run_intake
-from hall_monitor.data import iter_claims, load_ground_truth
+from hall_monitor.claims.agents.intake import run_intake
+from hall_monitor.claims.data import iter_claims, load_ground_truth
 from hall_monitor.registry import Registry, UnregisteredAgentError
 from tests.fakes import TEST_REGISTRY_DIR
 
@@ -81,8 +81,8 @@ def test_codes_the_log_repeats_must_be_codes(field, value):
     model can't put free text there."""
     from pydantic import ValidationError
 
-    from hall_monitor.data import load_ground_truth
-    from hall_monitor.models import IntakeExtraction
+    from hall_monitor.claims.data import load_ground_truth
+    from hall_monitor.claims.models import IntakeExtraction
 
     good = load_ground_truth("claim_001").extraction.model_dump()
     with pytest.raises(ValidationError):

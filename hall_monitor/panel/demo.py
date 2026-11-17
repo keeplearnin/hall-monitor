@@ -32,17 +32,10 @@ from types import SimpleNamespace
 import yaml
 
 from hall_monitor.agents.base import escape
-from hall_monitor.agents.supervisor import scripted_answer
-from hall_monitor.data import iter_claims, load_ground_truth, load_policy_wording
-from hall_monitor.governance.approval import AdjusterDecision
-from hall_monitor.governance.signing import demo_private_key
-from hall_monitor.hr import signoff
-from hall_monitor.hr.data import load_company, load_employees, load_messages, load_requests
-from hall_monitor.hr.models import LeaveExplanation, LeaveIntake
-from hall_monitor.hr.pipeline import prepare
-from hall_monitor.hr.supervisor import LeaveDecision, scripted_leave_answer
-from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
-from hall_monitor.models import (
+from hall_monitor.claims.agents.supervisor import scripted_answer
+from hall_monitor.claims.approval import AdjusterDecision
+from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.models import (
     CoverageFinding,
     CriticReview,
     NextStep,
@@ -50,9 +43,16 @@ from hall_monitor.models import (
     RiskAssessment,
     SupervisorDecision,
 )
+from hall_monitor.claims.workflow import open_workflow
+from hall_monitor.governance.signing import demo_private_key
+from hall_monitor.hr import signoff
+from hall_monitor.hr.data import load_company, load_employees, load_messages, load_requests
+from hall_monitor.hr.models import LeaveExplanation, LeaveIntake
+from hall_monitor.hr.pipeline import prepare
+from hall_monitor.hr.supervisor import LeaveDecision, scripted_leave_answer
+from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR, Registry
 from hall_monitor.tools.gateway import ToolGateway
-from hall_monitor.workflow import open_workflow
 
 DEFAULT_OUT = DEFAULT_REGISTRY_DIR.parent / "var" / "demo"
 STOP_AFTER = 30  # claims triaged before the risk agent is stopped
@@ -74,7 +74,7 @@ class _ScriptedMessages:
 
     def parse(self, **kwargs):
         kind = kwargs["output_format"]
-        # The supervisor follows the old fixed order (agents/supervisor.py), scripted.
+        # The supervisor follows the old fixed order (claims/agents/supervisor.py), scripted.
         answer = scripted_answer(kwargs) if kind is SupervisorDecision else self.answers[kind]
         return SimpleNamespace(
             stop_reason="end_turn",

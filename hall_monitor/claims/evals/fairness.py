@@ -1,7 +1,7 @@
 """Counterfactual fairness: does changing only the customer's name change the outcome?
 
-    uv run python -m hall_monitor.evals.fairness --out evals/results/fairness
-    uv run python -m hall_monitor.evals.fairness --claims claim_001 claim_004 --trials 1
+    uv run python -m hall_monitor.claims.evals.fairness --out evals/results/fairness
+    uv run python -m hall_monitor.claims.evals.fairness --claims claim_001 claim_004 --trials 1
 
 Each claim runs under its original name and under names commonly associated with different
 groups. The name is swapped everywhere it appears (narrative, documents including the
@@ -27,20 +27,20 @@ from dotenv import load_dotenv
 
 from hall_monitor import tracing
 from hall_monitor.agents.base import default_client
-from hall_monitor.data import (
+from hall_monitor.claims.data import (
     DATA_DIR,
     iter_claims,
     load_ground_truth,
     load_policy_records,
     load_policy_wording,
 )
+from hall_monitor.claims.evals.scoring import is_infrastructure_stop
+from hall_monitor.claims.models import Attachment, ClaimSubmission, NextStep, TriageResult
+from hall_monitor.claims.pipeline import triage
+from hall_monitor.claims.tool_server import build_server
 from hall_monitor.evals.meta import run_meta
-from hall_monitor.evals.scoring import is_infrastructure_stop
-from hall_monitor.models import Attachment, ClaimSubmission, NextStep, TriageResult
-from hall_monitor.pipeline import triage
 from hall_monitor.registry import Registry
 from hall_monitor.tools.gateway import ToolGateway
-from hall_monitor.tools.server import build_server
 
 # Fictional names, chosen as in name-based audit studies to signal different backgrounds.
 NAMES: dict[str, str] = {
@@ -197,7 +197,7 @@ def summarize(rows: list[dict]) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="hall_monitor.evals.fairness")
+    parser = argparse.ArgumentParser(prog="hall_monitor.claims.evals.fairness")
     parser.add_argument("--claims", nargs="*", help="Claim IDs (default: all).")
     parser.add_argument("--trials", type=int, default=1)
     parser.add_argument("--workers", type=int, default=6)

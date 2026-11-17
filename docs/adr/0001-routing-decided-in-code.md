@@ -11,7 +11,7 @@ review, and nobody could state the rule an auditor would be checking against.
 
 ## Decision
 
-`route_claim` in [`governance/routing.py`](../../hall_monitor/governance/routing.py) is ordinary
+`route_claim` in [`claims/routing.py`](../../hall_monitor/claims/routing.py) is ordinary
 Python. A claim goes automatically only when every one of these is false: the recommendation
 isn't "pay", nothing is covered, the payout exceeds the amount claimed, the payout is above
 $2,500 (`ADJUSTER_PAYOUT_THRESHOLD_USD`), there is any fraud flag or non-low risk, the critic

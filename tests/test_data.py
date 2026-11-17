@@ -2,17 +2,17 @@
 
 import pytest
 
-from hall_monitor.amounts import source_text
-from hall_monitor.data import (
+from hall_monitor.claims.amounts import source_text
+from hall_monitor.claims.data import (
     DATA_DIR,
     iter_claims,
     load_ground_truth,
     load_policy_records,
     load_policy_wording,
 )
+from hall_monitor.claims.models import CoverageAssessment, Recommendation, RiskAssessment
+from hall_monitor.claims.routing import route_claim
 from hall_monitor.gateway.redaction import redact_claim
-from hall_monitor.governance.routing import route_claim
-from hall_monitor.models import CoverageAssessment, Recommendation, RiskAssessment
 
 CLAIMS = list(iter_claims())
 POLICIES = load_policy_records()

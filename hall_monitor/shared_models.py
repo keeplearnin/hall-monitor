@@ -1,6 +1,6 @@
 """Records every worked example shares: an agent call, a tool call through the gateway, and what
-came of a supervisor's step. Each example's own types live beside its code (`hall_monitor.models`
-for claims, `hall_monitor/<example>/models.py` for the others)."""
+came of a supervisor's step. Each example's own types live beside its code, in
+`hall_monitor/<example>/models.py`."""
 
 from __future__ import annotations
 

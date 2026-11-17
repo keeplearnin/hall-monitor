@@ -9,13 +9,9 @@ from types import SimpleNamespace
 
 import yaml
 
-from hall_monitor.agents.supervisor import scripted_answer
-from hall_monitor.complaints.supervisor import DeskDecision, scripted_desk_answer
-from hall_monitor.governance.approval import AdjusterDecision
-from hall_monitor.governance.signing import demo_private_key
-from hall_monitor.hr.supervisor import LeaveDecision, scripted_leave_answer
-from hall_monitor.kill_switch import STOPS_FILENAME
-from hall_monitor.models import (
+from hall_monitor.claims.agents.supervisor import scripted_answer
+from hall_monitor.claims.approval import AdjusterDecision
+from hall_monitor.claims.models import (
     CoverageFinding,
     CriticReview,
     GroundTruth,
@@ -24,6 +20,10 @@ from hall_monitor.models import (
     RiskAssessment,
     SupervisorDecision,
 )
+from hall_monitor.complaints.supervisor import DeskDecision, scripted_desk_answer
+from hall_monitor.governance.signing import demo_private_key
+from hall_monitor.hr.supervisor import LeaveDecision, scripted_leave_answer
+from hall_monitor.kill_switch import STOPS_FILENAME
 from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR
 
 

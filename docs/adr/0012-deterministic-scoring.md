@@ -10,7 +10,7 @@ biases, and its scores move when it is updated.
 
 ## Decision
 
-[`evals/scoring.py`](../../hall_monitor/evals/scoring.py) scores each run against a hand-written
+[`claims/evals/scoring.py`](../../hall_monitor/claims/evals/scoring.py) scores each run against a hand-written
 answer key: field-by-field extraction, coverage outcome and amount, clause precision, routing,
 and a grounding check that every name, amount and clause the agents used appears in the claim or
 the policy wording. Fuzzy matches are narrow and tested (for example, place names). Raw outputs

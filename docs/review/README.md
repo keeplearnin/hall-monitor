@@ -21,10 +21,10 @@ but they are not an external review.
 | [Board brief](../board-brief.md) | Is the risk framed the way a board would need it? |
 | [Controls register](../controls.md) | Do the controls fit the NIST AI RMF and FINOS AIGF entries they're mapped to? Is anything important missing from "not covered"? |
 | [Decision records](../adr/README.md) | Are the trade-offs right for a regulated firm? |
-| [`governance/routing.py`](../../hall_monitor/governance/routing.py), [`governance/approval.py`](../../hall_monitor/governance/approval.py) | Can a claim reach automatic payment when it shouldn't, or be decided by someone without authority? |
+| [`claims/routing.py`](../../hall_monitor/claims/routing.py), [`claims/approval.py`](../../hall_monitor/claims/approval.py) | Can a claim reach automatic payment when it shouldn't, or be decided by someone without authority? |
 | [`governance/audit.py`](../../hall_monitor/governance/audit.py) | Is the tamper-evidence claim stated honestly? |
 | [`gateway/`](../../hall_monitor/gateway/) and [`tools/gateway.py`](../../hall_monitor/tools/gateway.py) | Can claim text steer an agent, or reach another customer's records? |
-| [Eval results](../../evals/results/) and [`evals/scoring.py`](../../hall_monitor/evals/scoring.py) | Do the published numbers support what the README says? |
+| [Eval results](../../evals/results/) and [`claims/evals/scoring.py`](../../hall_monitor/claims/evals/scoring.py) | Do the published numbers support what the README says? |
 
 ## Questions we most want answered
 
