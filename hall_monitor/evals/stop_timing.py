@@ -10,12 +10,16 @@ moment while the case is running, as an owner would with `python -m hall_monitor
 stop`. It records:
 
 - time_to_stop: from the stop being written to the case returning, routed to a person;
-- calls_started_after_stop: model calls by the stopped agent that began after the stop was
-  written (must be 0: every call checks the stops file first);
-- other_agents_calls_after_stop: calls by the case's other agents after the stop. Every
-  supervisor turn and every chosen step first re-checks every agent the case has used, so a
-  stop on an agent that already answered ends the case at the next step; a stop on an agent
-  not used yet takes effect when it is next needed, which can be one supervisor turn later;
+- calls_started_after_stop: model calls by the stopped agent whose stop check began after the
+  stop was written (must be 0: every call checks the stops file first). Each call is judged by
+  the hall-pass check that let it through, not by when it reached the model: a stop that
+  finished between the two is one the check couldn't have seen (the PR #87 flake);
+- other_agents_calls_after_stop: calls by the case's other agents after the stop, each judged
+  by the last re-check of the stopped agent before it (else its own check). Every supervisor
+  turn and every chosen step first re-checks every agent the case has used, so a stop on an
+  agent that already answered ends the case at the next step (calls_after_stop_on_used_agent,
+  must be 0); a stop on an agent not used yet takes effect when it is next needed, which can be
+  one supervisor turn later;
 - auto_after_stop: stopped cases that still went through automatically (claims) or to the light
   path (HR) (must be 0);
 - stop_missed: cases where the stopped agent had already made its last call, so the case
@@ -24,7 +28,9 @@ stop`. It records:
 What it shows: a stop takes effect at the next model call or step, so time_to_stop is bounded by
 the one call already in flight (here the simulated latency; live, one model call, seconds) plus
 the loop's overhead. It does not measure a live model's latency, how long an owner takes to
-decide to stop, or anything across machines beyond the shared stops file. No API calls.
+decide to stop, or anything across machines beyond the shared stops file. A check is timed when
+it began, so one that began before the write finished but read the file after it is counted as
+before the stop: that narrow window is lenient, not strict. No API calls.
 """
 
 from __future__ import annotations
@@ -89,18 +95,50 @@ SUPERVISOR_ANSWERS = frozenset({"SupervisorDecision", "DeskDecision", "LeaveDeci
 MIN_STOPPED_SHARE = 0.75  # below this, the drill didn't exercise the switch: a failure
 
 
+class _Checks:
+    """Wraps a registry's hall-pass check (``require``, which reads the stops file) and records
+    when each check that passed began, and for which agent. A check that began after the stop
+    was on disk read it, so passing it is a failure of the switch."""
+
+    def __init__(self, registry: Registry):
+        self.inner, self.passed = registry.require, []
+        registry.require = self  # the pipelines, gateway and check_data all call this
+
+    def __call__(self, agent_id: str, **kwargs):
+        began = time.perf_counter()
+        manifest = self.inner(agent_id, **kwargs)
+        self.passed.append((began, agent_id))
+        return manifest
+
+
 class _Timed:
     """Wraps a scripted client's messages: every call sleeps the latency first and records when
-    it started and for which answer type. A call the hall-pass check refuses never reaches
-    here."""
+    it started, its answer type, and the checks that passed since the previous call. A call the
+    hall-pass check refuses never reaches here."""
 
-    def __init__(self, inner, latency: float):
-        self.inner, self.latency, self.starts = inner, latency, []
+    def __init__(self, inner, latency: float, checks: _Checks):
+        self.inner, self.latency, self.checks, self.starts = inner, latency, checks, []
+        self._seen = 0
 
     def parse(self, **kwargs):
-        self.starts.append((time.perf_counter(), kwargs["output_format"].__name__))
+        checks = tuple(self.checks.passed[self._seen :])
+        self._seen = len(self.checks.passed)
+        self.starts.append((time.perf_counter(), kwargs["output_format"].__name__, checks))
         time.sleep(self.latency)
         return self.inner.parse(**kwargs)
+
+
+def _judged(started: float, kind: str, checks: tuple, agent: str) -> float:
+    """When the stop check behind a call began: the last check of the stopped agent since the
+    previous call (its own check before its call, or the per-step re-check before another
+    agent's); with none, the calling agent's own last check; with neither, the call's start.
+    Timing the call when it reached the model instead counted a call whose check ran before a
+    stop that finished in between as a call after it (the PR #87 flake)."""
+    for who in (agent, AGENT_OF[kind]):
+        times = [t for t, checked in checks if checked == who]
+        if times:
+            return times[-1]
+    return started
 
 
 def _registry_copy(root: Path) -> Path:
@@ -120,9 +158,10 @@ def _registry_copy(root: Path) -> Path:
 def _case(workflow: str, registry: Registry, latency: float):
     """A function running one case (returning whether it went through without a person's
     review, and its stop reason), and its timed client."""
+    checks = _Checks(registry)
     if workflow == "claims":
         claim = next(c for c in iter_claims() if c.claim_id == "claim_001")  # auto when clean
-        messages = _Timed(_client(claim.claim_id, scripted_answer).messages, latency)
+        messages = _Timed(_client(claim.claim_id, scripted_answer).messages, latency, checks)
         gateway, wording = claims_gateway(registry), load_policy_wording()
 
         def run():
@@ -138,7 +177,7 @@ def _case(workflow: str, registry: Registry, latency: float):
         return run, messages
     if workflow == "desk":
         complaint = load_pinned(PINNED_NAME)[0]
-        messages = _Timed(_DeskScripted(scripted_desk_answer, False), latency)
+        messages = _Timed(_DeskScripted(scripted_desk_answer, False), latency, checks)
 
         def run():
             result = triage_complaint(
@@ -148,7 +187,7 @@ def _case(workflow: str, registry: Registry, latency: float):
 
         return run, messages
     message = next(m for m in load_messages() if m.id == "lr_001")
-    messages = _Timed(_LeaveScripted(scripted_leave_answer, False), latency)
+    messages = _Timed(_LeaveScripted(scripted_leave_answer, False), latency, checks)
     company, employees = load_company(), load_employees()
 
     def run():
@@ -205,7 +244,7 @@ def drill(
             auto, stopped_reason = run_case()
             ended = time.perf_counter()
             thread.join()
-            seen.update(AGENT_OF[kind] for _, kind in messages.starts)
+            seen.update(AGENT_OF[kind] for _, kind, _ in messages.starts)
             if failed:
                 errors += 1
                 continue
@@ -213,24 +252,25 @@ def drill(
             if t1 >= ended:
                 late += 1  # the case finished before the stop was on disk
                 continue
-            mine = [t for t, kind in messages.starts if AGENT_OF[kind] == agent]
+            # Each call at the time its stop check began (_judged), not when it reached the model.
+            calls = [(_judged(*call, agent), call[1]) for call in messages.starts]
+            mine = [t for t, kind in calls if AGENT_OF[kind] == agent]
             after += sum(t > t1 for t in mine)
             window += sum(t0 < t <= t1 for t in mine)
-            others += sum(t > t1 and AGENT_OF[k] != agent for t, k in messages.starts)
+            others += sum(t > t1 and AGENT_OF[k] != agent for t, k in calls)
             autos += auto
             had_answered = any(t < t0 for t in mine)
             if had_answered:
                 # A stop on an agent the case already used must end it at the next step (the
-                # per-step re-check, review 26 re-check): no specialist call may start after it,
-                # and at most the one supervisor turn whose check ran just before the write.
-                later = [k for t, k in messages.starts if t > t1]
-                turns = sum(k in SUPERVISOR_ANSWERS for k in later)
-                after_answered += (len(later) - turns) + max(turns - 1, 0)
+                # per-step re-check, review 26 re-check): no call may follow a check that began
+                # after the stop was on disk. A supervisor turn or step whose re-check ran before
+                # the write is judged by that re-check, so it isn't counted.
+                after_answered += sum(t > t1 for t, _ in calls)
             if stopped_reason is None:
                 # Every supervisor turn re-checks every agent the case used, so a call after the
                 # stop was on disk means a check that should have caught it: a failure. With no
                 # call after it, the stop landed after the case's last check (reported).
-                if any(t > t1 for t, _ in messages.starts):
+                if any(t > t1 for t, _ in calls):
                     missed += 1
                 else:
                     after_last_check += 1
@@ -339,17 +379,17 @@ def report(result: dict) -> str:
     lines += [
         "",
         "- **Gated:** no call by the stopped agent after its stop; after a stop on an agent "
-        "the case had already used, no specialist call and at most the one supervisor turn "
-        "already past its check (the per-step re-check); nothing "
+        "the case had already used, no further call (the per-step re-check); nothing "
         "through without review, no stop written in time and never noticed, and at least "
         f"{MIN_STOPPED_SHARE:.0%} of trials stopped, so a broken switch fails the drill.",
         "- **Other agents' calls after stop:** a stop on an agent the case already used ends it "
         "at the next step; a stop on an agent not used yet takes effect when it is next needed, "
         "so the case's other agents can make a few calls first (an intake call and a supervisor "
         "turn, here).",
-        "- **Its calls after stop** counts calls that began after the stop file was written; "
-        "a call whose check ran during the few milliseconds of the write is counted apart in "
-        "the results (`calls_during_the_write`).",
+        "- **Its calls after stop** counts calls whose stop check began after the stop file "
+        "was written: each call is judged by the check that let it through, not by when it "
+        "reached the model. A call whose check began during the few milliseconds of the write "
+        "is counted apart in the results (`calls_during_the_write`).",
         "- **Time to stop:** from the stop starting to be written to the case returning: the "
         "call in flight, any calls before the stopped agent is next needed, and the loop's "
         "overhead. **Stop not noticed** (gated at 0) is a stop on disk followed by a call "

@@ -834,6 +834,8 @@ controls:
       - tests/test_kill_switch.py::test_a_malformed_stop_list_fails_the_check_with_a_message
       - tests/test_kill_switch.py::test_the_kill_switch_drill_finds_no_call_or_automatic_route_after_a_stop
       - tests/test_kill_switch.py::test_the_drill_fails_when_the_kill_switch_is_broken
+      - tests/test_kill_switch.py::test_the_drill_judges_a_call_by_when_its_stop_check_ran
+      - tests/test_kill_switch.py::test_the_drill_still_counts_a_call_whose_check_ran_after_the_stop
       - tests/test_agentic.py::test_a_stop_during_a_revision_round_halts_it_before_the_next_agent
       - tests/test_desk_agentic.py::test_a_triage_agent_stopped_after_it_answered_has_its_answer_discarded
       - tests/test_partner_agents.py::test_a_stop_made_after_the_intake_agent_answered_sends_the_claim_to_a_person
@@ -857,7 +859,10 @@ controls:
       delete a stop and restart the agent unreviewed. Stops are not written to the audit log as
       events; a stopped agent shows there only as the stopped claim's reason. The stop lock is a
       file lock (POSIX), so it serialises owners on one machine, not on a shared network store, and
-      replacing the file needs write access to its directory.
+      replacing the file needs write access to its directory. The offline drill
+      (evals/stop_timing.py) judges each call by when the hall-pass check that let it through
+      began, so a check that began just before a stop finished writing but read the file after it
+      counts as before the stop: lenient within those few milliseconds, never strict.
 
   - id: HM-20
     name: Read-only control panel
