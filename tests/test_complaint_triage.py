@@ -594,3 +594,23 @@ def test_a_re_route_is_written_once_per_version(tmp_path):
     assert reroute_changed(changed, audit) is None
     audit.entries = real
     assert len([e for e in audit.entries() if e["event"] == "complaint_rerouted"]) == 1
+
+
+def test_a_run_where_every_complaint_is_spend_refused_counts_as_errors(monkeypatch):
+    """Review 46, H5: with the budgets unapproved, every complaint was refused before any model
+    call, yet errors and every must-route metric read 0 and every gated threshold passed."""
+    from hall_monitor import spend
+    from hall_monitor.budgets import BudgetsNotApproved
+    from hall_monitor.complaints.evals import evaluate
+
+    def refuse(*_args, **_kwargs):
+        raise BudgetsNotApproved(
+            "spend budgets not approved: budgets.yaml is not the approved version"
+        )
+
+    monkeypatch.setattr(spend, "approved_budgets", refuse)
+    complaints = load_pinned(PINNED_NAME)[:5]
+    summary = evaluate(
+        complaints, scripted_client(), Registry.from_dir(TEST_REGISTRY_DIR), "scripted"
+    )["summary"]
+    assert summary["errors"] == len(complaints)
