@@ -40,7 +40,9 @@ _PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
     ),
     (
         "passport_number",
-        re.compile(r"\b(passport(?: no\.?| number)?)(\s*:?\s*)[A-Z0-9]{6,9}\b", re.IGNORECASE),
+        # The number must hold a digit: under IGNORECASE a bare [A-Z0-9]{6,9} matched the next
+        # word ("passport renewal"), keeping the number and losing evidence (Review 46).
+        re.compile(r"\b(passport)(" + _SEP + r")(?=[A-Z]*\d)[A-Z0-9]{6,9}\b", re.IGNORECASE),
         r"\1\2[REDACTED]",
     ),
     ("us_ssn", re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[SSN REDACTED]"),

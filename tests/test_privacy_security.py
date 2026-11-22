@@ -112,6 +112,42 @@ def test_tax_ids_and_bank_details_are_redacted(text, secret, kind):
 @pytest.mark.parametrize(
     "text",
     [
+        "Passport number is X1234567",
+        "Passport: X1234567",
+        "passport no. X1234567",
+        "Passport #: X1234567",
+        "My passport number: 123456789",
+    ],
+)
+def test_a_passport_label_redacts_the_number_not_the_next_word(text):
+    """Review 46, H8: under IGNORECASE the number pattern matched ordinary words, so "Passport
+    number is X1234567" lost "number", kept the number, and counted it as redacted."""
+    from collections import Counter
+
+    counts = Counter()
+    out = redact_text(text, counts)
+    assert "1234567" not in out and counts["passport_number"] == 1
+    assert out.lower().startswith(text.lower().split("passport")[0] + "passport")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Expedited passport renewal fee: $130.00",
+        "Emergency passport office fee $135.00",
+        "My passport expired yesterday",
+    ],
+)
+def test_a_passport_word_with_no_number_after_it_keeps_its_evidence(text):
+    from collections import Counter
+
+    counts = Counter()
+    assert redact_text(text, counts) == text and not any(counts.values())
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
         "Receipt no. 4471-2290, total USD 1,150.00 on 2026-08-14.",
         "Booking ref 12-34, flight BA0117, policy WTP-ESS-100231.",
         "Account of events: the bag was lost on 14 August 2026.",
