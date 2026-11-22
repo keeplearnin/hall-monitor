@@ -261,6 +261,8 @@ _REASONS = (
     r"claim is in [A-Z]{3}, not USD: amounts can't be compared",
     r"no policy record to check the claim against",
     r"claimant is not the insured named on the policy",
+    r"the policy number isn't in the claim documents",
+    r"the claimant's name isn't in the claim documents",
     r"no incident date to check against the coverage period",
     r"incident date is outside the coverage period",
     r"no claim text to check the claimed amounts against",
@@ -287,7 +289,8 @@ _REJECTIONS = (
     r"the decision names an adjuster who isn't registered",
     r"the decision isn't signed with [\w-]+'s key",
     r"evidence hash doesn't match the current evidence pack",
-    r"this claim (?:is in [A-Z]{3}|has no amount extracted), so its amount can't be checked "
+    r"this claim (?:is in [A-Z]{3}|has no amount extracted|has a claimed total the documents "
+    r"don't support \(or it was never checked\)), so its amount can't be checked "
     r"against USD limits; a senior adjuster must decide",
     rf"denying {_N} exceeds [\w-]+'s authority of {_N}; a senior adjuster must decide",
     r"a payment needs a payout above 0",

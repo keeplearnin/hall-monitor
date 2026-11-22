@@ -4,10 +4,11 @@ It checks the facts behind a decision, not just the labels the agents put on the
 the coverage step pays nothing on is a denial whatever the recommendation says, and a payout
 above the amount claimed is wrong whatever the coverage step says. Facts the agents could get
 wrong are checked in code against the policy record and the claim documents: the claimant must
-be the insured, the incident must fall inside the coverage period, every claimed amount must
-appear in the documents and the items must add up to the total, and amounts must be in USD (the
-policy pays in USD and nothing here converts currency). The amount check traces an agent's
-figures to what the claimant sent: each item to its own occurrence in the documents, and the
+be the insured, and the documents must name both the claimant and the policy number; the
+incident must fall inside the coverage period (the date itself is the intake's); every claimed
+amount must appear in the documents and the items must add up to the total; and amounts must be
+in USD (the policy pays in USD and nothing here converts currency). The amount check traces an
+agent's figures to what the claimant sent: each item to its own occurrence in the documents, and the
 total too, counting only figures the documents mark as dollars, so the USD check rests on the
 documents and not just the intake's label. It doesn't verify the claimant's own figures.
 Anything other than a clean, low-risk payment within bounds goes to an adjuster.
@@ -17,6 +18,7 @@ from __future__ import annotations
 
 from hall_monitor.claims.amounts import amount_in, other_currencies, untraced
 from hall_monitor.claims.models import (
+    POLICY_NUMBER_PATTERN,
     CoverageAssessment,
     CoverageDecision,
     IntakeExtraction,
@@ -33,6 +35,10 @@ from hall_monitor.shared_models import ToolCall
 
 # Payouts above this amount stop for an adjuster. See data/synthetic/README.md.
 ADJUSTER_PAYOUT_THRESHOLD_USD = 2_500
+# How the reasons that the claimed figures aren't supported by the documents begin: the adjuster
+# limits read them (claimed_total_traced) and mustn't trust such a total.
+UNTRACED_AMOUNTS = "claimed amounts not in the claim documents"
+ITEMS_DONT_ADD_UP = "claimed items"
 
 
 def route_claim(
@@ -60,6 +66,14 @@ def route_claim(
     else:
         if name_key(extraction.claimant_name) != name_key(policy.insured_name):
             reasons.append("claimant is not the insured named on the policy")
+        # Review 46: the policy number and the claimant are the intake's word until the claim
+        # itself names them; otherwise an agent could name another customer's policy and its
+        # insured and the claim would pay automatically.
+        if claim_text is not None:
+            if policy.policy_number not in POLICY_NUMBER_PATTERN.findall(claim_text.upper()):
+                reasons.append("the policy number isn't in the claim documents")
+            if f" {name_key(extraction.claimant_name)} " not in f" {name_key(claim_text)} ":
+                reasons.append("the claimant's name isn't in the claim documents")
         if extraction.incident_date is None:
             reasons.append("no incident date to check against the coverage period")
         elif not policy.coverage_start <= extraction.incident_date <= policy.coverage_end:
@@ -84,16 +98,15 @@ def route_claim(
         if missing and strict:
             listed = ", ".join(f"{a:,.2f}" for a in missing)
             reasons.append(
-                f"claimed amounts not in the claim documents marked USD "
-                f"(they name {', '.join(named)}): {listed}"
+                f"{UNTRACED_AMOUNTS} marked USD (they name {', '.join(named)}): {listed}"
             )
         elif missing:
             listed = ", ".join(f"{a:,.2f}" for a in missing)
-            reasons.append(f"claimed amounts not in the claim documents in USD: {listed}")
+            reasons.append(f"{UNTRACED_AMOUNTS} in USD: {listed}")
     items_total = sum(i.amount for i in extraction.claimed_items)
     if abs(items_total - extraction.total_claimed) > 0.005:
         reasons.append(
-            f"claimed items ({items_total:,.2f}) don't add up to the "
+            f"{ITEMS_DONT_ADD_UP} ({items_total:,.2f}) don't add up to the "
             f"{extraction.total_claimed:,.2f} claimed"
         )
     if recommendation.next_step is not NextStep.PAY:
@@ -121,6 +134,15 @@ def route_claim(
     if tool_result_signals:
         reasons.append(tool_result_reason(tool_result_signals))
     return RoutingDecision(route=Route.ADJUSTER if reasons else Route.AUTO, reasons=reasons)
+
+
+def claimed_total_traced(routing: RoutingDecision, stopped: bool) -> bool:
+    """Whether the routing rule traced the claimed total to the documents: it ran (the claim
+    didn't stop first) and raised neither an untraced amount nor items that don't add up. Until
+    then the total is only the intake agent's reading (Review 46)."""
+    return not stopped and not any(
+        r.startswith((UNTRACED_AMOUNTS, ITEMS_DONT_ADD_UP)) for r in routing.reasons
+    )
 
 
 def tool_result_signals(tool_calls: list[ToolCall]) -> list[str]:

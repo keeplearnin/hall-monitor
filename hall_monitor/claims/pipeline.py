@@ -148,8 +148,16 @@ def _known_cost(run: _Run) -> float | None:
         return None
 
 
-def _lookup(extraction: IntakeExtraction, gateway: ToolGateway, run: _Run) -> PolicyRecord | None:
-    return lookup_policy(gateway, extraction.policy_number, run.tool_calls)
+def _lookup(
+    claim: ClaimSubmission, extraction: IntakeExtraction, gateway: ToolGateway, run: _Run
+) -> PolicyRecord | None:
+    """The policy the intake named, only if the claim itself names it (Review 46): otherwise
+    an agent could point the claim, and the specialists' scope, at another customer's policy.
+    Not looked up at all, so that customer's record is never read."""
+    asked = (extraction.policy_number or "").strip().upper()
+    if asked not in policy_numbers_in(claim):
+        return None
+    return lookup_policy(gateway, asked, run.tool_calls)
 
 
 def _policy_numbers_in(claim: ClaimSubmission, gateway: ToolGateway, run: _Run) -> list[str]:
@@ -393,7 +401,7 @@ def _triage(
 ) -> TriageResult:
     # Intake, then a code check that the policy exists. One retry with the problem spelled out.
     run.extraction = run.output(run_intake(claim, registry, client))
-    policy = _lookup(run.extraction, gateway, run)
+    policy = _lookup(claim, run.extraction, gateway, run)
     if policy is None:
         # Code first: if the claim text contains exactly one real policy number, use it.
         found = _policy_numbers_in(claim, gateway, run)
@@ -403,7 +411,7 @@ def _triage(
                 "the only valid policy number in the claim text"
             )
             run.extraction = run.extraction.model_copy(update={"policy_number": found[0]})
-            policy = _lookup(run.extraction, gateway, run)
+            policy = _lookup(claim, run.extraction, gateway, run)
     if policy is None:
         problem = (
             f"No policy record matches policy_number {run.extraction.policy_number!r}. Find the "
@@ -411,7 +419,7 @@ def _triage(
         )
         feedback = render_feedback(run.extraction, [problem])
         run.extraction = run.output(run_intake(claim, registry, client, feedback=feedback))
-        policy = _lookup(run.extraction, gateway, run)
+        policy = _lookup(claim, run.extraction, gateway, run)
     if policy is None:
         raise PipelineStopped("no policy record found for the policy number on the claim")
     tools = ToolAccess(gateway, run.tool_calls, scope_policy=policy.policy_number)
@@ -465,7 +473,7 @@ def _triage(
                     )
                 ),
             )
-            policy = _lookup(run.extraction, gateway, run)
+            policy = _lookup(claim, run.extraction, gateway, run)
             if policy is None:
                 raise PipelineStopped("no policy record found after the critic's correction")
             tools.scope_policy = policy.policy_number
