@@ -239,7 +239,9 @@ def triage_complaint(
                 "pipeline",
                 {
                     "complaint_id": complaint.complaint_id,
-                    "content_sha256": complaint.content_sha256(),
+                    # Keyed: a plain hash of a typed-in narrative could be confirmed by
+                    # guessing it (Review 46).
+                    "content_hmac": audit.keyed_hash(complaint.content_body()),
                     "has_narrative": bool(complaint.narrative),
                     "identifiers_redacted": redactions,
                     "injection_signals": signals,
@@ -317,7 +319,8 @@ def reroute_changed(
     route gave, at the higher of the earlier urgency and the new floor. No agent is called: the
     triage answered about another version, and a person reads this one. Written once per
     version (the log refuses a second complaint_rerouted with the same content hash inside its
-    write transaction), so two runs at the same moment re-route it once. Hashes and codes only."""
+    write transaction), so two runs at the same moment re-route it once. Keyed hashes and codes
+    only."""
     scope = scope_id(complaint.complaint_id)
     entries = audit.entries(scope)
     received = [e["payload"] for e in entries if e["event"] == RECEIVED]
@@ -326,12 +329,16 @@ def reroute_changed(
         return None
     rerouted = [e["payload"] for e in entries if e["event"] == REROUTED]
     last = rerouted[-1] if rerouted else received[0]
-    seen = last.get("content_sha256")
-    digest = complaint.content_sha256()
-    if not isinstance(seen, str) or seen == digest:
+    digest = audit.keyed_hash(complaint.content_body())
+    # Entries written before Review 46 hold a plain hash; compared the same way it was made.
+    seen = last.get("content_hmac")
+    plain = last.get("content_sha256")
+    unchanged = seen == digest if isinstance(seen, str) else plain == complaint.content_sha256()
+    if not isinstance(seen, str) and not isinstance(plain, str) or unchanged:
         # Unchanged, or a received entry with no hash to compare (a killed run's): that one
         # was routed to specialist review as triage_interrupted.
         return None
+    seen = seen if isinstance(seen, str) else None
     _, _, redactions, signals = _scan(complaint)
     new = code_reasons_for(complaint, signals)
     before = {r for p in routes for r in p.get("reasons") or [] if r in REASONS}
@@ -362,8 +369,8 @@ def reroute_changed(
             "pipeline",
             {
                 "complaint_id": complaint.complaint_id,
-                "content_sha256": digest,
-                "previous_content_sha256": seen,
+                "content_hmac": digest,
+                "previous_content_hmac": seen,  # None after a pre-Review-46 entry
                 "queue": route.queue,
                 "reasons": route.reasons,
                 "new_code_reasons": sorted(added),
@@ -374,7 +381,7 @@ def reroute_changed(
                 "identifiers_redacted": redactions,
                 "injection_signals": signals,
             },
-            once_per="content_sha256",
+            once_per="content_hmac",
         )
     except AlreadyRecorded:  # another run re-routed this version at the same moment
         return None
