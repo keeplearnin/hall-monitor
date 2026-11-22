@@ -308,8 +308,13 @@ def prepare(
     def stop(reason: str, reasons: list[str], pack: bool = True) -> LeavePreparation:
         """A stop before the code has routed: HR review, with any text-aimed-at-the-AI flag.
         pack=False for a failure of the intake call itself (an outage, a stopped agent): no
-        evidence pack is stored, so the request can be prepared again once it is fixed."""
-        return finish(_person(reasons + flags), reason, pack)
+        evidence pack is stored, so the request can be prepared again once it is fixed.
+        A retaliation risk is a fact of the employee's record, not of the request, so it is
+        added here too: a case the rules never reached still needs an HR director (Review 46)."""
+        employee = employees.get(message.employee_id)
+        at_risk = employee is not None and employee.pending_adverse_action
+        risk = ["retaliation_risk"] if at_risk else []
+        return finish(_person(reasons + flags + risk), reason, pack)
 
     def keep(call: AgentCall | None) -> None:
         if call is not None:
