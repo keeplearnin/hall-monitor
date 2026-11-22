@@ -722,3 +722,54 @@ def test_the_drill_fails_without_the_per_step_re_check(monkeypatch):
     )
     assert claims_intake["calls_after_stop_on_used_agent"] > 0
     assert stop_timing.main_status(result) == 1
+
+
+def _drill_with_stop_at(monkeypatch, at_agent: str) -> dict:
+    """One claims-drill trial with intake stopped, its stop written at a chosen moment: the
+    stop thread waits until ``at_agent``'s first call reaches the fake model (after its
+    hall-pass checks), and that call goes on only once the stop is on disk and timed."""
+    import threading
+    import time
+
+    from hall_monitor.evals import stop_timing
+
+    go, stoppers, real_sleep = threading.Event(), [], time.sleep
+
+    def sleep(seconds):
+        if threading.current_thread() is threading.main_thread():
+            return real_sleep(seconds)
+        stoppers.append(threading.current_thread())  # the drill's stop thread
+        assert go.wait(10)
+
+    parse = stop_timing._Timed.parse
+
+    def parse_after_the_stop(self, **kwargs):
+        if stop_timing.AGENT_OF[kwargs["output_format"].__name__] == at_agent and not go.is_set():
+            go.set()
+            stoppers[-1].join(10)  # the stop is written and its finish time recorded
+        return parse(self, **kwargs)
+
+    monkeypatch.setattr(stop_timing.time, "sleep", sleep)
+    monkeypatch.setattr(stop_timing._Timed, "parse", parse_after_the_stop)
+    return stop_timing.drill("claims", "intake", 1, 0.01, 0, set())
+
+
+@pytest.mark.parametrize("at_agent", ["intake", "coverage_check"])
+def test_the_drill_judges_a_call_by_when_its_stop_check_ran(monkeypatch, at_agent):
+    """Flake on PR #87: the drill timed a call when the fake model was entered, after the
+    hall-pass check. A stop finishing between the two counted a call whose check ran before
+    the stop as a call after it: intake's own call, or (coverage_check) the next specialist's
+    call after the step's re-check of intake had passed."""
+    row = _drill_with_stop_at(monkeypatch, at_agent)
+    assert row["stopped"] == 1
+    assert row["answered_before_stop"] == 1  # the stop landed on a used agent, as intended
+    assert row["calls_started_after_stop"] == 0
+    assert row["calls_after_stop_on_used_agent"] == 0
+
+
+def test_the_drill_still_counts_a_call_whose_check_ran_after_the_stop(monkeypatch):
+    """With stops ignored, intake's check runs after the stop is on disk and passes: a
+    failure, however the call is timed."""
+    monkeypatch.setattr(Registry, "_check_stops", lambda self, agent_id: None)
+    row = _drill_with_stop_at(monkeypatch, "claims_supervisor")
+    assert row["calls_started_after_stop"] >= 1

@@ -1489,3 +1489,40 @@ the reviewer's. Each fix was checked by undoing it and seeing its test fail.
 
 Also fixed: HM-29's gap still said the scope was the caller's to pass; a missing scope now fails
 closed for tools that take a policy number.
+
+## Review 45 (kill-switch-drill-check-timing): the drill judges a call by its stop check
+
+**Reviewer:** the `governance-reviewer` agent on this branch's changes before the PR. The
+kill-switch drill test failed once in CI on PR #87 (`calls_started_after_stop` 1, expected 0) and
+passed on re-run at the same commit. Cause, confirmed: the drill timed a call when the fake model
+was entered, after `run_agent`'s hall-pass checks; a stop that finished writing between the last
+check and that moment (a thread switch is enough on a busy runner) counted a call whose check ran
+before the stop as a call after it. The same race hit `calls_after_stop_on_used_agent` for a
+specialist call after the step's re-check had passed. Reproduced deterministically by writing the
+stop from inside the fake model's entry, before the call is timed
+(`test_the_drill_judges_a_call_by_when_its_stop_check_ran`, intake and coverage_check; both fail
+on main's measurement). The drill now records every hall-pass check that passes and judges each
+call by the stopped agent's last check since the previous call, else the calling agent's own. A
+call whose check began after the stop was on disk still fails it
+(`test_the_drill_still_counts_a_call_whose_check_ran_after_the_stop`,
+`test_the_drill_fails_when_the_kill_switch_is_broken`). The one-supervisor-turn allowance that
+Review 26's re-check added for this race (above) is removed: such a turn is judged by its re-check
+and isn't counted, and one whose re-check ran after the stop now fails the drill. Published drill
+results are rerun from this code. The reviewer found no mutation that passes the new measurement
+but was caught by the old, and raised five findings, all Low.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| 1. `evals/gate.yaml` still described the one-turn allowance | Low | Fixed |
+| 2. The drill's docstring named a `stop_missed` key that doesn't exist and called it not a failure | Low | Fixed: names `stop_not_noticed` (gated) and `stop_after_last_check` (reported) |
+| 3. The report said "no further call" after a stop on a used agent; a call whose re-check ran before the stop still runs | Low | Fixed: "no call whose re-check began after the stop was on disk" |
+| 4. `SUPERVISOR_ANSWERS` was left unused | Low | Removed |
+| 5. The per-step re-check mutation test covers claims only, and `specialist_stops_after_it_answered` is gated as a sum, so under load a run can stop no leave case after its intake answered and pass with leave's re-check removed (the desk's is caught; the unit tests in `test_hr_agentic.py` catch leave's) | Low | Open, predates this branch: gate `answered_before_stop` per specialist row and add desk and leave mutation tests |
+
+Also seen, not changed: under heavy parallel load (8 drill processes and the full suite at once)
+`test_the_drill_stops_specialists_that_have_already_answered` fails when the leave row's six
+trials stop none after intake answered. It predates this branch: with the same load on both, main's
+measurement failed 3 of 80 runs and this branch's 0 of 80. It belongs with finding 5. Plausible,
+not reachable today: `run_agent`'s later tool rounds re-check only the calling agent, so if a
+scripted client returned `tool_use`, a stop on a used agent during round one would count round two
+as a failure; the fakes never do.
