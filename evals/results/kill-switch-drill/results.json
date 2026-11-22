@@ -1,7 +1,7 @@
 {
   "meta": {
-    "run_at": "2026-11-22 16:35 UTC",
-    "git_commit": "834aa3e6c712e553f6d746ccb5bf432f06c8f769",
+    "run_at": "2026-11-22 16:36 UTC",
+    "git_commit": "e7a53b0e605c7e2002059dc7088c5f4a6a956408",
     "git_dirty": false,
     "mode": "scripted-latency",
     "latency_s": 0.05,
@@ -66,17 +66,17 @@
       "stop_after_case_ended": 0,
       "stop_not_noticed": 0,
       "stop_after_last_check": 0,
-      "answered_before_stop": 20,
+      "answered_before_stop": 19,
       "trial_errors": 0,
       "calls_started_after_stop": 0,
-      "calls_during_the_write": 0,
+      "calls_during_the_write": 1,
       "other_agents_calls_after_stop": 0,
       "calls_after_stop_on_used_agent": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0425,
-        "p95": 0.064,
-        "max": 0.1689
+        "median": 0.0466,
+        "p95": 0.1083,
+        "max": 0.2357
       }
     },
     {
@@ -95,30 +95,30 @@
       "calls_after_stop_on_used_agent": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0348,
-        "p95": 0.0659,
-        "max": 0.0767
+        "median": 0.0347,
+        "p95": 0.0617,
+        "max": 0.0627
       }
     },
     {
       "workflow": "desk",
       "stopped_agent": "complaint_supervisor",
       "trials": 20,
-      "stopped": 20,
-      "stop_after_case_ended": 0,
+      "stopped": 18,
+      "stop_after_case_ended": 2,
       "stop_not_noticed": 0,
       "stop_after_last_check": 0,
-      "answered_before_stop": 20,
+      "answered_before_stop": 18,
       "trial_errors": 0,
       "calls_started_after_stop": 0,
-      "calls_during_the_write": 1,
+      "calls_during_the_write": 0,
       "other_agents_calls_after_stop": 0,
       "calls_after_stop_on_used_agent": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0366,
-        "p95": 0.0553,
-        "max": 0.0635
+        "median": 0.0345,
+        "p95": 0.0594,
+        "max": 0.0628
       }
     },
     {
@@ -129,17 +129,17 @@
       "stop_after_case_ended": 0,
       "stop_not_noticed": 0,
       "stop_after_last_check": 0,
-      "answered_before_stop": 13,
+      "answered_before_stop": 14,
       "trial_errors": 0,
       "calls_started_after_stop": 0,
-      "calls_during_the_write": 1,
+      "calls_during_the_write": 0,
       "other_agents_calls_after_stop": 0,
       "calls_after_stop_on_used_agent": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0377,
-        "p95": 0.0581,
-        "max": 0.0598
+        "median": 0.0247,
+        "p95": 0.0599,
+        "max": 0.0611
       }
     },
     {
@@ -158,9 +158,9 @@
       "calls_after_stop_on_used_agent": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.028,
-        "p95": 0.0511,
-        "max": 0.0552
+        "median": 0.0307,
+        "p95": 0.0542,
+        "max": 0.0591
       }
     },
     {
@@ -179,24 +179,24 @@
       "calls_after_stop_on_used_agent": 0,
       "auto_after_stop": 0,
       "time_to_stop_s": {
-        "median": 0.0295,
-        "p95": 0.0498,
-        "max": 0.0508
+        "median": 0.0351,
+        "p95": 0.0597,
+        "max": 0.0637
       }
     }
   ],
   "summary": {
     "calls_started_after_stop": 0,
-    "calls_during_the_write": 3,
+    "calls_during_the_write": 2,
     "auto_after_stop": 0,
     "stop_not_noticed": 0,
     "trial_errors": 0,
-    "stopped_cases": 120,
-    "stopped_share": 1.0,
-    "specialist_stops_after_it_answered": 31,
+    "stopped_cases": 118,
+    "stopped_share": 0.9833,
+    "specialist_stops_after_it_answered": 32,
     "calls_after_stop_on_used_agent": 0,
     "max_other_agents_calls_after_stop": 0,
-    "max_time_to_stop_s": 0.1689,
+    "max_time_to_stop_s": 0.2357,
     "latency_s": 0.05
   }
 }
