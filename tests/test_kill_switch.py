@@ -762,6 +762,7 @@ def test_the_drill_judges_a_call_by_when_its_stop_check_ran(monkeypatch, at_agen
     call after the step's re-check of intake had passed."""
     row = _drill_with_stop_at(monkeypatch, at_agent)
     assert row["stopped"] == 1
+    assert row["answered_before_stop"] == 1  # the stop landed on a used agent, as intended
     assert row["calls_started_after_stop"] == 0
     assert row["calls_after_stop_on_used_agent"] == 0
 

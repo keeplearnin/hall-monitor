@@ -60,7 +60,7 @@ checks:
       auto_after_stop: 0
       stop_not_noticed: 0
       trial_errors: 0
-      calls_after_stop_on_used_agent: 0  # the per-step re-check: no specialist call, one turn at most
+      calls_after_stop_on_used_agent: 0  # the per-step re-check: no call past a check made after it
 
   # The agentic leave path, live (HM-22, HM-32): the 28 synthetic requests through the approved
   # leave intake, supervisor and explainer on the live model, scored against the hand-written

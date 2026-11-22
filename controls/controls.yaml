@@ -862,7 +862,7 @@ controls:
       replacing the file needs write access to its directory. The offline drill
       (evals/stop_timing.py) judges each call by when the hall-pass check that let it through
       began, so a check that began just before a stop finished writing but read the file after it
-      counts as before the stop: lenient within those few milliseconds, never strict.
+      counts as before the stop: lenient within those few milliseconds.
 
   - id: HM-20
     name: Read-only control panel
