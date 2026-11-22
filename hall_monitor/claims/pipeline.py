@@ -57,6 +57,7 @@ from hall_monitor.claims.routing import (
     route_claim,
     route_duplicate_documents,
     route_stopped,
+    tool_result_signals,
 )
 from hall_monitor.claims.screening import detect_instructions, redact_claim
 from hall_monitor.gateway.cost import UnpricedModelError, total_cost
@@ -352,7 +353,7 @@ def _triage_with_stop(
                 next_step=NextStep.REQUEST_INFORMATION,
                 reasons=[reason[:1].upper() + reason[1:] + "."],
             ),
-            routing=route_stopped(reason),
+            routing=route_stopped(reason, tool_result_signals(run.tool_calls)),
             agent_calls=run.calls,
             critic_reviews=run.reviews,
             revision_history=run.history,
@@ -524,6 +525,7 @@ def _triage(
         critic_unresolved=unresolved,
         critic_changed=run.critic_changed(),
         injection_signals=injection_signals,
+        tool_result_signals=tool_result_signals(run.tool_calls),
         policy=policy,
         claim_text=source_text(claim),
     )

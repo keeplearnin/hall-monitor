@@ -14,12 +14,13 @@ import hashlib
 import json
 import time
 from collections import Counter
-from collections.abc import Coroutine
+from collections.abc import Coroutine, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
 from fastmcp import Client, FastMCP
 
+from hall_monitor.gateway.injection import detect_in_texts
 from hall_monitor.gateway.redaction import redact_value
 from hall_monitor.no_send import tool_problems
 from hall_monitor.registry import (
@@ -36,6 +37,21 @@ if TYPE_CHECKING:
     from hall_monitor.delegation import Grant, GrantBook
 
 PIPELINE_ACTOR = RESERVED_AGENT_ID  # no agent may take this ID (Registry refuses it)
+# The argument a case's scope is checked against: a tool that takes it is policy-keyed.
+SCOPE_ARGUMENT = "policy_number"
+
+
+def _strings(value: Any) -> Iterator[str]:
+    """Every string in a tool result, keys included, at any depth."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for k, v in value.items():
+            yield from _strings(k)
+            yield from _strings(v)
+    elif isinstance(value, (list, tuple)):
+        for v in value:
+            yield from _strings(v)
 
 
 def _run[T](coro: Coroutine[Any, Any, T]) -> T:
@@ -142,11 +158,20 @@ class ToolGateway:
         grants: GrantBook | None = None,
         grant: Grant | None = None,
     ) -> dict:
-        """scope_policy: the claim's own policy number. A lookup for any other is refused.
+        """scope_policy: the claim's own policy number. A lookup for any other is refused, and
+        an agent given none may not call a tool that takes a policy number.
 
         grants and grant: the case's grant book and the grant the actor holds, required for an
-        agent in a crew (HM-29) and checked on every call."""
+        agent in a crew (HM-29) and checked on every call.
+
+        Arguments the tool's schema doesn't name are refused before the server is called, and
+        only the named ones are recorded: the rest are written by the model and could carry
+        anything. A result whose text addresses the AI is held back from an agent and the call
+        records which signals matched (HM-07)."""
         started = time.perf_counter()
+        definition = self._definitions.get(tool)
+        properties = (definition or {}).get("input_schema", {}).get("properties", {})
+        recorded = {k: v for k, v in arguments.items() if k in properties}
         try:
             if tool_problems([tool]):
                 raise SendCapabilityError(f"tool {tool!r} may never be called: it could send")
@@ -159,17 +184,25 @@ class ToolGateway:
                 self.registry.check_data(actor, carries)
                 if self.registry.in_crew(actor) or grant is not None or grants is not None:
                     self._check_grant(actor, grants, grant, tool, carries)
-            asked = str(arguments.get("policy_number", "")).strip().upper()
+            if definition is None:
+                raise RegistryError(f"the tool server has no tool {tool!r}")
+            if len(recorded) != len(arguments):
+                # Counted, never named: the names are the model's.
+                extra = len(arguments) - len(recorded)
+                raise RegistryError(f"{extra} argument(s) the tool {tool!r} doesn't take")
+            if actor != PIPELINE_ACTOR and scope_policy is None and SCOPE_ARGUMENT in properties:
+                raise RegistryError(f"{actor} was given no claim to look up policies for")
+            asked = str(arguments.get(SCOPE_ARGUMENT, "")).strip().upper()
             if scope_policy is not None and asked != scope_policy.strip().upper():
-                raise RegistryError(
-                    f"{actor} may only look up this claim's policy, not {asked or 'none'!r}"
-                )
+                # Not quoted here, where it would reach the agent and the error field; the
+                # call's arguments still keep it as written (HM-03's gaps).
+                raise RegistryError(f"{actor} may only look up this claim's policy")
         except RegistryError as exc:
             log.append(
                 ToolCall(
                     actor=actor,
                     tool=tool,
-                    arguments=arguments,
+                    arguments=recorded,
                     allowed=False,
                     result_sha256=None,
                     error=str(exc),
@@ -178,15 +211,22 @@ class ToolGateway:
             )
             return {"error": f"Refused: {exc}"}
 
+        counts: Counter[str] = Counter()
         try:
             result = _run(self._call(tool, arguments))
+            # Redaction, screening and hashing inside the record too: if any fails, the call
+            # is still recorded as allowed and failed.
+            if actor != PIPELINE_ACTOR:
+                result = redact_value(result, counts)
+            signals = detect_in_texts(list(_strings(result)))
+            result_sha256 = hashlib.sha256(json.dumps(result, sort_keys=True).encode()).hexdigest()
         except Exception as exc:
             # Allowed but failed: still part of the record of what the agent tried to read.
             log.append(
                 ToolCall(
                     actor=actor,
                     tool=tool,
-                    arguments=arguments,
+                    arguments=recorded,
                     allowed=True,
                     result_sha256=None,
                     error=f"{type(exc).__name__}: {exc}",
@@ -194,20 +234,27 @@ class ToolGateway:
                 )
             )
             raise
-        counts: Counter[str] = Counter()
-        if actor != PIPELINE_ACTOR:
-            result = redact_value(result, counts)
+        held = bool(signals) and actor != PIPELINE_ACTOR
         log.append(
             ToolCall(
                 actor=actor,
                 tool=tool,
-                arguments=arguments,
+                arguments=recorded,
                 allowed=True,
-                result_sha256=hashlib.sha256(
-                    json.dumps(result, sort_keys=True).encode()
-                ).hexdigest(),
+                result_sha256=result_sha256,
+                error="result held back: it addresses the AI" if held else None,
                 identifiers_redacted={k: v for k, v in sorted(counts.items()) if v},
+                injection_signals=signals,
                 seconds=round(time.perf_counter() - started, 3),
             )
         )
+        if held:
+            # The pipeline's own code reads its results as data and is never steered by them;
+            # an agent would read them as text, so it gets this instead. Claims routing reads
+            # every call's injection_signals (the pipeline's too) and sends the case to a
+            # person; no other example's routing reads them yet (only claims gives agents tools).
+            return {
+                "error": "Refused: the result reads as instructions to the AI and was held "
+                "back; a person will review this case"
+            }
         return result

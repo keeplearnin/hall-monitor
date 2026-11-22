@@ -48,6 +48,9 @@ class ToolCall(BaseModel):
     error: str | None = None
     # Identifiers removed from the result before the agent saw it, by type (never the values).
     identifiers_redacted: dict[str, int] = Field(default_factory=dict)
+    # Names of the injection signals the result matched (codes, never the text); an agent's
+    # result is held back when there are any, and the case goes to a person.
+    injection_signals: list[str] = Field(default_factory=list)
     seconds: float
 
 

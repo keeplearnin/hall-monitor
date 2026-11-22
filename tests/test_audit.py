@@ -197,7 +197,7 @@ def test_a_tool_result_hash_can_t_confirm_the_insured_s_name(tmp_path):
 
     for policy, record in load_policy_records().items():
         calls = []
-        GATEWAY.call("risk_fraud", "claims_history", {"policy_number": policy}, calls)
+        GATEWAY.call("risk_fraud", "claims_history", {"policy_number": policy}, calls, policy)
         if calls[-1].result_sha256 == name_only(record.insured_name):
             break
     else:

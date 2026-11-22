@@ -117,7 +117,9 @@ def _run(agent_id, client, registry, gateway, delegated, log=None):
         output_format=Answer,
         prompt_version="t-1",
         claim_id="cfpb-1001",
-        tools=ToolAccess(gateway, log if log is not None else []),
+        tools=ToolAccess(
+            gateway, log if log is not None else [], scope_policy=POLICY["policy_number"]
+        ),
         delegated=delegated,
         carries=frozenset(),
     )
@@ -269,7 +271,7 @@ def _lead_with_helper(registry, gateway, book, helper_steps, lead_steps, allot=0
             output_format=Answer,
             prompt_version="t-1",
             claim_id="cfpb-1001",
-            tools=ToolAccess(gateway, []),
+            tools=ToolAccess(gateway, [], scope_policy=POLICY["policy_number"]),
             delegated=Delegated(book, grant),
             carries=frozenset(grant.data_classes),
         )
@@ -459,7 +461,7 @@ def test_a_case_s_spending_reaches_the_lead_s_grant_and_stops_it(registry, gatew
             output_format=Answer,
             prompt_version="t-1",
             claim_id="cfpb-1001",
-            tools=ToolAccess(gateway, []),
+            tools=ToolAccess(gateway, [], scope_policy=POLICY["policy_number"]),
             delegated=Delegated(book, grant),
             carries=frozenset(grant.data_classes),
         )

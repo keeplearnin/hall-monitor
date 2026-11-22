@@ -21,7 +21,7 @@ When a customer files a claim, someone has to read it, check it against the poli
 
 The agent picks the steps; code holds the boundaries. Code refuses a step whose inputs aren't ready or that would repeat on unchanged inputs, stops the claim for a person when its budget of steps, cost or time runs out or the supervisor keeps choosing refused steps, and checks the kill switch before every step. Finishing is a request: a claim can go through automatically only if every required step ran on the latest inputs. The fixed order is kept for comparison (`agentic=False`).
 
-Agents get supporting records only through governed MCP tools (`policy_lookup`, `claims_history`). Every call goes through a gateway that checks the agent's allow-list and records the call. The policy wording is reference text and is still passed in directly.
+Agents get supporting records only through governed MCP tools (`policy_lookup`, `claims_history`). Every call goes through a gateway that checks the agent's allow-list and the claim's scope, refuses arguments the tool doesn't take, holds back a result whose text addresses the AI (the claim then goes to a person, [ADR 0035](../adr/0035-tool-results-are-screened.md)) and records the call. The policy wording is reference text and is still passed in directly.
 
 ## What code decides
 
