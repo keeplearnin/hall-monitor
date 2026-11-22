@@ -29,6 +29,7 @@ from hall_monitor.claims.models import (
     RoutingDecision,
 )
 from hall_monitor.names import name_key
+from hall_monitor.shared_models import ToolCall
 
 # Payouts above this amount stop for an adjuster. See data/synthetic/README.md.
 ADJUSTER_PAYOUT_THRESHOLD_USD = 2_500
@@ -43,11 +44,14 @@ def route_claim(
     critic_unresolved: bool = False,
     critic_changed: list[str] | None = None,
     injection_signals: list[str] | None = None,
+    tool_result_signals: list[str] | None = None,
     policy: PolicyRecord | None = None,
     claim_text: str | None = None,
 ) -> RoutingDecision:
     """claim_text is everything the claimant sent (amounts.source_text); without it the amounts
-    can't be traced, and the claim goes to a person."""
+    can't be traced, and the claim goes to a person. tool_result_signals are those of every
+    tool result that addressed the AI (tool_result_signals(tool_calls)): held back from an
+    agent, or returned to the pipeline's own code, which reads it as data."""
     reasons = []
     if extraction.currency.strip().upper() != "USD":
         reasons.append(f"claim is in {extraction.currency}, not USD: amounts can't be compared")
@@ -114,7 +118,18 @@ def route_claim(
         reasons.append("critic changed " + ", ".join(critic_changed))
     if injection_signals:
         reasons.append("claim text addresses the AI: " + ", ".join(injection_signals))
+    if tool_result_signals:
+        reasons.append(tool_result_reason(tool_result_signals))
     return RoutingDecision(route=Route.ADJUSTER if reasons else Route.AUTO, reasons=reasons)
+
+
+def tool_result_signals(tool_calls: list[ToolCall]) -> list[str]:
+    """The injection signals of every tool result in the claim's log, each once, in order."""
+    return list(dict.fromkeys(s for call in tool_calls for s in call.injection_signals))
+
+
+def tool_result_reason(signals: list[str]) -> str:
+    return "a tool result addresses the AI: " + ", ".join(signals)
 
 
 DUPLICATE_DOCUMENTS = (
@@ -131,6 +146,10 @@ def route_duplicate_documents(routing: RoutingDecision) -> RoutingDecision:
     return RoutingDecision(route=Route.ADJUSTER, reasons=[*routing.reasons, DUPLICATE_DOCUMENTS])
 
 
-def route_stopped(reason: str) -> RoutingDecision:
-    """A claim the pipeline couldn't finish always goes to a person."""
-    return RoutingDecision(route=Route.ADJUSTER, reasons=[f"pipeline stopped: {reason}"])
+def route_stopped(reason: str, tool_result_signals: list[str] | None = None) -> RoutingDecision:
+    """A claim the pipeline couldn't finish always goes to a person. tool_result_signals, as
+    for route_claim: the adjuster is told the records the agents read addressed the AI."""
+    reasons = [f"pipeline stopped: {reason}"]
+    if tool_result_signals:
+        reasons.append(tool_result_reason(tool_result_signals))
+    return RoutingDecision(route=Route.ADJUSTER, reasons=reasons)

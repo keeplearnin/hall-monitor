@@ -16,8 +16,12 @@ Records are served by MCP tools (`policy_lookup`, `claims_history`) in
 `ToolGateway` in [`tools/gateway.py`](../../hall_monitor/tools/gateway.py), which:
 
 1. refuses any tool the agent's manifest doesn't list;
-2. refuses a lookup for any policy other than the one the claim is on (claim scope);
-3. records every call, allowed or refused, with the agent and the claim.
+2. refuses a lookup for any policy other than the one the claim is on (claim scope), and any
+   policy lookup by an agent given no claim scope;
+3. refuses arguments the tool's schema doesn't name, before the server is called;
+4. holds back from the agent a result whose text addresses the AI
+   ([ADR 0035](0035-tool-results-are-screened.md));
+5. records every call, allowed or refused, with the agent and the claim.
 
 The gateway is shared by every example, so it has no default server: each example passes its
 own, with the data classes each tool returns and the tools its pipeline's own code may call.
@@ -37,4 +41,6 @@ tools or data classes by leaving an argument out.
 - Every record an agent saw can be listed for an auditor.
 - Adding a tool means a server change, a manifest change and a new approval.
 - The tools here are in-process. A production version would run them as a separate service
-  with its own credentials; the gateway's interface is the same.
+  with its own credentials; the gateway's interface is the same, but that transport would need
+  checks this one doesn't: token audience (RFC 8707 resource indicators), expiry, and an
+  `Mcp-Method` header that agrees with its JSON-RPC body.

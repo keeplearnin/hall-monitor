@@ -148,7 +148,8 @@ def run_case(case: Case, claim: ClaimSubmission, context: dict) -> CaseResult:
             context["wording"],
             context["registry"],
             context["client"],
-            tools=ToolAccess(context["gateway"]),
+            # Scoped as in the pipeline: the critic reads only this claim's policy.
+            tools=ToolAccess(context["gateway"], scope_policy=case.extraction.policy_number),
         )
     except Exception as exc:  # a failed case is reported, not hidden
         result.error = f"{type(exc).__name__}: {exc}"

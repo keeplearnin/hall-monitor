@@ -362,7 +362,7 @@ def test_a_stop_during_an_agents_tool_rounds_halts_its_next_model_request(regist
             usage=SimpleNamespace(input_tokens=1, output_tokens=1),
         )
 
-    access = ToolAccess(claims_gateway(registry))
+    access = ToolAccess(claims_gateway(registry), scope_policy="x")
     with pytest.raises(AgentStoppedError):
         run_agent(
             "coverage_check",
@@ -377,6 +377,7 @@ def test_a_stop_during_an_agents_tool_rounds_halts_its_next_model_request(regist
         )
     assert len(calls) == 1
     assert [c.allowed for c in access.log] == [False]
+    assert "stopped" in access.log[0].error  # the stop refused it, not the claim scope
 
 
 # --- From the pre-PR review ----------------------------------------------------------

@@ -164,7 +164,15 @@ def build_evidence_pack(result: TriageResult, claim: ClaimSubmission) -> dict:
         "critic_unresolved": result.critic_unresolved,
         "code_corrections": result.code_corrections,
         "records_looked_up": [
-            {"actor": t.actor, "tool": t.tool, "allowed": t.allowed} for t in result.tool_calls
+            {
+                "actor": t.actor,
+                "tool": t.tool,
+                "allowed": t.allowed,
+                # Only when a result addressed the AI, so a pack built before this field
+                # existed hashes the same (ADR 0035).
+                **({"injection_signals": t.injection_signals} if t.injection_signals else {}),
+            }
+            for t in result.tool_calls
         ],
         "stopped_reason": result.stopped_reason,
         "injection_signals": result.injection_signals,

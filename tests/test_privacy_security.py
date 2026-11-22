@@ -200,7 +200,9 @@ def test_a_tool_beyond_the_agents_data_classes_is_refused():
     registry = Registry([no_health])  # unapproved copy: approval checks off for this test
     log = []
     gateway = claims_gateway(registry)
-    result = gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, log)
+    result = gateway.call(
+        "risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, log, "WTP-ESS-100231"
+    )
     assert "may not see health" in result["error"]
     assert not log[0].allowed
 
@@ -214,7 +216,9 @@ def test_identifiers_are_redacted_from_tool_results_and_file_names():
         }
     ]
     gateway = claims_gateway(REGISTRY, server=build_server(history=history))
-    result = gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, [])
+    result = gateway.call(
+        "risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, [], "WTP-ESS-100231"
+    )
     summary = result["claims"][0]["summary"]
     assert "example.com" not in summary and "555" not in summary
 

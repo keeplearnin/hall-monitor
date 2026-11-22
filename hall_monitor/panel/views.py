@@ -277,6 +277,7 @@ _REASONS = (
     r"critic still disagrees after revisions",
     r"critic changed [a-z_.]+(?:, [a-z_.]+)*",
     rf"claim text addresses the AI: {_CODES}",
+    rf"a tool result addresses the AI: {_CODES}",
     rf"pipeline stopped: {_STOP}",
     r"supervisor handed the claim to a person \([a-z_]+\)",
     r"required steps missing or out of date: [a-z_ ]+(?:, [a-z_ ]+)*",
@@ -335,6 +336,7 @@ def reason_kind(reason: str) -> str:
         ("claimed amounts not in the claim documents marked USD", None),
         ("claimed items (", "claimed items don't add up to the total claimed"),
         ("claim text addresses the AI", None),
+        ("a tool result addresses the AI", None),
         ("pipeline stopped: agent refused or returned no usable output", None),
     ):
         if reason.startswith(prefix):
@@ -354,7 +356,14 @@ _SHOWN_FIELDS = {
     },
     "agent_call": set(AgentCall.model_fields),
     # result_hmac, keyed; a log written before that holds result_sha256 plain, never shown.
-    "tool_call": {"actor", "allowed", "result_hmac", "identifiers_redacted", "seconds"},
+    "tool_call": {
+        "actor",
+        "allowed",
+        "result_hmac",
+        "identifiers_redacted",
+        "injection_signals",
+        "seconds",
+    },
     "critic_review": set(),
     "revision": {"round"},
     "code_correction": set(),

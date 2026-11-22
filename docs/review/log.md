@@ -1454,3 +1454,38 @@ confirmed findings 1 and 2 by running each module in a fresh interpreter.
 | 2. The guard checked eight hand-picked modules, so a new module, or `complaints.submit` and `complaints.evals`, wasn't checked | Medium | Fixed: every module of the leave, complaint and partner examples, found on disk, less the four that serve every example, each pinned | `test_running_another_example_loads_no_claims_code`, `test_known_limit_code_serving_every_example_still_loads_claims_code` |
 | 3. ADR 0004's "no default server" rested on the signature alone: nothing failed if a default came back | Low | Fixed: a test checks the signature and that the pipeline may call no tool unless named | `test_the_tool_gateway_has_no_default_server_or_data_classes` |
 | 4. The audit-events mapping check read a fixed pair of recorders, so a later `EventRecorder` subclass's events would go unchecked | Low | Fixed: every subclass found in the source is read | `test_every_recorder_s_events_are_read` |
+
+## Review 44 (gateway-adversarial-tests): adversarial cases against the tool gateway
+
+**Reviewer:** the `governance-reviewer` agent on this branch's changes before the PR, stacked on
+Review 43's branch. The branch adds `tests/test_gateway_adversarial.py`, an adversarial pass over
+the tool gateway, and fixes what it found ([ADR 0035](../adr/0035-tool-results-are-screened.md)):
+a tool result that addressed the AI reached the agent, and a clean claim with a poisoned
+claims-history record routed automatically in both paths; an agent given no claim scope could read
+any policy; and arguments the tool doesn't take reached the server, with the model's text kept in
+the record. The gateway now screens every result and holds a matching one back from agents,
+claims routing sends the claim to a person, an agent with no scope can't call a policy-keyed tool,
+and arguments outside the schema are refused and not recorded. The pass's other attacks (scope or
+tenant in `_meta`, a model naming itself the pipeline, tool names differing by case or invisible
+characters, a grant replayed into a new book, an untabled tool) were refused already and are
+pinned. Token audience (RFC 8707), expiry and `Mcp-Method` header/body desync have no target with
+an in-process server; they are recorded under `not_covered` (RI-26, RI-29). No prompt, manifest or
+approval changed. The critic eval now passes the claim's scope, so its published results (run
+unscoped, on earlier agent versions) aren't from this code; none of the synthetic policies or
+history records match the detector. The reviewer confirmed the full suite (3,328), lint, the gate,
+and that no path reaches `auto` past a matching result, and raised eight findings. Severities are
+the reviewer's. Each fix was checked by undoing it and seeing its test fail.
+
+| Finding | Severity | Outcome | Test |
+|---|---|---|---|
+| 1. The panel had no template for "a tool result addresses the AI", so the case page showed "withheld", and each set of signal codes counted as its own reason | Medium | Fixed: the reason is shown and counted as one kind | `test_every_reason_the_code_generates_is_shown` (extended), `test_tool_result_reasons_are_counted_as_one_kind` |
+| 2. A claim that stopped after a result was held back gave only the stop as its reason, and the evidence pack listed the held call as an ordinary allowed lookup | Medium | Fixed: the stop's routing names it, in both paths, and the pack marks the call (only when it matched, so older packs hash the same) | `test_a_stopped_claim_after_a_held_tool_result_names_it_in_its_reasons` |
+| 3. Five behaviours the ADR states had no test: a tool the server lacks, the unquoted scope refusal, the pipeline's own lookup returned and still routed, pipeline calls counted, keys screened | Medium | Fixed: each pinned; each test fails with its fix undone | `test_a_tool_the_server_lacks_is_refused_before_the_server`, `test_a_scope_refusal_does_not_quote_the_asked_value`, `test_a_poisoned_policy_record_is_returned_to_the_pipeline_and_routes_to_a_person`, `test_instructions_in_a_result_key_are_held_back` |
+| 4. ADR 0035 cited Review 44 before this entry existed | Medium | Fixed: this entry | — |
+| 5. The routing docstring and HM-04 said only held-back results route the claim; the pipeline's own lookups do too | Low | Fixed: both say so | covered by finding 3's pipeline test |
+| 6. A comment said the scope refusal keeps the model's value out of the log; the call's arguments still keep it | Low | Fixed: the comment says so; the value as written stays a known HM-03 gap | — |
+| 7. A comment said each example's routing reads tool-result signals; only claims does, and the complaint ingest's pages are screened for nothing | Low | Fixed: the comment, HM-09 and ADR 0035 say so; the ingest's codes are recorded, unread | — |
+| 8. Redaction, screening and hashing ran outside the call's record, so a failure there left no record of an allowed call | Low | Fixed: they run inside it | `test_a_result_that_breaks_screening_is_still_recorded` |
+
+Also fixed: HM-29's gap still said the scope was the caller's to pass; a missing scope now fails
+closed for tools that take a policy number.

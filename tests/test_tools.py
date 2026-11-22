@@ -32,7 +32,11 @@ def test_agents_are_offered_only_their_allowed_tools():
 def test_allowed_call_is_answered_and_recorded():
     log: list[ToolCall] = []
     result = GATEWAY.call(
-        "coverage_check", "policy_lookup", {"policy_number": "WTP-ESS-100231"}, log
+        "coverage_check",
+        "policy_lookup",
+        {"policy_number": "WTP-ESS-100231"},
+        log,
+        "WTP-ESS-100231",
     )
     assert result["found"] and result["insured_name"] == "Daniel Okafor"
     [call] = log
@@ -42,7 +46,11 @@ def test_allowed_call_is_answered_and_recorded():
 def test_call_outside_the_allow_list_is_refused_and_recorded():
     log: list[ToolCall] = []
     result = GATEWAY.call(
-        "coverage_check", "claims_history", {"policy_number": "WTP-ESS-100231"}, log
+        "coverage_check",
+        "claims_history",
+        {"policy_number": "WTP-ESS-100231"},
+        log,
+        "WTP-ESS-100231",
     )
     assert "Refused" in result["error"]
     [call] = log
@@ -62,10 +70,14 @@ def test_pipeline_may_only_look_up_policies():
 
 def test_claims_history_follows_the_insured_across_policies():
     log: list[ToolCall] = []
-    history = GATEWAY.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100902"}, log)
+    history = GATEWAY.call(
+        "risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100902"}, log, "WTP-ESS-100902"
+    )
     assert history["insured_name"] == "Tomasz Wisniewski"
     assert [c["claim_ref"] for c in history["claims"]] == ["HIST-2025-1108"]
-    none = GATEWAY.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, log)
+    none = GATEWAY.call(
+        "risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, log, "WTP-ESS-100231"
+    )
     assert none["claims"] == []
 
 
@@ -100,7 +112,7 @@ class ScriptedMessages:
 def test_tool_loop_runs_calls_through_the_gateway(tool, allowed):
     final = CoverageFinding(applicable_clauses=["2.1"], covered_amount=10.0, reasoning="ok")
     messages = ScriptedMessages(tool, final)
-    access = ToolAccess(GATEWAY)
+    access = ToolAccess(GATEWAY, scope_policy="WTP-ESS-100231")
 
     run = run_agent(
         "coverage_check",
@@ -140,7 +152,13 @@ def test_a_tool_call_that_fails_after_it_was_allowed_is_still_recorded():
     gateway = claims_gateway(REGISTRY, server=_failing_server())
     log = []
     with pytest.raises(Exception, match="unavailable"):
-        gateway.call("coverage_check", "policy_lookup", {"policy_number": "WTP-ESS-100231"}, log)
+        gateway.call(
+            "coverage_check",
+            "policy_lookup",
+            {"policy_number": "WTP-ESS-100231"},
+            log,
+            "WTP-ESS-100231",
+        )
     [call] = log
     assert call.allowed and call.result_sha256 is None and "unavailable" in call.error
 
@@ -149,7 +167,11 @@ def test_the_gateway_works_inside_a_running_event_loop():
     async def inside_an_async_app():
         gateway = claims_gateway(REGISTRY)
         return gateway.call(
-            "coverage_check", "policy_lookup", {"policy_number": "WTP-ESS-100231"}, []
+            "coverage_check",
+            "policy_lookup",
+            {"policy_number": "WTP-ESS-100231"},
+            [],
+            "WTP-ESS-100231",
         )
 
     assert asyncio.run(inside_an_async_app())["found"] is True
@@ -170,7 +192,9 @@ def test_identifiers_removed_from_a_tool_result_are_counted():
     ]
     gateway = claims_gateway(REGISTRY, server=build_server(history=history))
     log = []
-    gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, log)
+    gateway.call(
+        "risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, log, "WTP-ESS-100231"
+    )
     assert log[0].identifiers_redacted == {"email": 1, "phone": 1}
 
 
@@ -178,7 +202,9 @@ def test_identifiers_removed_from_a_tool_result_are_counted():
 def test_claims_history_matches_names_ignoring_case_spacing_accents_and_punctuation(recorded):
     history = [{"insured_name": recorded, "summary": "Earlier baggage claim."}]
     gateway = claims_gateway(REGISTRY, server=build_server(history=history))
-    result = gateway.call("risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, [])
+    result = gateway.call(
+        "risk_fraud", "claims_history", {"policy_number": "WTP-ESS-100231"}, [], "WTP-ESS-100231"
+    )
     assert len(result["claims"]) == 1
 
 

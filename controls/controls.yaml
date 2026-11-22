@@ -77,7 +77,14 @@ controls:
     what: >-
       Agents read policy records and claims history only through MCP tools behind a gateway. Each
       agent is offered only the tools its manifest allows, every call is checked again, lookups are
-      limited to the claim's own policy, and every call, allowed or refused, is recorded.
+      limited to the claim's own policy, and every call, allowed or refused, is recorded. An agent
+      given no claim scope may not call a tool that takes a policy number, so code that forgets
+      the scope fails closed. Arguments the tool's schema doesn't name (an MCP-style _meta, a
+      tenant, a scope or actor of the model's own) are refused before the server is called and
+      never recorded, and the actor is always the agent code runs, never one the model names. A
+      tool name is matched exactly (case, invisible characters and look-alike letters included),
+      a tool missing from the server's data-class table counts as returning every class, and a
+      grant counts only in the book that issued it.
     status: built
     code:
       - hall_monitor/tools/gateway.py::ToolGateway
@@ -90,14 +97,27 @@ controls:
       - tests/test_tools.py::test_a_tool_call_that_fails_after_it_was_allowed_is_still_recorded
       - tests/test_tools.py::test_agents_are_offered_only_tools_their_data_classes_allow
       - tests/test_tools.py::test_the_gateway_works_inside_a_running_event_loop
+      - tests/test_gateway_adversarial.py::test_an_agent_call_without_a_claim_scope_is_refused_for_policy_tools
+      - tests/test_gateway_adversarial.py::test_arguments_outside_the_tool_schema_are_refused_at_the_gateway
+      - tests/test_gateway_adversarial.py::test_a_meta_tenant_or_scope_in_arguments_never_widens_the_lookup
+      - tests/test_gateway_adversarial.py::test_a_model_claiming_to_be_the_pipeline_in_tool_input_changes_nothing
+      - tests/test_gateway_adversarial.py::test_a_tool_name_differing_by_case_or_invisible_characters_is_refused
+      - tests/test_gateway_adversarial.py::test_a_tool_missing_from_the_data_class_table_counts_as_carrying_every_class
+      - tests/test_gateway_adversarial.py::test_a_grant_replayed_into_a_new_book_for_the_same_case_is_refused
+      - tests/test_gateway_adversarial.py::test_a_tool_the_server_lacks_is_refused_before_the_server
+      - tests/test_gateway_adversarial.py::test_a_scope_refusal_does_not_quote_the_asked_value
+      - tests/test_gateway_adversarial.py::test_a_result_that_breaks_screening_is_still_recorded
     evidence: []
     nist: [GOVERN 1.4, MEASURE 2.7, MANAGE 1.3]
     finos:
       risks: [RI-24, RI-25]
       mitigations: [MI-12, MI-16, MI-18, MI-19, MI-20]
     gaps: >-
-      Tool arguments are logged as the model wrote them, so a manipulated call's text is kept.
-      Claims history links policies by the insured's name (there's no customer ID in the data), so
+      The arguments a tool takes are logged as the model wrote them (a policy number written as
+      a name is kept as written); arguments it doesn't take are dropped, and refusals don't quote
+      the value asked for. A tool name a model sends in another case or with invisible
+      characters is refused by the no-send check, whose message says the tool could send,
+      before the allow-list sees it: refused either way, with a misleading reason. Claims history links policies by the insured's name (there's no customer ID in the data), so
       two customers with the same name would see each other's history; production would use a
       customer identifier.
 
@@ -106,8 +126,9 @@ controls:
     what: >-
       A code rule, not a model, decides whether a person must decide. It checks the facts behind
       the agents' labels: denials, payouts above $2,500 or above the amount claimed, any fraud
-      flag or non-low risk, critic changes, unresolved critic disagreement and injection signals.
-      Against the policy record it checks in code that the claimant is the insured (names compared
+      flag or non-low risk, critic changes, unresolved critic disagreement, injection signals
+      and any tool result that addresses the AI (one held back from an agent, or the pipeline's
+      own lookup), named in the reasons of a claim that stopped too. Against the policy record it checks in code that the claimant is the insured (names compared
       ignoring case, accents and punctuation), the incident
       falls inside the coverage period and the claim is in USD; a claim with no policy record,
       no incident date or another currency goes to a person. Against the claim documents it
@@ -351,7 +372,8 @@ controls:
       policy numbers, decision fields and tool-call arguments. The claim ID is on every entry,
       so it must be a code (letters, digits, _ and -, up to 64). The currency and policy number
       the model extracts are repeated in routing reasons and corrections, so both must be
-      code-shaped; tool-call arguments are still logged as the model wrote them. An unforeseen
+      code-shaped; the arguments a tool takes are still logged as the model wrote them (others
+      are dropped, HM-03). An unforeseen
       error stops the claim with its type only, since its text can repeat those arguments. The
       final decision entry keeps the adjuster's Ed25519 signature, which covers the reason, so
       anyone with the log and the public key can confirm a guessed reason: the keyed hash
@@ -435,6 +457,14 @@ controls:
       look like Latin ones, and dropping characters that render as nothing, so decoding only
       adds matches. It scans both the claim as sent and
       the redacted claim the agents read, because redaction can join words into a phrase. The
+      tool gateway runs the same detector over every string in a tool result (keys included,
+      after redaction): an agent gets a refusal instead of a result that matches, the call
+      records the signal names (never the text) and the result's hash, and the claim goes to a
+      person in both the fixed and the agentic path, with the reason given even when the claim
+      stopped; the evidence pack marks the call. The pipeline's own lookups are returned to its
+      code, which reads them as data, and their signals route the claim the same way (ADR 0035).
+      The complaint ingest's pages are screened the same way and their codes recorded, but
+      nothing reads them yet: the desk screens each narrative itself. The
       channel and attachment kind must be one of a fixed list of values, and the claim ID must
       be a code, so they carry no free text into prompts or the audit log.
     status: built, results pending
@@ -442,6 +472,8 @@ controls:
       - hall_monitor/agents/base.py::escape
       - hall_monitor/gateway/injection.py::detect_in_texts
       - hall_monitor/claims/screening.py::detect_instructions
+      - hall_monitor/tools/gateway.py::ToolGateway
+      - hall_monitor/claims/routing.py::tool_result_signals
     tests:
       - tests/test_pipeline.py::test_claim_text_cannot_close_its_fence_or_forge_feedback
       - tests/test_privacy_security.py::test_no_real_claim_is_flagged
@@ -456,6 +488,12 @@ controls:
       - tests/test_privacy_security.py::test_the_complaint_desk_s_own_vocabulary_is_flagged
       - tests/test_privacy_security.py::test_ordinary_complaint_text_is_not_flagged
       - tests/test_privacy_security.py::test_ordinary_claim_and_leave_text_is_not_flagged
+      - tests/test_gateway_adversarial.py::test_a_tool_result_that_addresses_the_ai_is_held_back_from_the_agent
+      - tests/test_gateway_adversarial.py::test_injected_instructions_in_a_tool_result_send_the_claim_to_a_person
+      - tests/test_gateway_adversarial.py::test_a_stopped_claim_after_a_held_tool_result_names_it_in_its_reasons
+      - tests/test_gateway_adversarial.py::test_a_poisoned_policy_record_is_returned_to_the_pipeline_and_routes_to_a_person
+      - tests/test_gateway_adversarial.py::test_instructions_in_a_result_key_are_held_back
+      - tests/test_panel.py::test_tool_result_reasons_are_counted_as_one_kind
     evidence:
       - "pending: uv run python -m hall_monitor.claims.evals.adversarial"
     nist: [MEASURE 2.7, MANAGE 1.3]
@@ -475,7 +513,11 @@ controls:
       attachment kind isn't a known value is refused when it is loaded, before triage, with the
       fields named but not their values, so it leaves no audit entry. The coverage step's cited clauses are free
       text the recommender receives unchecked, so a clause written with a name or condition in it
-      would reach a model not approved for personal data.
+      would reach a model not approved for personal data. A held-back tool result leaves the
+      agent to answer without it; the claim goes to a person, but that agent's answer rests on
+      less evidence. The pipeline's own policy lookup is read by code, so a policy record that
+      matches is still used, and the claim goes to a person. No eval measures tool-result
+      injection yet: the adversarial suite plants attacks in claims, not in tool data.
 
   - id: HM-10
     name: Identifier redaction and data minimisation
@@ -1726,7 +1768,8 @@ controls:
       process, not isolation (MI-22 stays not covered). The gateway enforces grants on tool
       calls; what an agent passes to another in its prompt is the crew pipeline's to control.
       A grant binds the case through its book; the gateway still limits a tool's arguments to
-      the case only through scope_policy, which the caller must pass (review 19). The book is
+      the case only through scope_policy (review 19); an agent given none may not call a tool
+      that takes a policy number (review 44), but a tool keyed some other way isn't scoped. The book is
       locked within one process only.
   - id: HM-30
     name: Red-team arena
@@ -2500,14 +2543,22 @@ not_covered:
   - ref: RI-23
     why: Intellectual property in model output isn't assessed.
   - ref: RI-26
-    why: The MCP server is first-party and runs in-process; nothing checks a third-party server's integrity because there isn't one.
+    why: >-
+      The MCP server is first-party and runs in-process; nothing checks a third-party server's
+      integrity because there isn't one. The gateway refuses a URL or a proxy (HM-25), so there is
+      no HTTP transport whose Mcp-Method header could disagree with its JSON-RPC body; one would
+      need that check before it is added.
   - ref: RI-27
     why: >-
       Workflow checkpoints are local state. The evidence pack and triage result in a checkpoint are
       checked against the hashes in the audit log (HM-05); other checkpoint state isn't
       integrity-checked.
   - ref: RI-29
-    why: Agents hold no credentials; the API key stays in the host process.
+    why: >-
+      Agents hold no credentials; the API key stays in the host process. With no remote MCP
+      server there is no bearer token, so token audience (RFC 8707 resource indicators), expiry
+      and tenant claims aren't checked; an HTTP transport would need all of them before it is
+      added.
   - ref: RI-30
     why: The system loads no skills or plugins.
   - ref: MI-02

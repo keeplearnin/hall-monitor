@@ -635,6 +635,7 @@ def test_every_reason_the_code_generates_is_shown(tmp_path, demo_data):
         critic_unresolved=True,
         critic_changed=["coverage_check.covered_amount", "intake.incident_date"],
         injection_signals=list(SIGNALS),
+        tool_result_signals=list(SIGNALS),
         policy=policy,
         claim_text="no amounts here",
     ).reasons
@@ -1410,3 +1411,14 @@ def test_the_cost_per_request_counts_every_preparation(tmp_path):
         if w["id"] == "hr_leave"
     )["metrics"]
     assert m["cost_per_request_usd"] == 0.01
+
+
+def test_tool_result_reasons_are_counted_as_one_kind():
+    """Review 44: each combination of signal codes was its own kind on the panel's counts."""
+    from hall_monitor.claims.routing import tool_result_reason
+
+    kinds = {
+        views.reason_kind(tool_result_reason(codes))
+        for codes in (["override_instructions"], ["addresses_the_ai", "override_instructions"])
+    }
+    assert kinds == {"a tool result addresses the AI"}
