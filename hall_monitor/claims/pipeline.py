@@ -37,6 +37,7 @@ from hall_monitor.claims.agents.intake import run_intake
 from hall_monitor.claims.agents.recommendation import run_recommendation
 from hall_monitor.claims.agents.risk_fraud import run_risk_fraud
 from hall_monitor.claims.amounts import source_text
+from hall_monitor.claims.gateway import claims_gateway, lookup_policy
 from hall_monitor.claims.models import (
     ClaimSubmission,
     CoverageAssessment,
@@ -57,9 +58,9 @@ from hall_monitor.claims.routing import (
     route_duplicate_documents,
     route_stopped,
 )
+from hall_monitor.claims.screening import detect_instructions, redact_claim
 from hall_monitor.gateway.cost import UnpricedModelError, total_cost
-from hall_monitor.gateway.injection import SIGNALS, detect_instructions
-from hall_monitor.gateway.redaction import redact_claim
+from hall_monitor.gateway.injection import SIGNALS
 from hall_monitor.registry import Registry, RegistryError
 from hall_monitor.shared_models import AgentCall, ToolCall
 from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
@@ -147,13 +148,13 @@ def _known_cost(run: _Run) -> float | None:
 
 
 def _lookup(extraction: IntakeExtraction, gateway: ToolGateway, run: _Run) -> PolicyRecord | None:
-    return gateway.lookup_policy(extraction.policy_number, run.tool_calls)
+    return lookup_policy(gateway, extraction.policy_number, run.tool_calls)
 
 
 def _policy_numbers_in(claim: ClaimSubmission, gateway: ToolGateway, run: _Run) -> list[str]:
     """Policy numbers in the claim text that match a real policy record."""
     candidates = policy_numbers_in(claim)
-    return [n for n in candidates if gateway.lookup_policy(n, run.tool_calls) is not None]
+    return [n for n in candidates if lookup_policy(gateway, n, run.tool_calls) is not None]
 
 
 def _problems(review: CriticReview) -> dict[ReviewedStage, list[str]]:
@@ -278,7 +279,7 @@ def _triage_with_stop(
     spend: SpendLedger | None = None,
 ) -> TriageResult:
     client = client or default_client()
-    gateway = gateway or ToolGateway(registry)
+    gateway = gateway or claims_gateway(registry)
     run = _Run(on_event)
     # Code checks before any model sees the claim: text aimed at the AI is flagged (and routes
     # the claim to a person), and identifiers no agent needs are removed.

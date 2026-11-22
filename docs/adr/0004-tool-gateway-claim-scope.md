@@ -19,6 +19,12 @@ Records are served by MCP tools (`policy_lookup`, `claims_history`) in
 2. refuses a lookup for any policy other than the one the claim is on (claim scope);
 3. records every call, allowed or refused, with the agent and the claim.
 
+The gateway is shared by every example, so it has no default server: each example passes its
+own, with the data classes each tool returns and the tools its pipeline's own code may call.
+Claims passes its records server through `claims_gateway` in
+[`claims/gateway.py`](../../hall_monitor/claims/gateway.py), so no example runs on another's
+tools or data classes by leaving an argument out.
+
 ## Alternatives considered
 
 - **Pre-load every record into the prompt.** Simpler, but every agent would see every record

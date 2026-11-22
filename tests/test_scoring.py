@@ -30,8 +30,8 @@ from hall_monitor.claims.models import (
     TriageResult,
 )
 from hall_monitor.claims.routing import route_claim
+from hall_monitor.claims.screening import redact_claim
 from hall_monitor.gateway.cost import call_cost
-from hall_monitor.gateway.redaction import redact_claim
 from hall_monitor.shared_models import AgentCall
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
@@ -238,9 +238,9 @@ def test_seeded_cases_plant_exactly_one_error_each():
 
 def test_seeded_scoring():
     from hall_monitor.claims.evals.critic_seeded import _control, _missing_date, run_case
+    from hall_monitor.claims.gateway import claims_gateway
     from hall_monitor.claims.models import CriticIssue, CriticReview, ReviewedStage
     from hall_monitor.registry import Registry
-    from hall_monitor.tools.gateway import ToolGateway
     from tests.fakes import TEST_REGISTRY_DIR, fake_client
 
     truth = load_ground_truth("claim_001")
@@ -249,7 +249,7 @@ def test_seeded_scoring():
     )
     registry = Registry.from_dir(TEST_REGISTRY_DIR)
     context = {
-        "gateway": ToolGateway(registry),
+        "gateway": claims_gateway(registry),
         "wording": WORDING,
         "registry": registry,
         "client": fake_client({CriticReview: issue}),

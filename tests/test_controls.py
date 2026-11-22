@@ -85,11 +85,39 @@ def _audit_events_in_code() -> set[str]:
                 and isinstance(node.args[1].value, str)
             ):
                 events.add(node.args[1].value)
-    # Triage events are written by TriageRecorder, one _<event> method each.
-    from hall_monitor.governance.audit import TriageRecorder
-
-    events |= {n[1:] for n in vars(TriageRecorder) if n.startswith("_") and not n.startswith("__")}
+    # Recorded events are written by a recorder, one _<event> method each: the shared
+    # EventRecorder's and every subclass's (the claims TriageRecorder, and any added later).
+    for recorder in _recorders():
+        events |= {n[1:] for n in vars(recorder) if n.startswith("_") and not n.startswith("__")}
     return events
+
+
+def _recorders() -> list[type]:
+    """EventRecorder and every class that subclasses it anywhere in the package, found in the
+    source so a recorder in a module nothing has imported yet is still read."""
+    import importlib
+
+    from hall_monitor.governance.audit import EventRecorder
+
+    for path in sorted((ROOT / "hall_monitor").rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.ClassDef) and any(
+                getattr(base, "id", getattr(base, "attr", None)) == "EventRecorder"
+                for base in node.bases
+            ):
+                importlib.import_module(".".join(path.relative_to(ROOT).with_suffix("").parts))
+    found, pending = [], [EventRecorder]
+    while pending:
+        cls = pending.pop()
+        found.append(cls)
+        pending.extend(cls.__subclasses__())
+    return found
+
+
+def test_every_recorder_s_events_are_read():
+    from hall_monitor.claims.recorder import TriageRecorder
+
+    assert TriageRecorder in _recorders()
 
 
 def test_audit_events_are_all_mapped():

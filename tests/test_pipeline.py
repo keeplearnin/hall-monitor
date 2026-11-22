@@ -9,7 +9,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from hall_monitor.agents.base import render_claim, render_feedback
+from hall_monitor.agents.base import render_feedback
+from hall_monitor.claims.agents.rendering import render_claim
 from hall_monitor.claims.amounts import source_text
 from hall_monitor.claims.data import (
     iter_claims,
@@ -17,6 +18,7 @@ from hall_monitor.claims.data import (
     load_policy_records,
     load_policy_wording,
 )
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import (
     CoverageAssessment,
     CoverageDecision,
@@ -34,14 +36,13 @@ from hall_monitor.claims.models import (
 )
 from hall_monitor.claims.pipeline import triage
 from hall_monitor.claims.routing import route_claim
-from hall_monitor.gateway.redaction import redact_claim
+from hall_monitor.claims.screening import redact_claim
 from hall_monitor.registry import Registry, load_approvals
-from hall_monitor.tools.gateway import ToolGateway
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth, specialists
 
 CLAIMS = list(iter_claims())
 REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
-GATEWAY = ToolGateway(REGISTRY)
+GATEWAY = claims_gateway(REGISTRY)
 _TRIAGE = triage
 
 

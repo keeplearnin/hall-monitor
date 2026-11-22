@@ -36,12 +36,12 @@ from hall_monitor.claims.approval import (
 )
 from hall_monitor.claims.models import ClaimSubmission, Route, TriageResult
 from hall_monitor.claims.pipeline import triage
+from hall_monitor.claims.recorder import TriageRecorder
 from hall_monitor.governance.audit import (
     DEFAULT_AUDIT_DB,
     AlreadyRecorded,
     AuditLog,
     EvidenceChanged,
-    TriageRecorder,
     canonical,
     sha256,
 )

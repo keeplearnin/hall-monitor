@@ -4,17 +4,17 @@ import pytest
 
 from hall_monitor.claims.approval import AdjusterDecision, build_evidence_pack, evidence_sha256
 from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import NextStep
 from hall_monitor.claims.pipeline import triage
 from hall_monitor.claims.workflow import open_workflow
 from hall_monitor.governance.signing import demo_private_key
 from hall_monitor.registry import Registry
-from hall_monitor.tools.gateway import ToolGateway
 from tests.fakes import TEST_REGISTRY_DIR, fake_client, outputs_from_truth, signed_decision
 
 CLAIMS = {c.claim_id: c for c in iter_claims()}
 REGISTRY = Registry.from_dir(TEST_REGISTRY_DIR)
-GATEWAY = ToolGateway(REGISTRY)
+GATEWAY = claims_gateway(REGISTRY)
 WORDING = load_policy_wording()
 
 
@@ -781,7 +781,8 @@ def test_different_receipts_on_the_same_policy_are_not_flagged(db):
 
 def test_a_claim_is_not_a_duplicate_of_its_own_earlier_run(tmp_path):
     """A restarted triage logs a second result for the same claim ID: not a resubmission."""
-    from hall_monitor.governance.audit import AuditLog, TriageRecorder
+    from hall_monitor.claims.recorder import TriageRecorder
+    from hall_monitor.governance.audit import AuditLog
 
     log = AuditLog(tmp_path / "audit.sqlite")
     claim = CLAIMS["claim_001"]

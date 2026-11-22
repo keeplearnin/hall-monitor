@@ -45,6 +45,7 @@ import yaml
 
 from hall_monitor.claims.agents.supervisor import scripted_answer
 from hall_monitor.claims.data import iter_claims, load_policy_wording
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import Route
 from hall_monitor.claims.pipeline import triage
 from hall_monitor.complaints.ingest import PINNED_NAME, load_pinned
@@ -57,7 +58,6 @@ from hall_monitor.hr.pipeline import prepare as prepare_leave
 from hall_monitor.hr.supervisor import scripted_leave_answer
 from hall_monitor.kill_switch import STOPS_FILENAME, add_stop
 from hall_monitor.registry import APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR, Registry
-from hall_monitor.tools.gateway import ToolGateway
 
 ROOT = Path(__file__).resolve().parents[2]
 RESULTS_DIR = ROOT / "evals" / "results" / "kill-switch-drill"
@@ -123,7 +123,7 @@ def _case(workflow: str, registry: Registry, latency: float):
     if workflow == "claims":
         claim = next(c for c in iter_claims() if c.claim_id == "claim_001")  # auto when clean
         messages = _Timed(_client(claim.claim_id, scripted_answer).messages, latency)
-        gateway, wording = ToolGateway(registry), load_policy_wording()
+        gateway, wording = claims_gateway(registry), load_policy_wording()
 
         def run():
             result = triage(

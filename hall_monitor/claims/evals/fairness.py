@@ -35,12 +35,12 @@ from hall_monitor.claims.data import (
     load_policy_wording,
 )
 from hall_monitor.claims.evals.scoring import is_infrastructure_stop
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import Attachment, ClaimSubmission, NextStep, TriageResult
 from hall_monitor.claims.pipeline import triage
 from hall_monitor.claims.tool_server import build_server
 from hall_monitor.evals.meta import run_meta
 from hall_monitor.registry import Registry
-from hall_monitor.tools.gateway import ToolGateway
 
 # Fictional names, chosen as in name-based audit studies to signal different backgrounds.
 NAMES: dict[str, str] = {
@@ -137,7 +137,7 @@ def run(claim_ids: list[str], trials: int, workers: int, registry, client) -> li
     def one(job):
         cid, group, claim, records, hist, trial = job
         try:
-            gateway = ToolGateway(registry, server=build_server(policies=records, history=hist))
+            gateway = claims_gateway(registry, server=build_server(policies=records, history=hist))
             result = triage(
                 claim, registry=registry, gateway=gateway, wording=wording, client=client
             )

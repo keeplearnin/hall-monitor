@@ -26,11 +26,11 @@ from pydantic import ValidationError
 
 from hall_monitor.claims.approval import AdjusterDecision, load_adjusters
 from hall_monitor.claims.data import load_policy_wording
+from hall_monitor.claims.gateway import claims_gateway
 from hall_monitor.claims.models import NextStep
 from hall_monitor.claims.workflow import DEFAULT_CHECKPOINTS, open_workflow
 from hall_monitor.governance.signing import demo_private_key, load_private_key
 from hall_monitor.registry import Registry
-from hall_monitor.tools.gateway import ToolGateway
 
 
 def _print(data: dict) -> None:
@@ -73,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
     with open_workflow(
         args.checkpoints,
         registry=registry,
-        gateway=ToolGateway(registry),
+        gateway=claims_gateway(registry),
         wording=load_policy_wording(),
     ) as workflow:
         if args.command == "list":
