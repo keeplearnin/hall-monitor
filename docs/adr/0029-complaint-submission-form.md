@@ -60,7 +60,7 @@ editing a snapshot. The leave example solved the same problem with a separate fo
 
 No reply and no send (HM-25) hold: the form serves a page and writes to the audit log; the
 static check passes on it, and live mode's only outbound path is the guarded model client. The
-typed-in text is not kept as such: the log has its redaction counts and the hash of the record,
+typed-in text is not kept as such: the log has its redaction counts and a keyed hash of the record (a plain one until review 46),
 so a person working the complaint on the panel sees its codes, not what it says; but a kept
 draft is stored in full in the evidence store and may quote it, a name included. Routing reads the
 labels and tags, not the narrative (as the red-team arena found, HM-30): a narrative about fraud

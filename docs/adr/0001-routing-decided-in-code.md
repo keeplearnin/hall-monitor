@@ -18,7 +18,10 @@ $2,500 (`ADJUSTER_PAYOUT_THRESHOLD_USD`), there is any fraud flag or non-low ris
 still disagrees or changed a decision field, or the claim text addresses the AI. Facts are also
 checked against the policy record: the claim goes to a person if the claimant isn't the insured
 (names compared ignoring case, accents and punctuation), the incident date is missing or outside
-the coverage period, there is no policy record, or the claim isn't in USD. The amounts are traced
+the coverage period, there is no policy record, or the claim isn't in USD. The claim documents
+must name the policy number and the claimant, and a policy number the claim doesn't name is never
+looked up, so an agent can't point the claim at another customer's policy (review 46; the
+incident date is still the intake's). The amounts are traced
 too: each claimed item must match its own occurrence of that figure in the claim documents, the
 total claimed must appear in them as well, and the items must add up to the total. Only a
 figure the documents mark as US dollars counts ($, US$ or USD beside it on the same line, with no

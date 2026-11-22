@@ -84,7 +84,10 @@ controls:
       never recorded, and the actor is always the agent code runs, never one the model names. A
       tool name is matched exactly (case, invisible characters and look-alike letters included),
       a tool missing from the server's data-class table counts as returning every class, and a
-      grant counts only in the book that issued it.
+      grant counts only in the book that issued it. A record copies a tool name only if the
+      server, the pipeline or a reviewed manifest declares it (any other shows as "<not a known
+      tool>", in the refusal too), and a call that fails after it was allowed records the
+      exception's type, never its message, which can quote a record (review 46).
     status: built
     code:
       - hall_monitor/tools/gateway.py::ToolGateway
@@ -107,6 +110,7 @@ controls:
       - tests/test_gateway_adversarial.py::test_a_tool_the_server_lacks_is_refused_before_the_server
       - tests/test_gateway_adversarial.py::test_a_scope_refusal_does_not_quote_the_asked_value
       - tests/test_gateway_adversarial.py::test_a_result_that_breaks_screening_is_still_recorded
+      - tests/test_tools.py::test_a_tool_name_no_one_declared_is_never_copied_into_the_record
     evidence: []
     nist: [GOVERN 1.4, MEASURE 2.7, MANAGE 1.3]
     finos:
@@ -130,7 +134,10 @@ controls:
       and any tool result that addresses the AI (one held back from an agent, or the pipeline's
       own lookup), named in the reasons of a claim that stopped too. Against the policy record it checks in code that the claimant is the insured (names compared
       ignoring case, accents and punctuation), the incident
-      falls inside the coverage period and the claim is in USD; a claim with no policy record,
+      falls inside the coverage period and the claim is in USD. The claim documents must name
+      both the policy number and the claimant, and a policy number the claim doesn't name is
+      never looked up (code uses the claim's own), so an agent can't point the claim, or the
+      specialists' lookups, at another customer's policy (review 46). A claim with no policy record,
       no incident date or another currency goes to a person. Against the claim documents it
       checks that each claimed item matches its own occurrence of that figure, that the total claimed
       appears in them, and that the items add up to the total. Only figures the documents mark as
@@ -168,6 +175,8 @@ controls:
     tests:
       - tests/test_pipeline.py::test_anything_but_a_clean_small_payment_goes_to_an_adjuster
       - tests/test_pipeline.py::test_facts_checked_against_the_policy_send_the_claim_to_a_person
+      - tests/test_pipeline.py::test_a_policy_or_claimant_the_documents_dont_name_goes_to_a_person
+      - tests/test_pipeline.py::test_another_customers_policy_named_by_intake_is_never_looked_up
       - tests/test_data.py::test_route_follows_routing_rule
       - tests/test_agent_faults.py::test_a_wrong_answer_sends_the_claim_to_a_person
       - tests/test_agent_faults.py::test_a_claim_in_another_currency_labelled_usd_goes_to_a_person
@@ -193,7 +202,11 @@ controls:
       risks: [RI-22, RI-24]
       mitigations: [MI-24]
     gaps: >-
-      A wrong answer that agrees with every fact the rule checks still routes automatically: a
+      The incident date is still the intake's: it is checked against the coverage period, not
+      against the documents. The claimant check finds the name anywhere in the documents, so a
+      claim filed by someone else that mentions the insured passes it when the intake names the
+      insured as the claimant. A critic's change to the claimant or the currency isn't a
+      routing reason or in the revision record (review 46, open). A wrong answer that agrees with every fact the rule checks still routes automatically: a
       risk step that misses a fraud signal, or a coverage step that ignores a limit but pays no
       more than was claimed and no more than $2,500. Tests pin both. The amount trace checks the
       agents' figures against what the claimant sent, not the claimant's own figures, and a figure
@@ -226,8 +239,10 @@ controls:
       hash in the audit database; on a USD claim pay no more than was claimed, and give a reason for any override or
       denial. Only senior adjusters may pay a claim with a fraud flag or above-low risk, or one the
       AI never assessed for fraud (a stopped claim); denying more than an adjuster's authority, or
-      paying or denying a claim whose amount can't be compared with USD limits (not in USD, or
-      nothing extracted), also needs a senior adjuster.
+      paying or denying a claim whose amount can't be compared with USD limits (not in USD,
+      nothing extracted, a claimed total the routing rule didn't trace to the documents, or a
+      claim that stopped before it was checked: the limits never rest on the intake's reading
+      alone, review 46), also needs a senior adjuster.
       The adjuster is shown the stored pack, with a warning if the checkpoint no longer matches
       it. A decision signed with a public demo key is marked as such in the record. A claim gets
       one evidence pack and one final decision: the audit log refuses a second of either inside
@@ -246,6 +261,7 @@ controls:
     code:
       - hall_monitor/claims/workflow.py::build_graph
       - hall_monitor/claims/approval.py::validate_decision
+      - hall_monitor/claims/routing.py::claimed_total_traced
       - hall_monitor/governance/signing.py::verify
       - hall_monitor/claims/workflow.py::_check_evidence
       - registry/adjusters.yaml
@@ -276,6 +292,8 @@ controls:
       - tests/test_approval_rules.py::test_the_shipped_adjusters_are_approved
       - tests/test_approval_rules.py::test_a_changed_adjusters_file_is_not_approved
       - tests/test_approval_rules.py::test_an_unreadable_approvals_file_refuses_the_adjusters
+      - tests/test_approval_rules.py::test_a_claimed_total_the_documents_dont_support_needs_a_senior_adjuster
+      - tests/test_approval_rules.py::test_denying_a_claim_that_stopped_before_its_amounts_were_checked_needs_a_senior
       - tests/test_workflow.py::test_a_decision_is_rejected_while_the_adjusters_file_isnt_approved
     evidence:
       - evals/results/hardened-critic/override.json
@@ -284,8 +302,9 @@ controls:
       risks: [RI-22]
       mitigations: [MI-24]
     gaps: >-
-      A payout on a claim not in USD, or with no amount extracted, is capped only by the senior
-      adjuster's authority: nothing converts currency or bounds it by the claim.
+      A payout on a claim not in USD, or with no amount extracted or traced, is capped only by
+      the senior adjuster's authority, and a senior adjuster's denial of such a claim has no
+      limit at all: nothing converts currency or bounds it by the claim (review 46, open).
       The fictional adjusters' keys are public demo keys (decisions signed with them are marked);
       a deployment would issue keys from the firm's identity system. The evidence pack lists document names rather than the documents.
       The evidence pack and the triage result the approval rules read are checked against the
@@ -545,6 +564,8 @@ controls:
       - tests/test_privacy_security.py::test_an_input_beyond_the_manifests_data_classes_is_refused_before_the_model
       - tests/test_privacy_security.py::test_a_tool_beyond_the_agents_data_classes_is_refused
       - tests/test_privacy_security.py::test_identifiers_are_redacted_from_tool_results_and_file_names
+      - tests/test_privacy_security.py::test_a_passport_label_redacts_the_number_not_the_next_word
+      - tests/test_privacy_security.py::test_a_passport_word_with_no_number_after_it_keeps_its_evidence
       - tests/test_privacy_security.py::test_tax_ids_and_bank_details_are_redacted
       - tests/test_privacy_security.py::test_bank_and_tax_patterns_leave_ordinary_evidence_alone
       - tests/test_privacy_security.py::test_redaction_stays_fast_on_long_runs_of_space
@@ -723,10 +744,16 @@ controls:
       isn't a finite number (NaN, infinity, a boolean or text fail rather than pass), and flags
       results scored on an older agent version or prompt than the one approved, or that don't
       record their versions. Required checks include the live run of the agentic leave path
-      (route and intake accuracy at least 0.95, no errors).
+      (route and intake accuracy at least 0.95, no errors). The offline tests run with no
+      Anthropic or Langfuse key and with dotenv's loader replaced, so a test can't load the
+      repo's .env (review 46). Evals count a case refused before any model call (budgets not
+      approved, a cap reached, the ledger unavailable) as an error, never as a safe stop, so a
+      run that tested nothing can't pass the gate.
     status: built
     code:
       - .github/workflows/ci.yml
+      - tests/conftest.py
+      - hall_monitor/claims/evals/scoring.py::is_infrastructure_stop
       - hall_monitor/evals/gate.py::run_gate
       - evals/gate.yaml
     tests:
@@ -735,6 +762,10 @@ controls:
       - tests/test_gate.py::test_results_without_agent_versions_count_as_stale
       - tests/test_gate.py::test_a_changed_prompt_makes_a_result_stale
       - tests/test_gate.py::test_a_metric_that_isnt_a_finite_number_fails
+      - tests/test_offline.py::test_a_module_that_loads_dotenv_gets_the_offline_guard
+      - tests/test_offline.py::test_loading_dotenv_in_a_test_puts_no_key_in_the_environment
+      - tests/test_scoring.py::test_infrastructure_stops_are_told_apart_from_model_behaviour
+      - tests/test_complaint_triage.py::test_a_run_where_every_complaint_is_spend_refused_counts_as_errors
     evidence: []
     nist: [MEASURE 3.1]
     finos:
@@ -1008,7 +1039,10 @@ controls:
       partner and an HR director. Every reason names an HR business partner or above, so a
       local manager never decides a flagged request; extending past the entitlement, deciding
       a case with a retaliation risk, a request the agentic path routed before the rules ran
-      (assessment_skipped) and one refused at the spending cap need an HR director. Only a clean request with no reason at all takes the light path
+      (assessment_skipped) and one refused at the spending cap need an HR director. A request
+      that stops before the rules run (no dates, no record, an invalid range, a failed call)
+      still carries the retaliation risk from the employee's record, so it needs an HR director
+      too (review 46). Only a clean request with no reason at all takes the light path
       (manager_sign_off), and even that is a draft for the local manager to sign, never an
       approval without a person. The
       records hold no names and no diagnosis; the health information they do hold is coarse (the
@@ -1182,7 +1216,8 @@ controls:
       rules don't know, as a log written before the roles were renamed may hold, is refused
       cleanly); approving FMLA leave only for
       an eligible employee with a qualifying reason, for more than 0 weeks and no more than are
-      left, were asked or qualify (bonding weeks after the 12 months don't); approving military
+      left (what the records leave, less the weeks the log shows approved for the same employee
+      on other requests, linked by a keyed hash of the employee: review 46), were asked or qualify (bonding weeks after the 12 months don't); approving military
       leave whose only open question is the family member's covered status only by an HR
       business partner or above, with a reason of at least 20 characters as their written
       attestation that they checked it; approving fewer weeks
@@ -1207,6 +1242,7 @@ controls:
     status: built
     code:
       - hall_monitor/hr/signoff.py::validate
+      - hall_monitor/hr/signoff.py::approved_weeks_for
       - hall_monitor/hr/signoff.py::decide
       - hall_monitor/hr/signoff.py::record_evidence
       - hall_monitor/hr/review.py::main
@@ -1235,6 +1271,9 @@ controls:
       - tests/test_hr_signoff.py::test_a_preparation_that_stopped_before_the_rules_can_be_prepared_again
       - tests/test_hr_signoff.py::test_an_information_request_is_kept_and_can_t_be_replayed
       - tests/test_hr_signoff.py::test_a_local_manager_signs_off_a_clean_request
+      - tests/test_hr_signoff.py::test_leave_approved_on_an_earlier_request_counts_against_the_next
+      - tests/test_hr_signoff.py::test_leave_approved_for_someone_else_doesnt_count
+      - tests/test_hr_signoff.py::test_a_retaliation_risk_request_that_stops_before_the_rules_needs_a_director
       - tests/test_hr_signoff.py::test_a_local_manager_may_not_decide_a_flagged_request
       - tests/test_hr_signoff.py::test_the_local_manager_may_still_ask_for_information_on_any_request
       - tests/test_hr_signoff.py::test_a_partial_approval_needs_an_hr_business_partner_even_with_a_reason
@@ -1253,7 +1292,10 @@ controls:
       risks: [RI-22, RI-24]
       mitigations: [MI-21, MI-24]
     gaps: >-
-      The three fictional staff use public demo keys derived from their IDs, so a demo decision
+      Weeks approved on other requests count only from decisions that carry the employee's
+      keyed hash (from review 46 on), every approval in the log counts with no 12-month window
+      (errs towards refusing), and two approvals for one employee on different requests at the
+      same moment are each checked against the log as it stood, so both can pass. The three fictional staff use public demo keys derived from their IDs, so a demo decision
       proves nothing about who made it (each logged decision says so); a real deployment issues
       keys from the firm's identity system. The sign-off is a command-line step on one machine's
       audit log: no sign-in and no shared store; the panel shows HR cases but can't decide them.
@@ -2138,6 +2180,7 @@ controls:
       - tests/test_complaint_submit.py::test_a_demo_submission_is_triaged_by_the_desk_and_shows_on_the_desk_page
       - tests/test_complaint_submit.py::test_the_code_routes_the_typed_in_fields_as_it_routes_cfpb_s
       - tests/test_complaint_submit.py::test_text_aimed_at_the_ai_goes_to_specialist_review_and_isn_t_logged
+      - tests/test_complaint_triage.py::test_no_plain_hash_of_a_complaint_is_logged
       - tests/test_complaint_submit.py::test_each_submission_gets_a_synthetic_id_that_can_t_be_a_cfpb_one
       - tests/test_complaint_submit.py::test_the_result_page_never_shows_the_agent_s_text_route_or_reasons
       - tests/test_complaint_submit.py::test_a_live_submission_runs_through_the_desk_s_guarded_model_client
@@ -2172,7 +2215,8 @@ controls:
       mitigations: [MI-04, MI-21]
     gaps: >-
       New functionality, proposed: its scope is for the owner to confirm. The log never holds
-      the typed-in text (only its redaction counts and a hash of the record), so a person
+      the typed-in text (only its redaction counts and a keyed hash of the record; a plain one,
+      which a guessed narrative could confirm, until review 46), so a person
       working the complaint on the panel sees its codes, not what it says. A kept draft is stored in full in the evidence store (HM-25) and may quote what was
       typed, a name included: the draft check drops links, phone numbers, email addresses and
       promises, not names. Label redaction is a refusal of what the redaction patterns find, so
