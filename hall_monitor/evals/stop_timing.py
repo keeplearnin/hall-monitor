@@ -384,8 +384,8 @@ def report(result: dict) -> str:
         f"{MIN_STOPPED_SHARE:.0%} of trials stopped, so a broken switch fails the drill.",
         "- **Other agents' calls after stop:** a stop on an agent the case already used ends it "
         "at the next step; a stop on an agent not used yet takes effect when it is next needed, "
-        "so the case's other agents can make a few calls first (an intake call and a supervisor "
-        "turn, here).",
+        "so the case's other agents can make calls first (the most in any row of this run: "
+        f"{result['summary']['max_other_agents_calls_after_stop']}).",
         "- **Its calls after stop** counts calls whose stop check began after the stop file "
         "was written: each call is judged by the check that let it through, not by when it "
         "reached the model. A call whose check began during the few milliseconds of the write "
