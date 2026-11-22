@@ -135,9 +135,11 @@ controls:
       own lookup), named in the reasons of a claim that stopped too. Against the policy record it checks in code that the claimant is the insured (names compared
       ignoring case, accents and punctuation), the incident
       falls inside the coverage period and the claim is in USD. The claim documents must name
-      both the policy number and the claimant, and a policy number the claim doesn't name is
-      never looked up (code uses the claim's own), so an agent can't point the claim, or the
-      specialists' lookups, at another customer's policy (review 46). A claim with no policy record,
+      both the policy number and the claimant, and no other policy number (a companion's
+      policy named beside the claimant's goes to a person); a policy number the claim doesn't
+      name is never looked up (code uses the claim's own; numbers are found however written,
+      with spaces or a line break for a hyphen), so an agent can't point the claim, or the
+      specialists' lookups, at another customer's policy without a person checking (review 46). A claim with no policy record,
       no incident date or another currency goes to a person. Against the claim documents it
       checks that each claimed item matches its own occurrence of that figure, that the total claimed
       appears in them, and that the items add up to the total. Only figures the documents mark as
@@ -177,6 +179,8 @@ controls:
       - tests/test_pipeline.py::test_facts_checked_against_the_policy_send_the_claim_to_a_person
       - tests/test_pipeline.py::test_a_policy_or_claimant_the_documents_dont_name_goes_to_a_person
       - tests/test_pipeline.py::test_another_customers_policy_named_by_intake_is_never_looked_up
+      - tests/test_pipeline.py::test_a_claim_naming_two_policies_goes_to_a_person_when_intake_picks_the_other
+      - tests/test_pipeline.py::test_a_policy_number_written_with_spaces_or_a_break_is_still_found
       - tests/test_data.py::test_route_follows_routing_rule
       - tests/test_agent_faults.py::test_a_wrong_answer_sends_the_claim_to_a_person
       - tests/test_agent_faults.py::test_a_claim_in_another_currency_labelled_usd_goes_to_a_person
@@ -241,8 +245,9 @@ controls:
       AI never assessed for fraud (a stopped claim); denying more than an adjuster's authority, or
       paying or denying a claim whose amount can't be compared with USD limits (not in USD,
       nothing extracted, a claimed total the routing rule didn't trace to the documents, or a
-      claim that stopped before it was checked: the limits never rest on the intake's reading
-      alone, review 46), also needs a senior adjuster.
+      claim that stopped, or that the agentic supervisor ended with steps missing, before it was
+      checked: the limits never rest on the intake's reading alone, review 46), also needs a
+      senior adjuster.
       The adjuster is shown the stored pack, with a warning if the checkpoint no longer matches
       it. A decision signed with a public demo key is marked as such in the record. A claim gets
       one evidence pack and one final decision: the audit log refuses a second of either inside
@@ -1216,8 +1221,9 @@ controls:
       rules don't know, as a log written before the roles were renamed may hold, is refused
       cleanly); approving FMLA leave only for
       an eligible employee with a qualifying reason, for more than 0 weeks and no more than are
-      left (what the records leave, less the weeks the log shows approved for the same employee
-      on other requests, linked by a keyed hash of the employee: review 46), were asked or qualify (bonding weeks after the 12 months don't); approving military
+      left (what the records leave, less the weeks the log shows approved or extended for the
+      same employee on other requests, linked by a keyed hash of the employee; extensions are
+      measured on the same figure: review 46), were asked or qualify (bonding weeks after the 12 months don't); approving military
       leave whose only open question is the family member's covered status only by an HR
       business partner or above, with a reason of at least 20 characters as their written
       attestation that they checked it; approving fewer weeks
@@ -1274,6 +1280,8 @@ controls:
       - tests/test_hr_signoff.py::test_leave_approved_on_an_earlier_request_counts_against_the_next
       - tests/test_hr_signoff.py::test_leave_approved_for_someone_else_doesnt_count
       - tests/test_hr_signoff.py::test_a_retaliation_risk_request_that_stops_before_the_rules_needs_a_director
+      - tests/test_hr_signoff.py::test_leave_extended_on_an_earlier_request_counts_against_the_next
+      - tests/test_hr_signoff.py::test_an_extension_is_allowed_once_earlier_approvals_use_up_the_entitlement
       - tests/test_hr_signoff.py::test_a_local_manager_may_not_decide_a_flagged_request
       - tests/test_hr_signoff.py::test_the_local_manager_may_still_ask_for_information_on_any_request
       - tests/test_hr_signoff.py::test_a_partial_approval_needs_an_hr_business_partner_even_with_a_reason
@@ -1292,7 +1300,7 @@ controls:
       risks: [RI-22, RI-24]
       mitigations: [MI-21, MI-24]
     gaps: >-
-      Weeks approved on other requests count only from decisions that carry the employee's
+      Weeks approved or extended on other requests count only from decisions that carry the employee's
       keyed hash (from review 46 on), every approval in the log counts with no 12-month window
       (errs towards refusing), and two approvals for one employee on different requests at the
       same moment are each checked against the log as it stood, so both can pass. The three fictional staff use public demo keys derived from their IDs, so a demo decision

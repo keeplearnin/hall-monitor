@@ -935,3 +935,20 @@ def test_a_retaliation_risk_request_that_stops_before_the_rules_needs_a_director
     assert prepared.route.decided_by == "hr_director"
     with pytest.raises(DecisionRefused, match="director"):
         _decide(audit, "lr_012", "hrs-201", "deny", reason=REASON)
+
+
+def test_leave_extended_on_an_earlier_request_counts_against_the_next(log):
+    """Review 46 re-review: an extension grants the entitlement and more, so it counts too."""
+    asked = evidence(log, "lr_009")[1]["assessment"]["requested_weeks"]
+    _file_again(log, "lr_009", "lr_009_again")
+    _decide(log, "lr_009_again", "hrs-301", "extend", weeks=asked, reason=REASON)
+    with pytest.raises(DecisionRefused, match="approved on earlier requests"):
+        _decide(log, "lr_009", "hrs-301", "approve", weeks=1, reason=REASON)
+
+
+def test_an_extension_is_allowed_once_earlier_approvals_use_up_the_entitlement(log):
+    for i in range(3):
+        _file_again(log, "lr_001", f"lr_again_{i}")
+        _decide(log, f"lr_again_{i}", "hrs-101", "approve", weeks=4)
+    final = _decide(log, "lr_001", "hrs-301", "extend", weeks=4, reason=REASON)
+    assert final["outcome"] == "extend"

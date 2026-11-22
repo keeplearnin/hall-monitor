@@ -263,6 +263,7 @@ _REASONS = (
     r"claimant is not the insured named on the policy",
     r"the policy number isn't in the claim documents",
     r"the claimant's name isn't in the claim documents",
+    r"the claim documents name more than one policy number",
     r"no incident date to check against the coverage period",
     r"incident date is outside the coverage period",
     r"no claim text to check the claimed amounts against",

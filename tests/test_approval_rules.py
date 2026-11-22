@@ -21,7 +21,12 @@ from hall_monitor.claims.models import (
     RoutingDecision,
     TriageResult,
 )
-from hall_monitor.claims.routing import ITEMS_DONT_ADD_UP, UNTRACED_AMOUNTS, route_stopped
+from hall_monitor.claims.routing import (
+    ITEMS_DONT_ADD_UP,
+    STEPS_MISSING,
+    UNTRACED_AMOUNTS,
+    route_stopped,
+)
 from tests.fakes import signed_decision
 
 ADJUSTERS = load_adjusters()
@@ -86,8 +91,14 @@ def test_denying_more_than_your_authority_needs_a_senior_adjuster():
 
 @pytest.mark.parametrize(
     "reason",
-    [f"{UNTRACED_AMOUNTS} in USD: 820.00", f"{ITEMS_DONT_ADD_UP} (820.00) don't add up"],
-    ids=["untraced", "items-dont-add-up"],
+    [
+        f"{UNTRACED_AMOUNTS} in USD: 820.00",
+        f"{ITEMS_DONT_ADD_UP} (820.00) don't add up",
+        # The agentic path's supervisor handed off before coverage ran: route_claim never
+        # traced the amounts, and nothing stopped (review 46 re-review).
+        f"{STEPS_MISSING}: coverage_check, risk_fraud",
+    ],
+    ids=["untraced", "items-dont-add-up", "steps-missing"],
 )
 def test_a_claimed_total_the_documents_dont_support_needs_a_senior_adjuster(reason):
     """Review 46, H2: claim_016 is 8,200 in its documents; an intake that read 820 let adj-101

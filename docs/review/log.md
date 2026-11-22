@@ -1571,3 +1571,15 @@ read`; live-eval is dispatch-only on main; actions are pinned by tag (HM-17's ga
 pins no uv version; GitHub secret scanning and push protection are on, Dependabot security
 updates off, no dependency audit in CI; no `live-eval` environment exists yet, so the first
 dispatch would create it unprotected; main has no branch protection.
+
+**Re-review of this branch** (the `governance-reviewer` agent on `git diff main...HEAD`): six
+findings, all fixed on the branch, each test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| R1. H1 checked that the claim names *a* policy number and the claimant: a claim naming a companion's policy beside the claimant's let intake pick it, and with its insured's name every check passed (both paths, auto) | High | Fixed: documents naming more than one policy number go to a person (`test_a_claim_naming_two_policies_goes_to_a_person_when_intake_picks_the_other`) |
+| R2. H2 on the agentic path: a supervisor ending with steps missing builds its own route (route_claim never runs) and no stop is recorded, so an untraced total still set the limits | High | Fixed: `claimed_total_traced` also refuses the steps-missing route (`STEPS_MISSING`; the H2 test's `steps-missing` case) |
+| R3. H3 counted approvals only: an extension (the entitlement and more) counted 0 against the employee's other requests | High | Fixed: extensions count in full (`test_leave_extended_on_an_earlier_request_counts_against_the_next`) |
+| R4. The extension rule measured "past the entitlement" on the snapshot, so once earlier approvals used it up an extension was refused with a false reason | Medium | Fixed: approvals and extensions are measured on what is left after other requests (`test_an_extension_is_allowed_once_earlier_approvals_use_up_the_entitlement`) |
+| R5. H7's replacement of the raw tool name in refusal text rewrote the code's own words for a short name ("" or "o") | Low | Fixed: only the quoted form is swapped (the H7 test's `empty` and `one-letter` cases) |
+| R6. A policy number written with spaces or split by a line break wasn't found by code, so a claim the intake read correctly stopped with a misleading reason (on main it routed auto); a docstring named HM-21 for HM-23's gaps | Low | Fixed: numbers are found however written and normalised (`test_a_policy_number_written_with_spaces_or_a_break_is_still_found`); docstring corrected |

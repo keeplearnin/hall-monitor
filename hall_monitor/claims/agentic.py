@@ -84,7 +84,12 @@ from hall_monitor.claims.pipeline import (
     _problems,
     _Run,
 )
-from hall_monitor.claims.routing import route_claim, tool_result_reason, tool_result_signals
+from hall_monitor.claims.routing import (
+    STEPS_MISSING,
+    route_claim,
+    tool_result_reason,
+    tool_result_signals,
+)
 from hall_monitor.gateway.cost import call_cost
 from hall_monitor.registry import Registry
 from hall_monitor.shared_models import AgentCall, StepOutcome, StepRefusal
@@ -521,7 +526,7 @@ def _result(ctx: _Context, state: _State, decision: SupervisorDecision) -> Triag
         reasons.append(f"supervisor handed the claim to a person ({decision.reason.value})")
     held = tool_result_signals(run.tool_calls)
     if missing:
-        reasons.append("required steps missing or out of date: " + ", ".join(missing))
+        reasons.append(f"{STEPS_MISSING}: " + ", ".join(missing))
         if held:
             reasons.append(tool_result_reason(held))
         routing = RoutingDecision(route=Route.ADJUSTER, reasons=reasons)

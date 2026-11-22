@@ -212,6 +212,46 @@ def test_another_customers_policy_named_by_intake_is_never_looked_up():
     assert any("insured" in r for r in result.routing.reasons)
 
 
+def test_a_claim_naming_two_policies_goes_to_a_person_when_intake_picks_the_other():
+    """Review 46 re-review: a claim that names a companion's policy let intake choose it, and
+    with its insured's name every check passed."""
+    claim = CLAIMS[0].model_copy(
+        update={
+            "narrative": CLAIMS[0].narrative
+            + f" My wife {OTHER_POLICY.insured_name} travelled with me; her policy is "
+            f"{OTHER_POLICY.policy_number}."
+        }
+    )
+    outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
+    outputs[IntakeExtraction] = outputs[IntakeExtraction].model_copy(
+        update={
+            "policy_number": OTHER_POLICY.policy_number,
+            "claimant_name": OTHER_POLICY.insured_name,
+        }
+    )
+
+    result, _ = _triage(claim, outputs)
+
+    assert result.routing.route is Route.ADJUSTER
+    assert any("more than one policy number" in r for r in result.routing.reasons)
+
+
+@pytest.mark.parametrize("written", ["WTP ESS 100231", "wtp-ess-\n100231"])
+def test_a_policy_number_written_with_spaces_or_a_break_is_still_found(written):
+    claim = CLAIMS[0]
+    rewrite = lambda t: t.replace("WTP-ESS-100231", written)  # noqa: E731
+    claim = claim.model_copy(
+        update={
+            "narrative": rewrite(claim.narrative),
+            "attachments": [
+                a.model_copy(update={"text": rewrite(a.text)}) for a in claim.attachments
+            ],
+        }
+    )
+    result, _ = _triage(claim, outputs_from_truth(load_ground_truth(claim.claim_id)))
+    assert result.stopped_reason is None and result.routing.route is Route.AUTO
+
+
 def test_claimant_name_match_ignores_case_and_punctuation():
     name = EXTRACTION.claimant_name.upper().replace(" ", "  ") + "."
     assert (

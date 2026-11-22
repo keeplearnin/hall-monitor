@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from hall_monitor.claims.amounts import amount_in, other_currencies, untraced
 from hall_monitor.claims.models import (
-    POLICY_NUMBER_PATTERN,
     CoverageAssessment,
     CoverageDecision,
     IntakeExtraction,
@@ -29,6 +28,7 @@ from hall_monitor.claims.models import (
     RiskLevel,
     Route,
     RoutingDecision,
+    policy_numbers_in_text,
 )
 from hall_monitor.names import name_key
 from hall_monitor.shared_models import ToolCall
@@ -39,6 +39,9 @@ ADJUSTER_PAYOUT_THRESHOLD_USD = 2_500
 # limits read them (claimed_total_traced) and mustn't trust such a total.
 UNTRACED_AMOUNTS = "claimed amounts not in the claim documents"
 ITEMS_DONT_ADD_UP = "claimed items"
+# The agentic path's reason when the supervisor finished or handed off with steps missing:
+# route_claim never ran, so nothing was traced.
+STEPS_MISSING = "required steps missing or out of date"
 
 
 def route_claim(
@@ -70,8 +73,13 @@ def route_claim(
         # itself names them; otherwise an agent could name another customer's policy and its
         # insured and the claim would pay automatically.
         if claim_text is not None:
-            if policy.policy_number not in POLICY_NUMBER_PATTERN.findall(claim_text.upper()):
+            named = policy_numbers_in_text(claim_text)
+            if policy.policy_number not in named:
                 reasons.append("the policy number isn't in the claim documents")
+            elif len(named) > 1:
+                # A companion's policy named beside the claimant's: which is the claimant's is
+                # the intake's reading, so a person checks it.
+                reasons.append("the claim documents name more than one policy number")
             if f" {name_key(extraction.claimant_name)} " not in f" {name_key(claim_text)} ":
                 reasons.append("the claimant's name isn't in the claim documents")
         if extraction.incident_date is None:
@@ -138,10 +146,11 @@ def route_claim(
 
 def claimed_total_traced(routing: RoutingDecision, stopped: bool) -> bool:
     """Whether the routing rule traced the claimed total to the documents: it ran (the claim
-    didn't stop first) and raised neither an untraced amount nor items that don't add up. Until
-    then the total is only the intake agent's reading (Review 46)."""
+    didn't stop first, and the agentic supervisor didn't end with steps missing, when the rule
+    isn't run) and raised neither an untraced amount nor items that don't add up. Until then the
+    total is only the intake agent's reading (Review 46)."""
     return not stopped and not any(
-        r.startswith((UNTRACED_AMOUNTS, ITEMS_DONT_ADD_UP)) for r in routing.reasons
+        r.startswith((UNTRACED_AMOUNTS, ITEMS_DONT_ADD_UP, STEPS_MISSING)) for r in routing.reasons
     )
 
 

@@ -166,8 +166,8 @@ def test_a_tool_call_that_fails_after_it_was_allowed_is_still_recorded():
 
 @pytest.mark.parametrize(
     "tool",
-    ["lookup for Daniel Okafor: chemo on 3 May", "jane_doe_hiv_positive_dob_1980_01_01"],
-    ids=["free-text", "identifier-shaped"],
+    ["lookup for Daniel Okafor: chemo on 3 May", "jane_doe_hiv_positive_dob_1980_01_01", "", "o"],
+    ids=["free-text", "identifier-shaped", "empty", "one-letter"],
 )
 def test_a_tool_name_no_one_declared_is_never_copied_into_the_record(tool):
     """Review 46, H7: the model writes the tool name; one the server and the manifests don't
@@ -176,7 +176,8 @@ def test_a_tool_name_no_one_declared_is_never_copied_into_the_record(tool):
     answer = claims_gateway(REGISTRY).call("coverage_check", tool, {}, log, "WTP-ESS-100231")
     [call] = log
     assert not call.allowed and call.tool == "<not a known tool>"
-    assert tool not in (call.error or "") and tool not in answer["error"]
+    assert repr(tool) not in (call.error or "") and repr(tool) not in answer["error"]
+    assert "<not a known tool>" in call.error and len(call.error) < 200  # reads cleanly
 
 
 def test_the_gateway_works_inside_a_running_event_loop():

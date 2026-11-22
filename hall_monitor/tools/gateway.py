@@ -211,7 +211,9 @@ class ToolGateway:
         except RegistryError as exc:
             why = str(exc)
             if shown != tool:
-                why = why.replace(repr(tool), repr(shown)).replace(str(tool), shown)
+                # Every refusal quotes the name as repr; only that form is swapped, so a short
+                # name ("o") can't rewrite the rest of the message.
+                why = why.replace(repr(tool), repr(shown))
             log.append(
                 ToolCall(
                     actor=actor,

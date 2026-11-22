@@ -249,6 +249,9 @@ def validate(
     checks = _check(pack)
     assessment = pack.get("assessment") or {}
     remaining = assessment.get("remaining_weeks")
+    # What is left once weeks approved or extended on the employee's other requests are taken
+    # off the records' snapshot (Review 46): every approval and extension is measured on it.
+    left = None if remaining is None else remaining - approved_elsewhere
     requested = assessment.get("requested_weeks")
     qualifying = assessment.get("qualifying_weeks", requested)
     person = [checks.get(c) for c in ("employer", "service", "hours", "worksite")]
@@ -299,7 +302,7 @@ def validate(
             )
         # Approving less than was asked (or, for intermittent leave, than is left) refuses the
         # rest: a partial denial.
-        asked = requested if requested is not None else remaining
+        asked = requested if requested is not None else left
         if weeks < asked - 1e-9:
             needs_hr_business_partner("approving fewer weeks than asked is a partial denial: it")
             needs_reason("a partial denial")
@@ -319,13 +322,13 @@ def validate(
                 "an extension is for an eligible employee with a qualifying reason; a person "
                 "decides anything else outside this step"
             )
-        past = remaining is not None and (
-            remaining <= 0 or (requested is not None and requested > remaining + 1e-9)
+        past = left is not None and (
+            left <= 0 or (requested is not None and requested > left + 1e-9)
         )
         if not past:
             raise DecisionRefused("an extension is only for leave past the entitlement")
         # weeks is the total granted for this request, entitlement included.
-        if weeks <= max(remaining, 0) + 1e-9:
+        if weeks <= max(left, 0) + 1e-9:
             raise DecisionRefused(
                 "an extension needs the weeks it grants, more weeks than are left; approving "
                 "within what is left is an approval"
@@ -362,9 +365,10 @@ def _employee_hmac(audit: AuditLog, pack: dict) -> str | None:
 
 
 def approved_weeks_for(audit: AuditLog, employee_hmac: str | None, *, except_request: str) -> float:
-    """Weeks the log shows approved for this employee on other requests. Approvals logged
-    before decisions carried employee_hmac aren't counted, and no 12-month window is applied:
-    every approval in the log counts (the register's HM-21 gaps)."""
+    """Weeks the log shows approved or extended for this employee on other requests (an
+    extension grants the entitlement and more, so it counts in full). Decisions logged before
+    they carried employee_hmac aren't counted, and no 12-month window is applied: every one in
+    the log counts (the register's HM-23 gaps)."""
     if employee_hmac is None:
         return 0.0
     total = 0.0
@@ -375,7 +379,7 @@ def approved_weeks_for(audit: AuditLog, employee_hmac: str | None, *, except_req
             and e["claim_id"] != except_request
             and isinstance(p, dict)
             and p.get("employee_hmac") == employee_hmac
-            and p.get("outcome") == Outcome.APPROVE.value
+            and p.get("outcome") in (Outcome.APPROVE.value, Outcome.EXTEND.value)
             and isinstance(p.get("weeks"), (int, float))
         ):
             total += p["weeks"]
