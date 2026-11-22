@@ -28,7 +28,7 @@ from hall_monitor.claims.tool_server import build_server
 from hall_monitor.delegation import GrantBook
 from hall_monitor.governance.audit import AuditLog
 from hall_monitor.registry import Registry
-from hall_monitor.tools.gateway import ToolGateway
+from hall_monitor.tools.gateway import UNKNOWN_TOOL, ToolGateway
 from tests.fakes import TEST_REGISTRY_DIR, FakeMessages, outputs_from_truth
 from tests.test_delegation import CREW
 
@@ -144,7 +144,8 @@ def test_a_tool_name_differing_by_case_or_invisible_characters_is_refused(name, 
     assert result["error"].startswith("Refused")
     assert reached == []
     [call] = log
-    assert not call.allowed and call.tool == name
+    # Nobody declared that spelling, so the record doesn't copy it (Review 46, H7).
+    assert not call.allowed and call.tool == UNKNOWN_TOOL
 
 
 # --- 7. Authority replayed after it ended -------------------------------------------------
