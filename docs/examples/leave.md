@@ -6,6 +6,8 @@
 
 ## Why this domain
 
+The offline demonstration for a CIO, a CISO and an auditor runs this example beside claims and the complaint desk: [the briefing](../briefing.md).
+
 The same pattern on an HR workflow: an employee asks for leave, and someone has to decide whether federal FMLA rules make them eligible and how much leave is left. A wrong denial harms an employee, and the request touches health information an AI must not collect. The whole path, told once for a CIO or an HR head: [The leave path, told once](../leave-path.md).
 
 ## What the agents do

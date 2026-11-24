@@ -6,6 +6,8 @@
 
 ## Why this domain
 
+The offline demonstration for a CIO, a CISO and an auditor runs this example beside leave and the complaint desk: [the briefing](../briefing.md).
+
 When a customer files a claim, someone has to read it, check it against the policy, spot anything suspicious, and decide what happens next: pay it, ask for more information, investigate, or deny it. Claims are high-volume and time-sensitive, they carry personal and sometimes medical information, and a wrong denial harms a real customer. That makes triage a good test of whether governed agents can speed up the work without taking unacceptable risk.
 
 ## What the agents do

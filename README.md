@@ -34,6 +34,8 @@ Four regulated-shaped workflows run on the same controls. Each has one page with
 | [Complaint desk on CFPB data](docs/examples/complaints.md) | Real public complaints; every one goes to a person; the system never replies to or sends anything to anyone | Ingestion, triage, evals, panel page, submission form | None: scripted runs only |
 | [Partner rebate and marketing-fund claims](docs/examples/partners.md) | Proof checking where abuse hides: duplicates, split claims, changed payees; rules decide, agents read and flag | Rules and agents; no pipeline, evals or panel page yet | None: scripted agents only |
 
+The demonstration for a CIO, a CISO and an auditor runs the first three offline and writes down what the code did: [`docs/briefing.md`](docs/briefing.md), regenerated with `uv run python -m hall_monitor.briefing --write`. The claims agents in that run are scripted. Leave is the rules only, with no agent. Partner claims are not in it.
+
 Some work runs on these examples without being one: the complaint investigation crew and the red-team arena use the complaint desk; the failure drills use the claims workflow; the agentic path (ADR 0028) runs in claims, leave and the complaint desk, and cost governance (ADR 0030) holds the live entry points' spending. They are listed in the [Roadmap](#roadmap).
 
 To add a fifth, the `new-worked-example` skill in `.claude/skills/` sets out the order the first four were built in.
