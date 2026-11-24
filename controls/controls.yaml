@@ -2005,7 +2005,7 @@ controls:
   - id: HM-32
     name: The agent picks the steps, code holds the boundaries
     what: >-
-      The claims workflow, the complaint desk and HR leave run agentic by default. Claims: a supervisor agent (claims_supervisor, its
+      The claims workflow, the complaint desk and HR leave run agentic by default, through one loop (hall_monitor/agents/loop.py) and three action tables (claims_action, desk_action, leave_action). The loop checks the budget and the kill switch, refuses a step with missing inputs, a repeat on unchanged inputs or a partial revision, and stops the case for a person after three refusals. The supervisor stays a classifier with no tools. The loop is plain Python: it is not LangGraph, and it does not plan a sequence of steps. Claims: a supervisor agent (claims_supervisor, its
       own manifest and approved prompt, no tools) chooses each next step from a closed list
       (run intake, coverage, risk, the critic or the recommendation, revise the stages the
       critic raised, finish, hand off), with a reason code. It sees a view code builds from
@@ -2049,7 +2049,11 @@ controls:
       or a less senior role than the fixed order.
     status: partial
     code:
+      - hall_monitor/agents/loop.py::run_supervisor_loop
       - hall_monitor/claims/agentic.py::supervise
+      - hall_monitor/claims/agentic.py::claims_action
+      - hall_monitor/complaints/pipeline.py::desk_action
+      - hall_monitor/hr/pipeline.py::leave_action
       - hall_monitor/claims/agentic.py::Limits
       - hall_monitor/claims/agentic.py::missing_evidence
       - hall_monitor/claims/agents/supervisor.py::SupervisorView
@@ -2068,6 +2072,12 @@ controls:
       - tests/test_agentic.py::test_skipping_the_review_after_a_revision_goes_to_a_person
       - tests/test_agentic.py::test_a_hand_off_goes_to_a_person_even_when_the_work_is_complete
       - tests/test_agentic.py::test_a_supervisor_repeating_a_step_is_refused_and_the_loop_stops_for_a_person
+      - tests/test_supervisor_loop.py::test_missing_inputs_are_refused_and_the_step_does_not_run
+      - tests/test_supervisor_loop.py::test_a_repeat_on_unchanged_inputs_is_refused
+      - tests/test_supervisor_loop.py::test_a_partial_revision_is_refused
+      - tests/test_supervisor_loop.py::test_three_refusals_stop_for_a_person
+      - tests/test_supervisor_loop.py::test_the_kill_switch_is_checked_before_the_ask_and_again_before_the_step
+      - tests/test_supervisor_loop.py::test_the_three_workflows_use_this_loop_and_do_not_keep_their_own
       - tests/test_agentic.py::test_revising_a_stage_the_critic_didn_t_raise_is_refused
       - tests/test_agentic.py::test_revisions_past_the_limit_are_refused_and_the_claim_goes_to_a_person
       - tests/test_agentic.py::test_running_out_of_steps_stops_the_claim_for_a_person

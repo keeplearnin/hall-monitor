@@ -9,7 +9,8 @@ from itertools import count
 import pytest
 from pydantic import ValidationError
 
-from hall_monitor.claims.agentic import MAX_REFUSALS, Limits
+from hall_monitor.agents.loop import MAX_REFUSALS
+from hall_monitor.claims.agentic import Limits
 from hall_monitor.claims.agents.supervisor import scripted_answer, view_from_content
 from hall_monitor.claims.data import iter_claims, load_ground_truth, load_policy_wording
 from hall_monitor.claims.gateway import claims_gateway

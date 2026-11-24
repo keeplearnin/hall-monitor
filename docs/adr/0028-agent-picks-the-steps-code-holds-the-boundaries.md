@@ -35,6 +35,14 @@ not used here. If a supervisor is ever given tools, its specialist calls should 
   repeat on unchanged inputs, a revision that doesn't send back exactly the stages the critic
   raised (all of them, as the fixed path does), or one past `MAX_REVISIONS`, is refused; nothing runs, the refusal is logged and shown to the supervisor,
   and after three refusals the claim stops for a person.
+- **One loop, three action tables.** Claims, the complaint desk and leave call
+  `run_supervisor_loop` in [`hall_monitor/agents/loop.py`](../../hall_monitor/agents/loop.py).
+  That loop owns the budget, the kill switch and the three refusals. Each workflow passes an
+  action table (`claims_action`, `desk_action`, `leave_action`): the row says when the step is
+  missing its inputs, when it would repeat on unchanged inputs, when a revision is partial,
+  and which ordinary function does the work. The supervisor stays a classifier with no tools.
+  The loop is not a LangGraph graph and it does not plan a sequence of steps. LangGraph stays
+  where [ADR 0006](0006-plain-python-then-langgraph.md) put it: the wait for a person.
 - **Budgets per claim:** steps (16), checked before every turn, finish included; cost
   (0.25 USD) and wall-clock time (300 s), checked before every model request the loop makes:
   the supervisor's, each specialist's, each agent of a revision, and each later round of a
@@ -169,5 +177,7 @@ The claims workflow runs agentic by default (the workflow, the CLI, the drills a
 demo data), and so does the complaint desk (its CLI, evals, the red-team arena and the demo
 data), and so does HR leave (its CLI, evals, the submission form and the demo data); the
 offline fakes, drills, arena and scripted stand-ins answer the supervisors with the
-old order as a scripted policy. Published live eval results were scored on the fixed path with earlier agent versions;
-no live run of any supervisor has been made, so their choices are unmeasured.
+old order as a scripted policy. Published claims live results were scored on the fixed path
+with earlier agent versions. One live run of the leave supervisor has been made, on the 28
+synthetic requests (see HM-32's gaps). No live run of the claims or desk supervisor has been
+made, so how well those two choose is unmeasured.

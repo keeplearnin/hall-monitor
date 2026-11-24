@@ -1600,3 +1600,14 @@ a pickle would carry the hash), both fixed.
 | 3. `test_pipeline.py`'s other-policy check reads only kept values | Low | Fixed by 2: a lookup the pipeline makes is policy-number shaped, so it is kept |
 | 4. ADR 0008 and `docs/architecture.html` still said entries hold tool-call arguments | Low | Fixed |
 | 5. No test of a non-string or nested value, or of a shape check that raises | Low | Fixed (`MODEL_WRITTEN` cases, `test_a_shape_that_raises_or_says_no_withholds_the_value`) |
+
+## Review 48 (supervisor-loop): one loop for claims, the desk and leave
+
+**Reviewer:** the governance-reviewer agent, on the uncommitted diff against `origin/main`
+(`8b44720`), offline. This is the change review 27 proposed and left undone: the budget, the
+kill switch and the three refusals lived in three copies. No findings. The shared loop keeps
+the old order and the old messages. Claims still does not turn an unpriced model into the
+desk's "budget can't be checked" stop. Leave's rules stop is not recorded as a failed step.
+The desk still marks a triage failure as the triage stage. The supervisors are still
+classifiers with no tools, and the loop is not LangGraph. `uv run pytest -q` passed
+(3422 tests). No prompt or manifest changed, so no version bump and no new approval.

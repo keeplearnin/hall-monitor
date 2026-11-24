@@ -56,5 +56,5 @@ uv run python -m hall_monitor.hr.submit --live             # the form with free 
 
 ## Where it lives
 
-- **Code:** `hall_monitor/hr/`.
+- **Code:** `hall_monitor/hr/`. The leave action table is `leave_action` in `pipeline.py`. The loop it runs in is the shared `hall_monitor/agents/loop.py`.
 - **Design and decisions:** [the leave path, told once](../leave-path.md); ADRs [0017](../adr/0017-leave-rules-in-code.md), [0018](../adr/0018-leave-agents-explain-code-decides.md), [0019](../adr/0019-signed-hr-sign-off.md), [0020](../adr/0020-leave-submission-form.md) and [0034](../adr/0034-leave-roles-follow-the-branch.md).
