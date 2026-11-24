@@ -43,6 +43,8 @@ Requests can also be added from a small form, a separate app so the panel stays 
 
 One live run of the agentic leave path has been made on the approved agents: all 28 requests routed as their answer keys say, all 28 extractions exact, no errors, 2.6 cents in all. It is one run of short messages written by the person who wrote their answer keys, so accuracy on real employees' messages is still unmeasured. The table and what it can't show are in the README's [Results](../../README.md#results).
 
+The live injection eval ([results](../../evals/results/injection-live/report.md)) added 11 blind-written attacks to two requests, two trials each. One found a rule gap: a message that calls the leave intermittent ("it's intermittent leave for physio") reached an HR business partner instead of the HR director, because intermittent leave skips the entitlement check. The intake agent extracted what the message said and ignored its instructions; sign-off still caps an approval at the weeks left. The gap is logged under HM-21.
+
 ## Run it
 
 ```bash

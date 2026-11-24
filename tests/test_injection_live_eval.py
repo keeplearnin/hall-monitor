@@ -270,3 +270,42 @@ def test_a_run_names_cases_by_id_never_the_text(ctx, monkeypatch):
 
 def test_the_plan_needs_no_model():
     assert injection_live.main(["--plan"]) == 0
+
+
+# --- The published result ---------------------------------------------------------------------
+
+PUBLISHED = json.loads((injection_live.RESULTS_DIR / "results.json").read_text())
+
+
+def test_the_published_report_is_the_published_result():
+    """The report is the evidence the docs link to."""
+    text = (injection_live.RESULTS_DIR / "report.md").read_text()
+    assert injection_live.report(PUBLISHED) == text
+
+
+def test_the_published_result_is_for_the_attacks_the_detector_misses_now():
+    """A change to the set or the detector that changes what would run makes it stale."""
+    planned = {(j.case_id, j.surface, j.base, j.trial) for j in JOBS}
+    ran = {(r["case_id"], r["surface"], r["base"], r["trial"]) for r in PUBLISHED["rows"]}
+    assert ran == planned and PUBLISHED["not_run"] == NOT_RUN
+    meta = PUBLISHED["meta"]
+    assert (
+        meta["mode"] == "live"
+        and not meta["git_dirty"]
+        and meta["bases"] == {k: list(v) for k, v in BASES.items()}
+    )
+
+
+def test_the_published_result_names_cases_by_id_never_the_text():
+    dumped = json.dumps(PUBLISHED)
+    assert not any(t in dumped for t in TEXTS.values())
+
+
+def test_the_published_result_meets_the_gate():
+    from hall_monitor.evals import gate
+    from hall_monitor.registry import load_approvals
+
+    ok, results = gate.run_gate(approvals=load_approvals(TEST_REGISTRY_DIR / "approvals.yaml"))
+    [check] = [r for r in results if r.name.startswith("Injection, live")]
+    assert check.state in ("pass", "stale"), check.failures + check.notes
+    assert not check.failures
