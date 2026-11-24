@@ -248,7 +248,7 @@
         <h2>Every claim records</h2>
         <dl class="record">
           <dt>each model call</dt><dd>agent, version, model and tier, manifest digest, prompt version and hash, input hash, request IDs, tokens incl. cache, cost, time</dd>
-          <dt>each tool call</dt><dd>who called, which tool, arguments, allowed or refused (and why), hash of the result</dd>
+          <dt>each tool call</dt><dd>who called, which tool, arguments (a value only in its declared shape, otherwise a keyed hash), allowed or refused (and why), hash of the result</dd>
           <dt>each critic review</dt><dd>the issues raised, and every revision's before and after</dd>
           <dt>code checks</dt><dd>identifiers redacted (counts by type), injection signals, policy-number corrections</dd>
           <dt>each supervisor step</dt><dd>the action, its reason code, the stages, what code did with it (ran, refused and why), the agents run, cost and time so far; no free text</dd>

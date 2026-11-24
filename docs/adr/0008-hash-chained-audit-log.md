@@ -27,7 +27,8 @@ logged, covers the reason, so with the public key it can still confirm a guess (
 The input and tool-result hashes were plain until Review 12: the recommendation agent is sent a
 structured summary with few possible values, and a policy with no earlier claims returns only the
 insured's name, so a guess could confirm either. Traces leave the input hash out.
-Entries do hold policy numbers, decision fields and tool-call arguments.
+Entries do hold policy numbers and decision fields. A tool-call argument's value is kept only in
+the shape its example declares; any other value is named, with a keyed hash (ADR 0035).
 
 Someone with write access to the file could rebuild the whole chain, so the chain head
 (`audit head`) is meant to be copied somewhere they can't change, and `verify` checks against

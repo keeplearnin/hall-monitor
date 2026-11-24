@@ -111,15 +111,25 @@ controls:
       - tests/test_gateway_adversarial.py::test_a_scope_refusal_does_not_quote_the_asked_value
       - tests/test_gateway_adversarial.py::test_a_result_that_breaks_screening_is_still_recorded
       - tests/test_tools.py::test_a_tool_name_no_one_declared_is_never_copied_into_the_record
+      - tests/test_argument_redaction.py::test_an_argument_value_not_in_its_declared_shape_is_never_recorded
+      - tests/test_argument_redaction.py::test_what_the_gateway_decided_is_kept_when_the_value_is_withheld
+      - tests/test_argument_redaction.py::test_a_policy_number_is_recorded_as_the_gateway_compared_it
+      - tests/test_argument_redaction.py::test_an_allowed_out_of_scope_lookup_is_still_visible_to_the_adversarial_eval
+      - tests/test_argument_redaction.py::test_a_gateway_that_declares_no_shapes_records_no_values
     evidence: []
     nist: [GOVERN 1.4, MEASURE 2.7, MANAGE 1.3]
     finos:
       risks: [RI-24, RI-25]
       mitigations: [MI-12, MI-16, MI-18, MI-19, MI-20]
     gaps: >-
-      The arguments a tool takes are logged as the model wrote them (a policy number written as
-      a name is kept as written); arguments it doesn't take are dropped, and refusals don't quote
-      the value asked for. A tool name a model sends in another case or with invisible
+      A call's record keeps an argument's value only in the shape its example declares, in the
+      form the gateway compares (claims: a policy number as WTP-ESS-123456, trimmed and
+      upper-cased; the desk: the shapes its CFPB tool accepts); any other value, and every value
+      of an argument with no declared shape, is only named, and the audit log alone keeps a
+      keyed hash of it, so the record shows which arguments were passed and what the gateway
+      decided but not the text. A value in the declared shape is still the model's: a
+      well-formed policy number for another customer is kept, as the refusal of it is. Arguments a tool doesn't take are dropped, and refusals don't quote the value asked
+      for. A tool name a model sends in another case or with invisible
       characters is refused by the no-send check, whose message says the tool could send,
       before the allow-list sees it: refused either way, with a misleading reason. Claims history links policies by the insured's name (there's no customer ID in the data), so
       two customers with the same name would see each other's history; production would use a
@@ -383,6 +393,7 @@ controls:
       - tests/test_workflow.py::test_a_rejection_logs_the_submission_as_a_keyed_hash
       - tests/test_privacy_security.py::test_a_claim_id_must_be_a_code
       - tests/test_privacy_security.py::test_eval_claim_variants_have_valid_claim_ids
+      - tests/test_argument_redaction.py::test_the_audit_log_keeps_a_keyed_hash_an_auditor_can_check
     evidence: []
     nist: [MEASURE 2.8, MANAGE 4.1]
     finos:
@@ -393,11 +404,11 @@ controls:
       chain head copied elsewhere catches that, and copying it out is manual. Without
       HALL_MONITOR_AUDIT_KEY the hash key is a file beside the log, so someone with file access
       has it too; production keeps it in a secrets manager. Entries do hold
-      policy numbers, decision fields and tool-call arguments. The claim ID is on every entry,
+      policy numbers and decision fields; a tool-call argument is kept only in its declared
+      shape, any other value named with a keyed hash (HM-03). The claim ID is on every entry,
       so it must be a code (letters, digits, _ and -, up to 64). The currency and policy number
       the model extracts are repeated in routing reasons and corrections, so both must be
-      code-shaped; the arguments a tool takes are still logged as the model wrote them (others
-      are dropped, HM-03). An unforeseen
+      code-shaped, as tool-call arguments are (HM-03). An unforeseen
       error stops the claim with its type only, since its text can repeat those arguments. The
       final decision entry keeps the adjuster's Ed25519 signature, which covers the reason, so
       anyone with the log and the public key can confirm a guessed reason: the keyed hash
@@ -1482,7 +1493,8 @@ controls:
       The complaint desk reads public CFPB complaints through one MCP tool,
       cfpb_complaint_search, behind the tool gateway: only the pipeline may call it, its
       arguments are checked (a date, a digit cursor, a page size up to 100) and every call is in
-      the audit log. Under it, CfpbClient (egress.py) makes GET requests through the egress
+      the audit log, which keeps an argument only in that shape (named, with a keyed hash,
+      otherwise). Under it, CfpbClient (egress.py) makes GET requests through the egress
       guard (HM-25), spaced one a second by default, retrying timeouts, network errors, 429 and
       5xx with exponential backoff, jitter and Retry-After up to a cap; any other failure stops
       the pull, which records failed with the error's type and keeps what it stored. The tool

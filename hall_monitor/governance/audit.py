@@ -497,4 +497,11 @@ class EventRecorder:
         payload = tool.model_dump(mode="json")
         result = payload.pop("result_sha256")
         payload["result_hmac"] = None if result is None else self.log.keyed_hash(result)
+        # A withheld argument value is keyed too: a policy number has few possible values. The
+        # hash lives only in memory; a call rebuilt from JSON has none, and records None.
+        hashes = tool._withheld_sha256
+        payload["argument_hmacs"] = {
+            name: self.log.keyed_hash(hashes[name]) if name in hashes else None
+            for name in payload.pop("arguments_withheld")
+        }
         return tool.actor, payload

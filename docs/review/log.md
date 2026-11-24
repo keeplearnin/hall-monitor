@@ -1583,3 +1583,20 @@ findings, all fixed on the branch, each test-first.
 | R4. The extension rule measured "past the entitlement" on the snapshot, so once earlier approvals used it up an extension was refused with a false reason | Medium | Fixed: approvals and extensions are measured on what is left after other requests (`test_an_extension_is_allowed_once_earlier_approvals_use_up_the_entitlement`) |
 | R5. H7's replacement of the raw tool name in refusal text rewrote the code's own words for a short name ("" or "o") | Low | Fixed: only the quoted form is swapped (the H7 test's `empty` and `one-letter` cases) |
 | R6. A policy number written with spaces or split by a line break wasn't found by code, so a claim the intake read correctly stopped with a misleading reason (on main it routed auto); a docstring named HM-21 for HM-23's gaps | Low | Fixed: numbers are found however written and normalised (`test_a_policy_number_written_with_spaces_or_a_break_is_still_found`); docstring corrected |
+
+## Review 47 (log-redaction-arguments): tool-call argument values out of the record
+
+**Reviewer:** the `governance-reviewer` agent on the branch's changes. The change: a tool-call
+record keeps an argument's value only in the shape its example declares (ADR 0035, HM-03),
+closing the known limit that a tool's own arguments were logged as the model wrote them. Five
+findings; every one is fixed on the branch, test-first. A re-review of the fixes found two
+Low wording issues (gateway docstrings describing the first version; "never serialised" where
+a pickle would carry the hash), both fixed.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| 1. The first version kept a plain SHA-256 of each withheld value on the `ToolCall`, which reaches checkpoints, `run.py --triage-only` output and eval results files, so ADR 0035's "only the key holder can confirm a guess" was false | High | Fixed: the call only names a withheld argument; its hash stays in memory (never in `model_dump` or JSON; a pickle or deepcopy would carry it, and nothing pickles one) for the audit log to key (`test_an_argument_value_not_in_its_declared_shape_is_never_recorded`, `test_a_call_restored_from_a_checkpoint_logs_its_withheld_argument_without_a_hash`). No published results file held tool-call arguments |
+| 2. A policy number the gateway allowed in lower case or padded was withheld, so the adversarial eval's out-of-scope check (its backstop for a wrong scope) read nothing | Medium | Fixed: the record keeps a value in the form the gateway compares (trimmed, upper-cased), and the check is `flag_out_of_scope` (`test_a_policy_number_is_recorded_as_the_gateway_compared_it`, `test_an_allowed_out_of_scope_lookup_is_still_visible_to_the_adversarial_eval`) |
+| 3. `test_pipeline.py`'s other-policy check reads only kept values | Low | Fixed by 2: a lookup the pipeline makes is policy-number shaped, so it is kept |
+| 4. ADR 0008 and `docs/architecture.html` still said entries hold tool-call arguments | Low | Fixed |
+| 5. No test of a non-string or nested value, or of a shape check that raises | Low | Fixed (`MODEL_WRITTEN` cases, `test_a_shape_that_raises_or_says_no_withholds_the_value`) |

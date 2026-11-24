@@ -598,9 +598,10 @@ def shown_payload(event: str, payload: object) -> dict:
         case "tool_call":
             tool = payload.get("tool")
             shown["tool"] = tool if isinstance(tool, str) and tool in TOOLS else WITHHELD
-            shown["arguments"] = f"{WITHHELD} ({_count(payload.get('arguments'))})"
+            passed = _count(payload.get("arguments")) + _count(payload.get("argument_hmacs"))
+            shown["arguments"] = f"{WITHHELD} ({passed})"
             shown["error"] = WITHHELD if payload.get("error") else None
-            hidden -= sum(k in payload for k in ("tool", "arguments", "error"))
+            hidden -= sum(k in payload for k in ("tool", "arguments", "argument_hmacs", "error"))
         case "critic_review":
             issues = payload.get("issues")
             shown["issues"] = [

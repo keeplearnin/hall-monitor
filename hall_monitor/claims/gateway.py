@@ -9,15 +9,19 @@ from __future__ import annotations
 
 from fastmcp import FastMCP
 
-from hall_monitor.claims.models import PolicyRecord
+from hall_monitor.claims.models import POLICY_NUMBER_PATTERN, PolicyRecord
 from hall_monitor.claims.tool_server import POLICY_LOOKUP, TOOL_DATA_CLASSES, build_server
 from hall_monitor.registry import Registry
 from hall_monitor.shared_models import ToolCall
-from hall_monitor.tools.gateway import PIPELINE_ACTOR, ToolGateway
+from hall_monitor.tools.gateway import PIPELINE_ACTOR, ToolGateway, shaped
 
 # The claims pipeline's own code checks may use these tools; it is not an agent and has no
 # manifest.
 PIPELINE_TOOLS = frozenset({POLICY_LOOKUP})
+# A call's record keeps a policy number only when it is one (WTP-ESS-123456), trimmed and
+# upper-cased as the gateway compares it; the model may write anything there, so any other
+# value is withheld (named, and keyed in the audit log).
+ARGUMENT_SHAPES = {"policy_number": shaped(POLICY_NUMBER_PATTERN, lambda s: s.strip().upper())}
 
 
 def claims_gateway(registry: Registry, server: FastMCP | None = None) -> ToolGateway:
@@ -28,6 +32,7 @@ def claims_gateway(registry: Registry, server: FastMCP | None = None) -> ToolGat
         build_server() if server is None else server,
         tool_data_classes=TOOL_DATA_CLASSES,
         pipeline_tools=PIPELINE_TOOLS,
+        argument_shapes=ARGUMENT_SHAPES,
     )
 
 
