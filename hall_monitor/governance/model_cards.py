@@ -148,7 +148,7 @@ def render(registry: Registry, approvals: dict, owners: dict, results) -> str:
         "measure code, not the model. A *yes* in the inventory can come from the live injection "
         "eval (`injection-live`), which scores whether planted attacks changed decisions on two "
         "base cases per workflow, not accuracy: the claims agents' accuracy results are from "
-        "older versions.",
+        "older versions, and the complaint agents have no live accuracy result.",
         "",
         "## Inventory",
         "",

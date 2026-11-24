@@ -82,8 +82,10 @@ in-process server and agents hold no credentials, so these are recorded under th
   but the claim always goes to a person.
 - The detector is a list of phrasings (HM-09's gaps): a tool result worded around it still
   reaches the agent. The offline detector eval (plan step 2) measured it: none of 8 tool-result
-  attacks written blind to it were flagged. No eval measures what a model does with one; the
-  adversarial suite plants attacks in claims only.
+  attacks written blind to it were flagged. The live half planted the 6 aimed at claims records
+  in the claimant's history and ran them, two trials each on two base claims: none changed a
+  decision beyond what the same entry with an ordinary summary did
+  (evals/results/injection-live/report.md). One author, two base claims, two trials.
 - A value in its declared shape is still the model's choice: a well-formed policy number for
   another customer is recorded (and refused). A withheld value can't be read back from the
   record, only confirmed from the audit log by someone holding the audit key. A call rebuilt
