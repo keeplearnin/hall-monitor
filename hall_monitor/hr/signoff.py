@@ -215,8 +215,14 @@ def validate(
     pack_sha256: str,
     pack: dict,
     staff: dict[str, StaffMember],
+    *,
+    approved_elsewhere: float = 0.0,
 ) -> StaffMember:
-    """The staff member, if the decision passes every rule; DecisionRefused otherwise."""
+    """The staff member, if the decision passes every rule; DecisionRefused otherwise.
+
+    approved_elsewhere: weeks the log shows approved for the same employee on other requests
+    (approved_weeks_for). The records are a snapshot taken before them, so they come off what
+    the records leave (Review 46)."""
     member = staff.get(decision.staff_id)
     if member is None:
         raise DecisionRefused("the decision names someone who isn't registered HR staff")
@@ -243,6 +249,9 @@ def validate(
     checks = _check(pack)
     assessment = pack.get("assessment") or {}
     remaining = assessment.get("remaining_weeks")
+    # What is left once weeks approved or extended on the employee's other requests are taken
+    # off the records' snapshot (Review 46): every approval and extension is measured on it.
+    left = None if remaining is None else remaining - approved_elsewhere
     requested = assessment.get("requested_weeks")
     qualifying = assessment.get("qualifying_weeks", requested)
     person = [checks.get(c) for c in ("employer", "service", "hours", "worksite")]
@@ -277,6 +286,11 @@ def validate(
             )
         if remaining is None or weeks <= 0 or weeks > remaining + 1e-9:
             raise DecisionRefused("approved weeks must be more than 0 and no more than are left")
+        if approved_elsewhere and weeks > remaining - approved_elsewhere + 1e-9:
+            raise DecisionRefused(
+                f"approved weeks must be no more than are left: {approved_elsewhere:g} of the "
+                f"{remaining:g} the records leave were approved on earlier requests"
+            )
         if requested is not None and weeks > requested + 1e-9:
             raise DecisionRefused("approved weeks can't be more than were asked for")
         if qualifying is not None and weeks > qualifying + 1e-9:
@@ -288,7 +302,7 @@ def validate(
             )
         # Approving less than was asked (or, for intermittent leave, than is left) refuses the
         # rest: a partial denial.
-        asked = requested if requested is not None else remaining
+        asked = requested if requested is not None else left
         if weeks < asked - 1e-9:
             needs_hr_business_partner("approving fewer weeks than asked is a partial denial: it")
             needs_reason("a partial denial")
@@ -308,13 +322,13 @@ def validate(
                 "an extension is for an eligible employee with a qualifying reason; a person "
                 "decides anything else outside this step"
             )
-        past = remaining is not None and (
-            remaining <= 0 or (requested is not None and requested > remaining + 1e-9)
+        past = left is not None and (
+            left <= 0 or (requested is not None and requested > left + 1e-9)
         )
         if not past:
             raise DecisionRefused("an extension is only for leave past the entitlement")
         # weeks is the total granted for this request, entitlement included.
-        if weeks <= max(remaining, 0) + 1e-9:
+        if weeks <= max(left, 0) + 1e-9:
             raise DecisionRefused(
                 "an extension needs the weeks it grants, more weeks than are left; approving "
                 "within what is left is an approval"
@@ -343,6 +357,33 @@ def _refuse(audit: AuditLog, request_id: str, decision: LeaveDecision, signed: b
         },
     )
     raise DecisionRefused(why)
+
+
+def _employee_hmac(audit: AuditLog, pack: dict) -> str | None:
+    employee = pack.get("employee_id")
+    return audit.keyed_hash(f"employee:{employee}") if isinstance(employee, str) else None
+
+
+def approved_weeks_for(audit: AuditLog, employee_hmac: str | None, *, except_request: str) -> float:
+    """Weeks the log shows approved or extended for this employee on other requests (an
+    extension grants the entitlement and more, so it counts in full). Decisions logged before
+    they carried employee_hmac aren't counted, and no 12-month window is applied: every one in
+    the log counts (the register's HM-23 gaps)."""
+    if employee_hmac is None:
+        return 0.0
+    total = 0.0
+    for e in audit.entries():
+        p = e["payload"]
+        if (
+            e["event"] == "leave_decision"
+            and e["claim_id"] != except_request
+            and isinstance(p, dict)
+            and p.get("employee_hmac") == employee_hmac
+            and p.get("outcome") in (Outcome.APPROVE.value, Outcome.EXTEND.value)
+            and isinstance(p.get("weeks"), (int, float))
+        ):
+            total += p["weeks"]
+    return total
 
 
 def decide(
@@ -374,8 +415,16 @@ def decide(
     if found is None:
         _refuse(audit, request_id, decision, signed, f"{request_id} has no evidence pack yet")
     digest, pack = found
+    employee_hmac = _employee_hmac(audit, pack)
     try:
-        member = validate(decision, request_id, digest, pack, staff)
+        member = validate(
+            decision,
+            request_id,
+            digest,
+            pack,
+            staff,
+            approved_elsewhere=approved_weeks_for(audit, employee_hmac, except_request=request_id),
+        )
     except DecisionRefused as exc:
         _refuse(audit, request_id, decision, signed, str(exc))
     # The signed record, with its reason and signature, goes to the erasable store first, so a
@@ -414,6 +463,8 @@ def decide(
         "code_decided_by": route["decided_by"],
         "code_reasons": route["reasons"],
         "decision_hmac": audit.keyed_hash(stored),
+        # So a later request by the same employee counts these weeks (keyed, never the ID).
+        **({"employee_hmac": employee_hmac} if employee_hmac else {}),
     }
     try:
         audit.append(request_id, "leave_decision", f"hr:{member.id}", payload, once=True)

@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from hall_monitor.claims.models import ClaimSubmission, NextStep, RiskLevel, Route, TriageResult
+from hall_monitor.claims.routing import claimed_total_traced
 from hall_monitor.governance import signing
 from hall_monitor.governance.audit import evidence_body, sha256
 from hall_monitor.registry import ADJUSTERS_FILENAME, APPROVALS_FILENAME, DEFAULT_REGISTRY_DIR
@@ -213,12 +214,20 @@ def validate_decision(
         raise DecisionRejected("evidence hash doesn't match the current evidence pack")
     extraction = result.extraction
     in_usd = extraction is not None and extraction.currency.strip().upper() == "USD"
-    # The amount claimed, in USD, or None when it can't be compared with USD payouts and limits
-    # (nothing was extracted, or the claim is in another currency).
-    claimed = extraction.total_claimed if in_usd else None
+    traced = claimed_total_traced(result.routing, stopped=result.stopped_reason is not None)
+    # The amount claimed, in USD, or None when it can't be compared with USD payouts and limits:
+    # nothing was extracted, the claim is in another currency, or the documents don't support
+    # the intake's total (or the claim stopped before they were checked). The limits never rest
+    # on an agent's reading alone (Review 46).
+    claimed = extraction.total_claimed if in_usd and traced else None
     senior = adjuster.may_pay_flagged
     if decision.next_step in (NextStep.PAY, NextStep.DENY) and claimed is None and not senior:
-        why = f"is in {extraction.currency}" if extraction else "has no amount extracted"
+        if extraction is None:
+            why = "has no amount extracted"
+        elif not in_usd:
+            why = f"is in {extraction.currency}"
+        else:
+            why = "has a claimed total the documents don't support (or it was never checked)"
         raise DecisionRejected(
             f"this claim {why}, so its amount can't be checked against USD limits; "
             "a senior adjuster must decide"

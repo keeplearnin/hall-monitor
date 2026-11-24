@@ -118,7 +118,12 @@ class Complaint(BaseModel):
             narrative=raw.complaint_what_happened or None,
         )
 
+    def content_body(self) -> str:
+        """The record's content in one canonical form, for hashing."""
+        return json.dumps(self.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+
     def content_sha256(self) -> str:
-        """Hash of the record's content, to tell an update from a repeat."""
-        body = json.dumps(self.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(body.encode()).hexdigest()
+        """Plain hash of the record's content, to tell an update from a repeat in the store,
+        which holds the record anyway. Never logged: a form complaint's narrative is typed in,
+        so the audit log keeps audit.keyed_hash(content_body()) instead (Review 46)."""
+        return hashlib.sha256(self.content_body().encode()).hexdigest()

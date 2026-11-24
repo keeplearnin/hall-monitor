@@ -870,3 +870,85 @@ def test_an_old_role_or_route_in_an_evidence_pack_is_refused_cleanly(field, old)
     pack["route"][field] = old
     with pytest.raises(DecisionRefused, match="isn't one the rules know"):
         _validate(pack, "hrs-301")
+
+
+# --- Review 46, H3: leave approved on one request counts against the next ---------------------
+
+
+def _file_again(log, source_id, new_id):
+    """The same message under a new request ID, as the leave form files it."""
+    message = MESSAGES[source_id].model_copy(update={"id": new_id})
+    return prepare(
+        message,
+        employees=EMPLOYEES,
+        company=COMPANY,
+        registry=Registry.from_dir(TEST_REGISTRY_DIR),
+        client=_client(),
+        audit=log,
+    )
+
+
+def test_leave_approved_on_an_earlier_request_counts_against_the_next(log):
+    """The records are a snapshot: four copies of lr_001 each showed 12 weeks left, and a local
+    manager approved 4 weeks on each (16 against 12)."""
+    for i in range(3):
+        _file_again(log, "lr_001", f"lr_again_{i}")
+        _decide(log, f"lr_again_{i}", "hrs-101", "approve", weeks=4)
+    with pytest.raises(DecisionRefused, match="approved on earlier requests"):
+        _decide(log, "lr_001", "hrs-101", "approve", weeks=4)
+
+
+def test_leave_approved_for_someone_else_doesnt_count(log):
+    _file_again(log, "lr_001", "lr_again_0")
+    _decide(log, "lr_again_0", "hrs-101", "approve", weeks=4)
+    other = next(
+        m.id
+        for m in MESSAGES.values()
+        if m.employee_id != MESSAGES["lr_001"].employee_id
+        and status(log, m.id).get("route") == "manager_sign_off"
+    )
+    weeks = evidence(log, other)[1]["assessment"]["requested_weeks"]
+    assert _decide(log, other, "hrs-101", "approve", weeks=weeks)["outcome"] == "approve"
+
+
+@pytest.mark.parametrize("agentic", [False, True], ids=["fixed", "agentic"])
+def test_a_retaliation_risk_request_that_stops_before_the_rules_needs_a_director(tmp_path, agentic):
+    """Review 46, H4: lr_012's employee has discipline pending. An intake with no dates stopped
+    as facts_missing before the rules ran, so the retaliation risk was never added and an HR
+    business partner could deny it."""
+    from hall_monitor.hr.models import LeaveIntake
+    from tests.test_hr_agents import _intake_for
+
+    message = MESSAGES["lr_012"]
+    assert EMPLOYEES[message.employee_id].pending_adverse_action
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    prepared = prepare(
+        message,
+        employees=EMPLOYEES,
+        company=COMPANY,
+        registry=Registry.from_dir(TEST_REGISTRY_DIR),
+        client=_client({LeaveIntake: lambda r: _intake_for(r).model_copy(update={"start": None})}),
+        audit=audit,
+        agentic=agentic,
+    )
+    assert prepared.stopped_reason and "retaliation_risk" in prepared.route.reasons
+    assert prepared.route.decided_by == "hr_director"
+    with pytest.raises(DecisionRefused, match="director"):
+        _decide(audit, "lr_012", "hrs-201", "deny", reason=REASON)
+
+
+def test_leave_extended_on_an_earlier_request_counts_against_the_next(log):
+    """Review 46 re-review: an extension grants the entitlement and more, so it counts too."""
+    asked = evidence(log, "lr_009")[1]["assessment"]["requested_weeks"]
+    _file_again(log, "lr_009", "lr_009_again")
+    _decide(log, "lr_009_again", "hrs-301", "extend", weeks=asked, reason=REASON)
+    with pytest.raises(DecisionRefused, match="approved on earlier requests"):
+        _decide(log, "lr_009", "hrs-301", "approve", weeks=1, reason=REASON)
+
+
+def test_an_extension_is_allowed_once_earlier_approvals_use_up_the_entitlement(log):
+    for i in range(3):
+        _file_again(log, "lr_001", f"lr_again_{i}")
+        _decide(log, f"lr_again_{i}", "hrs-101", "approve", weeks=4)
+    final = _decide(log, "lr_001", "hrs-301", "extend", weeks=4, reason=REASON)
+    assert final["outcome"] == "extend"

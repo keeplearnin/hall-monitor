@@ -145,6 +145,12 @@ def evaluate(complaints: list[Complaint], client, registry: Registry, mode: str)
                     errors += 1
                     rows.append({"complaint_id": c.complaint_id, "error": type(exc).__name__})
                     continue
+                if "spend_refused" in result.route.reasons:
+                    # Refused before any model call: it tests nothing about the desk, and its
+                    # specialist-review route would read as caution (Review 46).
+                    errors += 1
+                    rows.append({"complaint_id": c.complaint_id, "error": "spend_refused"})
+                    continue
                 if result.draft_sha256:
                     drafts_kept += 1
                     stored = audit.get_evidence(result.draft_sha256) or {}

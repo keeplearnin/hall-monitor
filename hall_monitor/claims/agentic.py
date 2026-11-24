@@ -84,7 +84,12 @@ from hall_monitor.claims.pipeline import (
     _problems,
     _Run,
 )
-from hall_monitor.claims.routing import route_claim, tool_result_reason, tool_result_signals
+from hall_monitor.claims.routing import (
+    STEPS_MISSING,
+    route_claim,
+    tool_result_reason,
+    tool_result_signals,
+)
 from hall_monitor.gateway.cost import call_cost
 from hall_monitor.registry import Registry
 from hall_monitor.shared_models import AgentCall, StepOutcome, StepRefusal
@@ -297,7 +302,7 @@ def _run_intake(ctx: _Context, state: _State) -> None:
     state.agents.append("intake")
     run.extraction = run.output(run_intake(claim, ctx.registry, ctx.client, feedback=feedback))
     state.extraction_v += 1
-    state.policy = _lookup(run.extraction, ctx.gateway, run)
+    state.policy = _lookup(claim, run.extraction, ctx.gateway, run)
     if state.policy is None and feedback is None:
         # Code first, as on the fixed path: one real policy number in the claim text is used.
         found = _policy_numbers_in(claim, ctx.gateway, run)
@@ -307,7 +312,7 @@ def _run_intake(ctx: _Context, state: _State) -> None:
                 "the only valid policy number in the claim text"
             )
             run.extraction = run.extraction.model_copy(update={"policy_number": found[0]})
-            state.policy = _lookup(run.extraction, ctx.gateway, run)
+            state.policy = _lookup(claim, run.extraction, ctx.gateway, run)
     if state.policy is None and state.intake_runs >= 2:
         raise PipelineStopped("no policy record found for the policy number on the claim")
     if state.policy is not None:
@@ -397,7 +402,7 @@ def _revise(ctx: _Context, state: _State, stages: list[ReviewedStage]) -> None:
             ),
         )
         state.extraction_v += 1
-        state.policy = _lookup(run.extraction, ctx.gateway, run)
+        state.policy = _lookup(ctx.claim, run.extraction, ctx.gateway, run)
         if state.policy is None:
             raise PipelineStopped("no policy record found after the critic's correction")
         state.tools.scope_policy = state.policy.policy_number
@@ -521,7 +526,7 @@ def _result(ctx: _Context, state: _State, decision: SupervisorDecision) -> Triag
         reasons.append(f"supervisor handed the claim to a person ({decision.reason.value})")
     held = tool_result_signals(run.tool_calls)
     if missing:
-        reasons.append("required steps missing or out of date: " + ", ".join(missing))
+        reasons.append(f"{STEPS_MISSING}: " + ", ".join(missing))
         if held:
             reasons.append(tool_result_reason(held))
         routing = RoutingDecision(route=Route.ADJUSTER, reasons=reasons)

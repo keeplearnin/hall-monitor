@@ -168,6 +168,90 @@ def test_facts_checked_against_the_policy_send_the_claim_to_a_person(change, rea
     assert any(reason in r for r in routing.reasons)
 
 
+OTHER_POLICY = load_policy_records()["WTP-ESS-100587"]  # another customer's policy
+
+
+@pytest.mark.parametrize(
+    ("change", "reason"),
+    [
+        (
+            {"claim_text": CLAIM_TEXT.replace(POLICY.policy_number, "my policy")},
+            "policy number isn't in the claim documents",
+        ),
+        (
+            {"claim_text": CLAIM_TEXT.replace(POLICY.insured_name, "Robin Stranger")},
+            "claimant's name isn't in the claim documents",
+        ),
+    ],
+    ids=["policy-not-in-documents", "claimant-not-in-documents"],
+)
+def test_a_policy_or_claimant_the_documents_dont_name_goes_to_a_person(change, reason):
+    """Review 46, H1: the policy number and the claimant were the intake agent's word; an
+    agent that names another customer's policy and its insured routed automatically."""
+    routing = _route(**change)
+    assert routing.route is Route.ADJUSTER
+    assert any(reason in r for r in routing.reasons)
+
+
+def test_another_customers_policy_named_by_intake_is_never_looked_up():
+    claim = CLAIMS[0]
+    outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
+    outputs[IntakeExtraction] = outputs[IntakeExtraction].model_copy(
+        update={
+            "policy_number": OTHER_POLICY.policy_number,
+            "claimant_name": OTHER_POLICY.insured_name,
+        }
+    )
+
+    result, _ = _triage(claim, outputs)
+
+    looked_up = [c.arguments.get("policy_number") for c in result.tool_calls]
+    assert OTHER_POLICY.policy_number not in looked_up
+    assert result.extraction.policy_number == POLICY.policy_number  # the claim's own, by code
+    assert result.routing.route is Route.ADJUSTER
+    assert any("insured" in r for r in result.routing.reasons)
+
+
+def test_a_claim_naming_two_policies_goes_to_a_person_when_intake_picks_the_other():
+    """Review 46 re-review: a claim that names a companion's policy let intake choose it, and
+    with its insured's name every check passed."""
+    claim = CLAIMS[0].model_copy(
+        update={
+            "narrative": CLAIMS[0].narrative
+            + f" My wife {OTHER_POLICY.insured_name} travelled with me; her policy is "
+            f"{OTHER_POLICY.policy_number}."
+        }
+    )
+    outputs = outputs_from_truth(load_ground_truth(claim.claim_id))
+    outputs[IntakeExtraction] = outputs[IntakeExtraction].model_copy(
+        update={
+            "policy_number": OTHER_POLICY.policy_number,
+            "claimant_name": OTHER_POLICY.insured_name,
+        }
+    )
+
+    result, _ = _triage(claim, outputs)
+
+    assert result.routing.route is Route.ADJUSTER
+    assert any("more than one policy number" in r for r in result.routing.reasons)
+
+
+@pytest.mark.parametrize("written", ["WTP ESS 100231", "wtp-ess-\n100231"])
+def test_a_policy_number_written_with_spaces_or_a_break_is_still_found(written):
+    claim = CLAIMS[0]
+    rewrite = lambda t: t.replace("WTP-ESS-100231", written)  # noqa: E731
+    claim = claim.model_copy(
+        update={
+            "narrative": rewrite(claim.narrative),
+            "attachments": [
+                a.model_copy(update={"text": rewrite(a.text)}) for a in claim.attachments
+            ],
+        }
+    )
+    result, _ = _triage(claim, outputs_from_truth(load_ground_truth(claim.claim_id)))
+    assert result.stopped_reason is None and result.routing.route is Route.AUTO
+
+
 def test_claimant_name_match_ignores_case_and_punctuation():
     name = EXTRACTION.claimant_name.upper().replace(" ", "  ") + "."
     assert (
@@ -230,8 +314,14 @@ def test_missing_policy_number_is_filled_from_the_claim_text():
 
 
 def test_intake_retries_when_the_text_has_no_single_valid_number():
+    # Two real policy numbers in the text, so code can't choose; the retry's answer is one the
+    # claim names, so it is looked up (a number the claim doesn't name never is: Review 46).
     claim = CLAIMS[0].model_copy(
-        update={"narrative": CLAIMS[0].narrative.replace("WTP-ESS-100231", "my policy")}
+        update={
+            "narrative": CLAIMS[0].narrative.replace(
+                "WTP-ESS-100231", "WTP-ESS-100231 (or my wife's, WTP-ESS-100587)"
+            )
+        }
     )
     outputs = outputs_from_truth(load_ground_truth("claim_001"))
     good = outputs[IntakeExtraction]

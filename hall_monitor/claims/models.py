@@ -46,13 +46,23 @@ AttachmentKind = Literal[
 
 # Wayfarer policy numbers: plan code and six digits, e.g. WTP-ESS-100231.
 POLICY_NUMBER_PATTERN = re.compile(r"\bWTP-(?:ESS|PLS)-\d{6}\b")
+# As a claimant or an OCR'd page may write one: any case, a space or a line break for a hyphen.
+_POLICY_NUMBER_WRITTEN = re.compile(r"\bWTP[-\s]{1,3}(ESS|PLS)[-\s]{1,3}(\d{6})\b", re.IGNORECASE)
+
+
+def policy_numbers_in_text(text: str) -> list[str]:
+    """Policy numbers in a text, however written, in the record's form (WTP-ESS-100231), sorted."""
+    return sorted(
+        {f"WTP-{kind.upper()}-{digits}" for kind, digits in _POLICY_NUMBER_WRITTEN.findall(text)}
+    )
 
 
 def policy_numbers_in(claim: ClaimSubmission) -> list[str]:
-    """Policy-number-shaped strings in the claim as sent (narrative and documents), upper-cased
-    and sorted: found by code, not by an agent."""
-    text = "\n".join([claim.narrative, *(a.text for a in claim.attachments)]).upper()
-    return sorted(set(POLICY_NUMBER_PATTERN.findall(text)))
+    """Policy numbers in the claim as sent (narrative and documents): found by code, not by an
+    agent."""
+    return policy_numbers_in_text(
+        "\n".join([claim.narrative, *(a.text for a in claim.attachments)])
+    )
 
 
 class Attachment(BaseModel):

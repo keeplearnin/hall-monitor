@@ -104,8 +104,16 @@ FAULTS = {
         lambda o: _update(o, IntakeExtraction, claimant_name="Morgan Example"),
         "claimant is not the insured",
     ),
-    "intake: another insured's policy": (
-        lambda o: _update(o, IntakeExtraction, policy_number=_other_policy(o)),
+    # The claim never names that policy, so code doesn't look it up and uses the claim's own;
+    # the other insured's name then fails the claimant check (Review 46: before, the pair
+    # routed automatically, paid on the other customer's policy).
+    "intake: another insured's policy and name": (
+        lambda o: _update(
+            o,
+            IntakeExtraction,
+            policy_number=_other_policy(o),
+            claimant_name=POLICIES[_other_policy(o)].insured_name,
+        ),
         "claimant is not the insured",
     ),
     "intake: incident before cover starts": (

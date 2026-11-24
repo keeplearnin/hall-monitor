@@ -49,6 +49,10 @@ in-process server and agents hold no credentials, so these are recorded under th
   counted rather than named in the refusal. A call records only the arguments its tool takes. A
   scope refusal no longer quotes the policy number the model asked for. A tool the server
   doesn't have is refused rather than sent.
+- **No model-written tool name or server message in the record (review 46).** The tool name is
+  the model's too: a record copies it only if the server, the pipeline or a reviewed manifest
+  declares it (any other is "<not a known tool>", in the refusal as well), and a call that
+  fails after it was allowed records the exception's type, never its message.
 
 ## Alternatives considered
 

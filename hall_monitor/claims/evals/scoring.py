@@ -87,13 +87,14 @@ def clause_exists(clause: str, wording: str) -> bool:
 
 def is_infrastructure_stop(reason: str | None) -> bool:
     """A stop that says nothing about the model: an API failure (outage, rate limit, no
-    credit), an unexpected error in our own code, a refused hall pass or a model with no price
-    (our configuration). Evals count these as errors, so none can pass as a safely stopped claim.
-    """
+    credit), an unexpected error in our own code, a refused hall pass, a model with no price
+    (our configuration), or a spend refusal before any model call (budgets not approved, a cap
+    reached, the ledger unavailable: every SpendRefused template starts "spend "). Evals count
+    these as errors, so none can pass as a safely stopped claim."""
     return bool(reason) and (
         "from the model call" in reason
         or "cost unknown:" in reason
-        or reason.startswith(("unexpected ", "hall pass refused"))
+        or reason.startswith(("unexpected ", "hall pass refused", "spend "))
     )
 
 

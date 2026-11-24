@@ -301,6 +301,10 @@ def test_amounts_are_found_with_or_without_cents(amount, text, found):
         ("hall pass refused: agent 'intake' is planned, not active", True),
         ("APIError from the model call; cost unknown: no price for model 'x'", True),
         ("no policy record found; cost unknown: no price for model 'x'", True),
+        # Review 46, H5: refused before any model call, so nothing about the model was tested.
+        ("spend budgets not approved: budgets.yaml is not the approved version", True),
+        ("spend ledger unavailable (OperationalError)", True),
+        ("spend cap reached: daily claims cap of 5.00 USD", True),
     ],
 )
 def test_infrastructure_stops_are_told_apart_from_model_behaviour(reason, infrastructure):

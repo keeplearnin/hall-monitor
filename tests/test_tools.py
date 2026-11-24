@@ -160,7 +160,24 @@ def test_a_tool_call_that_fails_after_it_was_allowed_is_still_recorded():
             "WTP-ESS-100231",
         )
     [call] = log
-    assert call.allowed and call.result_sha256 is None and "unavailable" in call.error
+    # The type only (Review 46, H7): a server's message can quote a record or the arguments.
+    assert call.allowed and call.result_sha256 is None and call.error == "ToolError"
+
+
+@pytest.mark.parametrize(
+    "tool",
+    ["lookup for Daniel Okafor: chemo on 3 May", "jane_doe_hiv_positive_dob_1980_01_01", "", "o"],
+    ids=["free-text", "identifier-shaped", "empty", "one-letter"],
+)
+def test_a_tool_name_no_one_declared_is_never_copied_into_the_record(tool):
+    """Review 46, H7: the model writes the tool name; one the server and the manifests don't
+    know was stored as written, in the call's tool and its refusal, and so in the audit log."""
+    log = []
+    answer = claims_gateway(REGISTRY).call("coverage_check", tool, {}, log, "WTP-ESS-100231")
+    [call] = log
+    assert not call.allowed and call.tool == "<not a known tool>"
+    assert repr(tool) not in (call.error or "") and repr(tool) not in answer["error"]
+    assert "<not a known tool>" in call.error and len(call.error) < 200  # reads cleanly
 
 
 def test_the_gateway_works_inside_a_running_event_loop():

@@ -531,8 +531,8 @@ def test_a_changed_version_of_a_routed_complaint_is_re_routed_without_editing_th
     (rerouted,) = [e["payload"] for e in entries if e["event"] == "complaint_rerouted"]
     assert rerouted["queue"] == "specialist_review" and rerouted["urgency"] == "high"
     assert {"servicemember", "untimely", "record_changed"} <= set(rerouted["reasons"])
-    assert rerouted["content_sha256"] == v2.content_sha256()
-    assert rerouted["previous_content_sha256"] == v1.content_sha256()
+    assert rerouted["content_hmac"] == audit.keyed_hash(v2.content_body())
+    assert rerouted["previous_content_hmac"] == audit.keyed_hash(v1.content_body())
     # The same version again is a repeat; a routine status change isn't re-routed (review 38b),
     # and a change that adds a code reason is re-routed again.
     assert complaint_run.run([v2], audit, _client(), REGISTRY)["skipped"] == 1
@@ -594,3 +594,38 @@ def test_a_re_route_is_written_once_per_version(tmp_path):
     assert reroute_changed(changed, audit) is None
     audit.entries = real
     assert len([e for e in audit.entries() if e["event"] == "complaint_rerouted"]) == 1
+
+
+def test_a_run_where_every_complaint_is_spend_refused_counts_as_errors(monkeypatch):
+    """Review 46, H5: with the budgets unapproved, every complaint was refused before any model
+    call, yet errors and every must-route metric read 0 and every gated threshold passed."""
+    from hall_monitor import spend
+    from hall_monitor.budgets import BudgetsNotApproved
+    from hall_monitor.complaints.evals import evaluate
+
+    def refuse(*_args, **_kwargs):
+        raise BudgetsNotApproved(
+            "spend budgets not approved: budgets.yaml is not the approved version"
+        )
+
+    monkeypatch.setattr(spend, "approved_budgets", refuse)
+    complaints = load_pinned(PINNED_NAME)[:5]
+    summary = evaluate(
+        complaints, scripted_client(), Registry.from_dir(TEST_REGISTRY_DIR), "scripted"
+    )["summary"]
+    assert summary["errors"] == len(complaints)
+
+
+def test_no_plain_hash_of_a_complaint_is_logged(tmp_path):
+    """Review 46, H9: complaint_received kept a plain SHA-256 of the whole record, typed-in
+    narrative included, with its receipt time a few milliseconds before the entry's; a guessed
+    narrative could be confirmed from the log. The log keeps a keyed hash only."""
+    audit = AuditLog(tmp_path / "audit.sqlite")
+    v1 = complaint()
+    complaint_run.run([v1], audit, _client(), REGISTRY)
+    v2 = complaint(tags=(Tag.SERVICEMEMBER,), timely=False)
+    complaint_run.run([v2], audit, _client(), REGISTRY)
+    logged = json.dumps([e["payload"] for e in audit.entries()])
+    assert v1.content_sha256() not in logged and v2.content_sha256() not in logged
+    (received,) = [e["payload"] for e in audit.entries() if e["event"] == "complaint_received"]
+    assert received["content_hmac"] == audit.keyed_hash(v1.content_body())

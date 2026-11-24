@@ -39,6 +39,8 @@ if TYPE_CHECKING:
 PIPELINE_ACTOR = RESERVED_AGENT_ID  # no agent may take this ID (Registry refuses it)
 # The argument a case's scope is checked against: a tool that takes it is policy-keyed.
 SCOPE_ARGUMENT = "policy_number"
+# How a record shows a tool name the model wrote that no server or manifest declares.
+UNKNOWN_TOOL = "<not a known tool>"
 
 
 def _strings(value: Any) -> Iterator[str]:
@@ -90,6 +92,12 @@ class ToolGateway:
         self.tool_data_classes = tool_data_classes
         self.pipeline_tools = pipeline_tools
         self._definitions = _run(self._list_tools())
+        # Tool names code or a reviewed manifest declares: the only ones a record may copy.
+        self._known = (
+            set(self._definitions)
+            | set(pipeline_tools)
+            | {t for m in registry for t in m.allowed_tools}
+        )
         problems = tool_problems(sorted(self._definitions))
         if problems:
             raise SendCapabilityError("the tool server may never send: " + "; ".join(problems))
@@ -169,6 +177,9 @@ class ToolGateway:
         anything. A result whose text addresses the AI is held back from an agent and the call
         records which signals matched (HM-07)."""
         started = time.perf_counter()
+        # The model wrote the name: one nobody declared may carry anything, so the record (and
+        # the refusal, which reaches the agent and the error field) never copies it (Review 46).
+        shown = tool if isinstance(tool, str) and tool in self._known else UNKNOWN_TOOL
         definition = self._definitions.get(tool)
         properties = (definition or {}).get("input_schema", {}).get("properties", {})
         recorded = {k: v for k, v in arguments.items() if k in properties}
@@ -198,18 +209,23 @@ class ToolGateway:
                 # call's arguments still keep it as written (HM-03's gaps).
                 raise RegistryError(f"{actor} may only look up this claim's policy")
         except RegistryError as exc:
+            why = str(exc)
+            if shown != tool:
+                # Every refusal quotes the name as repr; only that form is swapped, so a short
+                # name ("o") can't rewrite the rest of the message.
+                why = why.replace(repr(tool), repr(shown))
             log.append(
                 ToolCall(
                     actor=actor,
-                    tool=tool,
+                    tool=shown,
                     arguments=recorded,
                     allowed=False,
                     result_sha256=None,
-                    error=str(exc),
+                    error=why,
                     seconds=round(time.perf_counter() - started, 3),
                 )
             )
-            return {"error": f"Refused: {exc}"}
+            return {"error": f"Refused: {why}"}
 
         counts: Counter[str] = Counter()
         try:
@@ -225,11 +241,12 @@ class ToolGateway:
             log.append(
                 ToolCall(
                     actor=actor,
-                    tool=tool,
+                    tool=shown,
                     arguments=recorded,
                     allowed=True,
                     result_sha256=None,
-                    error=f"{type(exc).__name__}: {exc}",
+                    # The type only: a server's message can quote a record or the arguments.
+                    error=type(exc).__name__,
                     seconds=round(time.perf_counter() - started, 3),
                 )
             )
@@ -238,7 +255,7 @@ class ToolGateway:
         log.append(
             ToolCall(
                 actor=actor,
-                tool=tool,
+                tool=shown,
                 arguments=recorded,
                 allowed=True,
                 result_sha256=result_sha256,
