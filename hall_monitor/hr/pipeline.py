@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from hall_monitor import tracing
 from hall_monitor.agents.base import AgentRefusedError, default_client
+from hall_monitor.agents.loop import Action, LoopFinished, SupervisorLoop, run_supervisor_loop
 from hall_monitor.budgets import SpendRefused
 from hall_monitor.gateway.cost import UnpricedModelError, total_cost
 from hall_monitor.gateway.injection import detect_in_texts
@@ -65,7 +66,7 @@ from hall_monitor.hr.supervisor import (
     run_leave_supervisor,
 )
 from hall_monitor.registry import Registry, RegistryError
-from hall_monitor.shared_models import AgentCall, StepOutcome, StepRefusal
+from hall_monitor.shared_models import AgentCall, StepOutcome
 from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 
 
@@ -450,8 +451,6 @@ def prepare(
 
 # --- The agentic path (ADR 0028) ---------------------------------------------------------------
 
-MAX_REFUSALS = 3
-
 
 @dataclass(frozen=True)
 class LeaveLimits:
@@ -500,30 +499,70 @@ class _Leave:
     explainer_ran: bool = False
     steps: list[LeaveStep] = field(default_factory=list)
     started: float = 0.0
+    stage: str = "supervisor"
 
 
-def _leave_refusal(ctx: _Leave, decision: LeaveDecision) -> StepRefusal | None:
+def _leave_repeat(ctx: _Leave, decision: LeaveDecision) -> bool:
+    """A repeat on unchanged inputs. A re-check after the rules ran would be shopping."""
+    if decision.action is LeaveAction.RUN_INTAKE:
+        return bool(ctx.intakes)
+    if not ctx.intakes:
+        return False
+    return len(ctx.intakes) >= MAX_INTAKES or ctx.assessment is not None
+
+
+def _read_intake(ctx: _Leave) -> list[str]:
+    _spend(ctx)
+    ctx.stage = "intake"
+    intake_run = run_leave_intake(ctx.message, ctx.text, ctx.registry, ctx.client)
+    ctx.keep(intake_run.call)
+    ctx.intakes.append(intake_run.output)
+    return ["leave_intake"]
+
+
+def _apply_rules(ctx: _Leave, decision: LeaveDecision) -> list[str]:
+    stopped = _assess(ctx)
+    if stopped is not None:  # a code check failed: a person, as before
+        _step(ctx, decision, StepOutcome.RAN)
+        raise LoopFinished(_done(ctx, ctx.stop(*stopped)))
+    return []
+
+
+def _write_note(ctx: _Leave) -> list[str]:
+    _spend(ctx)
+    _explain(ctx)
+    return ["leave_explainer"]
+
+
+def leave_action(ctx: _Leave, decision: LeaveDecision) -> Action:
+    """The leave action table. The rules and the route stay in ordinary functions."""
     A = LeaveAction
     match decision.action:
         case A.RUN_INTAKE:
-            return StepRefusal.REPEAT_WITHOUT_CHANGE if ctx.intakes else None
+            return Action(
+                repeat=lambda: _leave_repeat(ctx, decision),
+                run=lambda: _read_intake(ctx),
+            )
         case A.RECHECK_INTAKE:
-            if not ctx.intakes:
-                return StepRefusal.PRECONDITION_UNMET
-            if len(ctx.intakes) >= MAX_INTAKES or ctx.assessment is not None:
-                # A re-check after the rules ran could only be shopping for another answer.
-                return StepRefusal.REPEAT_WITHOUT_CHANGE
-            return None
+            return Action(
+                missing=lambda: not ctx.intakes,
+                repeat=lambda: _leave_repeat(ctx, decision),
+                run=lambda: _read_intake(ctx),
+            )
         case A.ASSESS:
-            if not ctx.intakes:
-                return StepRefusal.PRECONDITION_UNMET
-            return StepRefusal.REPEAT_WITHOUT_CHANGE if ctx.assessment is not None else None
+            return Action(
+                missing=lambda: not ctx.intakes,
+                repeat=lambda: ctx.assessment is not None,
+                run=lambda: _apply_rules(ctx, decision),
+            )
         case A.RUN_EXPLAINER:
-            if ctx.assessment is None:
-                return StepRefusal.PRECONDITION_UNMET
-            return StepRefusal.REPEAT_WITHOUT_CHANGE if ctx.explainer_ran else None
+            return Action(
+                missing=lambda: ctx.assessment is None,
+                repeat=lambda: ctx.explainer_ran,
+                run=lambda: _write_note(ctx),
+            )
         case _:
-            return None
+            return Action(terminal=True)
 
 
 def _leave_view(ctx: _Leave) -> LeaveView:
@@ -700,75 +739,66 @@ def _supervise(ctx: _Leave) -> LeavePreparation:
     supervisor_failed; an intake failure is pipeline_stopped, as on the fixed path. Neither
     stores an evidence pack unless an intake answered, so the request can be prepared again."""
     ctx.started = ctx.clock()
-    refusals = 0
-    stage = "supervisor"
+
+    def ask() -> LeaveDecision:
+        run = run_leave_supervisor(ctx.message.id, _leave_view(ctx), ctx.registry, ctx.client)
+        ctx.keep(run.call)
+        return run.output
+
+    def record(decision, outcome, refusal, agents) -> None:
+        _step(ctx, decision, outcome, refusal, agents)
+
+    def fail(decision, exc: Exception) -> None:
+        record(decision, StepOutcome.FAILED, None, ["intake"] if ctx.stage == "intake" else [])
+
+    def fail_finish(decision, exc: Exception) -> None:
+        if isinstance(exc, RegistryError) and (
+            not ctx.steps or ctx.steps[-1].action is not decision.action
+        ):
+            _step(ctx, decision, StepOutcome.FAILED)
+
     try:
-        while True:
-            stage = "supervisor"
-            if len(ctx.steps) >= ctx.limits.max_steps:
-                raise _LeaveStopped(f"budget exhausted: {ctx.limits.max_steps} supervisor steps")
-            _spend(ctx)
-            # A stop on any agent the request has used ends it here, at the next step (found by
-            # the kill-switch drill); the note's agent is advisory and is checked at finish.
-            _check_agents(ctx)
-            run = run_leave_supervisor(ctx.message.id, _leave_view(ctx), ctx.registry, ctx.client)
-            ctx.keep(run.call)
-            decision = run.output
-            if decision.action in (LeaveAction.FINISH, LeaveAction.HAND_OFF):
-                try:
-                    return _done(ctx, _end(ctx, decision))
-                except RegistryError:
-                    if not ctx.steps or ctx.steps[-1].action is not decision.action:
-                        _step(ctx, decision, StepOutcome.FAILED)
-                    raise
-            refusal = _leave_refusal(ctx, decision)
-            if refusal is not None:
-                refusals += 1
-                _step(ctx, decision, StepOutcome.REFUSED, refusal)
-                if refusals >= MAX_REFUSALS:
-                    raise _LeaveStopped(f"supervisor loop: {MAX_REFUSALS} steps refused")
-                continue
-            try:
-                ctx.registry.require(SUPERVISOR)  # a stop since it chose ends the step here
-                _check_agents(ctx)
-                if decision.action in (LeaveAction.RUN_INTAKE, LeaveAction.RECHECK_INTAKE):
-                    _spend(ctx)
-                    stage = "intake"
-                    intake_run = run_leave_intake(ctx.message, ctx.text, ctx.registry, ctx.client)
-                    ctx.keep(intake_run.call)
-                    ctx.intakes.append(intake_run.output)
-                    agents = ["leave_intake"]
-                elif decision.action is LeaveAction.ASSESS:
-                    agents = []
-                    stopped = _assess(ctx)
-                    if stopped is not None:  # a code check failed: a person, as before
-                        _step(ctx, decision, StepOutcome.RAN)
-                        return _done(ctx, ctx.stop(*stopped))
-                else:
-                    _spend(ctx)
-                    _explain(ctx)
-                    agents = ["leave_explainer"]
-            except Exception:
-                _step(
-                    ctx, decision, StepOutcome.FAILED, agents=[stage] if stage == "intake" else []
-                )
-                raise
-            _step(ctx, decision, StepOutcome.RAN, agents=agents)
+        return run_supervisor_loop(
+            SupervisorLoop(
+                steps_taken=lambda: len(ctx.steps),
+                max_steps=ctx.limits.max_steps,
+                cost_usd=lambda: _cost(ctx.calls)[0],
+                max_cost_usd=ctx.limits.max_cost_usd,
+                elapsed=lambda: ctx.clock() - ctx.started,
+                max_seconds=ctx.limits.max_seconds,
+                priced=True,
+                unknown_cost=lambda: _cost(ctx.calls)[1],
+                prepare_turn=lambda: setattr(ctx, "stage", "supervisor"),
+                recheck=lambda: _check_agents(ctx),
+                ask=ask,
+                action=lambda decision: leave_action(ctx, decision),
+                record=record,
+                authorize=lambda decision: ctx.registry.require(SUPERVISOR),
+                before_work=lambda decision: None,
+                fail_guard=fail,
+                fail_run=fail,
+                finish=lambda decision: _done(ctx, _end(ctx, decision)),
+                fail_finish=fail_finish,
+                stopped=_LeaveStopped,
+            )
+        )
     except _LeaveStopped as exc:
         return _done(ctx, _failed(ctx, f"leave supervisor: {exc}", "supervisor", outage=False))
     except AgentRefusedError as exc:
         ctx.keep(exc.call)
-        return _done(ctx, _failed(ctx, f"agent refused or returned no usable output: {exc}", stage))
+        return _done(
+            ctx, _failed(ctx, f"agent refused or returned no usable output: {exc}", ctx.stage)
+        )
     except RegistryError as exc:
         ctx.keep(getattr(exc, "partial_call", None))
-        stage = getattr(exc, "leave_stage", stage)
+        stage = getattr(exc, "leave_stage", ctx.stage)
         return _done(ctx, _failed(ctx, f"hall pass refused: {exc}", stage))
     except (anthropic.APIError, ValidationError) as exc:
         ctx.keep(getattr(exc, "partial_call", None))
-        return _done(ctx, _failed(ctx, f"{type(exc).__name__} from the model call", stage))
+        return _done(ctx, _failed(ctx, f"{type(exc).__name__} from the model call", ctx.stage))
     except Exception as exc:  # anything unforeseen goes to a person; the type only
         ctx.keep(getattr(exc, "partial_call", None))
-        return _done(ctx, _failed(ctx, f"unexpected {type(exc).__name__}", stage))
+        return _done(ctx, _failed(ctx, f"unexpected {type(exc).__name__}", ctx.stage))
 
 
 def _failed(ctx: _Leave, reason: str, stage: str, outage: bool = True) -> LeavePreparation:

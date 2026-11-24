@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from hall_monitor import tracing
 from hall_monitor.agents.base import AgentRefusedError
+from hall_monitor.agents.loop import Action, SupervisorLoop, run_supervisor_loop
 from hall_monitor.budgets import SpendRefused
 from hall_monitor.complaints.drafts import DraftResponse, store_draft
 from hall_monitor.complaints.models import Complaint
@@ -68,7 +69,7 @@ from hall_monitor.gateway.injection import decoded, detect_in_texts
 from hall_monitor.gateway.redaction import redact_text
 from hall_monitor.governance.audit import AlreadyRecorded, AuditLog
 from hall_monitor.registry import Registry, RegistryError
-from hall_monitor.shared_models import AgentCall, StepOutcome, StepRefusal
+from hall_monitor.shared_models import AgentCall, StepOutcome
 from hall_monitor.spend import CaseStart, SpendLedger, finish_case, start_case
 
 ROUTED = "complaint_routed"
@@ -163,9 +164,6 @@ class ComplaintResult(BaseModel):
     mode: str = "fixed"
     triage_runs: int = 0
     supervisor_steps: list[DeskStep] = []
-
-
-MAX_REFUSALS = 3
 
 
 @dataclass(frozen=True)
@@ -616,16 +614,21 @@ def route_triages(
     )
 
 
-def _desk_refusal(decision: DeskDecision, triages: list[ComplaintTriage]) -> StepRefusal | None:
+def desk_action(
+    triages: list[ComplaintTriage], decision: DeskDecision, run: Callable[[], list[str]]
+) -> Action:
+    """The complaint desk's action table. Routing stays in route_triages."""
     match decision.action:
         case DeskAction.RUN_TRIAGE:
-            return StepRefusal.REPEAT_WITHOUT_CHANGE if triages else None
+            return Action(repeat=lambda: bool(triages), run=run)
         case DeskAction.RECHECK_TRIAGE:
-            if not triages:
-                return StepRefusal.PRECONDITION_UNMET
-            return StepRefusal.REPEAT_WITHOUT_CHANGE if len(triages) >= MAX_TRIAGES else None
+            return Action(
+                missing=lambda: not triages,
+                repeat=lambda: len(triages) >= MAX_TRIAGES,
+                run=run,
+            )
         case _:
-            return None
+            return Action(terminal=True)
 
 
 def _supervise(
@@ -649,7 +652,6 @@ def _supervise(
     Raises DeskStopped (budget, refusals) or the agent's own error; the caller sends the
     complaint to specialist review as agent_failed."""
     started = clock()
-    refusals = 0
     reasons = code_reasons_for(complaint, signals)
     last: DeskStep | None = None
 
@@ -689,12 +691,8 @@ def _supervise(
         )
         record_step(last)
 
-    while True:
+    def ask() -> DeskDecision:
         taken = last.step if last else 0
-        if taken >= limits.max_steps:
-            raise DeskStopped(f"budget exhausted: {limits.max_steps} supervisor steps")
-        spend()
-        check_agents()
         view = DeskView(
             code_reasons=sorted(reasons),
             urgency_floor=urgency_floor(reasons),
@@ -720,40 +718,48 @@ def _supervise(
         )
         run = run_desk_supervisor(scope, view, registry, client)
         keep(run.call)
-        decision = run.output
-        if decision.action in (DeskAction.FINISH, DeskAction.HAND_OFF):
-            try:
-                check_agents()
-            except Exception:
-                record(decision, StepOutcome.FAILED)
-                raise
-            handed = decision.action is DeskAction.HAND_OFF
-            record(decision, StepOutcome.HANDED_OFF if handed else StepOutcome.FINISHED)
-            ending = {"supervisor_handed_off"} if handed else set()
-            return ending | (set() if triages else {"triage_skipped"})
-        refusal = _desk_refusal(decision, triages)
-        if refusal is not None:
-            refusals += 1
-            record(decision, StepOutcome.REFUSED, refusal)
-            if refusals >= MAX_REFUSALS:
-                raise DeskStopped(f"supervisor loop: {MAX_REFUSALS} steps refused")
-            continue
-        try:
-            registry.require(SUPERVISOR)  # a stop made since it chose ends the step here
-            check_agents()
-            spend()
-        except Exception:
-            record(decision, StepOutcome.FAILED)
-            raise
-        try:
-            triage_run = run_complaint_triage(complaint, content, registry, client, scope)
-        except Exception as exc:
-            exc.desk_stage = "triage"  # type: ignore[attr-defined]
-            record(decision, StepOutcome.FAILED, agents=["complaint_triage"])
-            raise
+        return run.output
+
+    def read() -> list[str]:
+        triage_run = run_complaint_triage(complaint, content, registry, client, scope)
         keep(triage_run.call)
         triages.append(triage_run.output)
-        record(decision, StepOutcome.RAN, agents=["complaint_triage"])
+        return ["complaint_triage"]
+
+    def fail_run(decision: DeskDecision, exc: Exception) -> None:
+        exc.desk_stage = "triage"  # type: ignore[attr-defined]
+        record(decision, StepOutcome.FAILED, agents=["complaint_triage"])
+
+    def finish(decision: DeskDecision) -> set[str]:
+        check_agents()
+        handed = decision.action is DeskAction.HAND_OFF
+        record(decision, StepOutcome.HANDED_OFF if handed else StepOutcome.FINISHED)
+        ending = {"supervisor_handed_off"} if handed else set()
+        return ending | (set() if triages else {"triage_skipped"})
+
+    return run_supervisor_loop(
+        SupervisorLoop(
+            steps_taken=lambda: last.step if last else 0,
+            max_steps=limits.max_steps,
+            cost_usd=lambda: _cost(calls)[0],
+            max_cost_usd=limits.max_cost_usd,
+            elapsed=lambda: clock() - started,
+            max_seconds=limits.max_seconds,
+            priced=True,
+            unknown_cost=lambda: _cost(calls)[1],
+            recheck=check_agents,
+            ask=ask,
+            action=lambda decision: desk_action(triages, decision, read),
+            record=record,
+            authorize=lambda decision: registry.require(SUPERVISOR),
+            before_work=lambda decision: spend(),
+            fail_guard=lambda decision, exc: record(decision, StepOutcome.FAILED),
+            fail_run=fail_run,
+            finish=finish,
+            fail_finish=lambda decision, exc: record(decision, StepOutcome.FAILED),
+            stopped=DeskStopped,
+        )
+    )
 
 
 def code_reasons_for(complaint: Complaint, signals: list[str]) -> set[str]:

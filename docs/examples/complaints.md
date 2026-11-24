@@ -63,7 +63,7 @@ uv run python -m hall_monitor.complaints.submit --live     # calls the Claude AP
 
 ## Where it lives
 
-- **Code:** `hall_monitor/complaints/`, plus `hall_monitor/egress.py` and `hall_monitor/no_send.py` for the no-send rule.
+- **Code:** `hall_monitor/complaints/`, plus `hall_monitor/egress.py` and `hall_monitor/no_send.py` for the no-send rule. The desk action table is `desk_action` in `pipeline.py`. The loop it runs in is the shared `hall_monitor/agents/loop.py`.
 - **Design and decisions:** [`docs/complaint-desk-design.md`](../complaint-desk-design.md); ADRs [0021](../adr/0021-no-reply-no-send.md) to [0024](../adr/0024-complaint-evals-on-a-pinned-snapshot.md) and [0029](../adr/0029-complaint-submission-form.md).
 
 ### Built on this desk

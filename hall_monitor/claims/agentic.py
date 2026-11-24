@@ -13,8 +13,10 @@ closed list. Before anything runs, code checks, in this order:
    next step; each specialist checks its own on every model and tool call (agents/base.py).
 3. **The choice.** A step whose inputs aren't ready is refused, and so is one whose inputs
    haven't changed since it last ran (a repeat), a revision of a stage the critic didn't raise,
-   or a revision past MAX_REVISIONS. A refusal runs nothing and costs a step; after
-   MAX_REFUSALS the claim stops for a person.
+   or a revision past MAX_REVISIONS. A refusal runs nothing and costs a step; after three
+   refusals the claim stops for a person. The loop that counts them is
+   ``hall_monitor.agents.loop``, shared with the complaint desk and leave. This module is the
+   claims action table.
 
 Code still does what the fixed path did in code: the policy check after intake, the one
 correction from the claim text, the decision label from the amount, rerunning coverage and
@@ -37,6 +39,7 @@ from dataclasses import dataclass, field
 import anthropic
 
 from hall_monitor.agents.base import ToolAccess, render_feedback
+from hall_monitor.agents.loop import Action, SupervisorLoop, run_supervisor_loop
 from hall_monitor.claims.agents.coverage_check import run_coverage_check
 from hall_monitor.claims.agents.critic import run_critic
 from hall_monitor.claims.agents.intake import run_intake
@@ -95,7 +98,6 @@ from hall_monitor.registry import Registry
 from hall_monitor.shared_models import AgentCall, StepOutcome, StepRefusal
 from hall_monitor.tools.gateway import ToolGateway
 
-MAX_REFUSALS = 3
 STAGE_ORDER = (ReviewedStage.INTAKE, ReviewedStage.COVERAGE_CHECK, ReviewedStage.RISK_FRAUD)
 
 
@@ -129,7 +131,6 @@ class _State:
     recommendation: Recommendation | None = None
     recommendation_on: tuple[int, int, int] | None = None
     tools: ToolAccess | None = None
-    refusals: int = 0
     last: SupervisorStep | None = None
     agents: list[str] = field(default_factory=list)
 
@@ -221,12 +222,6 @@ def view_of(ctx: _Context, state: _State) -> SupervisorView:
     )
 
 
-def _check_budget(ctx: _Context) -> None:
-    if len(ctx.run.steps) >= ctx.limits.max_steps:
-        raise PipelineStopped(f"budget exhausted: {ctx.limits.max_steps} supervisor steps")
-    _check_spend(ctx)
-
-
 def _check_spend(ctx: _Context, sent: AgentCall | None = None) -> None:
     """Cost and time, checked before every model call the loop makes: the supervisor's, each
     specialist's, each agent inside one revision, and each later round of a specialist's tool
@@ -238,54 +233,97 @@ def _check_spend(ctx: _Context, sent: AgentCall | None = None) -> None:
         raise PipelineStopped(f"budget exhausted: {ctx.limits.max_seconds:g} seconds")
 
 
-def _refusal(ctx: _Context, state: _State, decision: SupervisorDecision) -> StepRefusal | None:
-    """Why code won't run the choice, or None if it may run."""
+def _intake_is_repeat(ctx: _Context, state: _State) -> bool:
+    """A second intake is allowed once, and only to find the policy. After that it is a repeat."""
+    if ctx.run.extraction is None:
+        return False
+    if state.policy is None and state.intake_runs < 2:
+        return False
+    return True
+
+
+def _revise_blocked(
+    ctx: _Context, state: _State, decision: SupervisorDecision
+) -> StepRefusal | None:
+    """The revise row's own refusals, before a partial revision is named as one."""
+    if not ctx.critic:
+        return StepRefusal.CRITIC_OFF
+    if not (state.review_current() and state.review.issues):
+        return StepRefusal.NO_CRITIC_ISSUES
+    if ctx.run.revisions >= MAX_REVISIONS:
+        return StepRefusal.REVISIONS_EXHAUSTED
+    raised = {i.stage for i in state.review.issues}
+    if not decision.stages or not set(decision.stages) <= raised:
+        return StepRefusal.STAGE_WITHOUT_ISSUE
+    return None
+
+
+def _revise_partial(state: _State, decision: SupervisorDecision) -> StepRefusal | None:
+    """Every raised stage goes back, as on the fixed path: an issue left out could vanish from
+    a later clean review and never be recorded (review 22)."""
+    raised = {i.stage for i in state.review.issues}
+    if set(decision.stages) != raised:
+        return StepRefusal.NOT_EVERY_RAISED_STAGE
+    return None
+
+
+def _do(state: _State, work: Callable[[], None]) -> list[str]:
+    work()
+    return list(state.agents)
+
+
+def _covered_and_risked(state: _State) -> bool:
+    return state.coverage_current() and state.risk_current()
+
+
+def claims_action(ctx: _Context, state: _State, decision: SupervisorDecision) -> Action:
+    """The claims action table: when each choice may run, and the function that runs it."""
     A = SupervisorAction
     match decision.action:
         case A.RUN_INTAKE:
-            if ctx.run.extraction is None:
-                return None
-            if state.policy is None and state.intake_runs < 2:
-                return None
-            return StepRefusal.REPEAT_WITHOUT_CHANGE
-        case A.RUN_COVERAGE_CHECK | A.RUN_RISK_FRAUD:
-            if state.policy is None:
-                return StepRefusal.PRECONDITION_UNMET
-            current = (
-                state.coverage_current()
-                if decision.action is A.RUN_COVERAGE_CHECK
-                else state.risk_current()
+            return Action(
+                repeat=lambda: _intake_is_repeat(ctx, state),
+                run=lambda: _do(state, lambda: _run_intake(ctx, state)),
             )
-            return StepRefusal.REPEAT_WITHOUT_CHANGE if current else None
+        case A.RUN_COVERAGE_CHECK:
+            return Action(
+                missing=lambda: state.policy is None,
+                repeat=lambda: state.coverage_current(),
+                run=lambda: _do(state, lambda: _store_coverage(ctx, state)),
+            )
+        case A.RUN_RISK_FRAUD:
+            return Action(
+                missing=lambda: state.policy is None,
+                repeat=lambda: state.risk_current(),
+                run=lambda: _do(state, lambda: _store_risk(ctx, state)),
+            )
         case A.RUN_CRITIC:
-            if not ctx.critic:
-                return StepRefusal.CRITIC_OFF
-            if not (state.coverage_current() and state.risk_current()):
-                return StepRefusal.PRECONDITION_UNMET
-            return StepRefusal.REPEAT_WITHOUT_CHANGE if state.review_current() else None
+            return Action(
+                earlier=lambda: None if ctx.critic else StepRefusal.CRITIC_OFF,
+                missing=lambda: not _covered_and_risked(state),
+                repeat=lambda: state.review_current(),
+                run=lambda: _do(state, lambda: _run_critic_step(ctx, state)),
+            )
         case A.REVISE:
-            if not ctx.critic:
-                return StepRefusal.CRITIC_OFF
-            if not (state.review_current() and state.review.issues):
-                return StepRefusal.NO_CRITIC_ISSUES
-            if ctx.run.revisions >= MAX_REVISIONS:
-                return StepRefusal.REVISIONS_EXHAUSTED
-            raised = {i.stage for i in state.review.issues}
-            if not decision.stages or not set(decision.stages) <= raised:
-                return StepRefusal.STAGE_WITHOUT_ISSUE
-            if set(decision.stages) != raised:
-                # Every raised stage goes back, as on the fixed path: an issue left out could
-                # vanish from a later clean review and never be recorded (review 22).
-                return StepRefusal.NOT_EVERY_RAISED_STAGE
-            return None
+            return Action(
+                earlier=lambda: _revise_blocked(ctx, state, decision),
+                partial=lambda: _revise_partial(state, decision),
+                run=lambda: _do(state, lambda: _revise(ctx, state, decision.stages)),
+            )
         case A.RUN_RECOMMENDATION:
-            if not (state.coverage_current() and state.risk_current()):
-                return StepRefusal.PRECONDITION_UNMET
-            if ctx.critic and not state.review_current():
-                return StepRefusal.PRECONDITION_UNMET
-            return StepRefusal.REPEAT_WITHOUT_CHANGE if state.recommendation_current() else None
+            return Action(
+                missing=lambda: _recommendation_missing(ctx, state),
+                repeat=lambda: state.recommendation_current(),
+                run=lambda: _do(state, lambda: _run_recommendation_step(ctx, state)),
+            )
         case A.FINISH | A.HAND_OFF:
-            return None
+            return Action(terminal=True)
+
+
+def _recommendation_missing(ctx: _Context, state: _State) -> bool:
+    if not _covered_and_risked(state):
+        return True
+    return ctx.critic and not state.review_current()
 
 
 def _run_intake(ctx: _Context, state: _State) -> None:
@@ -425,51 +463,51 @@ def _revise(ctx: _Context, state: _State, stages: list[ReviewedStage]) -> None:
         )
 
 
-def _execute(ctx: _Context, state: _State, decision: SupervisorDecision) -> None:
-    A = SupervisorAction
+def _store_coverage(ctx: _Context, state: _State) -> None:
+    state.coverage = _run_coverage(ctx, state)
+
+
+def _store_risk(ctx: _Context, state: _State) -> None:
+    state.risk = _run_risk(ctx, state)
+
+
+def _run_critic_step(ctx: _Context, state: _State) -> None:
     run = ctx.run
-    match decision.action:
-        case A.RUN_INTAKE:
-            _run_intake(ctx, state)
-        case A.RUN_COVERAGE_CHECK:
-            state.coverage = _run_coverage(ctx, state)
-        case A.RUN_RISK_FRAUD:
-            state.risk = _run_risk(ctx, state)
-        case A.RUN_CRITIC:
-            _check_spend(ctx)
-            state.agents.append("critic")
-            review = run.output(
-                run_critic(
-                    ctx.claim,
-                    run.extraction,
-                    state.coverage,
-                    state.risk,
-                    ctx.wording,
-                    ctx.registry,
-                    ctx.client,
-                    tools=state.tools,
-                )
-            )
-            run.reviews.append(review)
-            state.review, state.review_on = review, state.inputs()
-        case A.REVISE:
-            _revise(ctx, state, decision.stages)
-        case A.RUN_RECOMMENDATION:
-            _check_spend(ctx)
-            state.agents.append("recommendation")
-            economy = _economy(ctx.registry, "recommendation", run.extraction, ctx.model_routing)
-            state.recommendation = run.output(
-                run_recommendation(
-                    ctx.claim.claim_id,
-                    run.extraction,
-                    state.coverage,
-                    state.risk,
-                    ctx.registry,
-                    ctx.client,
-                    economy=economy,
-                )
-            )
-            state.recommendation_on = state.inputs()
+    _check_spend(ctx)
+    state.agents.append("critic")
+    review = run.output(
+        run_critic(
+            ctx.claim,
+            run.extraction,
+            state.coverage,
+            state.risk,
+            ctx.wording,
+            ctx.registry,
+            ctx.client,
+            tools=state.tools,
+        )
+    )
+    run.reviews.append(review)
+    state.review, state.review_on = review, state.inputs()
+
+
+def _run_recommendation_step(ctx: _Context, state: _State) -> None:
+    run = ctx.run
+    _check_spend(ctx)
+    state.agents.append("recommendation")
+    economy = _economy(ctx.registry, "recommendation", run.extraction, ctx.model_routing)
+    state.recommendation = run.output(
+        run_recommendation(
+            ctx.claim.claim_id,
+            run.extraction,
+            state.coverage,
+            state.risk,
+            ctx.registry,
+            ctx.client,
+            economy=economy,
+        )
+    )
+    state.recommendation_on = state.inputs()
 
 
 def _record(
@@ -600,43 +638,53 @@ def supervise(
     )
     ctx.started = clock()
     state = _State()
-    while True:
-        _check_budget(ctx)
-        # A stop on any agent the claim has used ends it here, at the next step, not only at
-        # routing (found by the kill-switch drill).
+
+    def fail(decision: SupervisorDecision, exc: Exception) -> None:
+        # Recorded even when the step failed part-way, so the path shows where it stopped.
+        # Rounds an interrupted agent already sent are kept first, so the step's cost
+        # includes them, and only once: the pipeline won't append them again.
+        if (call := getattr(exc, "partial_call", None)) is not None:
+            ctx.run.calls.append(call)
+            exc.partial_call = None  # type: ignore[attr-defined]
+        _record(ctx, state, decision, StepOutcome.FAILED)
+
+    def fail_finish(decision: SupervisorDecision, exc: Exception) -> None:
+        # Routing after the finish step was recorded is not a second step.
+        if state.last is not None and state.last.action is decision.action:
+            return
+        fail(decision, exc)
+
+    def finish(decision: SupervisorDecision) -> TriageResult:
+        # A stop between the choice and routing: the trail says the step failed, not that it
+        # finished (review 22). The shared loop records that failure.
         _recheck(ctx)
-        decision = run.output(run_supervisor(claim.claim_id, view_of(ctx, state), registry, client))
-        if decision.action in (SupervisorAction.FINISH, SupervisorAction.HAND_OFF):
-            try:
-                _recheck(ctx)
-            except Exception:
-                # A stop between the choice and routing: the trail says the step failed, not
-                # that it finished (review 22).
-                _record(ctx, state, decision, StepOutcome.FAILED)
-                raise
-            done = decision.action is SupervisorAction.FINISH
-            _record(ctx, state, decision, StepOutcome.FINISHED if done else StepOutcome.HANDED_OFF)
-            return _result(ctx, state, decision)
-        refusal = _refusal(ctx, state, decision)
-        if refusal is not None:
-            state.refusals += 1
-            _record(ctx, state, decision, StepOutcome.REFUSED, refusal)
-            if state.refusals >= MAX_REFUSALS:
-                raise PipelineStopped(f"supervisor loop: {MAX_REFUSALS} steps refused")
-            continue
-        # The step was the supervisor's choice: a stop made since it chose, on it or on any
-        # agent the claim rests on, ends it here.
-        try:
-            registry.require(SUPERVISOR)
-            _recheck(ctx)
-            _execute(ctx, state, decision)
-        except Exception as exc:
-            # Recorded even when the step failed part-way, so the path shows where it stopped.
-            # Rounds an interrupted agent already sent are kept first, so the step's cost
-            # includes them, and only once: the pipeline won't append them again.
-            if (call := getattr(exc, "partial_call", None)) is not None:
-                ctx.run.calls.append(call)
-                exc.partial_call = None  # type: ignore[attr-defined]
-            _record(ctx, state, decision, StepOutcome.FAILED)
-            raise
-        _record(ctx, state, decision, StepOutcome.RAN)
+        done = decision.action is SupervisorAction.FINISH
+        outcome = StepOutcome.FINISHED if done else StepOutcome.HANDED_OFF
+        _record(ctx, state, decision, outcome)
+        return _result(ctx, state, decision)
+
+    return run_supervisor_loop(
+        SupervisorLoop(
+            steps_taken=lambda: len(run.steps),
+            max_steps=limits.max_steps,
+            cost_usd=lambda: _cost(run),
+            max_cost_usd=limits.max_cost_usd,
+            elapsed=ctx.elapsed,
+            max_seconds=limits.max_seconds,
+            recheck=lambda: _recheck(ctx),
+            ask=lambda: run.output(
+                run_supervisor(claim.claim_id, view_of(ctx, state), registry, client)
+            ),
+            action=lambda decision: claims_action(ctx, state, decision),
+            record=lambda decision, outcome, refusal, agents: _record(
+                ctx, state, decision, outcome, refusal
+            ),
+            authorize=lambda decision: registry.require(SUPERVISOR),
+            before_work=lambda decision: None,
+            fail_guard=fail,
+            fail_run=fail,
+            finish=finish,
+            fail_finish=fail_finish,
+            stopped=PipelineStopped,
+        )
+    )

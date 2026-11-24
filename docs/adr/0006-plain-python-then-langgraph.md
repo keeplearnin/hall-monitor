@@ -14,8 +14,11 @@ evidence they saw.
 
 The triage pipeline is plain Python (`triage` in
 [`pipeline.py`](../../hall_monitor/claims/pipeline.py); by default the supervisor loop in
-[`agentic.py`](../../hall_monitor/claims/agentic.py), with the fixed order kept as `agentic=False`), so
-every step, condition and refusal is in Python and tested directly. LangGraph is used only around it, in
+[`agents/loop.py`](../../hall_monitor/agents/loop.py), with the claims action table in
+[`agentic.py`](../../hall_monitor/claims/agentic.py) and the fixed order kept as `agentic=False`), so
+every step, condition and refusal is in Python and tested directly. The same loop serves the
+complaint desk and leave; each passes its own action table. LangGraph is used only around the
+claims pipeline, in
 [`workflow.py`](../../hall_monitor/claims/workflow.py), for what it is good at: an `interrupt` that pauses
 a claim for an adjuster, with state saved by a SQLite checkpointer, and a resume when the
 decision comes in. The decision is checked in code against the adjuster's authority limit and
