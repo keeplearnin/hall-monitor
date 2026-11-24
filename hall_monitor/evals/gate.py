@@ -95,8 +95,14 @@ def check(spec: dict, approvals: dict, stale_policy: str) -> CheckResult:
         if not _number(value) or value > ceiling:
             out.failures.append(f"{key} = {value} (max {ceiling})")
 
-    stale = stale_agents(data, approvals)
-    if stale:
+    if spec.get("no_agents"):
+        # A result that scores code alone (no model): there are no agent versions to be stale.
+        # Its own published-result test keeps it current. One that did record agents is not
+        # code-only, and isn't let off the staleness check.
+        if data.get("meta", {}).get("agents"):
+            out.failures.append("no_agents is set but the result records agents")
+        stale = []
+    elif stale := stale_agents(data, approvals):
         out.notes.append("scored on agent versions no longer approved: " + ", ".join(stale))
     elif not data.get("meta", {}).get("agents"):
         # Unknown versions are treated as stale: a result that can't show what it scored

@@ -81,8 +81,9 @@ in-process server and agents hold no credentials, so these are recorded under th
 - An agent whose tool result was held back answers on less evidence. Its answer is recorded,
   but the claim always goes to a person.
 - The detector is a list of phrasings (HM-09's gaps): a tool result worded around it still
-  reaches the agent. No eval measures tool-result injection yet; the adversarial suite plants
-  attacks in claims only.
+  reaches the agent. The offline detector eval (plan step 2) measured it: none of 8 tool-result
+  attacks written blind to it were flagged. No eval measures what a model does with one; the
+  adversarial suite plants attacks in claims only.
 - A value in its declared shape is still the model's choice: a well-formed policy number for
   another customer is recorded (and refused). A withheld value can't be read back from the
   record, only confirmed from the audit log by someone holding the audit key. A call rebuilt

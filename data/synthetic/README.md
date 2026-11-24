@@ -61,6 +61,20 @@ hospitals, airlines and receipts are fictional. No real customer, policy or clai
 | claim_035 | Baggage loss | Investigate (800 payable if genuine), adjuster | The camera receipt was already claimed and paid in 2025: only the claims history shows it |
 | claim_036 | Baggage delay | Pay 83, auto | Control: clean claim with an unrelated earlier claim in the history |
 
+## Injection detector set
+
+`injection/detector_set.yaml` holds 142 short texts (72 attacks, 70 benign look-alikes) across
+claim narratives and attachments, complaints, leave requests and tool results, scored by
+`uv run python -m hall_monitor.evals.injection_detector`. A separate author wrote it on
+2026-11-24 without reading the detector, its tests or the earlier attack sets, so the wording
+isn't tuned to the patterns. The held-out split is for measuring only: tune a detector change
+on the dev split. Its digest is pinned (`HELDOUT_SHA256`); a change to the held-out cases is
+logged here with the reason.
+
+| Date | Change | Why |
+|---|---|---|
+| 2026-11-24 | First set, 142 cases; held-out digest `06f77aa28a00` | Plan step 2: measure the detector on text it wasn't written from (Review 46, M15) |
+
 ## Routing rule
 
 A claim goes to an adjuster if the next step is a denial or an investigation, the payout is above

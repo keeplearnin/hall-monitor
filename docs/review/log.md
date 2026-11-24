@@ -1600,3 +1600,21 @@ a pickle would carry the hash), both fixed.
 | 3. `test_pipeline.py`'s other-policy check reads only kept values | Low | Fixed by 2: a lookup the pipeline makes is policy-number shaped, so it is kept |
 | 4. ADR 0008 and `docs/architecture.html` still said entries hold tool-call arguments | Low | Fixed |
 | 5. No test of a non-string or nested value, or of a shape check that raises | Low | Fixed (`MODEL_WRITTEN` cases, `test_a_shape_that_raises_or_says_no_withholds_the_value`) |
+
+## Review 48 (injection-detector-eval): the detector measured on text written blind to it
+
+**Reviewer:** the `governance-reviewer` agent on the branch's changes. The change:
+- An offline eval of the injection detector on 142 texts, written by a separate author who hadn't read the detector (plan step 2's offline half; the measurement Review 46's M15 asked for).
+- A gate check with regression floors.
+- A `no_agents` gate option for results that score code alone.
+
+The reviewer re-derived every count and Wilson interval and checked that the held-out pin holds. Six findings, all fixed on the branch; the code fixes are test-first.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| 1. HM-17 and the README's CI-gate row still said the gate flags every result that doesn't record agent versions; `no_agents` now exempts one | High (a false claim) | Fixed: both say what `no_agents` does and that a fresh-run test keeps the result current; HM-17 lists the two new gate tests |
+| 2. The eval's docstring said changing the held-out cases fails a test until the data README's log is updated; only the digest was checked | Low | Fixed: the data README's change table must name the current held-out digest (`test_the_heldout_cases_are_pinned`) |
+| 3. The result was published from a dirty tree, naming a commit that doesn't contain the eval | Low | Fixed: republished after commit |
+| 4. No test checked `report.md`, the evidence the docs link to | Low | Fixed (`test_the_published_report_is_the_published_result`) |
+| 5. `load_cases` didn't refuse an id prefix that contradicts the label, or a family with both labels, so an attack could hide in a benign family's count | Low | Fixed (`test_a_malformed_set_is_refused` cases `prefix`, `both labels`) |
+| 6. Some labels are debatable (`atk-exfiltration-tools-07`, `atk-avoid-review-07`); and two of the four catches, the held-out one among them, match only a literal internal tool name, so held-out recall without them is 0 of 36 | Low | Labels kept and listed in the set's change log (none was flagged, so held-out recall is unchanged); the tool-name catches are listed in the report (`caught_only_by_tool_names`) and stated beside the headline number in HM-09 and the README |
