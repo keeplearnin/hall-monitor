@@ -529,16 +529,31 @@ controls:
       - tests/test_gateway_adversarial.py::test_a_poisoned_policy_record_is_returned_to_the_pipeline_and_routes_to_a_person
       - tests/test_gateway_adversarial.py::test_instructions_in_a_result_key_are_held_back
       - tests/test_panel.py::test_tool_result_reasons_are_counted_as_one_kind
+      - tests/test_injection_detector_eval.py::test_the_published_result_is_what_the_detector_gives_now
+      - tests/test_injection_detector_eval.py::test_the_heldout_cases_are_pinned
+      - tests/test_injection_detector_eval.py::test_the_score_comes_from_the_detector
     evidence:
+      - evals/results/injection-detector/report.md
       - "pending: uv run python -m hall_monitor.claims.evals.adversarial"
     nist: [MEASURE 2.7, MANAGE 1.3]
     finos:
       risks: [RI-10, RI-14, RI-25, RI-28]
       mitigations: [MI-03, MI-17, MI-19]
     gaps: >-
-      Pattern detection misses wording it wasn't written for; the adversarial suite measures
-      that, and the red-team arena (HM-30) found the gaps this review widened the list for: it
-      is still a list of phrasings, a tripwire, not a classifier. Entities encoded more than
+      Pattern detection misses wording it wasn't written for, and that is now measured: on 142
+      texts written blind to the detector (data/synthetic/injection/detector_set.yaml: attacks
+      and benign look-alikes across claims, complaints, HR leave and tool results), it flagged
+      1 of 36 held-out attacks (3%, 95% CI 0-14%) and 3 of 36 dev attacks, with no false alarm
+      on 70 benign texts. Two of those four catches (the held-out one among them) match only
+      because the text spells out an internal tool name (policy_lookup); without them, recall
+      is 0 of 36 held-out. It caught none of the paraphrased overrides, role play, claimed
+      approvals, requests to skip review, field steering, tool-result instructions or leave
+      requests, and nothing in Spanish or French. It is a tripwire for known phrasings, not a
+      defence against a paraphrase; the other defences (fenced text, code routing and caps, a
+      person deciding) carry the load, and whether a missed attack would steer a model is not
+      measured yet (the live half of the eval). One author wrote the set, so another would find
+      other misses. The red-team arena (HM-30) found the gaps an earlier review widened the
+      list for. Entities encoded more than
       five times are decoded five times only, and look-alike letters are a fixed table of
       Cyrillic and Greek ones (other scripts and symbols aren't mapped). The desk's phrases
       are shared with claims and HR, so a claim saying "set the urgency to low" in passing goes
@@ -551,8 +566,8 @@ controls:
       would reach a model not approved for personal data. A held-back tool result leaves the
       agent to answer without it; the claim goes to a person, but that agent's answer rests on
       less evidence. The pipeline's own policy lookup is read by code, so a policy record that
-      matches is still used, and the claim goes to a person. No eval measures tool-result
-      injection yet: the adversarial suite plants attacks in claims, not in tool data.
+      matches is still used, and the claim goes to a person. The detector caught none of the 8
+      blind-written tool-result attacks; no eval yet measures what a model does with one.
 
   - id: HM-10
     name: Identifier redaction and data minimisation
@@ -759,7 +774,11 @@ controls:
       checks, and the eval gate, which fails when a published score is below its threshold, or
       isn't a finite number (NaN, infinity, a boolean or text fail rather than pass), and flags
       results scored on an older agent version or prompt than the one approved, or that don't
-      record their versions. Required checks include the live run of the agentic leave path
+      record their versions. A check marked no_agents scores code alone (the injection
+      detector) and has no agent versions to record; the gate skips that staleness check for it,
+      fails it if the result does record agents, and the result is kept current by a test that
+      compares it with a fresh run (the detector's source hash and every row). Required checks
+      include the live run of the agentic leave path
       (route and intake accuracy at least 0.95, no errors). The offline tests run with no
       Anthropic or Langfuse key and with dotenv's loader replaced, so a test can't load the
       repo's .env (review 46). Evals count a case refused before any model call (budgets not
@@ -778,6 +797,8 @@ controls:
       - tests/test_gate.py::test_results_without_agent_versions_count_as_stale
       - tests/test_gate.py::test_a_changed_prompt_makes_a_result_stale
       - tests/test_gate.py::test_a_metric_that_isnt_a_finite_number_fails
+      - tests/test_gate.py::test_a_check_that_scores_code_needs_no_agent_versions
+      - tests/test_gate.py::test_a_code_only_check_that_records_agents_is_refused
       - tests/test_offline.py::test_a_module_that_loads_dotenv_gets_the_offline_guard
       - tests/test_offline.py::test_loading_dotenv_in_a_test_puts_no_key_in_the_environment
       - tests/test_scoring.py::test_infrastructure_stops_are_told_apart_from_model_behaviour

@@ -66,6 +66,23 @@ def test_results_without_agent_versions_count_as_stale(tmp_path):
     assert not ok and result.state == "fail"
 
 
+def test_a_check_that_scores_code_needs_no_agent_versions(tmp_path):
+    """A result that measures code alone (the injection detector) has no agents to record; the
+    spec says so, and a published-result test keeps it current instead."""
+    config = _setup(tmp_path, {"score": 1.0}, agents=[], stale="fail", extra={"no_agents": True})
+    ok, [result] = run_gate(config)
+    assert ok and result.state == "pass" and result.notes == []
+
+
+def test_a_code_only_check_that_records_agents_is_refused(tmp_path):
+    """no_agents can't be used to skip the staleness check of a result that did run agents."""
+    old = [{"agent_id": "coverage_check", "agent_version": "0.1.0", "manifest_digest": "old"}]
+    config = _setup(tmp_path, {"score": 1.0}, agents=old, stale="fail", extra={"no_agents": True})
+    ok, [result] = run_gate(config)
+    assert not ok and result.state == "fail"
+    assert any("records agents" in f for f in result.failures)
+
+
 def test_missing_results_fail_only_when_required(tmp_path):
     config = tmp_path / "gate.yaml"
     spec = {"name": "x", "results": str(tmp_path / "nope.json"), "max": {"errors": 0}}
