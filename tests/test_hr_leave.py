@@ -427,6 +427,40 @@ def test_the_entitlement_boundary(end, intermittent, taken_until, route):
         assert "past_entitlement" in decided.reasons
 
 
+@pytest.mark.parametrize(
+    ("end", "taken_until", "fits"),
+    [
+        # 2 weeks left (10 taken): a span of 2 weeks fits, one workday more might not.
+        (date(2026, 12, 11), date(2026, 8, 7), True),
+        (date(2026, 12, 14), date(2026, 8, 7), False),
+        # 12 left: a 12-week span fits; six months might not.
+        (date(2027, 2, 19), None, True),
+        (date(2027, 5, 28), None, False),
+    ],
+    ids=["2 left, fits", "2 left, span longer", "12 left, fits", "12 left, span longer"],
+)
+def test_intermittent_leave_whose_dates_hold_more_than_is_left_goes_to_an_hr_director(
+    end, taken_until, fits
+):
+    """Intermittent leave is counted as it is taken, so the weeks it uses aren't known; its
+    dates bound them. Before, it passed whenever any weeks were left, so calling a request
+    intermittent took it from the HR director to an HR business partner (the live injection
+    eval, review 49). Sign-off still caps an approval at the weeks left."""
+    taken = [_leave(date(2026, 6, 1), taken_until)] if taken_until else []
+    employee = _employee(fmla_leave_taken=taken)
+    request = _request(end=end, intermittent=True)
+    assessment = assess(request, employee, COMPANY)
+    [check] = [c for c in assessment.checks if c.id == "entitlement"]
+    decided = route_leave(assessment, request, employee, COMPANY)
+    assert "intermittent" in decided.reasons and decided.route == "hr_review"
+    if fits:
+        assert check.passed is True and decided.decided_by == Role.HR_BUSINESS_PARTNER.label
+    else:
+        assert check.passed is None and check.code == "intermittent_past_entitlement"
+        assert "intermittent_past_entitlement" in decided.reasons
+        assert decided.decided_by == Role.HR_DIRECTOR.label
+
+
 def test_a_fixed_year_needs_a_real_start_and_only_it_has_one():
     with pytest.raises(ValueError):
         _employer(leave_year={"method": "fixed_year"})
@@ -489,6 +523,8 @@ def test_a_local_manager_never_decides_a_flagged_request():
     HR business partner or, for the cases the design gives a director, an HR director."""
     directors = {
         "past_entitlement",
+        # Intermittent leave whose dates hold more than is left may run past it (review 49).
+        "intermittent_past_entitlement",
         "retaliation_risk",
         # The agentic path routed the request before the rules ran: the most senior role
         # decides, since nobody knows which role the rules would name (ADR 0028).

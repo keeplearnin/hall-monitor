@@ -51,7 +51,7 @@ three methods the regulations allow.
 | lr_008 | HR business partner | Employer not covered, and 30 within 75 miles (another employer's office nearby doesn't count) |
 | lr_009 | HR director: past entitlement | 10 workweeks used, 3 asked, 2 left |
 | lr_010 | Local manager sign-off | Only 5 workdays of an older leave fall in the rolling year: 11 weeks left |
-| lr_011 | HR business partner: intermittent | Intermittent leave always goes to a person |
+| lr_011 | HR director: intermittent, may run past the weeks left | Intermittent leave always goes to a person; six months of dates hold more workweeks than the 12 left |
 | lr_012 | HR director: retaliation risk | Pending discipline, complaint or termination |
 | lr_013 | HR business partner | Possible ADA or PWFA accommodation |
 | lr_014 | HR business partner: state law | California site |
@@ -92,5 +92,6 @@ The design asked HR nine questions; until they answer, the rules take these posi
 
 | Date | Request | Change | Why |
 |---|---|---|---|
+| 2026-11-24 | lr_011 | `unknown_checks` gains `entitlement`, `intermittent_past_entitlement` is added and `decided_by` moves from `hr_business_partner` to `hr_director`. Eligibility, weeks and route are unchanged. | The live injection eval (review 49) showed that calling a request intermittent passed the entitlement check whenever any weeks were left: lr_009 (2 left, 3 asked) reached an HR business partner instead of the HR director. Intermittent leave's dates now bound the weeks it can use: if they hold more workweeks than are left, the check can't be decided and an HR director decides, as for continuous leave past the weeks left. lr_011's six months hold about 26 workweeks against 12 left. A choice made with the repo owner on 2026-11-24: most long intermittent requests now reach an HR director. |
 | 2026-11-15 | lr_020, lr_026 | `reason` becomes unknown and `military_status_unverified` is added; lr_020 moves from specialist sign-off to HR review (leave specialist) | Review 25: military caregiver leave needs a covered servicemember (29 CFR 825.127) and qualifying exigency a family member on covered active duty (825.126). The records carry neither status, so the rule can't pass the reason; a person checks it. The old keys passed on the relationship alone. |
 | 2026-11-15 | all 28 | Roles renamed to match a branch company: `route` `specialist_sign_off` → `manager_sign_off` and its `decided_by` `leave_specialist` → `local_manager` (7 light-path requests); `decided_by` `hr_manager` → `hr_business_partner` (7); `decided_by` `leave_specialist` → `hr_business_partner` for every request sent to HR review (12: lr_011, 013-016, 019, 020, 023, 025-028). No eligibility, check, weeks, reason code or route changes. | A local (branch) manager decides only the plain light path; the senior HR role (HR business partner) decides every flagged request, so every reason that named a leave specialist now names an HR business partner. HR directors are unchanged. |

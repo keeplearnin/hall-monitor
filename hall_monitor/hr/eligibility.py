@@ -317,6 +317,13 @@ def requested_weeks(request: LeaveRequest, employee: Employee) -> float | None:
     return _workweeks(days, employee)
 
 
+def span_weeks(request: LeaveRequest, employee: Employee) -> float:
+    """Workweeks between the leave's first and last day: all of continuous leave, and the most
+    intermittent leave can use (it is taken on some of those days, not more)."""
+    days = sum(1 for d in _days(request.start, request.end) if d.weekday() in employee.workdays)
+    return _workweeks(days, employee)
+
+
 def qualifying_weeks(request: LeaveRequest, employee: Employee) -> float | None:
     """The requested workweeks that fall before bonding leave stops qualifying; all of them for
     any other reason."""
@@ -426,6 +433,16 @@ def check_entitlement(
         code = "caregiver_history" if request.reason is LeaveReason.MILITARY_CAREGIVER else None
         check = _unknown("entitlement", rule, cite, facts)
         return check.model_copy(update={"code": code or "facts_missing"}), weeks, used, None
+    if asked is None and remaining > 0:
+        # Intermittent leave is counted as it is taken, so how much it uses isn't known: it fits
+        # if its whole span does; otherwise it may run past what is left, which code can't
+        # decide, and a person who may extend leave decides (review 49: calling a request
+        # intermittent used to pass this check whenever any weeks were left).
+        span = span_weeks(request, employee)
+        if span > remaining + 1e-9:
+            check = _unknown("entitlement", rule, cite, facts | {"span_weeks": span})
+            code = "intermittent_past_entitlement"
+            return check.model_copy(update={"code": code}), weeks, used, remaining
     fits = remaining > 0 if asked is None else asked <= remaining + 1e-9
     return (
         _check("entitlement", fits, rule, cite, facts, "past_entitlement"),

@@ -504,10 +504,13 @@ def test_a_partial_approval_needs_an_hr_business_partner_even_with_a_reason(log)
 
 
 def test_approving_intermittent_leave_for_less_than_is_left_is_a_partial_denial(log):
-    # lr_011: intermittent, 12 weeks left, an HR business partner's case.
+    # lr_011: intermittent, 12 weeks left; its dates hold more, so an HR director's case
+    # (review 49), and an HR business partner may no longer decide it.
+    with pytest.raises(DecisionRefused, match="needs a hr_director or above"):
+        _decide(log, "lr_011", "hrs-201", "approve", weeks=12, reason=REASON)
     with pytest.raises(DecisionRefused, match="a partial denial needs a reason"):
-        _decide(log, "lr_011", "hrs-201", "approve", weeks=0.01, reason="ok")
-    assert _decide(log, "lr_011", "hrs-201", "approve", weeks=12, reason=REASON)["weeks"] == 12
+        _decide(log, "lr_011", "hrs-301", "approve", weeks=0.01, reason="ok")
+    assert _decide(log, "lr_011", "hrs-301", "approve", weeks=12, reason=REASON)["weeks"] == 12
 
 
 def test_a_logged_decision_always_has_its_signed_record(log, monkeypatch):
@@ -749,12 +752,16 @@ def test_the_chain_check_reports_a_changed_or_missing_signed_leave_decision(log)
 
 
 def test_a_local_manager_may_not_decide_a_flagged_request(log):
-    # lr_011: intermittent; lr_013: a possible accommodation; lr_019: reason unclear.
-    for request_id in ("lr_011", "lr_013", "lr_019"):
-        assert status(log, request_id)["decided_by"] == "hr_business_partner"
+    # lr_013: a possible accommodation; lr_019: reason unclear; lr_011: intermittent, and an
+    # HR director's since its dates hold more weeks than are left (review 49).
+    for request_id, role in (
+        ("lr_013", "hr_business_partner"),
+        ("lr_019", "hr_business_partner"),
+        ("lr_011", "hr_director"),
+    ):
+        assert status(log, request_id)["decided_by"] == role
         with pytest.raises(
-            DecisionRefused,
-            match="needs a hr_business_partner or above; hrs-101 is a local_manager",
+            DecisionRefused, match=f"needs a {role} or above; hrs-101 is a local_manager"
         ):
             _decide(log, request_id, "hrs-101", "approve", weeks=4, reason=REASON)
     assert _decide(log, "lr_013", "hrs-201", "approve", weeks=4, reason=REASON)["role"] == (

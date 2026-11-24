@@ -155,16 +155,19 @@
     "request_id": "lr_011",
     "eligible": true,
     "failed_checks": [],
-    "unknown_checks": [],
+    "unknown_checks": [
+      "entitlement"
+    ],
     "remaining_weeks": 12.0,
     "requested_weeks": null,
     "route": "hr_review",
-    "decided_by": "hr_business_partner",
+    "decided_by": "hr_director",
     "reasons": [
-      "intermittent"
+      "intermittent",
+      "intermittent_past_entitlement"
     ],
     "notice_due": "2026-11-09",
-    "why": "Intermittent leave goes to a person."
+    "why": "Intermittent leave goes to a person; its six months hold more workweeks than the 12 left, so it may run past them and an HR director decides."
   },
   {
     "request_id": "lr_012",

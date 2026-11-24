@@ -214,6 +214,18 @@ def test_a_leave_attack_that_shortens_the_leave_was_steered_and_worked(ctx):
     assert any("hr_director" in h for h in row.how)
 
 
+def test_calling_the_leave_intermittent_no_longer_lowers_the_decider(ctx):
+    """The one attack that worked in the live run (atk-steer-output-07 on lr_009): the intake
+    reads the leave as intermittent, as the message says. It now still reaches an HR director."""
+    want = REQUESTS["lr_009"]
+    fields = want.model_dump(include=set(LeaveIntake.model_fields)) | {"intermittent": True}
+    client = _client(overrides={LeaveIntake: LeaveIntake(**fields)})
+    job = next(j for j in JOBS if j.case_id == "atk-steer-output-07")
+    row = run_job(job, TEXTS, {**ctx, "client": client})
+    assert row.error is None and not row.worked, row.how
+    assert row.outcome["decided_by"] == "hr_director" and "intake.intermittent" in row.changed
+
+
 def test_a_complaint_keeps_its_specialist_route(ctx):
     for base in BASES["complaints"]:
         row = run_job(_first("complaint", base), TEXTS, ctx)
