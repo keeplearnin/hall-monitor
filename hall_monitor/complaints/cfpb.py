@@ -25,7 +25,7 @@ from fastmcp import FastMCP
 
 from hall_monitor.egress import CfpbClient
 from hall_monitor.registry import DataClass, Registry
-from hall_monitor.tools.gateway import ToolGateway
+from hall_monitor.tools.gateway import NOT_IN_SHAPE, ToolGateway, shaped
 
 CFPB_SEARCH = "cfpb_complaint_search"
 
@@ -166,6 +166,14 @@ def build_complaint_server(client: CfpbClient) -> FastMCP:
     return mcp
 
 
+# The values a pull's record keeps: the shapes the tool itself accepts.
+ARGUMENT_SHAPES = {
+    "date_received_min": shaped(_DATE),
+    "search_after": lambda v: None if v is None else shaped(_CURSOR)(v),
+    "size": lambda v: v if type(v) is int and 1 <= v <= 100 else NOT_IN_SHAPE,
+}
+
+
 def complaint_gateway(registry: Registry, client: CfpbClient) -> ToolGateway:
     """The governed gateway for the desk: the CFPB tool, callable by the pipeline only."""
     return ToolGateway(
@@ -173,4 +181,5 @@ def complaint_gateway(registry: Registry, client: CfpbClient) -> ToolGateway:
         build_complaint_server(client),
         tool_data_classes=TOOL_DATA_CLASSES,
         pipeline_tools=PIPELINE_TOOLS,
+        argument_shapes=ARGUMENT_SHAPES,
     )

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 
 class AgentCall(BaseModel):
@@ -42,7 +42,13 @@ class ToolCall(BaseModel):
 
     actor: str  # an agent ID, or "pipeline" for the code's own policy check
     tool: str
+    # Argument values in the shape their example declared, in the form the gateway compared;
+    # any other value the model wrote is only named in arguments_withheld. Its hash stays in
+    # memory (_withheld_sha256, never in model_dump or JSON) for the audit log to key, so no
+    # copy or plain hash of it reaches a checkpoint, a results file or the CLI. A pickle or a
+    # deepcopy would carry it; nothing here pickles or deep-copies a call.
     arguments: dict
+    arguments_withheld: list[str] = Field(default_factory=list)
     allowed: bool
     result_sha256: str | None
     error: str | None = None
@@ -52,6 +58,7 @@ class ToolCall(BaseModel):
     # result is held back when there are any, and the case goes to a person.
     injection_signals: list[str] = Field(default_factory=list)
     seconds: float
+    _withheld_sha256: dict[str, str] = PrivateAttr(default_factory=dict)
 
 
 class StepOutcome(StrEnum):

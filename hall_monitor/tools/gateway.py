@@ -12,9 +12,10 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import time
 from collections import Counter
-from collections.abc import Coroutine, Iterator
+from collections.abc import Callable, Coroutine, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
@@ -41,6 +42,30 @@ PIPELINE_ACTOR = RESERVED_AGENT_ID  # no agent may take this ID (Registry refuse
 SCOPE_ARGUMENT = "policy_number"
 # How a record shows a tool name the model wrote that no server or manifest declares.
 UNKNOWN_TOOL = "<not a known tool>"
+
+# What an argument shape returns for a value the record may not keep.
+NOT_IN_SHAPE = object()
+# The value a call's record may keep, in canonical form, or NOT_IN_SHAPE.
+type ArgumentShape = Callable[[object], object]
+
+
+def shaped(pattern: re.Pattern[str], normalise: Callable[[str], str] = str) -> ArgumentShape:
+    """A string that, normalised, wholly matches pattern; the record keeps the normalised form
+    (the one the gateway compares), as a plain str."""
+
+    def shape(value: object) -> object:
+        if not isinstance(value, str):
+            return NOT_IN_SHAPE
+        canonical = str(normalise(value))
+        return canonical if pattern.fullmatch(canonical) else NOT_IN_SHAPE
+
+    return shape
+
+
+def argument_sha256(value: object) -> str:
+    """The hash of a withheld argument value: held in memory on the call, keyed by the audit
+    log, never in the call's model_dump or JSON."""
+    return hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()
 
 
 def _strings(value: Any) -> Iterator[str]:
@@ -75,13 +100,17 @@ class ToolGateway:
         *,
         tool_data_classes: dict[str, frozenset[DataClass]],
         pipeline_tools: frozenset[str] = frozenset(),
+        argument_shapes: Mapping[str, ArgumentShape] | None = None,
     ):
         """Each example passes its own server, what each tool returns (tool_data_classes; a
-        tool missing from it counts as returning every data class) and the tools its pipeline's
-        own code may call (none unless given). There is no default server, so no example runs
-        on another's tools or data classes by leaving an argument out (claims_gateway, in
-        hall_monitor.claims.gateway, passes the claims ones). The gateway refuses to start on a
-        server exposing any tool that could send (HM-25)."""
+        tool missing from it counts as returning every data class), the tools its pipeline's
+        own code may call (none unless given) and, by argument name, the shape of a value a
+        call's record may keep, in canonical form (argument_shapes; any other value, and every
+        value of an argument with no shape, is only named, and keyed in the audit log). There
+        is no default server, so no example runs on another's tools or data classes by leaving
+        an argument out (claims_gateway, in hall_monitor.claims.gateway, passes the claims
+        ones). The gateway
+        refuses to start on a server exposing any tool that could send (HM-25)."""
         self.registry = registry
         if type(server) is not FastMCP:
             # fastmcp's Client would treat a URL or a command as a remote server and post tool
@@ -91,6 +120,7 @@ class ToolGateway:
         self.server = server
         self.tool_data_classes = tool_data_classes
         self.pipeline_tools = pipeline_tools
+        self.argument_shapes = dict(argument_shapes or {})
         self._definitions = _run(self._list_tools())
         # Tool names code or a reviewed manifest declares: the only ones a record may copy.
         self._known = (
@@ -101,6 +131,29 @@ class ToolGateway:
         problems = tool_problems(sorted(self._definitions))
         if problems:
             raise SendCapabilityError("the tool server may never send: " + "; ".join(problems))
+
+    def _split(self, arguments: dict) -> tuple[dict, dict[str, str]]:
+        """The values the record may keep, in canonical form, and the hashes of the rest."""
+        kept: dict = {}
+        withheld: dict[str, str] = {}
+        for name, value in arguments.items():
+            shape = self.argument_shapes.get(name)
+            try:
+                canonical = NOT_IN_SHAPE if shape is None else shape(value)
+            except Exception:
+                canonical = NOT_IN_SHAPE
+            if canonical is NOT_IN_SHAPE:
+                withheld[name] = argument_sha256(value)
+            else:
+                kept[name] = canonical
+        return kept, withheld
+
+    @staticmethod
+    def _record(withheld: dict[str, str], **fields: Any) -> ToolCall:
+        """A call's record: a withheld value is named, and its hash kept in memory only."""
+        call = ToolCall(arguments_withheld=list(withheld), **fields)
+        call._withheld_sha256 = dict(withheld)
+        return call
 
     async def _list_tools(self) -> dict[str, dict]:
         async with Client(self.server) as client:
@@ -174,15 +227,18 @@ class ToolGateway:
 
         Arguments the tool's schema doesn't name are refused before the server is called, and
         only the named ones are recorded: the rest are written by the model and could carry
-        anything. A result whose text addresses the AI is held back from an agent and the call
-        records which signals matched (HM-07)."""
+        anything. A named one's value is kept only in its declared shape, otherwise only named. A
+        result whose text addresses the AI is held back from an agent and the call records which
+        signals matched (HM-07)."""
         started = time.perf_counter()
         # The model wrote the name: one nobody declared may carry anything, so the record (and
         # the refusal, which reaches the agent and the error field) never copies it (Review 46).
         shown = tool if isinstance(tool, str) and tool in self._known else UNKNOWN_TOOL
         definition = self._definitions.get(tool)
         properties = (definition or {}).get("input_schema", {}).get("properties", {})
-        recorded = {k: v for k, v in arguments.items() if k in properties}
+        named = {k: v for k, v in arguments.items() if k in properties}
+        # The values are the model's too: only one in its declared shape is kept.
+        recorded, withheld = self._split(named)
         try:
             if tool_problems([tool]):
                 raise SendCapabilityError(f"tool {tool!r} may never be called: it could send")
@@ -197,16 +253,16 @@ class ToolGateway:
                     self._check_grant(actor, grants, grant, tool, carries)
             if definition is None:
                 raise RegistryError(f"the tool server has no tool {tool!r}")
-            if len(recorded) != len(arguments):
+            if len(named) != len(arguments):
                 # Counted, never named: the names are the model's.
-                extra = len(arguments) - len(recorded)
+                extra = len(arguments) - len(named)
                 raise RegistryError(f"{extra} argument(s) the tool {tool!r} doesn't take")
             if actor != PIPELINE_ACTOR and scope_policy is None and SCOPE_ARGUMENT in properties:
                 raise RegistryError(f"{actor} was given no claim to look up policies for")
             asked = str(arguments.get(SCOPE_ARGUMENT, "")).strip().upper()
             if scope_policy is not None and asked != scope_policy.strip().upper():
                 # Not quoted here, where it would reach the agent and the error field; the
-                # call's arguments still keep it as written (HM-03's gaps).
+                # record keeps it only if it is policy-number shaped, otherwise names it.
                 raise RegistryError(f"{actor} may only look up this claim's policy")
         except RegistryError as exc:
             why = str(exc)
@@ -215,7 +271,8 @@ class ToolGateway:
                 # name ("o") can't rewrite the rest of the message.
                 why = why.replace(repr(tool), repr(shown))
             log.append(
-                ToolCall(
+                self._record(
+                    withheld,
                     actor=actor,
                     tool=shown,
                     arguments=recorded,
@@ -239,7 +296,8 @@ class ToolGateway:
         except Exception as exc:
             # Allowed but failed: still part of the record of what the agent tried to read.
             log.append(
-                ToolCall(
+                self._record(
+                    withheld,
                     actor=actor,
                     tool=shown,
                     arguments=recorded,
@@ -253,7 +311,8 @@ class ToolGateway:
             raise
         held = bool(signals) and actor != PIPELINE_ACTOR
         log.append(
-            ToolCall(
+            self._record(
+                withheld,
                 actor=actor,
                 tool=shown,
                 arguments=recorded,

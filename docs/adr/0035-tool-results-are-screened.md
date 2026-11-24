@@ -53,6 +53,17 @@ in-process server and agents hold no credentials, so these are recorded under th
   the model's too: a record copies it only if the server, the pipeline or a reviewed manifest
   declares it (any other is "<not a known tool>", in the refusal as well), and a call that
   fails after it was allowed records the exception's type, never its message.
+- **Argument values only in a declared shape (plan step 1, 2026-11-24).** The values of the
+  arguments a tool takes are the model's as well. Each example declares, by argument name, the
+  shape of a value its records may keep, and the record keeps it in the form the gateway
+  compares (claims: a policy number, `WTP-ESS-123456`, trimmed and upper-cased; the desk: the
+  shapes its CFPB tool accepts). Any other value is only named (`arguments_withheld`). The
+  call object goes to checkpoints, eval results and the CLI, so it carries no copy or hash of
+  that value. Only the audit log keeps a keyed hash (`argument_hmacs`), from a hash held in
+  memory, so an auditor with the key can confirm a guessed value and nobody else can. An
+  argument with no declared shape is always withheld: a new example records no values until it
+  declares them. The gateway still decides on the value as sent, so what it allowed or refused
+  is unchanged.
 
 ## Alternatives considered
 
@@ -72,6 +83,10 @@ in-process server and agents hold no credentials, so these are recorded under th
 - The detector is a list of phrasings (HM-09's gaps): a tool result worded around it still
   reaches the agent. No eval measures tool-result injection yet; the adversarial suite plants
   attacks in claims only.
-- The values of the arguments a tool takes are still logged as the model wrote them.
+- A value in its declared shape is still the model's choice: a well-formed policy number for
+  another customer is recorded (and refused). A withheld value can't be read back from the
+  record, only confirmed from the audit log by someone holding the audit key. A call rebuilt
+  from a checkpoint has lost the in-memory hash; if it were logged again, its withheld argument
+  would be named with no hash.
 - None of the 36 synthetic policies or 4 history records match, so published results are
   unaffected; they come from earlier agent versions in any case.
