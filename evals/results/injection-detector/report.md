@@ -1,6 +1,6 @@
 # Injection detector, offline (text written blind to the detector)
 
-Set: `data/synthetic/injection/detector_set.yaml` (sha256 a954f395ba1e). Detector source sha256 d5e99557a3f4. Commit 8b44720291d1 (dirty), 2026-11-24 18:38 UTC. No model calls.
+Set: `data/synthetic/injection/detector_set.yaml` (sha256 a954f395ba1e). Detector source sha256 d5e99557a3f4. Commit d84e02716383, 2026-11-24 18:39 UTC. No model calls.
 
 Quote the held-out numbers: the dev split is the one a detector change may be tuned on.
 

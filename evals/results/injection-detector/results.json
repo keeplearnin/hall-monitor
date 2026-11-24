@@ -1531,9 +1531,9 @@
     }
   ],
   "meta": {
-    "run_at": "2026-11-24 18:38 UTC",
-    "git_commit": "8b44720291d14cc0478c80e89ff310a7c172ae42",
-    "git_dirty": true,
+    "run_at": "2026-11-24 18:39 UTC",
+    "git_commit": "d84e02716383cbbc60a78c963fa0aca3c9391c0f",
+    "git_dirty": false,
     "mode": "offline-detector",
     "set_path": "data/synthetic/injection/detector_set.yaml",
     "set_sha256": "a954f395ba1eda964dbd74c6db9a7322662bad682db5921420bde430d3a5a01a",
