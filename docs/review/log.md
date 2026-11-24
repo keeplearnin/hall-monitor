@@ -1583,3 +1583,13 @@ findings, all fixed on the branch, each test-first.
 | R4. The extension rule measured "past the entitlement" on the snapshot, so once earlier approvals used it up an extension was refused with a false reason | Medium | Fixed: approvals and extensions are measured on what is left after other requests (`test_an_extension_is_allowed_once_earlier_approvals_use_up_the_entitlement`) |
 | R5. H7's replacement of the raw tool name in refusal text rewrote the code's own words for a short name ("" or "o") | Low | Fixed: only the quoted form is swapped (the H7 test's `empty` and `one-letter` cases) |
 | R6. A policy number written with spaces or split by a line break wasn't found by code, so a claim the intake read correctly stopped with a misleading reason (on main it routed auto); a docstring named HM-21 for HM-23's gaps | Low | Fixed: numbers are found however written and normalised (`test_a_policy_number_written_with_spaces_or_a_break_is_still_found`); docstring corrected |
+
+## Review 47 (audience-briefing): the three-use-case demonstration
+
+**Reviewer:** the governance-reviewer agent, on the uncommitted briefing, offline. 2 findings,
+both fixed before the pull request.
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| The page said the leave agents were scripted and returned the answer key. Leave in that run is `decide()`: the FMLA rules only, no agent | High | The page and the README say the leave rows are the rules and no leave agent runs (`test_the_briefing_shows_each_audience_the_control_and_its_limit`) |
+| Nothing stopped the generated page from printing a name, a policy number, claim text or a complaint narrative | Medium | `test_the_briefing_does_not_print_case_text` checks the cases this run uses |

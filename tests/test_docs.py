@@ -13,6 +13,7 @@ PAGES = [
     *ADRS,
     DOCS / "adr" / "README.md",
     DOCS / "board-brief.md",
+    DOCS / "briefing.md",
     *(DOCS / "review").glob("*.md"),
     *sorted((DOCS / "examples").glob("*.md")),
     ROOT / "README.md",

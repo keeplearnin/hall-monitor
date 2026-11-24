@@ -5,6 +5,8 @@
 
 ## Why this domain
 
+This example is not in the [CIO, CISO and auditor briefing](../briefing.md): it has no pipeline yet.
+
 A fictional hardware maker reimburses its channel partners for approved marketing activity (marketing development funds and co-op): the partner runs a campaign, an event or a trade show and claims with proof. Checking that proof is still manual at every vendor, and it is where abuse hides: duplicate or inflated invoices, backdated activity, claims split to stay under an approval limit, payments redirected to new bank details. The design is in [`docs/partner-claims-design.md`](../partner-claims-design.md) ([ADR 0032](../adr/0032-partner-claims-rules-decide.md), HM-36).
 
 ## What the agents do

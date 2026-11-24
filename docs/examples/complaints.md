@@ -5,6 +5,8 @@
 
 ## Why this domain
 
+The offline demonstration for a CIO, a CISO and an auditor runs this example beside claims and leave: [the briefing](../briefing.md).
+
 A simulated company complaint desk that triages complaints from the public [CFPB Consumer Complaint Database](https://www.consumerfinance.gov/data-research/consumer-complaints/) (free, keyless, read-only, updated daily), so the same controls face real input nobody wrote for them. It prepares each complaint for a person; it is not a CFPB system, it doesn't represent any company in the data, and nothing in it is a finding about a company. The design is in [`docs/complaint-desk-design.md`](../complaint-desk-design.md); it shipped in slices, and this page says what each one has built.
 
 ## What the agents do
