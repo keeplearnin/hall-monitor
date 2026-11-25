@@ -39,8 +39,6 @@ from urllib.parse import urlsplit
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
-from starlette.middleware import Middleware
-from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
@@ -56,6 +54,8 @@ METHODS = ("initialize", "notifications/initialized", "tools/list", "tools/call"
 PROTOCOL_VERSION = "2025-06-18"
 BOUNDARY_SCOPE = "boundary"  # the audit scope of a request refused before its token was read
 SECURITY_HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
+# Headers the checks read: each may appear once (Authorization is counted with them).
+CHECKED_HEADERS = ("host", "origin", "content-type", "content-length", "mcp-method")
 
 
 class Refused(Exception):
@@ -103,27 +103,31 @@ def create_app(
         audit.append(scope, "boundary_request", "boundary", payload)
 
     async def mcp(request: Request) -> Response:
-        claims: Claims | None = None
+        # Filled in as each part is known, so a refusal after the token was read is recorded
+        # under its case with its jti's keyed hash, as an answered request is.
+        seen: dict = {"claims": None}
         entry: dict = {"outcome": "refused", "code": None, "method": None, "tool": None}
         try:
-            claims, body = await _admit(request)
-            entry["agent"] = claims.sub
-            entry["jti_hmac"] = audit.keyed_hash(claims.jti)
-            entry["iss"] = claims.iss
-            method = body["method"]
-            entry["method"] = method
+            claims, body = await _admit(request, seen, entry)
             response = await _dispatch(claims, body, entry)
-            entry["outcome"] = entry.get("outcome_set") or "answered"
-            entry.pop("outcome_set", None)
+            entry["outcome"] = entry.pop("outcome_set", None) or "answered"
             record(claims, entry)
             return response
         except Refused as refused:
             entry["code"] = refused.code
             entry.pop("outcome_set", None)
-            record(claims, entry)
+            record(seen["claims"], entry)
             return _refusal(refused, body_id=None)
 
-    async def _admit(request: Request) -> tuple[Claims, dict]:
+    async def _admit(request: Request, seen: dict, entry: dict) -> tuple[Claims, dict]:
+        # Every header the checks read, once: with two, a proxy reading the last or both
+        # values could act on one the server didn't (RI-26).
+        for name in (*CHECKED_HEADERS, "authorization"):
+            if len(request.headers.getlist(name)) > 1:
+                raise Refused(400, "repeated_header")
+        host = request.headers.get("host", "")
+        if urlsplit(f"//{host}").hostname not in LOCAL_HOSTS:
+            raise Refused(400, "bad_host")
         if request.method != "POST":
             raise Refused(405, "method_not_allowed")
         sent_origin = request.headers.get("origin")
@@ -131,8 +135,10 @@ def create_app(
             raise Refused(403, "bad_origin")
         if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
             raise Refused(415, "bad_content_type")
+        # A chunked body has no length to check before it is read: refused, whatever
+        # Content-Length says beside it.
         length = request.headers.get("content-length")
-        if length is None or not length.isdigit():
+        if "transfer-encoding" in request.headers or length is None or not length.isdigit():
             raise Refused(411, "length_required")
         if int(length) > MAX_BODY_BYTES:
             raise Refused(413, "body_too_large")
@@ -144,23 +150,31 @@ def create_app(
             claims = verify(auth[0][7:], issuers=issuers, audience=audience, tenant=tenant, now=now)
         except TokenRefused as refused:
             raise Refused(401, refused.code) from None
+        if claims.case == BOUNDARY_SCOPE:
+            raise Refused(401, "bad_claim")
+        seen["claims"] = claims
+        entry["agent"] = claims.sub if claims.sub in registered else None
+        entry["jti_hmac"] = audit.keyed_hash(claims.jti)
+        entry["iss"] = claims.iss
         if not replay.first_use(claims.jti, claims.exp, now):
             raise Refused(401, "replayed")
-        raw = await request.body()
-        if len(raw) > MAX_BODY_BYTES:
-            raise Refused(413, "body_too_large")
-        try:
-            body = json.loads(raw)
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            raise Refused(400, "not_json", -32700) from None
-        if not isinstance(body, dict):
-            raise Refused(400, "not_one_request", -32600)
-        if body.get("jsonrpc") != "2.0" or not isinstance(body.get("method"), str):
-            raise Refused(400, "not_jsonrpc", -32600)
-        if body["method"] not in METHODS:
+        raw = b""
+        async for chunk in request.stream():
+            raw += chunk
+            if len(raw) > MAX_BODY_BYTES:
+                raise Refused(413, "body_too_large")
+        if len(raw) != int(length):
+            raise Refused(400, "length_mismatch")
+        body = _parse(raw)
+        method = body["method"]
+        entry["method"] = method if method in METHODS else None
+        if method not in METHODS:
             raise Refused(400, "unknown_method", -32601)
-        if request.headers.get("mcp-method") != body["method"]:
+        if request.headers.get("mcp-method") != method:
             raise Refused(400, "method_header_mismatch", -32600)
+        has_id = "id" in body
+        if has_id != (method != "notifications/initialized") or not _good_id(body.get("id")):
+            raise Refused(400, "bad_id", -32600)
         if claims.sub == PIPELINE_ACTOR or claims.sub not in registered:
             raise Refused(403, "unknown_agent")
         return claims, body
@@ -226,9 +240,45 @@ def create_app(
         )
 
     return Starlette(
-        routes=[Route("/mcp", mcp, methods=["GET", "POST", "PUT", "DELETE", "PATCH"])],
-        middleware=[Middleware(TrustedHostMiddleware, allowed_hosts=LOCAL_HOSTS)],
+        # Every verb reaches the handler, so each refusal is recorded; the host is checked
+        # there too, for the same reason.
+        routes=[
+            Route(
+                "/mcp",
+                mcp,
+                methods=["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+            )
+        ],
     )
+
+
+def _no_constant(name: str):
+    raise ValueError(f"{name} isn't JSON")
+
+
+def _parse(raw: bytes) -> dict:
+    """One JSON-RPC 2.0 request object, or a refusal: anything json can't take (bad UTF-8, a
+    number too long to convert, nesting too deep, NaN or Infinity) is refused, never a crash."""
+    try:
+        body = json.loads(raw, parse_constant=_no_constant)
+    except (ValueError, RecursionError):  # JSONDecodeError and UnicodeDecodeError among them
+        raise Refused(400, "not_json", -32700) from None
+    if not isinstance(body, dict):
+        raise Refused(400, "not_one_request", -32600)
+    if body.get("jsonrpc") != "2.0" or not isinstance(body.get("method"), str):
+        raise Refused(400, "not_jsonrpc", -32600)
+    return body
+
+
+def _good_id(rid) -> bool:
+    """A JSON-RPC id this boundary echoes: absent, a short string or a bounded integer."""
+    if rid is None:
+        return True
+    if isinstance(rid, bool):
+        return False
+    if isinstance(rid, int):
+        return -(2**53) <= rid <= 2**53
+    return isinstance(rid, str) and len(rid) <= 64
 
 
 def _result(rid, result: dict) -> JSONResponse:

@@ -25,7 +25,7 @@ names differing by case or invisible characters, a grant replayed into a new boo
 case, and a model naming itself the pipeline were all refused already. Token audience (RFC 8707),
 token expiry and `Mcp-Method` header/body desync have no target: the gateway takes only an
 in-process server and agents hold no credentials, so these are recorded under the register's
-`not_covered` (RI-26, RI-29) as checks an HTTP transport would need first.
+`not_covered` (RI-26, RI-29) as checks an HTTP transport would need first. (Since added with the HTTP boundary: [ADR 0036](0036-thin-http-boundary.md), HM-38.)
 
 ## Decision
 

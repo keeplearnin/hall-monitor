@@ -2658,13 +2658,17 @@ controls:
       only through a boundary in front of the same tool gateway (python -m hall_monitor.boundary
       serve; ADR 0036). One endpoint, POST /mcp, takes single MCP JSON-RPC requests
       (initialize, notifications/initialized, tools/list, tools/call) and refuses, in order:
-      a Host other than loopback; an Origin other than its own; anything but POST with a JSON
-      body of at most 64 KiB and a Content-Length; a request without exactly one
-      Authorization header carrying a bearer token; a token that fails verification; a token
-      used before; a body that isn't one JSON-RPC 2.0 request (a batch is refused) for one of
-      the four methods; a Mcp-Method header that doesn't name the body's method (RI-26); a
-      subject that isn't a registered agent, or is the pipeline's own actor; and a tool outside
-      the token's scope (403, insufficient_scope). A token is a compact JWS signed with
+      any of Host, Origin, Content-Type, Content-Length, Mcp-Method or Authorization sent more
+      than once (a proxy reading the last value could act on another); a Host other than
+      loopback; anything but POST; an Origin other than its own; a body that isn't JSON, has no
+      Content-Length, comes chunked, is over 64 KiB or isn't the length it says; a request
+      without exactly one bearer token; a token that fails verification, names the boundary's
+      own audit scope as its case, or was used before; a body that isn't one JSON-RPC 2.0
+      request (a batch is refused), that json can't take (a number too long, nesting too deep,
+      NaN), with an id that isn't a short string or a bounded integer (absent only on the
+      notification), or for another method; a Mcp-Method header that doesn't name the body's
+      method (RI-26); a subject that isn't a registered agent, or is the pipeline's own actor;
+      and a tool outside the token's scope (403, insufficient_scope). A token is a compact JWS signed with
       Ed25519, and its header must be exactly alg EdDSA and typ JWT, so none, HMAC and
       key-in-header forms are refused before any key is used. It must name a trusted issuer and
       verify against that issuer's key, name this endpoint's own URL as its audience (one
@@ -2674,7 +2678,8 @@ controls:
       token's agent, with the token's policy as the case's scope, so every gateway control still
       applies: the manifest's allow-list (a token can't widen it), data classes, redaction, the
       injection screen and held-back results, the scope check, the crew grant rule, and the
-      call's record. Every request, refused or not, is logged as boundary_request, with the
+      call's record. Every request to /mcp, refused or not, is logged as boundary_request,
+      under the token's case once the token is verified (the boundary scope before), with the
       outcome, a fixed refusal code, the method and tool only when known names, the agent only
       when registered, the issuer, and a keyed hash of the jti: never the token, the arguments
       or the result. The tool call's record is the gateway's, under the token's case. Refusals
@@ -2699,6 +2704,11 @@ controls:
       - tests/test_boundary.py::test_a_token_for_another_server_tenant_or_issuer_is_401
       - tests/test_boundary.py::test_the_log_never_holds_the_token_or_the_arguments
       - tests/test_boundary.py::test_a_tool_result_that_addresses_the_ai_is_held_back_over_the_wire_too
+      - tests/test_boundary.py::test_a_repeated_header_is_refused_and_recorded
+      - tests/test_boundary.py::test_a_chunked_body_is_refused_before_it_is_read
+      - tests/test_boundary.py::test_a_body_or_id_json_rpc_can_t_take_is_refused_before_the_gateway_and_recorded
+      - tests/test_boundary.py::test_a_replay_is_recorded_under_its_case_with_its_jti_hash
+      - tests/test_boundary.py::test_another_host_and_other_verbs_are_refused_and_recorded
     evidence: []
     nist: [GOVERN 1.4, MANAGE 2.4, MEASURE 2.7]
     finos:
@@ -2715,8 +2725,13 @@ controls:
       events), and only tools: no resources or prompts. The subject is trusted to be the agent
       the issuer says it is; the boundary checks that agent's hall pass, not who is running it.
       No pipeline here calls it: the agents still use the gateway in process, and no live model
-      or third-party MCP client has been run against it, only the tests' HTTP client. The audit
-      log entries for requests refused before their token is read share one scope, boundary.
+      or third-party MCP client has been run against it, only the tests' HTTP client and raw
+      socket; only the h11 parser was exercised, and no proxy in front of it. Requests refused
+      before their token is read share one audit scope, boundary. The token's case and policy
+      aren't checked against each other: an issuer that pairs a claim with another claim's
+      policy files that policy's lookups under the wrong claim. For RI-26's supply-chain side,
+      no third-party MCP server's integrity is checked: the only server is first-party and in
+      process.
 
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 
@@ -2756,7 +2771,7 @@ not_covered:
   - ref: MI-11
     why: Adjuster overrides are recorded but not fed back into prompts, answer keys or evals.
   - ref: MI-08
-    why: There is no rate limiting or denial-of-service protection; the only service, the HTTP boundary (HM-38), serves loopback only.
+    why: There is no rate limiting or denial-of-service protection; the local web apps (the panel, the two forms and the HTTP boundary, HM-20, HM-24, HM-33, HM-38) answer this machine only.
   - ref: MI-14
     why: The audit log and checkpoints are unencrypted SQLite files.
   - ref: MI-22

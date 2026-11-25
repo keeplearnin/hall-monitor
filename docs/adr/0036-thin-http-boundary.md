@@ -25,9 +25,12 @@ asked for one real wire boundary, tested over a socket, instead of more in-proce
   `notifications/initialized`, `tools/list` and `tools/call` as one JSON-RPC request each, and
   answers with JSON. Batches, other methods, sessions and server-sent events aren't supported:
   each is more surface and none is needed for a tool call.
-- **The header must agree with the body (RI-26).** `Mcp-Method` must be present and name the
-  body's method. Anything that routes, logs or rate-limits on the header sees what the server
-  does.
+- **The header must agree with the body (RI-26).** `Mcp-Method` must be present once and name
+  the body's method, and every header the checks read may appear only once. Anything that
+  routes, logs or rate-limits on the header sees what the server does.
+- **Nothing it can't parse reaches the gateway.** A chunked body, a body longer than it says,
+  JSON that can't be parsed (a huge number, deep nesting, NaN) and an id that can't be echoed
+  safely are all refused, and recorded, before the gateway sees the call.
 - **Tokens checked in full (RI-29).** A compact JWS, Ed25519 only, with an exact header (so
   `none`, HMAC with the public key, and keys in the header are refused before any key is used).
   The checks: a trusted issuer and its signature; the endpoint's own URL as audience; the

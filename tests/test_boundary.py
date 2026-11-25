@@ -306,7 +306,7 @@ def test_two_authorization_headers_are_refused(wire):
             ("Mcp-Method", "tools/list"),
         ],
     )
-    assert reply.status_code == 401
+    assert reply.status_code == 400 and reply.json()["error"]["message"] == "repeated_header"
 
 
 def test_a_token_in_the_query_string_is_not_read(wire):
@@ -353,3 +353,131 @@ def test_a_tool_result_that_addresses_the_ai_is_held_back_over_the_wire_too(tmp_
         assert call["injection_signals"]
     finally:
         boundary.close()
+
+
+# --- Review 50: the wire, byte by byte ---------------------------------------------------------
+
+
+def _raw(boundary: Boundary, head: list[tuple[str, str]], body: bytes, *, chunked=False) -> int:
+    """Send a request as raw bytes (an HTTP client would merge or refuse what's tested here);
+    the status code back."""
+    lines = ["POST /mcp HTTP/1.1"] + [f"{k}: {v}" for k, v in head]
+    if chunked:
+        payload = (
+            b"".join(
+                f"{len(body[i : i + 4096]):x}\r\n".encode() + body[i : i + 4096] + b"\r\n"
+                for i in range(0, len(body), 4096)
+            )
+            + b"0\r\n\r\n"
+        )
+    else:
+        payload = body
+    data = ("\r\n".join(lines) + "\r\n\r\n").encode() + payload
+    with socket.create_connection(("127.0.0.1", boundary.port), timeout=10) as s:
+        s.sendall(data)
+        reply = b""
+        while b"\r\n" not in reply:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            reply += chunk
+    return int(reply.split(b" ", 2)[1])
+
+
+def _head(boundary: Boundary, method: str, body: bytes, token: str | None = None) -> list:
+    return [
+        ("Host", f"127.0.0.1:{boundary.port}"),
+        ("Content-Type", "application/json"),
+        ("Content-Length", str(len(body))),
+        ("Authorization", f"Bearer {token or boundary.token()}"),
+        ("Mcp-Method", method),
+        ("Connection", "close"),
+    ]
+
+
+def _call_body(method="tools/call") -> bytes:
+    params = {"name": "policy_lookup", "arguments": {"policy_number": POLICY}}
+    return json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        ("Mcp-Method", "tools/list"),
+        ("Origin", "http://evil.example"),
+        ("Content-Type", "text/plain"),
+    ],
+    ids=["two Mcp-Method", "two Origin", "two Content-Type"],
+)
+def test_a_repeated_header_is_refused_and_recorded(wire, extra):
+    """RI-26: a proxy reading the last value, or both, must see what the server acts on."""
+    body = _call_body()
+    head = _head(wire, "tools/call", body)
+    if extra[0] == "Origin":
+        head.append(("Origin", wire.aud.rsplit("/", 1)[0]))
+    assert _raw(wire, [*head, extra], body) == 400
+    assert wire.entries("claim_004", "tool_call") == []
+    # Refused before the token is read, so recorded in the boundary's own scope.
+    assert [e["code"] for e in wire.entries("boundary", "boundary_request")] == ["repeated_header"]
+
+
+def test_a_chunked_body_is_refused_before_it_is_read(wire):
+    body = b'{"pad": "' + b"x" * (200 * 1024) + b'"}'
+    head = [h for h in _head(wire, "tools/list", body) if h[0] != "Content-Length"]
+    # A small Content-Length the parser ignores once Transfer-Encoding is there.
+    head += [("Content-Length", "10"), ("Transfer-Encoding", "chunked")]
+    assert _raw(wire, head, body, chunked=True) == 411
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b'{"jsonrpc": "2.0", "id": ' + b"9" * 5000 + b', "method": "tools/list"}',
+        b"[" * 30000 + b"]" * 30000,
+        b'{"jsonrpc": "2.0", "id": NaN, "method": "tools/call", "params": '
+        + json.dumps({"name": "policy_lookup", "arguments": {"policy_number": POLICY}}).encode()
+        + b"}",
+        b'{"jsonrpc": "2.0", "id": {"a": 1}, "method": "tools/list"}',
+        b'{"jsonrpc": "2.0", "id": true, "method": "tools/list"}',
+        b'{"jsonrpc": "2.0", "method": "tools/list"}',
+    ],
+    ids=["huge int", "deep nesting", "NaN id", "object id", "bool id", "no id"],
+)
+def test_a_body_or_id_json_rpc_can_t_take_is_refused_before_the_gateway_and_recorded(wire, body):
+    method = "tools/call" if b"tools/call" in body else "tools/list"
+    status = _raw(wire, _head(wire, method, body), body)
+    assert status == 400
+    assert wire.entries("claim_004", "tool_call") == []
+    [entry] = wire.entries("claim_004", "boundary_request")
+    assert entry["outcome"] == "refused" and entry["jti_hmac"]
+
+
+def test_a_replay_is_recorded_under_its_case_with_its_jti_hash(wire):
+    token = wire.token()
+    wire.post("tools/list", token=token)
+    wire.post("tools/list", token=token)
+    first, again = wire.entries("claim_004", "boundary_request")
+    assert again["code"] == "replayed" and again["jti_hmac"] == first["jti_hmac"]
+    assert again["agent"] == "risk_fraud"
+
+
+def test_another_host_and_other_verbs_are_refused_and_recorded(wire):
+    assert wire.post("tools/list", headers={"Host": "evil.example"}).status_code == 400
+    assert wire.http.request("OPTIONS", "/mcp").status_code == 405
+    assert wire.http.head("/mcp").status_code == 405
+    codes = [e["code"] for e in wire.entries("boundary", "boundary_request")]
+    assert codes == ["bad_host", "method_not_allowed", "method_not_allowed"]
+
+
+@pytest.mark.parametrize(
+    ("kw", "code"),
+    [({"policy": ""}, "bad_claim"), ({"policy": "WTP ESS 1"}, "bad_claim")],
+)
+def test_a_policy_claim_must_be_a_code(kw, code):
+    with pytest.raises(TokenRefused, match=code):
+        _verify(_token(**kw))
+
+
+def test_a_token_can_t_name_the_boundary_s_own_scope_as_its_case(wire):
+    reply = wire.post("tools/list", token=wire.token(case="boundary"))
+    assert reply.status_code == 401

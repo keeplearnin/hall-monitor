@@ -173,7 +173,7 @@ def verify(
         raise TokenRefused("not_yet_valid")
     if claims["exp"] <= now - CLOCK_SKEW_S:
         raise TokenRefused("expired")
-    if not all(CODE.fullmatch(claims[c]) for c in ("sub", "jti", "case")):
+    if not all(CODE.fullmatch(claims[c]) for c in ("sub", "jti", "case", "policy")):
         raise TokenRefused("bad_claim")
     entries = claims["scope"].split(" ")
     if not claims["scope"] or not all(
