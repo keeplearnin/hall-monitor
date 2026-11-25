@@ -504,10 +504,13 @@ def test_a_partial_approval_needs_an_hr_business_partner_even_with_a_reason(log)
 
 
 def test_approving_intermittent_leave_for_less_than_is_left_is_a_partial_denial(log):
-    # lr_011: intermittent, 12 weeks left, an HR business partner's case.
+    # lr_011: intermittent, 12 weeks left; its dates hold more, so an HR director's case
+    # (review 49), and an HR business partner may no longer decide it.
+    with pytest.raises(DecisionRefused, match="needs a hr_director or above"):
+        _decide(log, "lr_011", "hrs-201", "approve", weeks=12, reason=REASON)
     with pytest.raises(DecisionRefused, match="a partial denial needs a reason"):
-        _decide(log, "lr_011", "hrs-201", "approve", weeks=0.01, reason="ok")
-    assert _decide(log, "lr_011", "hrs-201", "approve", weeks=12, reason=REASON)["weeks"] == 12
+        _decide(log, "lr_011", "hrs-301", "approve", weeks=0.01, reason="ok")
+    assert _decide(log, "lr_011", "hrs-301", "approve", weeks=12, reason=REASON)["weeks"] == 12
 
 
 def test_a_logged_decision_always_has_its_signed_record(log, monkeypatch):
@@ -749,12 +752,16 @@ def test_the_chain_check_reports_a_changed_or_missing_signed_leave_decision(log)
 
 
 def test_a_local_manager_may_not_decide_a_flagged_request(log):
-    # lr_011: intermittent; lr_013: a possible accommodation; lr_019: reason unclear.
-    for request_id in ("lr_011", "lr_013", "lr_019"):
-        assert status(log, request_id)["decided_by"] == "hr_business_partner"
+    # lr_013: a possible accommodation; lr_019: reason unclear; lr_011: intermittent, and an
+    # HR director's since its dates hold more weeks than are left (review 49).
+    for request_id, role in (
+        ("lr_013", "hr_business_partner"),
+        ("lr_019", "hr_business_partner"),
+        ("lr_011", "hr_director"),
+    ):
+        assert status(log, request_id)["decided_by"] == role
         with pytest.raises(
-            DecisionRefused,
-            match="needs a hr_business_partner or above; hrs-101 is a local_manager",
+            DecisionRefused, match=f"needs a {role} or above; hrs-101 is a local_manager"
         ):
             _decide(log, request_id, "hrs-101", "approve", weeks=4, reason=REASON)
     assert _decide(log, "lr_013", "hrs-201", "approve", weeks=4, reason=REASON)["role"] == (
@@ -952,3 +959,74 @@ def test_an_extension_is_allowed_once_earlier_approvals_use_up_the_entitlement(l
         _decide(log, f"lr_again_{i}", "hrs-101", "approve", weeks=4)
     final = _decide(log, "lr_001", "hrs-301", "extend", weeks=4, reason=REASON)
     assert final["outcome"] == "extend"
+
+
+# --- Intermittent leave past what is left (review 49) -----------------------------------------
+
+
+def _intermittent_pack(remaining: float, span: float, decided_by: str = "hr_business_partner"):
+    """An eligible employee's intermittent request as the rules recorded it: the route as they
+    named it, and the dates' span against the weeks the records leave."""
+    checks = [
+        {"id": c, "passed": True, "code": None}
+        for c in ("employer", "service", "hours", "worksite", "reason", "entitlement")
+    ]
+    return {
+        "route": {"route": "hr_review", "decided_by": decided_by, "reasons": ["intermittent"]},
+        "assessment": {
+            "checks": checks,
+            "remaining_weeks": remaining,
+            "requested_weeks": None,
+            "qualifying_weeks": None,
+            "span_weeks": span,
+        },
+    }
+
+
+def _validate_pack(pack, staff_id, outcome, weeks, approved_elsewhere=0.0):
+    from hall_monitor.hr.signoff import validate
+
+    decision = LeaveDecision(
+        staff_id=staff_id, outcome=outcome, weeks=weeks, reason=REASON, evidence_sha256="d" * 64
+    ).signed("lr_x", demo_private_key(staff_id))
+    return validate(decision, "lr_x", "d" * 64, pack, STAFF, approved_elsewhere=approved_elsewhere)
+
+
+def test_intermittent_leave_past_what_the_log_leaves_needs_a_director():
+    """The records leave 12 weeks and the dates hold 12, so the rules named an HR business
+    partner; but 10 were approved on the employee's other requests, so the dates hold more than
+    is left, and an HR director decides, as the rules would have said with that figure."""
+    pack = _intermittent_pack(remaining=12.0, span=12.0)
+    assert _validate_pack(pack, "hrs-201", "approve", 2).role == "hr_business_partner"
+    with pytest.raises(DecisionRefused, match="needs a hr_director or above"):
+        _validate_pack(pack, "hrs-201", "approve", 2, approved_elsewhere=10.0)
+    with pytest.raises(DecisionRefused, match="needs a hr_director or above"):
+        _validate_pack(pack, "hrs-201", "deny", 0, approved_elsewhere=10.0)
+    assert (
+        _validate_pack(pack, "hrs-301", "approve", 2, approved_elsewhere=10.0).role == "hr_director"
+    )
+
+
+def test_a_director_may_extend_intermittent_leave_whose_dates_run_past_what_is_left():
+    pack = _intermittent_pack(remaining=2.0, span=2.2, decided_by="hr_director")
+    assert _validate_pack(pack, "hrs-301", "extend", 2.2).role == "hr_director"
+    with pytest.raises(DecisionRefused, match="no more than its dates hold"):
+        _validate_pack(pack, "hrs-301", "extend", 2.4)
+    with pytest.raises(DecisionRefused, match="only for leave past the entitlement"):
+        _validate_pack(_intermittent_pack(remaining=12.0, span=6.0), "hrs-301", "extend", 7)
+
+
+def test_an_intermittent_extension_cannot_exceed_its_dates():
+    pack = _intermittent_pack(remaining=0.0, span=1.0, decided_by="hr_director")
+    with pytest.raises(DecisionRefused, match="no more than its dates hold"):
+        _validate_pack(pack, "hrs-301", "extend", 52)
+    assert _validate_pack(pack, "hrs-301", "extend", 1).role == "hr_director"
+
+
+def test_the_assessment_records_the_span_sign_off_measures_against():
+    from hall_monitor.hr.data import load_requests
+    from hall_monitor.hr.eligibility import assess
+
+    request = next(r for r in load_requests() if r.id == "lr_011")
+    assessment = assess(request, EMPLOYEES[request.employee_id], COMPANY)
+    assert assessment.requested_weeks is None and assessment.span_weeks > 12

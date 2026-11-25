@@ -71,6 +71,11 @@ REASONS: dict[str, tuple[str, Role]] = {
     ),
     "past_entitlement": ("more leave than the entitlement left", Role.HR_DIRECTOR),
     "intermittent": ("intermittent or reduced-schedule leave", Role.HR_BUSINESS_PARTNER),
+    "intermittent_past_entitlement": (
+        "intermittent leave whose dates hold more workweeks than are left: it may run past the "
+        "entitlement",
+        Role.HR_DIRECTOR,
+    ),
     "retaliation_risk": (
         "discipline, a complaint or a termination is pending (retaliation risk)",
         Role.HR_DIRECTOR,
