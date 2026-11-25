@@ -2651,6 +2651,73 @@ controls:
       answer keys cover 11 claims and were written by one person. No pipeline, audit events or
       panel page yet (slices 3 and 5).
 
+  - id: HM-38
+    name: A thin HTTP boundary for tool calls (token, scope, header and body checked)
+    what: >-
+      The claims records server's tools can be called over HTTP, from outside this process,
+      only through a boundary in front of the same tool gateway (python -m hall_monitor.boundary
+      serve; ADR 0036). One endpoint, POST /mcp, takes single MCP JSON-RPC requests
+      (initialize, notifications/initialized, tools/list, tools/call) and refuses, in order:
+      a Host other than loopback; an Origin other than its own; anything but POST with a JSON
+      body of at most 64 KiB and a Content-Length; a request without exactly one
+      Authorization header carrying a bearer token; a token that fails verification; a token
+      used before; a body that isn't one JSON-RPC 2.0 request (a batch is refused) for one of
+      the four methods; a Mcp-Method header that doesn't name the body's method (RI-26); a
+      subject that isn't a registered agent, or is the pipeline's own actor; and a tool outside
+      the token's scope (403, insufficient_scope). A token is a compact JWS signed with
+      Ed25519, and its header must be exactly alg EdDSA and typ JWT, so none, HMAC and
+      key-in-header forms are refused before any key is used. It must name a trusted issuer and
+      verify against that issuer's key, name this endpoint's own URL as its audience (one
+      string, as RFC 8707 resource indicators bind it), name this tenant, live at most five
+      minutes (30 seconds of clock skew), carry a jti, a case and policy, and tools as
+      "tools:<name>" scope entries (RI-29). A call that passes goes to ToolGateway.call as the
+      token's agent, with the token's policy as the case's scope, so every gateway control still
+      applies: the manifest's allow-list (a token can't widen it), data classes, redaction, the
+      injection screen and held-back results, the scope check, the crew grant rule, and the
+      call's record. Every request, refused or not, is logged as boundary_request, with the
+      outcome, a fixed refusal code, the method and tool only when known names, the agent only
+      when registered, the issuer, and a keyed hash of the jti: never the token, the arguments
+      or the result. The tool call's record is the gateway's, under the token's case. Refusals
+      before the token is accepted answer 401 with WWW-Authenticate naming only the code. The
+      wire tests run the boundary under uvicorn on a loopback port and call it with a real HTTP
+      client.
+    status: built
+    code:
+      - hall_monitor/boundary/tokens.py::verify
+      - hall_monitor/boundary/tokens.py::issue
+      - hall_monitor/boundary/app.py::create_app
+      - hall_monitor/boundary/app.py::ReplayGuard
+    tests:
+      - tests/test_boundary.py::test_a_bad_token_is_refused_with_a_fixed_code
+      - tests/test_boundary.py::test_a_tampered_claim_breaks_the_signature
+      - tests/test_boundary.py::test_an_agent_reads_its_own_case_over_the_wire_and_it_is_recorded
+      - tests/test_boundary.py::test_another_policy_is_refused_by_the_gateway_s_scope
+      - tests/test_boundary.py::test_a_tool_outside_the_token_s_scope_is_403
+      - tests/test_boundary.py::test_a_tool_in_scope_but_not_on_the_agent_s_hall_pass_is_refused
+      - tests/test_boundary.py::test_the_method_header_must_agree_with_the_body
+      - tests/test_boundary.py::test_a_token_works_once
+      - tests/test_boundary.py::test_a_token_for_another_server_tenant_or_issuer_is_401
+      - tests/test_boundary.py::test_the_log_never_holds_the_token_or_the_arguments
+      - tests/test_boundary.py::test_a_tool_result_that_addresses_the_ai_is_held_back_over_the_wire_too
+    evidence: []
+    nist: [GOVERN 1.4, MANAGE 2.4, MEASURE 2.7]
+    finos:
+      risks: [RI-26, RI-29]
+      mitigations: [MI-23]
+    gaps: >-
+      Demo only. The issuer's key is derived from a public seed, so anyone can mint a token; a
+      deployment would hold only its identity provider's public key, and none is integrated.
+      It serves plain HTTP on loopback: no TLS, no mutual TLS, no rate limiting, and nothing
+      binds a token to the connection that presents it (no DPoP or certificate binding), so a
+      token read off the wire works once, for up to five minutes. The replay guard is in memory:
+      a restart forgets the jtis it saw. There is no revocation list. Only the claims records
+      server is behind it, stateless JSON responses only (no MCP sessions or server-sent
+      events), and only tools: no resources or prompts. The subject is trusted to be the agent
+      the issuer says it is; the boundary checks that agent's hall pass, not who is running it.
+      No pipeline here calls it: the agents still use the gateway in process, and no live model
+      or third-party MCP client has been run against it, only the tests' HTTP client. The audit
+      log entries for requests refused before their token is read share one scope, boundary.
+
 # What this repo does not address, and why. NIST MEASURE 1.1 asks for this to be documented.
 
 
@@ -2675,35 +2742,21 @@ not_covered:
     why: Reputational risk is a business judgement; publishing results, failures included, is the only part this repo touches.
   - ref: RI-23
     why: Intellectual property in model output isn't assessed.
-  - ref: RI-26
-    why: >-
-      The MCP server is first-party and runs in-process; nothing checks a third-party server's
-      integrity because there isn't one. The gateway refuses a URL or a proxy (HM-25), so there is
-      no HTTP transport whose Mcp-Method header could disagree with its JSON-RPC body; one would
-      need that check before it is added.
   - ref: RI-27
     why: >-
       Workflow checkpoints are local state. The evidence pack and triage result in a checkpoint are
       checked against the hashes in the audit log (HM-05); other checkpoint state isn't
       integrity-checked.
-  - ref: RI-29
-    why: >-
-      Agents hold no credentials; the API key stays in the host process. With no remote MCP
-      server there is no bearer token, so token audience (RFC 8707 resource indicators), expiry
-      and tenant claims aren't checked; an HTTP transport would need all of them before it is
-      added.
   - ref: RI-30
     why: The system loads no skills or plugins.
   - ref: MI-02
     why: There is no external knowledge base or retrieval; the policy wording is fixed reference text.
   - ref: MI-07
     why: Legal and contractual terms with the model provider are out of scope.
-  - ref: MI-23
-    why: Agents hold no credentials (see RI-29), so there is nothing for them to protect.
   - ref: MI-11
     why: Adjuster overrides are recorded but not fed back into prompts, answer keys or evals.
   - ref: MI-08
-    why: There is no rate limiting or denial-of-service protection; nothing is exposed as a service.
+    why: There is no rate limiting or denial-of-service protection; the only service, the HTTP boundary (HM-38), serves loopback only.
   - ref: MI-14
     why: The audit log and checkpoints are unencrypted SQLite files.
   - ref: MI-22
@@ -2716,6 +2769,7 @@ audit_events:
   claim_submitted: [HM-09, HM-10]
   agent_call: [HM-01, HM-02, HM-16]
   tool_call: [HM-03]
+  boundary_request: [HM-38]
   critic_review: [HM-07]
   revision: [HM-07]
   code_correction: [HM-08]

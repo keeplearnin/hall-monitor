@@ -42,6 +42,7 @@ system is built the way it is, and each links to the code and the control it sup
 | [0033](0033-partner-claim-agents-read-and-flag.md) | Partner claims: agents read and flag, code checks them, they never decide | HM-37 |
 | [0034](0034-leave-roles-follow-the-branch.md) | Leave roles follow the branch: local manager, HR business partner, director | HM-21, HM-23 |
 | [0035](0035-tool-results-are-screened.md) | Tool results are screened, and the gateway fails closed on scope and arguments | HM-03, HM-04, HM-09 |
+| [0036](0036-thin-http-boundary.md) | A thin HTTP boundary in front of the tool gateway: tokens, scope and header checked | HM-38 |
 
 New records take the next number. A decision that changes gets a new record that supersedes the
 old one; the old one stays, marked "Superseded by".
