@@ -139,7 +139,7 @@ Numbers are published as each milestone lands, from runs anyone can reproduce wi
 |---|---|---|---|---|---|---|
 | 28 | 100% | 100% | 28 of 28 | 0 | 0 | $0.026 in all |
 
-What it can't show: it is one run, so run-to-run variation is unmeasured; the 28 requests are short and plainly worded, and the same person wrote them and their answer keys, so it says nothing about real employees' messages; no decision was signed, so the sign-off isn't exercised. The CI gate requires route and intake accuracy of at least 95% and no errors on it.
+What it can't show: it is one run, so run-to-run variation is unmeasured; it was scored against the answer keys of 2026-11-15; lr_011's key changed on 2026-11-24 (review 49), and the current rules on that run's exact lr_011 extraction give the new key, though the run wasn't repeated (the supervisor and explainer read the route, so a new run could differ); the 28 requests are short and plainly worded, and the same person wrote them and their answer keys, so it says nothing about real employees' messages; no decision was signed, so the sign-off isn't exercised. The CI gate requires route and intake accuracy of at least 95% and no errors on it.
 
 **Claims and complaints.** The claims agents have no live run on their current versions; the numbers below describe older claims agents. The complaint desk's agent has never run live, so it has no numbers here. *Every row below was scored on the fixed order of steps with earlier agent versions; the default path is now agentic (HM-32), and it has been compared with the fixed order only offline, with scripted supervisors ([agentic-scripted](evals/results/agentic-scripted/report.md)). Its live accuracy and cost are not yet measured.*
 

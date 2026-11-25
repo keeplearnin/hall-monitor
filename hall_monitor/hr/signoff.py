@@ -254,6 +254,16 @@ def validate(
     left = None if remaining is None else remaining - approved_elsewhere
     requested = assessment.get("requested_weeks")
     qualifying = assessment.get("qualifying_weeks", requested)
+    # Intermittent leave whose dates hold more workweeks than are left may run past them: an HR
+    # director decides, measured here on what the log leaves too, which the rules couldn't see
+    # (review 49). An assessment recorded before the span was kept has none.
+    span = assessment.get("span_weeks") if requested is None else None
+    beyond = span is not None and left is not None and span > left + 1e-9
+    if beyond and member.rank < Role.HR_DIRECTOR:
+        raise DecisionRefused(
+            "intermittent leave whose dates hold more workweeks than are left (after approvals "
+            f"on other requests) needs a hr_director or above; {member.id} is a {member.role}"
+        )
     person = [checks.get(c) for c in ("employer", "service", "hours", "worksite")]
     eligible = all(p is True for p in person) and checks.get("reason") is True
     # Military leave: the reason check is open only because the records don't carry the
@@ -323,7 +333,7 @@ def validate(
                 "decides anything else outside this step"
             )
         past = left is not None and (
-            left <= 0 or (requested is not None and requested > left + 1e-9)
+            left <= 0 or (requested is not None and requested > left + 1e-9) or beyond
         )
         if not past:
             raise DecisionRefused("an extension is only for leave past the entitlement")
@@ -335,6 +345,8 @@ def validate(
             )
         if requested is not None and weeks > requested + 1e-9:
             raise DecisionRefused("extended weeks can't be more than were asked for")
+        if span is not None and weeks > span + 1e-9:
+            raise DecisionRefused("extended intermittent leave must be no more than its dates hold")
     return member
 
 

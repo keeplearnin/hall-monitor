@@ -1149,7 +1149,8 @@ controls:
       825), not reviewed by HR or an employment lawyer, and not legal advice, and state laws
       aren't modelled (the agents are HM-22 and the signed sign-off HM-23, which enforces the
       role the rule names). The live run (evals/results/hr-agentic-live) routed all 28
-      synthetic requests as their answer keys do, but the requests and keys are one person's
+      synthetic requests as their answer keys then did (lr_011's changed afterwards; see
+      below), but the requests and keys are one person's
       and it is one run. The director's cases come from the design for HR review, which is a
       Claude Doc outside this repo; the three roles are modelled on how a branch company
       works, and sending every flag to an HR business partner is this code's choice, not
@@ -1178,7 +1179,8 @@ controls:
       evals/results/injection-live/report.md, a run made before the fix). lr_011's answer key
       changed with the fix; the live leave run (hr-agentic-live) predates it, but its lr_011
       extraction was exact and the route is code on the extraction, so the current rules give
-      the new key on it.
+      the new key on it; the supervisor and explainer read the route, so a new run could
+      differ, and none was made.
 
   - id: HM-22
     name: Leave agents inside the shared controls (HR example)
@@ -1297,7 +1299,11 @@ controls:
       above, with a reason, since it refuses the rest;
       denying only by an HR business partner or above, with a reason; extending only by an HR director,
       with a reason, for an eligible employee whose request is past the entitlement, granting more
-      weeks in total than are left and no more than were asked; approving a request the rule sent
+      weeks in total than are left and no more than were asked (intermittent leave: past the
+      entitlement when its dates hold more workweeks than are left, and extended no further than
+      its dates hold); deciding intermittent leave whose dates hold more workweeks than are left
+      after the weeks the log shows approved on the employee's other requests only by an HR
+      director, which the rules can't see (review 49); approving a request the rule sent
       to HR review only with a reason. Asking for more information is open to anyone registered
       and isn't a decision: it is signed, stored and logged once, and the request keeps waiting. The audit log decides whether a request was decided: one final
       decision per request, checked inside the write. Every refusal that reaches these rules, for
@@ -1321,6 +1327,9 @@ controls:
       - hall_monitor/hr/run.py::run
       - registry/hr_staff.yaml
     tests:
+      - tests/test_hr_signoff.py::test_intermittent_leave_past_what_the_log_leaves_needs_a_director
+      - tests/test_hr_signoff.py::test_a_director_may_extend_intermittent_leave_whose_dates_run_past_what_is_left
+      - tests/test_hr_signoff.py::test_an_intermittent_extension_cannot_exceed_its_dates
       - tests/test_hr_signoff.py::test_the_role_the_rules_name_is_enforced
       - tests/test_hr_signoff.py::test_only_an_hr_business_partner_or_above_may_deny_even_on_the_light_path
       - tests/test_hr_signoff.py::test_extending_needs_a_director_even_on_the_light_path

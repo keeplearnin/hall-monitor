@@ -23,6 +23,8 @@ make the role check enforce an org chart nobody works to.
     rule sends to HR review: every routing reason names an HR business partner or above, so a
     local manager never decides a flagged request.
   - **hr_director** extends leave past the entitlement, decides a case with a retaliation risk,
+    decides intermittent leave whose dates hold more workweeks than are left (added
+    2026-11-24, review 49),
     and decides a request the agentic path routed before the rules ran or one refused at the
     spending cap.
 - **Military leave goes to a person, who may attest.** Qualifying-exigency and military
@@ -50,7 +52,8 @@ make the role check enforce an org chart nobody works to.
 ## Consequences
 
 - More requests reach HR: in the 28 synthetic requests, 7 take the local manager's light path,
-  19 go to an HR business partner and 2 to an HR director.
+  18 go to an HR business partner and 3 to an HR director (19 and 2 before lr_011 moved to a
+  director on 2026-11-24, review 49).
 - The roles and their limits are modelled on a branch company and are this code's choice, not
   confirmed by an HR team; the director's cases still come from the design for HR review.
 - A request in a log written before the rename can't be decided through the sign-off: preparing
@@ -67,5 +70,6 @@ make the role check enforce an org chart nobody works to.
 `test_only_an_hr_business_partner_or_above_may_deny_even_on_the_light_path`,
 `test_extending_needs_a_director_even_on_the_light_path`, the military attestation tests and
 `test_an_old_role_or_route_in_an_evidence_pack_is_refused_cleanly`). The live run of the
-agentic leave path routed all 28 requests to the roles their answer keys name
-(`evals/results/hr-agentic-live/results.json`; one run, one author's requests and keys).
+agentic leave path routed all 28 requests to the roles their answer keys then named
+(`evals/results/hr-agentic-live/results.json`; one run, one author's requests and keys;
+lr_011's key changed afterwards and the run wasn't repeated).

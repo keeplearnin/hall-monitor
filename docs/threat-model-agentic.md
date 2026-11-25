@@ -67,7 +67,7 @@ noisy) against the fixed paths ([results](../evals/results/agentic-scripted/repo
   can't do more than a hostile scripted one (the boundaries are in code), but how often it
   hands off, re-checks or fails is unmeasured for the claims and desk supervisors, and so is
   their cost. The leave supervisor has one live run (28 synthetic requests, all routed as the
-  answer keys say, $0.026; `evals/results/hr-agentic-live`), which shows it working end to end,
+  answer keys then said, $0.026; `evals/results/hr-agentic-live`; lr_011's key changed since, not re-run), which shows it working end to end,
   not how it behaves across runs or on real messages.
 - **Multiple processes or machines.** The stop list, the audit log and the once-only checks
   assume one shared filesystem; milestone 15's shared store changes the concurrency rows.

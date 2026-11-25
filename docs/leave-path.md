@@ -45,8 +45,8 @@ refused.
 | Role | May | May not |
 |---|---|---|
 | **Local manager** (the employee's branch manager) | Approve the plain light-path case; ask for more information on any request | Decide anything flagged; deny; approve fewer weeks than asked |
-| **HR business partner** | Decide every flagged request; deny; approve fewer weeks than asked; approve military leave with a written attestation that they checked the family member's status | Extend past the entitlement; decide a retaliation-risk case |
-| **HR director** | Everything above, plus extend leave past the entitlement and decide a retaliation-risk case | |
+| **HR business partner** | Decide every flagged request; deny; approve fewer weeks than asked; approve military leave with a written attestation that they checked the family member's status | Extend past the entitlement; decide a retaliation-risk case; decide intermittent leave whose dates hold more workweeks than are left |
+| **HR director** | Everything above, plus extend leave past the entitlement (intermittent leave up to its dates), decide a retaliation-risk case, and decide intermittent leave whose dates hold more workweeks than are left (measured at sign-off on what the log leaves too) | |
 
 Every decision is signed with the person's key over the exact evidence they were shown, and
 code checks the role, that approved weeks fit what is left and what was asked, and that any
@@ -81,7 +81,9 @@ an HR director with no AI call.
 
 One live run of the whole path on the approved agents
 ([results](../evals/results/hr-agentic-live/results.json)): all 28 synthetic requests reached
-the route and role their hand-worked answer keys name, all 28 extractions were exact, no errors,
+the route and role their hand-worked answer keys named at the time (lr_011's key changed
+afterwards, review 49: the current rules on that run's exact extraction give the new key, not
+re-run), all 28 extractions were exact, no errors,
 no failed notes, **$0.026 in all**. The CI gate requires at least 95% on routing and intake and
 no errors. Read it for what it is: one run, so run-to-run variation is unmeasured; 28 short,
 plainly worded requests written by the same person who wrote their answer keys, so accuracy on

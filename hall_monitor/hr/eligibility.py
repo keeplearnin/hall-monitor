@@ -69,6 +69,10 @@ class Assessment(BaseModel):
     # leave running past its 12 months. None for intermittent leave.
     qualifying_weeks: float | None = None
     notice_due: date
+    # Workweeks between the first and last day: what intermittent leave can use at most, which
+    # sign-off measures against what is left after approvals on other requests (review 49).
+    # None in assessments recorded before it.
+    span_weeks: float | None = None
 
 
 def years_after(day: date, years: int) -> date:
@@ -436,8 +440,9 @@ def check_entitlement(
     if asked is None and remaining > 0:
         # Intermittent leave is counted as it is taken, so how much it uses isn't known: it fits
         # if its whole span does; otherwise it may run past what is left, which code can't
-        # decide, and a person who may extend leave decides (review 49: calling a request
-        # intermittent used to pass this check whenever any weeks were left).
+        # decide, and an HR director decides, who may also extend it up to its dates
+        # (review 49: calling a request intermittent used to pass this check whenever any weeks
+        # were left). Sign-off measures the span again against what the log leaves.
         span = span_weeks(request, employee)
         if span > remaining + 1e-9:
             check = _unknown("entitlement", rule, cite, facts | {"span_weeks": span})
@@ -485,5 +490,6 @@ def assess(request: LeaveRequest, employee: Employee, company: Company) -> Asses
         remaining_weeks=remaining,
         requested_weeks=requested_weeks(request, employee),
         qualifying_weeks=qualifying_weeks(request, employee),
+        span_weeks=span_weeks(request, employee),
         notice_due=notice_due(request.notice_date),
     )

@@ -959,3 +959,74 @@ def test_an_extension_is_allowed_once_earlier_approvals_use_up_the_entitlement(l
         _decide(log, f"lr_again_{i}", "hrs-101", "approve", weeks=4)
     final = _decide(log, "lr_001", "hrs-301", "extend", weeks=4, reason=REASON)
     assert final["outcome"] == "extend"
+
+
+# --- Intermittent leave past what is left (review 49) -----------------------------------------
+
+
+def _intermittent_pack(remaining: float, span: float, decided_by: str = "hr_business_partner"):
+    """An eligible employee's intermittent request as the rules recorded it: the route as they
+    named it, and the dates' span against the weeks the records leave."""
+    checks = [
+        {"id": c, "passed": True, "code": None}
+        for c in ("employer", "service", "hours", "worksite", "reason", "entitlement")
+    ]
+    return {
+        "route": {"route": "hr_review", "decided_by": decided_by, "reasons": ["intermittent"]},
+        "assessment": {
+            "checks": checks,
+            "remaining_weeks": remaining,
+            "requested_weeks": None,
+            "qualifying_weeks": None,
+            "span_weeks": span,
+        },
+    }
+
+
+def _validate_pack(pack, staff_id, outcome, weeks, approved_elsewhere=0.0):
+    from hall_monitor.hr.signoff import validate
+
+    decision = LeaveDecision(
+        staff_id=staff_id, outcome=outcome, weeks=weeks, reason=REASON, evidence_sha256="d" * 64
+    ).signed("lr_x", demo_private_key(staff_id))
+    return validate(decision, "lr_x", "d" * 64, pack, STAFF, approved_elsewhere=approved_elsewhere)
+
+
+def test_intermittent_leave_past_what_the_log_leaves_needs_a_director():
+    """The records leave 12 weeks and the dates hold 12, so the rules named an HR business
+    partner; but 10 were approved on the employee's other requests, so the dates hold more than
+    is left, and an HR director decides, as the rules would have said with that figure."""
+    pack = _intermittent_pack(remaining=12.0, span=12.0)
+    assert _validate_pack(pack, "hrs-201", "approve", 2).role == "hr_business_partner"
+    with pytest.raises(DecisionRefused, match="needs a hr_director or above"):
+        _validate_pack(pack, "hrs-201", "approve", 2, approved_elsewhere=10.0)
+    with pytest.raises(DecisionRefused, match="needs a hr_director or above"):
+        _validate_pack(pack, "hrs-201", "deny", 0, approved_elsewhere=10.0)
+    assert (
+        _validate_pack(pack, "hrs-301", "approve", 2, approved_elsewhere=10.0).role == "hr_director"
+    )
+
+
+def test_a_director_may_extend_intermittent_leave_whose_dates_run_past_what_is_left():
+    pack = _intermittent_pack(remaining=2.0, span=2.2, decided_by="hr_director")
+    assert _validate_pack(pack, "hrs-301", "extend", 2.2).role == "hr_director"
+    with pytest.raises(DecisionRefused, match="no more than its dates hold"):
+        _validate_pack(pack, "hrs-301", "extend", 2.4)
+    with pytest.raises(DecisionRefused, match="only for leave past the entitlement"):
+        _validate_pack(_intermittent_pack(remaining=12.0, span=6.0), "hrs-301", "extend", 7)
+
+
+def test_an_intermittent_extension_cannot_exceed_its_dates():
+    pack = _intermittent_pack(remaining=0.0, span=1.0, decided_by="hr_director")
+    with pytest.raises(DecisionRefused, match="no more than its dates hold"):
+        _validate_pack(pack, "hrs-301", "extend", 52)
+    assert _validate_pack(pack, "hrs-301", "extend", 1).role == "hr_director"
+
+
+def test_the_assessment_records_the_span_sign_off_measures_against():
+    from hall_monitor.hr.data import load_requests
+    from hall_monitor.hr.eligibility import assess
+
+    request = next(r for r in load_requests() if r.id == "lr_011")
+    assessment = assess(request, EMPLOYEES[request.employee_id], COMPANY)
+    assert assessment.requested_weeks is None and assessment.span_weeks > 12
