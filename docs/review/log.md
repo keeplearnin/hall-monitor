@@ -1652,3 +1652,22 @@ Found by the run, not the review: a leave message that calls the leave intermitt
 | 3. README, the leave path, the leave page, the threat model, HM-21 and ADR 0034 still said the live leave run routed all 28 as the keys say, with no caveat about lr_011's new key; "still routes 28/28" isn't shown, since the supervisor and explainer read the route | Medium | Fixed: each says the keys then in force, that the current rules on the run's exact extraction give the new key, and that it wasn't re-run |
 | 4. ADR 0034's counts (19 and 2) and the director's cases in it and in the leave-path role table were stale; the leave page said "skips" in the present tense | Low | Fixed: 18 and 3, the new director case named |
 | 5. With 0 weeks left an intermittent extension had no limit but the model's 52 weeks (predates this commit) | Low | Fixed: no further than its dates hold (`test_an_intermittent_extension_cannot_exceed_its_dates`) |
+
+## Review 50 (http-boundary): the thin HTTP boundary, attacked over the wire
+
+**Reviewer:** the `governance-reviewer` agent on the branch's changes, with scratch scripts sending raw bytes to the boundary on a loopback port. The change: plan step 3, an HTTP endpoint for MCP tool calls in front of the tool gateway, with token, scope and `Mcp-Method` checks (HM-38, ADR 0036). Eight findings and four smaller ones, all fixed on the branch; the code fixes are test-first, several over a raw socket (an HTTP client merges duplicate headers).
+
+| Finding | Severity | Outcome |
+|---|---|---|
+| 1. A second `Mcp-Method` header got past the header/body check (only the first value was read), and so did a second `Origin` | High (the RI-26 claim was false) | Fixed: Host, Origin, Content-Type, Content-Length, Mcp-Method and Authorization may each appear once (`test_a_repeated_header_is_refused_and_recorded`) |
+| 2. A body json couldn't take (a 5,000-digit number, deep nesting) crashed with a 500 and no audit entry, after using up the jti | Medium | Fixed: refused as `not_json` and recorded (`test_a_body_or_id_json_rpc_can_t_take_is_refused_before_the_gateway_and_recorded`) |
+| 3. The JSON-RPC id wasn't checked: `"id": NaN` let the tool run (a `tool_call` recorded) and then crashed with no `boundary_request` | Medium | Fixed: NaN and Infinity aren't JSON here, and an id must be a short string or bounded integer (absent only on the notification), checked before the gateway |
+| 4. Refusals after the token was verified (a replay among them) were recorded as if no token had been read: no case, no jti hash | Medium | Fixed: recorded under the token's case with its jti's keyed hash (`test_a_replay_is_recorded_under_its_case_with_its_jti_hash`) |
+| 5. A wrong Host (middleware) and OPTIONS or HEAD (routing) were refused without a `boundary_request` entry | Medium | Fixed: every verb reaches the handler and the host is checked there (`test_another_host_and_other_verbs_are_refused_and_recorded`) |
+| 6. MI-08's note said the boundary is the only service; the panel and the two forms are local web apps too | High (a false claim) | Fixed |
+| 7. The threat model's row E and ADR 0035 still said there was no HTTP transport and RI-26/RI-29 were not covered | Medium | Fixed: both point to HM-38 and ADR 0036 |
+| 8. A chunked body with a small Content-Length beside it was read whole into memory before the size check | Low | Fixed: Transfer-Encoding is refused, the body is read with a cap and must be the length it says (`test_a_chunked_body_is_refused_before_it_is_read`) |
+| 9. The policy claim wasn't shape-checked (an empty policy passed) | Low | Fixed (`test_a_policy_claim_must_be_a_code`) |
+| 10. A token whose case was `boundary` wrote into the pre-token refusal scope | Low | Fixed: refused (`test_a_token_can_t_name_the_boundary_s_own_scope_as_its_case`) |
+| 11. The token's case isn't tied to its policy | Low | Logged as an HM-38 gap: it is the issuer's to get right |
+| 12. RI-26's supply-chain side (no third-party server's integrity checked) was dropped from the register | Low | Restored in HM-38's gaps |
